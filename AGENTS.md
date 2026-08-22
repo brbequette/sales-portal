@@ -4,6 +4,14 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+## Required Project Handoff
+
+Before planning work or changing deployment state, read `PROJECT_CONTEXT.md` in
+the repository root. It contains the consolidated cross-task status, current
+production topology, business rules, completed work, and known follow-ups.
+Update it whenever a task materially changes architecture, deployment status,
+data rules, integrations, or outstanding risks. Never place secrets in it.
+
 # Titan Diamond Sales Portal
 
 ## Quick Reference

@@ -1,202 +1,121 @@
+import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
-import { Metadata } from 'next';
-import { FiZap, FiShield, FiLock, FiArrowRight, FiStar, FiCheckCircle } from 'react-icons/fi';
+import { FiArrowRight, FiCheck, FiCrosshair, FiLock, FiShield, FiStar, FiZap } from 'react-icons/fi';
 import { SparkCanvas } from '@/components/SparkCanvas';
+import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
+import imageMapData from '@/lib/image-map.json';
+import './signature-series.css';
+import { publicControlledValues, publicSizes, publicStrings } from '@/lib/public-product-normalization';
+
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Titan Signature Warrior Series Blades | Titan Diamond USA',
-  description: 'The legendary Titan Signature Warrior Series - high-art custom graphic circular diamond saw blades engineered for extreme concrete, asphalt, rebar, and demolition cutting.',
+  title: 'Titan Signature Series Blades | Titan Diamond USA',
+  description: 'Explore Titan Diamond USA Signature Series contractor blades engineered for fast cutting, long usable life, and application-matched performance.',
 };
 
-const ALL_SIGNATURE_BLADES = [
-  {
-    id: "dragon",
-    name: "THE DRAGON",
-    subtitle: "Premium Asphalt & Green Concrete Undercut Blade",
-    image: "/images/signature/dragon.jpg",
-    specs: '14" x .125" x 1" Arbor | 12mm Segments + 14mm Drop Segment',
-    material: "Asphalt over Concrete, Green Concrete, Soft Aggregates",
-    retailPrice: "$229.99",
-    contractorOffer: "BUY 3 @ $179.99 EACH & GET 1 FREE",
-    description: "Features deep 14mm drop segments to shield the core weld line against abrasive sand slurry erosion.",
-    tag: "SIGNATURE BESTSELLER"
-  },
-  {
-    id: "zeus",
-    name: "ZEUS",
-    subtitle: "Thunderbolt Concrete & Heavy Rebar Destroyer",
-    image: "/images/signature/zeus.jpg",
-    specs: '14" / 16" x .125" x 1" | 15mm Laser Welded Segment',
-    material: "6000+ PSI Reinforced Concrete, Grade 60 Rebar, Hard River Rock",
-    retailPrice: "$249.99",
-    contractorOffer: "BUY 3 GET 1 FREE + FREE JOBSITE FREIGHT",
-    description: "Thunderbolt diamond matrix formulation sheds worn diamond grit rapidly to slice through heavy rebar.",
-    tag: "GOD OF THUNDER"
-  },
-  {
-    id: "medusa",
-    name: "THE MEDUSA",
-    subtitle: "Hard Aggregates & Natural Stone Laser Blade",
-    image: "/images/signature/medusa.jpg",
-    specs: '12" / 14" x .110" x 1" | 12mm Segment Height',
-    material: "Granite, Quartzite, Hard Brick, Flint Concrete",
-    retailPrice: "$219.99",
-    contractorOffer: "SPECIAL CONTRACTOR TIER RATES",
-    description: "Snakeskin perimeter segment matrix engineered for zero-chip cutting on hard natural stone and quartzite.",
-    tag: "CHIP-FREE CUTTING"
-  },
-  {
-    id: "barbarian",
-    name: "THE BARBARIAN",
-    subtitle: "Extreme Berserker Heavy Slab Blade",
-    image: "/images/signature/barbarian.jpg",
-    specs: '14" / 18" / 20" x .125" | 15mm Segment',
-    material: "Pre-stressed Concrete, Highway Paving, Bridge Decks",
-    retailPrice: "$259.99",
-    contractorOffer: "CONTRACTOR 4-BLADE DEAL",
-    description: "Maximum diamond grit density built for high-horsepower flat saws on heavy commercial paving jobs.",
-    tag: "HEAVY DEMOLITION"
-  },
-  {
-    id: "dark-knight",
-    name: "THE DARK KNIGHT",
-    subtitle: "Structural Steel & Metal Demolition All-Cut",
-    image: "/images/saw_blade.jpg",
-    specs: '14" / 16" x .125" x 1" Arbor | Vacuum Brazed Segment',
-    material: "Structural I-Beams, Rebar, Steel Pipe, Cast Iron, Ductile Iron",
-    retailPrice: "$269.99",
-    contractorOffer: "DEMOLITION CONTRACTOR SPECIAL",
-    description: "Vacuum-brazed high-grade diamond segments engineered to cut metal, steel, and concrete in emergency rescue.",
-    tag: "STEEL & METAL ALL-CUT"
-  },
-  {
-    id: "battle-axe",
-    name: "BATTLE AXE",
-    subtitle: "Rapid Slab & Expansion Joint Cutter",
-    image: "/images/saw_blade.jpg",
-    specs: '14" x .125" x 1" | 12mm Keyhole Gullet Segment',
-    material: "Cured Slab Concrete, Brick, Block, Pavers",
-    retailPrice: "$209.99",
-    contractorOffer: "BUY 5 GET 1 FREE",
-    description: "Keyhole gullet core design evacuates slurry at high RPM for high speed flat saw cuts.",
-    tag: "FAST SLAB CUTTER"
-  },
-  {
-    id: "hades",
-    name: "HOUNDS OF HADES",
-    subtitle: "Thermal Heat Tolerant Deep Segment Core",
-    image: "/images/saw_blade.jpg",
-    specs: '14" / 16" x .125" | 3D Patterned Array',
-    material: "Heavily Reinforced Slab, Hard River Aggregate",
-    retailPrice: "$239.99",
-    contractorOffer: "CONTRACTOR VOLUME DISCOUNT",
-    description: "Equidistant 3D grid diamond alignment ensures lower operating heat and zero segment loss under heavy stress.",
-    tag: "HEAT SHIELD CORE"
-  },
-  {
-    id: "hydra",
-    name: "THE HYDRA",
-    subtitle: "Multi-Segment Universal Jobsite Blade",
-    image: "/images/tuck_point.jpg",
-    specs: '14" x .125" x 1" | Alternating Segment Bond',
-    material: "Asphalt, Concrete, Masonry, Field Stone",
-    retailPrice: "$219.99",
-    contractorOffer: "MIX & MATCH CONTRACTOR PACK",
-    description: "Alternating hard and soft segment bonds allow contractors to transition between concrete and asphalt on 1 blade.",
-    tag: "MULTI-MATERIAL"
-  }
-];
+type ProductAttributes = Record<string, unknown>;
+type ProductRow = { sku: string; name: string; description: string | null; category: string; size: string | null; application: string | null; equipment: string | null; materials: unknown; attributes: unknown };
+type SignatureBlade = { family: string; name: string; image: string; description: string; category: string; applications: string[]; materials: string[]; sizes: string[]; equipment: string[]; skus: string[]; variantCount: number };
+const imageMap = imageMapData as Record<string, { image?: string | null }>;
+const SIGNATURE_FAMILIES = ['THE DRAGON', 'THE ZEUS', 'THE MEDUSA', 'THE BARBARIAN', 'THE DARK KNIGHT', 'THE BATTLE AXE', 'THE HOUND OF HADES', 'THE HYDRA', 'THE KING', 'THE MAXIMUS', 'THE GLADIATOR', 'THE DEMO DEMON'] as const;
+const FALLBACK_IMAGES: Record<string, string> = {
+  'THE DRAGON': '/product-images/dragon-formatted.png', 'THE ZEUS': '/product-images/zeus-formatted.png', 'THE MEDUSA': '/product-images/medusa-formatted.png',
+  'THE BARBARIAN': '/product-images/barbarian-formatted.png', 'THE DARK KNIGHT': '/product-images/dark knight-formatted.png', 'THE BATTLE AXE': '/product-images/battle axe-formatted.png',
+  'THE HOUND OF HADES': '/product-images/hounds of hades-formatted.png', 'THE HYDRA': '/product-images/hydra-formatted.png', 'THE KING': '/product-images/king-formatted.png',
+  'THE MAXIMUS': '/product-images/maximus-formatted.png', 'THE GLADIATOR': '/product-images/gladiator-formatted.png', 'THE DEMO DEMON': '/product-images/demo demon-formatted.png',
+};
 
-export default function SignatureSeriesPage() {
+function asStrings(value: unknown): string[] {
+  return publicStrings(value);
+}
+function descriptionDetails(description: string | null) {
+  if (!description) return { text: '', image: '' };
+  try {
+    const parsed = JSON.parse(description) as ProductAttributes;
+    return { text: typeof parsed.text === 'string' ? parsed.text : typeof parsed.pertinentInfo === 'string' ? parsed.pertinentInfo : '', image: typeof parsed.image === 'string' && !parsed.image.includes('placeholder') ? parsed.image : '' };
+  } catch { return { text: description, image: '' }; }
+}
+function familyFor(name: string) {
+  const upper = name.toUpperCase().replace(/\s+-\s+WHS$/, '').trim();
+  return SIGNATURE_FAMILIES.find((family) => upper.startsWith(family));
+}
+function unique(values: string[]) { return [...new Set(values.map((value) => value.trim()).filter(Boolean))]; }
+
+async function getSignatureBlades(): Promise<SignatureBlade[]> {
+  // Raw projection keeps this page compatible with containers whose generated
+  // Prisma client predates the catalog-attribute migration.
+  const products = await prisma.$queryRaw<ProductRow[]>(Prisma.sql`
+    SELECT sku, name, description, category, size,
+      application, equipment, materials, attributes
+    FROM "Product"
+    WHERE "giftItem" = false
+    ORDER BY name ASC, sku ASC
+  `);
+  return SIGNATURE_FAMILIES.flatMap((family) => {
+    const variants = products.filter((product) => familyFor(product.name) === family && !/\s-\sWHS$/i.test(product.name));
+    if (!variants.length) return [];
+    const primary = variants.find((product) => imageMap[product.sku.trim().toUpperCase()]?.image) ?? variants[0];
+    const parsed = variants.map((product) => ({ product, details: descriptionDetails(product.description) }));
+    const attributes = variants.map((product) => product.attributes && typeof product.attributes === 'object' ? product.attributes as ProductAttributes : {});
+    return [{
+      family, name: family,
+      image: imageMap[primary.sku.trim().toUpperCase()]?.image || parsed.find(({ details }) => details.image)?.details.image || FALLBACK_IMAGES[family],
+      description: parsed.find(({ details }) => details.text)?.details.text ?? 'Commercial-grade diamond blade engineered for demanding professional cutting.',
+      category: primary.category === 'Uncategorized' ? 'Signature Series Blade' : primary.category,
+      applications: publicControlledValues([...variants.flatMap((product) => asStrings(product.application)), ...attributes.flatMap((item) => asStrings(item.applications ?? item.application))], 'application'),
+      materials: publicControlledValues([...variants.flatMap((product) => asStrings(product.materials)), ...attributes.flatMap((item) => asStrings(item.materials ?? item.suitableMaterials))], 'material'),
+      sizes: publicSizes([...variants.flatMap((product) => asStrings(product.size)), ...attributes.flatMap((item) => asStrings(item.size ?? item.sizes)), ...variants.flatMap((product) => product.name.match(/\b(?:6|7|8|9|10|12|14|16|18|20|24|26|30|36)\s*(?:\"|INCH)?$/gi) ?? []), ...parsed.flatMap(({ details }) => details.text.match(/\b(?:6|7|8|9|10|12|14|16|18|20|24|26|30|36)\s*(?:\"|INCH|X)/gi) ?? [])]),
+      equipment: publicControlledValues([...variants.flatMap((product) => asStrings(product.equipment)), ...attributes.flatMap((item) => asStrings(item.equipment))], 'equipment'),
+      skus: unique(variants.map((product) => product.sku)), variantCount: variants.length,
+    }];
+  });
+}
+
+export default async function SignatureSeriesPage() {
+  const blades = await getSignatureBlades();
   return (
-    <div className="bg-neutral-950 text-white min-h-screen relative overflow-hidden">
-      {/* Background Spark Animation */}
+    <div className="signature-page relative min-h-screen overflow-hidden bg-[#050505] text-white">
       <SparkCanvas />
-
-      {/* Ticker Marquee */}
-      <div className="bg-amber-500 text-neutral-950 font-black text-xs uppercase tracking-widest py-2.5 overflow-hidden whitespace-nowrap border-b border-amber-400 relative z-10 shadow-md">
-        <div className="inline-block animate-marquee">
-          ⚡ TITAN SIGNATURE WARRIOR SERIES • HIGH-ART CUSTOM GRAPHIC CORES • 100% LASER WELDED DIAMOND SEGMENTS • CONTRACTOR BOGO INTRODUCTORY OFFERS • CALL SALES (800) 555-0199 ⚡
-        </div>
+      <div className="signature-grid pointer-events-none absolute inset-0" aria-hidden="true" />
+      <div className="relative z-10 overflow-hidden border-y border-orange-300/20 bg-orange-500 py-2.5 text-[10px] font-black uppercase tracking-[.24em] text-black sm:text-xs">
+        <div className="animate-marquee inline-block whitespace-nowrap">TITAN SIGNATURE SERIES&nbsp; // &nbsp;FAST CUTTING&nbsp; // &nbsp;LONG USABLE LIFE&nbsp; // &nbsp;APPLICATION-MATCHED BONDS&nbsp; // &nbsp;CONTRACTOR DIRECT&nbsp; // &nbsp;CALL (480) 470-2577&nbsp; // &nbsp;</div>
       </div>
-
-      {/* Hero */}
-      <section className="py-20 bg-gradient-to-b from-neutral-900/90 via-neutral-950 to-neutral-950 border-b border-white/10 text-center relative z-10">
-        <div className="max-w-5xl mx-auto px-4">
-          <div className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/40 px-5 py-2 rounded-full mb-6">
-            <FiZap className="text-amber-400 animate-pulse" size={18} />
-            <span className="text-xs font-black uppercase tracking-widest text-amber-300">
-              COMMERCIAL-GRADE WARRIOR GRAPHIC BLADES
-            </span>
-          </div>
-          
-          <h1 className="text-5xl sm:text-7xl font-black uppercase tracking-tight mb-6 text-white leading-none">
-            TITAN SIGNATURE BLADES
-          </h1>
-          <p className="text-neutral-300 text-sm sm:text-lg leading-relaxed max-w-3xl mx-auto">
-            High-art custom graphic cores fused with commercial laser-welded diamond segments. Built for contractors who cut hard aggregate, rebar, and asphalt without compromise.
-          </p>
-        </div>
+      <section className="relative z-10 border-b border-white/10 px-4 pb-20 pt-24 text-center sm:pb-28 sm:pt-32">
+        <div className="signature-orbit relative mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-full border border-orange-400/40 bg-orange-500/10"><FiCrosshair className="text-orange-400" size={30} /></div>
+        <p className="mb-5 font-mono text-[10px] font-bold uppercase tracking-[.38em] text-orange-400 sm:text-xs">Forged identity. Jobsite performance.</p>
+        <h1 className="mx-auto max-w-6xl text-5xl font-black uppercase leading-[.86] tracking-[-.065em] sm:text-7xl lg:text-[7.5rem]">Cut Like A <span className="signature-metal block">Legend</span></h1>
+        <p className="mx-auto mt-8 max-w-2xl text-sm leading-7 text-neutral-400 sm:text-base">Titan Signature Series blades are selected around cut speed, usable segment life, saw power, aggregate, reinforcement, and wet or dry operation. Every listed variant and SKU reflects current catalog data.</p>
+        <div className="mt-10 flex flex-wrap justify-center gap-3 text-[10px] font-black uppercase tracking-widest text-neutral-300"><span className="signature-chip"><FiShield /> Long usable life</span><span className="signature-chip"><FiZap /> Fast cutting</span><span className="signature-chip"><FiStar /> {blades.length} application-ready families</span></div>
       </section>
-
-      {/* Grid Showcase */}
-      <section className="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-10">
-          {ALL_SIGNATURE_BLADES.map((blade) => (
-            <div 
-              key={blade.id}
-              className="bg-neutral-900/80 backdrop-blur-xl border border-amber-500/30 rounded-3xl p-8 hover:border-amber-500/80 transition-all duration-500 shadow-[0_0_50px_rgba(245,158,11,0.1)] hover:shadow-[0_0_70px_rgba(245,158,11,0.25)] flex flex-col justify-between group transform hover:-translate-y-1"
-            >
-              <div>
-                <div className="relative h-80 bg-gradient-to-b from-neutral-950 to-neutral-900 rounded-2xl flex items-center justify-center p-6 mb-6 border border-white/10 overflow-hidden group-hover:border-amber-500/50 transition-colors">
-                  <img 
-                    src={blade.image} 
-                    alt={blade.name} 
-                    className="max-h-full max-w-full object-contain filter drop-shadow-[0_20px_40px_rgba(0,0,0,0.9)] group-hover:scale-110 group-hover:rotate-3 transition-transform duration-700 ease-out" 
-                  />
-                  <div className="absolute top-4 left-4">
-                    <span className="text-[10px] font-black uppercase tracking-widest bg-gradient-to-r from-amber-500 to-orange-600 text-neutral-950 font-bold px-3.5 py-1.5 rounded-full shadow-lg">
-                      {blade.tag}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="text-xs font-mono text-amber-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-2">
-                  <FiZap size={14} /> {blade.subtitle}
-                </div>
-                <h3 className="text-3xl font-black text-white uppercase mb-3 tracking-tight">{blade.name}</h3>
-                
-                <div className="bg-neutral-950 p-4 rounded-xl border border-white/5 text-xs space-y-2 mb-6 font-mono text-neutral-300">
-                  <div><strong className="text-neutral-500">SPECS:</strong> {blade.specs}</div>
-                  <div><strong className="text-neutral-500">TARGET MATERIAL:</strong> {blade.material}</div>
-                  <div className="pt-2 border-t border-white/5 text-amber-400 font-bold flex items-center gap-2 text-xs">
-                    <FiStar className="text-amber-400" /> {blade.contractorOffer}
-                  </div>
-                </div>
-
-                <p className="text-xs text-neutral-400 leading-relaxed mb-6">
-                  {blade.description}
-                </p>
-              </div>
-
-              <div className="flex gap-4 pt-4 border-t border-white/5">
-                <Link 
-                  href="/login"
-                  className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-neutral-950 font-black text-xs uppercase tracking-wider py-3.5 px-6 rounded-xl transition-all shadow-lg text-center flex items-center justify-center gap-2"
-                >
-                  <FiLock /> Log In for Rates
-                </Link>
-                <Link 
-                  href="/contact"
-                  className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs py-3.5 px-6 rounded-xl border border-white/10 transition-colors"
-                >
-                  Request Quote
-                </Link>
-              </div>
+      <section className="relative z-10 mx-auto max-w-[94rem] px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
+        {blades.length ? <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">{blades.map((blade, index) => (
+          <article key={blade.family} className="signature-card group" style={{ '--card-index': index } as React.CSSProperties}>
+            <div className="signature-card-scan" aria-hidden="true" />
+            <div className="relative flex min-h-80 items-center justify-center overflow-hidden border-b border-white/10 bg-black/50 p-7 sm:min-h-96">
+              <div className="signature-halo absolute h-56 w-56 rounded-full bg-orange-500/15 blur-3xl" aria-hidden="true" />
+              <Image src={blade.image} alt={`${blade.name} diamond blade`} width={640} height={640} sizes="(max-width: 768px) 90vw, (max-width: 1280px) 45vw, 30vw" className="signature-blade relative z-10 h-64 w-64 object-contain drop-shadow-[0_28px_38px_rgba(0,0,0,.85)] sm:h-80 sm:w-80" />
+              <div className="absolute left-5 top-5 rounded-full border border-orange-400/30 bg-black/70 px-3 py-1.5 font-mono text-[9px] font-black uppercase tracking-[.18em] text-orange-300 backdrop-blur">{String(index + 1).padStart(2, '0')} / Signature</div>
+              <div className="absolute bottom-5 right-5 font-mono text-[9px] uppercase tracking-[.15em] text-neutral-500">Zoho catalog verified</div>
             </div>
-          ))}
-        </div>
+            <div className="relative flex flex-1 flex-col p-6 sm:p-7">
+              <p className="mb-2 font-mono text-[9px] font-bold uppercase tracking-[.22em] text-orange-400">{blade.category}</p><h2 className="text-3xl font-black uppercase tracking-[-.04em] text-white sm:text-4xl">{blade.name}</h2>
+              <p className="mt-4 min-h-14 text-xs leading-6 text-neutral-400">{blade.description}</p>
+              <dl className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-white/10 bg-white/10 text-xs">
+                <div className="signature-spec"><dt>Sizes</dt><dd>{blade.sizes.join(' / ') || 'See current variants'}</dd></div><div className="signature-spec"><dt>Variants</dt><dd>{blade.variantCount} active {blade.variantCount === 1 ? 'configuration' : 'configurations'}</dd></div>
+                <div className="signature-spec"><dt>Brand</dt><dd>Titan Diamond USA</dd></div><div className="signature-spec"><dt>SKUs</dt><dd className="font-mono">{blade.skus.join(' · ')}</dd></div>
+              </dl>
+              {(blade.applications.length > 0 || blade.materials.length > 0 || blade.equipment.length > 0) && <div className="mt-5 space-y-3 text-[11px] text-neutral-300">{blade.applications.length > 0 && <Detail label="Applications" values={blade.applications} />}{blade.materials.length > 0 && <Detail label="Materials" values={blade.materials} />}{blade.equipment.length > 0 && <Detail label="Equipment" values={blade.equipment} />}</div>}
+              <div className="mt-auto flex gap-3 border-t border-white/10 pt-6"><Link href="/login" className="signature-primary flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-[10px] font-black uppercase tracking-wider"><FiLock /> Contractor pricing</Link><Link href={`/contact?product=${encodeURIComponent(blade.name)}`} className="flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 text-neutral-300 transition hover:border-orange-400/50 hover:text-white" aria-label={`Request a quote for ${blade.name}`}><FiArrowRight /></Link></div>
+            </div>
+          </article>
+        ))}</div> : <div className="rounded-3xl border border-orange-400/20 bg-orange-500/5 p-12 text-center"><FiZap className="mx-auto mb-4 text-orange-400" size={32} /><h2 className="text-2xl font-black uppercase">Signature catalog is updating</h2><p className="mt-3 text-sm text-neutral-400">The latest Zoho product data is syncing. Call (480) 470-2577 for immediate blade specifications.</p></div>}
       </section>
+      <section className="relative z-10 border-y border-white/10 bg-white/[.025] px-4 py-20 text-center"><FiCheck className="mx-auto mb-5 text-orange-400" size={28} /><h2 className="text-3xl font-black uppercase tracking-tight sm:text-5xl">Built for the cut that matters</h2><p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-neutral-400">Tell our team the saw, material, aggregate, depth, and production target. We’ll match the right bond and configuration.</p><Link href="/contact" className="signature-primary mt-8 inline-flex items-center gap-2 rounded-xl px-7 py-4 text-xs font-black uppercase tracking-wider">Build my blade setup <FiArrowRight /></Link></section>
     </div>
   );
 }
+
+function Detail({ label, values }: { label: string; values: string[] }) { return <div className="flex gap-3"><span className="w-20 shrink-0 font-mono uppercase tracking-wider text-neutral-600">{label}</span><span>{values.join(' · ')}</span></div>; }

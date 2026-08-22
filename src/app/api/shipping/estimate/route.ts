@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { COMPANY_CONFIG } from "@/lib/company-config";
 import { getEasyshipRates, getEasyshipBoxes, findBestDeal } from "@/lib/easyship";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 const MOCK_RATES = [
   {
@@ -41,6 +43,8 @@ const MOCK_RATES = [
 
 export async function POST(req: Request) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) return NextResponse.json({ error: "Authentication required" }, { status: 401 })
     const body = await req.json();
     const { 
       zip, 
@@ -164,6 +168,8 @@ export async function POST(req: Request) {
 
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) return NextResponse.json({ error: "Authentication required" }, { status: 401 })
     const hasApiKey = !!process.env.EASYSHIP_API_KEY;
     if (!hasApiKey) {
       return NextResponse.json({ success: true, isLive: false, connected: false, error: "API key not configured", boxes: [] });

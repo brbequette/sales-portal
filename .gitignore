@@ -61,3 +61,19 @@ scratch_*
 sale_lineage_export.csv
 scripts/backfill/*backup*.json
 /backups/
+
+# Codex-generated previews and local working artifacts
+/.codex-artifact/
+/.codex-tmp/
+/outputs/
+
+# Local source-image/data drops (may contain private or licensed material)
+/All Pics/
+/Sopify data/
+
+# Accidental zero-byte shell artifacts
+/=
+/cf_dead_cost_total
+/cf_profit
+/deadCostTotal
+/deadProfitActual

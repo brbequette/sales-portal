@@ -647,7 +647,7 @@ export default function AdminUsersPage() {
                           <input
                             value={editedUserInfo[user.id]?.phone || ""}
                             onChange={e => setEditedUserInfo(prev => ({ ...prev, [user.id]: { ...prev[user.id], phone: e.target.value } }))}
-                            placeholder="e.g. (800) 555-0199"
+                            placeholder="e.g. (480) 470-2577"
                             className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
                           />
                         </div>

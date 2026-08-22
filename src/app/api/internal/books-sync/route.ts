@@ -16,11 +16,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
+  const requestedYear = Number(body.fullYear)
+  const currentYear = new Date().getUTCFullYear()
+  const fullYear = Number.isInteger(requestedYear) && requestedYear >= 2000 && requestedYear <= currentYear
+    ? requestedYear
+    : undefined
+
   if (activeRun) {
     return NextResponse.json({ accepted: true, alreadyRunning: true }, { status: 202 })
   }
 
-  activeRun = runBooksSync().finally(() => {
+  activeRun = runBooksSync({
+    fullYear,
+    forceDetails: fullYear ? body.forceDetails !== false : false,
+  }).finally(() => {
     activeRun = null
   })
 

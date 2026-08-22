@@ -4,11 +4,14 @@ import { Prisma } from '@prisma/client'
 import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from '../../../../../netlify/functions/lib/zoho-auth'
 import { calculateDocumentCosts } from '../../../../../netlify/functions/lib/cost-calculations'
 import { getSystemSettings } from '../../../../../netlify/functions/lib/settings'
+import { requireAdministrator } from '@/lib/auth-helpers'
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 
 export async function POST(req: Request) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const appSettings = await getSystemSettings(prisma)
     if (appSettings.pause_mass_zoho_updates) {
       return NextResponse.json({ success: false, error: "Mass Zoho updates are PAUSED in System Settings to conserve API calls." }, { status: 403 })

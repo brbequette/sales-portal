@@ -7,6 +7,7 @@ import { syncStoredLineItems } from "../../src/lib/sync-engine"
 import { internalHandler as processQuoteCosts } from "./process-quote-costs"
 import { internalHandler as processSalesOrderCosts } from "./process-salesorder-costs"
 import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
+import { isAdminRole } from "../../src/lib/roles"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 export const handler: Handler = async (event, context) => {
@@ -59,6 +60,14 @@ export const handler: Handler = async (event, context) => {
 
     if (!account) {
       throw new Error("Account not found")
+    }
+
+    const administrator = isAdminRole(authenticatedUser.role)
+    if (!administrator && (!userId || account.ownerId !== userId)) {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({ success: false, message: "Forbidden: This account belongs to another representative" })
+      }
     }
 
     const dbAccountId = account.id
@@ -252,6 +261,9 @@ export const handler: Handler = async (event, context) => {
         let assigneeUser = null
         if (assigneeId) {
           assigneeUser = await prisma.user.findUnique({ where: { id: assigneeId } })
+        }
+        if (!administrator && assigneeUser?.id !== userId) {
+          assigneeUser = author
         }
         if (!assigneeUser) {
           assigneeUser = await prisma.user.findUnique({ where: { id: account.ownerId } })

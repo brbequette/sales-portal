@@ -164,7 +164,7 @@ export default function CommunicationsDashboard() {
                   <div className="flex-1 w-full space-y-2">
                     <input 
                       type="text"
-                      placeholder="Phone Number (e.g. +18005550199)"
+                      placeholder="Phone Number (e.g. +14804702577)"
                       value={num.number}
                       onChange={(e) => {
                         const newNums = [...zohoNumbers]

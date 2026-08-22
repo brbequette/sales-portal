@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { hasValidWebhookToken } from '@/lib/webhook-auth'
 
 export async function POST(req: Request) {
   try {
-    const { searchParams } = new URL(req.url)
-    const token = searchParams.get('token')
-    if (!token || token !== process.env.ZOHO_WEBHOOK_SECRET) {
+    if (!hasValidWebhookToken(req, process.env.ZOHO_WEBHOOK_SECRET)) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -61,7 +60,10 @@ export async function POST(req: Request) {
 
       if (!unknownAccount) {
         // Need to find an admin user to own it
-        const admin = await prisma.user.findFirst({ where: { role: 'ADMIN' } })
+        const admin = await prisma.user.findFirst({
+          where: { role: { contains: 'admin', mode: 'insensitive' } },
+          orderBy: { createdAt: 'asc' },
+        })
         if (!admin) throw new Error('No admin user found to own unknown account')
 
         unknownAccount = await prisma.account.create({

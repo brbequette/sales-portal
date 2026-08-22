@@ -2,9 +2,12 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import fs from 'fs';
 import { parse } from 'csv-parse/sync';
+import { requireAdministrator } from '@/lib/auth-helpers';
 
 export async function POST() {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const filePath = process.env.VENDOR_CSV_PATH;
 
     if (!filePath) {

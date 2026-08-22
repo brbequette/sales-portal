@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import fs from "fs"
 import path from "path"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 const ALL_PICS_DIR = process.env.ALL_PICS_DIR || "/tmp/all-pics-storage"
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const formData = await req.formData()
     const file = formData.get("file") as File | null
     if (!file) {

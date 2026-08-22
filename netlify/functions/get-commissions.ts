@@ -1,10 +1,11 @@
-import { withFunctionAuth } from "./lib/auth-middleware"
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { PrismaClient, Prisma } from "@prisma/client"
 import { prisma } from "./lib/prisma"
 import { isNoVigItem, calculateDocumentCosts } from "./lib/cost-calculations"
 import { extractDeadCostTotal, extractCcFees, extractAdditionalCosts } from "../../src/lib/custom-field-extractor"
 import { getSystemSettings } from "../../src/lib/settings"
+import { isAdminRole } from "../../src/lib/roles"
 
 
 // Statuses where the FINAL half is earned (invoice has been paid)
@@ -36,14 +37,30 @@ const authenticatedHandler: Handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: cors, body: "" }
 
   try {
+    const auth = await authenticateFunction(event)
+    const sessionUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          auth.dbId ? { id: auth.dbId } : undefined,
+          auth.userId ? { id: auth.userId } : undefined,
+          auth.email ? { email: { equals: auth.email, mode: "insensitive" } } : undefined,
+        ].filter(Boolean) as any,
+      },
+    })
+    if (!sessionUser) {
+      return { statusCode: 403, headers: cors, body: JSON.stringify({ error: "Signed-in user is not linked to a local user record" }) }
+    }
+    const sessionIsAdmin = isAdminRole(sessionUser.role)
     const settings = await getSystemSettings()
-    const { repId, userId, userEmail, year, includeHidden, checkOnly } = event.queryStringParameters || {}
-    const showHidden = includeHidden === 'true'
+    const { repId, year, includeHidden, checkOnly } = event.queryStringParameters || {}
+    const effectiveRepId = sessionIsAdmin && repId ? repId : (sessionIsAdmin ? undefined : sessionUser.id)
+    const showHidden = sessionIsAdmin && includeHidden === 'true'
 
     // ── checkOnly mode: fast staleness check without full commission calc ──
     if (checkOnly === 'true') {
       const targetYr = year || 'all'
       let countWhere: any = { status: { notIn: ['Void', 'void', 'Draft', 'draft'] } }
+      if (effectiveRepId) countWhere.account = { ownerId: effectiveRepId }
       if (targetYr !== 'all' && !isNaN(parseInt(targetYr))) {
         countWhere.issueDate = { gte: new Date(`${targetYr}-01-01`), lt: new Date(`${parseInt(targetYr)+1}-01-01`) }
       }
@@ -67,7 +84,7 @@ const authenticatedHandler: Handler = async (event) => {
     // --- Commission source: ALL invoices except Void/Draft ---
     // Upfront half earned on creation, final half earned on payment
     // --- Batch all queries concurrently in a single Promise.all trip ---
-    let payoutWhere: any = repId ? { repId } : {}
+    let payoutWhere: any = effectiveRepId ? { repId: effectiveRepId } : {}
     if (targetYear && targetYear !== 'all' && !isNaN(parseInt(targetYear))) {
       const payoutStart = new Date(`${targetYear}-01-01`)
       const payoutEnd = new Date(`${parseInt(targetYear) + 1}-01-01`)
@@ -75,9 +92,6 @@ const authenticatedHandler: Handler = async (event) => {
     }
 
     // Build date filter fragments for raw queries
-    const invDateSql = targetYear !== 'all'
-      ? Prisma.sql`AND i."issueDate" >= ${new Date(`${targetYear}-01-01`)} AND i."issueDate" < ${new Date(`${parseInt(targetYear)+1}-01-01`)}`
-      : Prisma.empty
     const soDateSql = targetYear !== 'all'
       ? Prisma.sql`AND s."orderDate" >= ${new Date(`${targetYear}-01-01`)} AND s."orderDate" < ${new Date(`${parseInt(targetYear)+1}-01-01`)}`
       : Prisma.empty
@@ -104,6 +118,7 @@ const authenticatedHandler: Handler = async (event) => {
           i.amount,
           i.status,
           i."issueDate",
+          i."dueDate",
           i."createdAt",
           i."actualShippingCost",
           a.name    AS "accountName",
@@ -161,7 +176,6 @@ const authenticatedHandler: Handler = async (event) => {
           LIMIT 1
         ) c ON true
         WHERE i.status NOT IN ('Void','void','Draft','draft')
-        ${invDateSql}
         ORDER BY i."issueDate" DESC NULLS LAST
       `).catch(() => []),
       prisma.$queryRaw<any[]>(Prisma.sql`
@@ -265,6 +279,26 @@ const authenticatedHandler: Handler = async (event) => {
 
     const visibleReps: string[] = JSON.parse(visibleRepsSetting?.value || "[]")
     const collectionsManagerId = collectionsManagerSetting?.value || null
+    const defaultClawbackSettings = {
+      clawback_threshold_days: 120,
+      warning_window_days: 90,
+      rep_cost_split_pct: 0.50,
+      auto_cascade: false,
+      auto_bonus_reversal: false,
+      cascade_depth: 'one_month',
+    }
+    let clawbackSettings = defaultClawbackSettings
+    if (clawbackSettingRow?.value) {
+      try {
+        clawbackSettings = { ...defaultClawbackSettings, ...JSON.parse(clawbackSettingRow.value) }
+      } catch {
+        console.warn('Invalid clawback_settings JSON; using defaults')
+      }
+    }
+    const atRiskDaysOverdue = Math.max(
+      0,
+      clawbackSettings.clawback_threshold_days - clawbackSettings.warning_window_days
+    )
     let users = rawUsers
     if (!showHidden && !repId && visibleReps.length > 0) {
       users = users.filter(u => visibleReps.includes(u.id))
@@ -274,6 +308,7 @@ const authenticatedHandler: Handler = async (event) => {
     const rawInvoices = rawInvoicesRaw.map((row: any) => ({
       ...row,
       issueDate: row.issueDate ? new Date(row.issueDate) : null,
+      dueDate: row.dueDate ? new Date(row.dueDate) : null,
       createdAt: row.createdAt ? new Date(row.createdAt) : new Date(),
       amount: row.amount != null ? parseFloat(row.amount) : 0,
       account: { name: row.accountName || null, zohoId: row.accountZohoId || null },
@@ -411,7 +446,7 @@ const authenticatedHandler: Handler = async (event) => {
     //
     // Rep attribution: items.salesperson on the document — the rep who drove the sale.
     // Account owner is a CRM assignment only and does NOT drive commissions.
-    const invoiceRecords = await Promise.all(invoices.map(async (inv) => {
+    const allInvoiceRecords = await Promise.all(invoices.map(async (inv) => {
       const items = inv.items as any || {}
       const cfs = items.custom_fields || []
       const salespersonName = (items.salesperson_name || items.salesperson) as string | null
@@ -453,8 +488,15 @@ const authenticatedHandler: Handler = async (event) => {
         deadCostPlusVig = parseFloat(items.deadCostPlusVig || 0) || (deadCost * vigRate)
         profit = parseFloat(items.profit) || 0
         deadProfit = parseFloat(items.deadProfitActual || 0) || (subTotal - deadCost)
-        salesCommission = parseFloat(items.salesCommission || 0) || 0
-        commissionPct = parseFloat(items.commissionPct || items.commission_pct || 50)
+        salesCommission = parseFloat(
+          items.salesCommission
+          ?? items.commission
+          ?? items.sales_commission
+          ?? items.cf_sales_commission
+          ?? items.cf_commission_amount_unformatted
+          ?? 0
+        ) || 0
+        commissionPct = parseFloat(items.commissionPct ?? items.commissionPercent ?? items.commission_pct ?? 50)
         usedFallbackCost = items.usedFallbackCost === true || items.usedFallbackCost === 'true'
       } else {
         // ── AUTO-PROCESS: run calculateDocumentCosts and persist results ──
@@ -555,8 +597,11 @@ const authenticatedHandler: Handler = async (event) => {
       const paymentDateStr = rawPaymentDate ? new Date(rawPaymentDate).toISOString().split('T')[0] : null
       const isSameDayPaid = isPaid && (issueDateStr === paymentDateStr)
 
-      const daysOld = inv.issueDate ? (Date.now() - new Date(inv.issueDate).getTime()) / (1000 * 60 * 60 * 24) : 0
-      const isAtRisk = !isPaid && daysOld >= 120
+      // Clawback aging is based on the contractual due date, never issue date.
+      const daysOld = inv.dueDate
+        ? Math.max(0, (Date.now() - new Date(inv.dueDate).getTime()) / (1000 * 60 * 60 * 24))
+        : 0
+      const isAtRisk = !isPaid && daysOld >= atRiskDaysOverdue
       const atRiskAmount = isAtRisk ? future : 0
 
       const rawLineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
@@ -579,6 +624,7 @@ const authenticatedHandler: Handler = async (event) => {
         daysOld,
         isAtRisk,
         issueDate: inv.issueDate,
+        dueDate: inv.dueDate,
         paymentDate: rawPaymentDate,
         upfrontDate: inv.issueDate,
         finalDate: rawPaymentDate,
@@ -594,6 +640,15 @@ const authenticatedHandler: Handler = async (event) => {
         type: "invoice" as const
       }
     }))
+
+    // Statements and commission totals remain scoped to the selected year.
+    // Clawback candidates are returned separately from all years below.
+    const invoiceRecords = targetYear === 'all'
+      ? allInvoiceRecords
+      : allInvoiceRecords.filter(inv => {
+          if (!inv.issueDate) return false
+          return new Date(inv.issueDate).getFullYear() === parseInt(targetYear)
+        })
 
     // Statuses Zoho sets on a SO once it has been converted to an Invoice.
     // These SOs must be excluded — the Invoice is the source of truth.
@@ -635,7 +690,14 @@ const authenticatedHandler: Handler = async (event) => {
         deadCostPlusVig = parseFloat(items.deadCostPlusVig || 0) || (deadCost * vigRate)
         profit = parseFloat(items.profit) || 0
         deadProfit = parseFloat(items.deadProfitActual || 0) || (subTotal - deadCost)
-        salesCommission = parseFloat(items.salesCommission || 0) || 0
+        salesCommission = parseFloat(
+          items.salesCommission
+          ?? items.commission
+          ?? items.sales_commission
+          ?? items.cf_sales_commission
+          ?? items.cf_commission_amount_unformatted
+          ?? 0
+        ) || 0
         usedFallbackCost = items.usedFallbackCost === true || items.usedFallbackCost === 'true'
       } else {
         // ── AUTO-PROCESS: run calculateDocumentCosts and persist results ──
@@ -820,6 +882,7 @@ const authenticatedHandler: Handler = async (event) => {
         daysOld: inv.daysOld || 0,
         isAtRisk: !!inv.isAtRisk,
         issueDate: inv.issueDate || null,
+        dueDate: (inv as any).dueDate || null,
         paymentDate: inv.paymentDate || null,
         contactName: inv.contactName || null,
         contactPhone: inv.contactPhone || null,
@@ -951,17 +1014,11 @@ const authenticatedHandler: Handler = async (event) => {
     let finalByRep = byRep
     let finalUsers = users
 
-    const requestingUser = users.find(u => 
-      (userId && u.id === userId) || 
-      (userEmail && u.email?.toLowerCase() === userEmail.toLowerCase()) ||
-      (repId && u.id === repId)
-    )
+    const requestingUser = users.find(user => user.id === sessionUser.id) || sessionUser
+    const isRequestingAdmin = sessionIsAdmin
 
-    const requestingRole = (requestingUser?.role || "").toLowerCase()
-    const isRequestingAdmin = requestingRole.includes("admin") || requestingRole === "administrator" || requestingRole.includes("manager")
-
-    if (repId || (requestingUser && !isRequestingAdmin)) {
-      const targetRepId = repId || requestingUser?.id || requestingUser?.name?.toLowerCase().trim()
+    if (effectiveRepId) {
+      const targetRepId = effectiveRepId
       finalByRep = {}
       if (targetRepId && byRep[targetRepId]) {
         finalByRep[targetRepId] = byRep[targetRepId]
@@ -991,8 +1048,8 @@ const authenticatedHandler: Handler = async (event) => {
       }
     }
 
-    const allInvoices = repId
-      ? allCommissionRecords.filter(i => i.repId === repId)
+    const allInvoices = effectiveRepId
+      ? allCommissionRecords.filter(i => i.repId === effectiveRepId)
       : allCommissionRecords
 
     const stats = {
@@ -1004,26 +1061,42 @@ const authenticatedHandler: Handler = async (event) => {
       totalPipelineValue: dealRecords.reduce((s, d) => s + d.amount, 0),
     }
 
-    // Parse clawback settings
-    const clawbackSettings = clawbackSettingRow
-      ? JSON.parse(clawbackSettingRow.value)
-      : {
-          clawback_threshold_days: 365,
-          warning_window_days: 90,
-          rep_cost_split_pct: 0.50,
-          auto_cascade: false,
-          auto_bonus_reversal: false,
-          cascade_depth: 'one_month',
-        }
+    // Clawback is intentionally independent of the selected commission year.
+    const clawbackByRep: Record<string, any[]> = {}
+    for (const inv of allInvoiceRecords) {
+      if (inv.isPaid || !inv.dueDate) continue
+      const key = inv.repId
+      if (!clawbackByRep[key]) clawbackByRep[key] = []
+      clawbackByRep[key].push({
+        id: inv.id,
+        invoiceNumber: inv.invoiceNumber || null,
+        accountName: inv.accountName || 'Customer',
+        amount: inv.amount || 0,
+        profit: inv.profit || 0,
+        deadProfit: inv.deadProfit || 0,
+        deadCost: inv.deadCost || 0,
+        actualShippingCost: inv.actualShippingCost || 0,
+        vigRate: inv.vigRate || 1.3,
+        isPaid: false,
+        daysOld: inv.daysOld || 0,
+        issueDate: inv.issueDate || null,
+        dueDate: inv.dueDate,
+        repId: inv.repId,
+        contactName: inv.contactName || null,
+        contactPhone: inv.contactPhone || null,
+        commission: inv.commission,
+      })
+    }
 
     const responseBody = JSON.stringify({
       success: true,
       year: targetYear,
       byRep: finalByRep,
-      users,
+      users: finalUsers,
       years,
       stats,
       clawbackSettings,
+      clawbackByRep,
     })
 
     return { statusCode: 200, headers: cors, body: responseBody }

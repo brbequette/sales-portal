@@ -1,6 +1,7 @@
 import type { Context } from "@netlify/functions"
 import OpenAI from "openai"
 import { authenticateRequest } from "./lib/auth-middleware"
+import { createAIChatCompletion } from "../../src/lib/ai-client"
 
 // Lazy-init so `next build` doesn't crash when OPENAI_API_KEY is absent locally.
 let _openai: OpenAI | null = null
@@ -16,7 +17,7 @@ const cors = {
   "Access-Control-Allow-Headers": "Content-Type",
 }
 
-export default async (req: Request, context: Context) => {
+const handler = async (req: Request, _context: Context) => {
   if (req.method === "OPTIONS") {
     return new Response("", { status: 204, headers: cors })
   }
@@ -29,7 +30,7 @@ export default async (req: Request, context: Context) => {
   }
 
   try {
-    await authenticateRequest(req)
+    await authenticateRequest(req, { requireAdmin: true })
   } catch {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: cors })
   }
@@ -69,8 +70,7 @@ Keep it concise, engaging, and professional.
 DO NOT use placeholders like [Name] or [Company]. Just write the message so it can be sent as a blast to many contractors.
 Use industry lingo occasionally if appropriate (e.g., "like a hot knife through butter", "let the blade do the work").`
 
-      const response = await getOpenAI().chat.completions.create({
-        model: "gpt-4o",
+      const { response, provider, model } = await createAIChatCompletion({
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: prompt }
@@ -82,7 +82,7 @@ Use industry lingo occasionally if appropriate (e.g., "like a hot knife through 
       const generatedText = response.choices[0]?.message?.content?.trim() || ""
 
       return new Response(
-        JSON.stringify({ success: true, result: generatedText }),
+        JSON.stringify({ success: true, result: generatedText, ai: { provider, model } }),
         { status: 200, headers: cors }
       )
     }
@@ -94,3 +94,5 @@ Use industry lingo occasionally if appropriate (e.g., "like a hot knife through 
     )
   }
 }
+
+export default handler

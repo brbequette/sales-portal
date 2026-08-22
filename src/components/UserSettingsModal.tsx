@@ -251,7 +251,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                     type="text"
                     value={vcardPhone}
                     onChange={e => setVcardPhone(e.target.value)}
-                    placeholder="(800) 555-0199"
+                    placeholder="(480) 470-2577"
                     className="w-full bg-black/60 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
                   />
                 </div>

@@ -37,6 +37,7 @@ export function SparkCanvas() {
       shadowColor: '#f97316',
       alpha: Math.random() * 0.8 + 0.2,
       decay: Math.random() * 0.015 + 0.005,
+      drift: Math.random() * Math.PI * 2,
     }));
 
     const render = () => {
@@ -44,6 +45,7 @@ export function SparkCanvas() {
 
       particles.forEach((p) => {
         p.x += p.speedX;
+        p.x += Math.sin(p.drift + p.y * 0.008) * 0.16;
         p.y += p.speedY;
         p.alpha -= p.decay;
 
@@ -78,7 +80,8 @@ export function SparkCanvas() {
   return (
     <canvas 
       ref={canvasRef} 
-      className="absolute inset-0 pointer-events-none z-0 opacity-60 transition-opacity duration-500"
+      aria-hidden="true"
+      className="spark-canvas absolute inset-0 pointer-events-none z-0 opacity-60 transition-opacity duration-500"
     />
   );
 }

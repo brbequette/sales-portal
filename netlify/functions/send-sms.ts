@@ -1,4 +1,4 @@
-import { withFunctionAuth } from "./lib/auth-middleware"
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import FormData from "form-data"
 import { corsHeaders, handleOptions } from "./lib/cors"
@@ -42,7 +42,8 @@ const authenticatedHandler: Handler = async (event) => {
   }
 
   try {
-    const { accountId, message, userId, userEmail } = JSON.parse(event.body || "{}")
+    const caller = await authenticateFunction(event)
+    const { accountId, message } = JSON.parse(event.body || "{}")
 
     if (!accountId || !message) {
       return {
@@ -52,13 +53,8 @@ const authenticatedHandler: Handler = async (event) => {
       }
     }
 
-    let author = null
-    if (userId) {
-      author = await prisma.user.findUnique({ where: { id: userId } })
-    }
-    if (!author && userEmail) {
-      author = await prisma.user.findUnique({ where: { email: userEmail } })
-    }
+    const callerId = String(caller.dbId || caller.userId || "")
+    const author = callerId ? await prisma.user.findUnique({ where: { id: callerId } }) : null
     if (!author) {
       return {
         statusCode: 400,
@@ -79,6 +75,12 @@ const authenticatedHandler: Handler = async (event) => {
         headers: corsHeaders,
         body: JSON.stringify({ success: false, error: "Account not found" })
       }
+    }
+
+    const role = String(caller.role || "").toLowerCase()
+    const privileged = role.includes("admin") || role.includes("manager")
+    if (!privileged && account.ownerId !== callerId) {
+      return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ success: false, error: "Forbidden" }) }
     }
 
     const contact = account.contacts.find((c: any) => c.isPrimary) || account.contacts[0]

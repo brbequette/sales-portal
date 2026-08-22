@@ -1,5 +1,6 @@
 import { handler } from "../../../../../netlify/functions/email-templates";
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdministrator } from "@/lib/auth-helpers";
 
 async function executeNetlifyFunction(req: NextRequest) {
   const url = new URL(req.url);
@@ -33,5 +34,9 @@ async function executeNetlifyFunction(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) { return executeNetlifyFunction(req); }
-export async function POST(req: NextRequest) { return executeNetlifyFunction(req); }
+export async function POST(req: NextRequest) {
+  const auth = await requireAdministrator();
+  if (auth.errorResponse) return auth.errorResponse;
+  return executeNetlifyFunction(req);
+}
 export async function OPTIONS(req: NextRequest) { return executeNetlifyFunction(req); }

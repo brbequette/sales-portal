@@ -89,4 +89,4 @@ const authenticatedHandler: Handler = async (event) => {
   }
 }
 
-export const handler = withFunctionAuth(authenticatedHandler)
+export const handler = withFunctionAuth(authenticatedHandler, { requireAdmin: true })

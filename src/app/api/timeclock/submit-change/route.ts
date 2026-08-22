@@ -1,22 +1,29 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
 export async function POST(req: Request) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.email) return NextResponse.json({ error: "Authentication required" }, { status: 401 })
     const body = await req.json()
-    const { timeEntryId, userId, userEmail, requestedClockIn, requestedClockOut, reason, notes } = body
+    const { timeEntryId, requestedClockIn, requestedClockOut, reason, notes } = body
 
-    if ((!timeEntryId && !requestedClockIn) || (!userId && !userEmail) || !reason) {
+    if ((!timeEntryId && !requestedClockIn) || !reason) {
       return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 })
     }
 
-    // Try to resolve DB user
-    let dbUserId = userId
-    if (userEmail) {
-      const user = await prisma.user.findUnique({ where: { email: userEmail } })
-      if (user) {
-        dbUserId = user.id
-      }
+    const sessionUser = session.user as typeof session.user & { dbId?: string }
+    const user = sessionUser.dbId
+      ? await prisma.user.findUnique({ where: { id: sessionUser.dbId } })
+      : await prisma.user.findUnique({ where: { email: session.user.email } })
+    if (!user) return NextResponse.json({ error: "Signed-in user is not linked to a local account" }, { status: 403 })
+    const dbUserId = user.id
+
+    if (timeEntryId) {
+      const entry = await prisma.timeEntry.findUnique({ where: { id: timeEntryId }, select: { userId: true } })
+      if (!entry || entry.userId !== dbUserId) return NextResponse.json({ error: "You can only change your own time entries" }, { status: 403 })
     }
 
     const request = await prisma.timeChangeRequest.create({

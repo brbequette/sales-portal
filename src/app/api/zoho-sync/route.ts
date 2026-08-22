@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 /**
  * zoho-sync — Inline Next.js route (no Netlify proxy)
@@ -13,6 +14,8 @@ import { prisma } from "@/lib/prisma"
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const body = await req.json()
     const { action, payload } = body
 

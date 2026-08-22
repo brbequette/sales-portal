@@ -39,7 +39,7 @@ type NavGroup = {
 // visits a page will overtake the next-lower default.
 
 const ALL_TRACKABLE: (NavItem & { defaultScore: number })[] = [
-  { href: "/dashboard",  icon: FiHome,          label: "Home",        color: "text-orange-400",  defaultScore: 100 },
+  { href: "/dashboard",  icon: FiHome,          label: "Home",        color: "text-sky-400",     defaultScore: 100 },
   { href: "/sales",       icon: FiTrendingUp,    label: "Sales",       color: "text-emerald-400", defaultScore: 90  },
   { href: "/tasks",       icon: FiCheckSquare,   label: "Tasks",       color: "text-violet-400",  defaultScore: 80  },
   { href: "/docs",        icon: FiFileText,      label: "Docs",        color: "text-sky-400",     defaultScore: 70  },
@@ -74,7 +74,7 @@ const navGroups: NavGroup[] = [
   {
     label: "Core",
     items: [
-      { href: "/dashboard",  icon: FiHome,          label: "Dashboard",      color: "text-orange-400"  },
+      { href: "/dashboard",  icon: FiHome,          label: "Dashboard",      color: "text-sky-400"     },
       { href: "/sales",       icon: FiTrendingUp,    label: "Sales Pipeline", color: "text-emerald-400" },
       { href: "/tasks",       icon: FiCheckSquare,   label: "Task Hub",       color: "text-violet-400"  },
       { href: "/docs",        icon: FiFileText,      label: "Documents",      color: "text-sky-400"     },
@@ -107,7 +107,7 @@ const navGroups: NavGroup[] = [
 ]
 
 const groupAccent: Record<string, string> = {
-  "Core":         "bg-orange-500",
+  "Core":         "bg-sky-500",
   "Communication":"bg-cyan-500",
   "Finance":      "bg-green-500",
   "Resources":    "bg-indigo-500",
@@ -140,7 +140,7 @@ function SidebarLink({ item, active }: { item: NavItem; active: boolean }) {
       `}
     >
       {active && (
-        <span className="absolute left-0 top-1/4 bottom-1/4 w-[3px] rounded-r-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.8)]" />
+        <span className="absolute left-0 top-1/4 bottom-1/4 w-[3px] rounded-r-full bg-sky-400 shadow-[0_0_10px_rgba(24,168,255,0.9)]" />
       )}
       <Icon size={16} className={`relative z-10 ${active ? item.color : "opacity-70 group-hover:opacity-100 transition-opacity"}`} />
 
@@ -274,7 +274,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="shrink-0 mb-3 flex justify-center w-full">
             <Link href="/dashboard" className="w-10 h-10 flex items-center justify-center relative group">
               <img 
-                src="/images/logo_dark.png" 
+                src="/images/brand/logo-system/titan-mark-light.png"
                 alt="Titan Diamond USA" 
                 className="h-9 w-auto object-contain filter drop-shadow-[0_0_12px_rgba(245,158,11,0.3)] group-hover:scale-110 transition-transform duration-200" 
               />

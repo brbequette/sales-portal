@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getZohoAccessToken } from '@/lib/zoho-auth'
+import { requireAdministrator } from '@/lib/auth-helpers'
 
 export async function POST(req: Request) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     let body = {}
     try {
       body = await req.json()

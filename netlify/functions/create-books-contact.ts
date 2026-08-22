@@ -1,4 +1,4 @@
-import { withFunctionAuth } from "./lib/auth-middleware"
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
 
@@ -18,6 +18,7 @@ const authenticatedHandler: Handler = async (event) => {
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "Method not allowed" }) }
 
   try {
+    const caller = await authenticateFunction(event)
     const body = JSON.parse(event.body || "{}")
     const { accountId } = body
 
@@ -33,6 +34,13 @@ const authenticatedHandler: Handler = async (event) => {
 
     if (!account) {
       return { statusCode: 404, headers: cors, body: JSON.stringify({ success: false, error: "Account not found in local DB" }) }
+    }
+
+    const role = String(caller.role || "").toLowerCase()
+    const privileged = role.includes("admin") || role.includes("manager")
+    const callerId = String(caller.dbId || caller.userId || "")
+    if (!privileged && account.ownerId !== callerId) {
+      return { statusCode: 403, headers: cors, body: JSON.stringify({ success: false, error: "Forbidden" }) }
     }
 
     const token = await getZohoAccessToken()

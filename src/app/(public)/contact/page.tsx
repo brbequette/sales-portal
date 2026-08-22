@@ -36,7 +36,7 @@ export default function ContactPage() {
         toast.error('Failed to send message. Please call us directly.');
       }
     } catch {
-      toast.error('Failed to send message. Please call (800) 555-0199');
+      toast.error('Failed to send message. Please call (480) 470-2577');
     } finally {
       setLoading(false);
     }
@@ -64,8 +64,8 @@ export default function ContactPage() {
               </div>
               <div>
                 <h3 className="font-bold text-base mb-1 text-white">Direct Toll-Free Sales</h3>
-                <a href="tel:18005550199" className="text-amber-400 font-bold hover:underline text-sm block">
-                  (800) 555-0199
+                <a href="tel:14804702577" className="text-amber-400 font-bold hover:underline text-sm block">
+                  (480) 470-2577
                 </a>
                 <span className="text-[11px] text-neutral-500">Same-Day Dispatch Desk</span>
               </div>

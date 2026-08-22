@@ -4,6 +4,7 @@ import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from "../../../../.
 import fs from "fs"
 import path from "path"
 import { execSync } from "child_process"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 const ALL_PICS_DIR = process.env.ALL_PICS_DIR || "/tmp/all-pics-storage"
 
@@ -46,6 +47,8 @@ function getDirStats(dirPath: string) {
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
   try {
     if (!fs.existsSync(ALL_PICS_DIR)) {
       fs.mkdirSync(ALL_PICS_DIR, { recursive: true })
@@ -391,6 +394,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
   try {
     const body = await req.json()
     const { action } = body

@@ -1,14 +1,19 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { createPortal } from "react-dom"
 import { FiSend, FiArrowLeft, FiMessageSquare, FiUser, FiSearch, FiZap, FiExternalLink, FiChevronDown, FiChevronRight, FiCheckCircle, FiAlertCircle, FiRefreshCw } from "react-icons/fi"
 import { AccountSlideout } from "@/components/AccountSlideout"
 import { toast } from 'react-hot-toast';
 import { localGet, localSet, TTL } from "@/lib/dataCache"
 import { COMPANY_CONFIG } from "@/lib/company-config"
 import { UpdateBanner } from '@/lib/useStaleCheck'
+import { useSession } from "next-auth/react"
+import { isAdministratorRole } from "@/lib/roles"
 
 export default function MessagesPage() {
+  const { data: session } = useSession()
+  const canSyncZoho = isAdministratorRole(session?.user?.role)
   const [accounts, setAccounts] = useState<any[]>([])
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
   const [messages, setMessages] = useState<any[]>([])
@@ -365,7 +370,7 @@ export default function MessagesPage() {
             <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
               <FiMessageSquare className="text-emerald-500" /> Messages
             </h1>
-            {syncing
+            {canSyncZoho && (syncing
               ? <div className="text-xs text-emerald-500 animate-pulse flex items-center gap-1"><FiZap /> Syncing...</div>
               : <button
                   onClick={() => handleSync(0)}
@@ -375,7 +380,7 @@ export default function MessagesPage() {
                   <FiRefreshCw size={12} />
                   <span>{lastSyncedAt ? `Synced ${Math.round((Date.now() - lastSyncedAt.getTime()) / 60000)}m ago` : 'Sync'}</span>
                 </button>
-            }
+            )}
           </div>
 
           {/* Segmented Control Selector Tabs */}
@@ -462,7 +467,7 @@ export default function MessagesPage() {
                         className={`p-4 border-b border-white/10 cursor-pointer hover:bg-white/5 transition-all ${selectedAccountId === account.id ? 'bg-neutral-800' : ''}`}
                       >
                         <div className="flex justify-between items-start mb-1">
-                          <h3 className="font-bold text-white text-sm truncate">{account.name}</h3>
+                          <h3 className="font-bold text-white text-sm truncate uppercase">{account.name}</h3>
                           {lastMsg && (
                             <span className="text-xs text-neutral-500 flex-shrink-0 ml-2">
                               {new Date(lastMsg.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
@@ -549,7 +554,7 @@ export default function MessagesPage() {
                         className={`p-4 border-b border-white/10 cursor-pointer hover:bg-white/5 transition-all ${selectedAccountId === account.id ? 'bg-neutral-800' : ''}`}
                       >
                         <div className="flex justify-between items-start mb-1">
-                          <h3 className="font-bold text-white text-sm truncate">{account.name}</h3>
+                          <h3 className="font-bold text-white text-sm truncate uppercase">{account.name}</h3>
                           {lastMsg && (
                             <span className="text-[10px] text-neutral-500 shrink-0 ml-2">
                               {new Date(lastMsg.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
@@ -588,7 +593,7 @@ export default function MessagesPage() {
           )}
           
           {/* Sync / Load older */}
-          {activeTab === "all" && !loadingAccounts && (
+          {canSyncZoho && activeTab === "all" && !loadingAccounts && (
             <div className="p-4 border-t border-white/10 flex justify-center">
               <button 
                 onClick={handleLoadOlder}
@@ -802,14 +807,14 @@ export default function MessagesPage() {
       </div>
 
       {/* Edit vCard Modal */}
-      {showVCardModal && (
+      {showVCardModal && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="bg-neutral-900 border border-white/10 p-6 rounded-2xl w-full max-w-lg space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 🎴 Customize vCard Contact Card & Profile Photo
               </h3>
-              <button onClick={() => setShowVCardModal(false)} className="p-1 text-neutral-400 hover:text-white">
+              <button aria-label="Close vCard editor" onClick={() => setShowVCardModal(false)} className="p-1 text-neutral-400 hover:text-white">
                 ✕
               </button>
             </div>
@@ -843,7 +848,7 @@ export default function MessagesPage() {
                   type="text"
                   value={vcardFields.phone}
                   onChange={e => setVCardFields(prev => ({ ...prev, phone: e.target.value }))}
-                  placeholder="e.g. (800) 555-0199"
+                  placeholder="e.g. (480) 470-2577"
                   className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-orange-500"
                 />
               </div>
@@ -911,7 +916,7 @@ export default function MessagesPage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>, document.body
       )}
 
       {slideoutAccountId && (

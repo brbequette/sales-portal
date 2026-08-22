@@ -1,8 +1,9 @@
-import { withFunctionAuth } from "./lib/auth-middleware"
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 
 import { prisma } from "./lib/prisma"
+import { isAdminRole } from "../../src/lib/roles"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 const authenticatedHandler: Handler = async (event, context) => {
@@ -11,11 +12,35 @@ const authenticatedHandler: Handler = async (event, context) => {
   }
 
   try {
+    const sessionUser = await authenticateFunction(event)
+    const actorId = sessionUser.dbId || sessionUser.userId
+    const administrator = isAdminRole(sessionUser.role)
     const body = JSON.parse(event.body || "{}")
     const { taskId, zohoId, subject, description, priority, dueDate, ownerId, status, whatId, invoiceId, salesOrderId, quoteId, estimateId, type, reminderAt, reminderMethod, reminderFired } = body
 
     if (!zohoId) {
       return { statusCode: 400, body: JSON.stringify({ success: false, message: "Missing zohoId parameter" }) }
+    }
+
+    const existingTask = taskId
+      ? await prisma.task.findUnique({ where: { id: taskId }, select: { id: true, ownerId: true } })
+      : await prisma.task.findUnique({ where: { zohoId }, select: { id: true, ownerId: true } })
+    if (!existingTask) {
+      return { statusCode: 404, body: JSON.stringify({ success: false, message: "Task not found" }) }
+    }
+    if (!administrator && (!actorId || existingTask.ownerId !== actorId)) {
+      return { statusCode: 403, body: JSON.stringify({ success: false, message: "Forbidden: You do not own this task" }) }
+    }
+
+    if (!administrator && whatId) {
+      const [linkedAccount, linkedDeal] = await Promise.all([
+        prisma.account.findUnique({ where: { zohoId: whatId }, select: { ownerId: true } }),
+        prisma.deal.findUnique({ where: { zohoId: whatId }, select: { ownerId: true } }),
+      ])
+      const linkedOwnerId = linkedAccount?.ownerId || linkedDeal?.ownerId
+      if (linkedOwnerId && linkedOwnerId !== actorId) {
+        return { statusCode: 403, body: JSON.stringify({ success: false, message: "Forbidden: Linked record belongs to another representative" }) }
+      }
     }
 
     const taskData: any = { id: zohoId }
@@ -59,6 +84,9 @@ const authenticatedHandler: Handler = async (event, context) => {
         internalOwner = await prisma.user.findUnique({ where: { email: ownerId } })
       }
       if (internalOwner && internalOwner.zohoId) {
+        if (!administrator && internalOwner.id !== actorId) {
+          return { statusCode: 403, body: JSON.stringify({ success: false, message: "Only administrators can reassign tasks" }) }
+        }
         taskData.Owner = { id: internalOwner.zohoId }
         resolvedOwnerId = internalOwner.id
       }

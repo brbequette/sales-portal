@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getZohoAccessToken, pushZohoNote } from '@/lib/zoho-auth';
-import { getAIClient } from '@/lib/ai-client';
+import { createAIChatCompletion } from '@/lib/ai-client';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 // Rate Limiter: 30 requests per minute per user
 const rateLimit = new Map<string, { count: number; resetTime: number }>();
@@ -669,7 +671,7 @@ async function executeTool(name: string, args: any, context: { userId: string, u
         let resolvedAccountZohoId: string | null = null;
         if (accountName) {
           const acc = await prisma.account.findFirst({
-            where: { name: { contains: accountName, mode: 'insensitive' } }
+            where: { ...buildOwnerFilter(userRole, userId), name: { contains: accountName, mode: 'insensitive' } }
           });
           if (acc) {
             resolvedAccountId = acc.id;
@@ -739,7 +741,7 @@ async function executeTool(name: string, args: any, context: { userId: string, u
         if (!accountName || !outcome) return { success: false, error: 'AccountName and outcome are required' };
 
         const acc = await prisma.account.findFirst({
-          where: { name: { contains: accountName, mode: 'insensitive' } }
+          where: { ...buildOwnerFilter(userRole, userId), name: { contains: accountName, mode: 'insensitive' } }
         });
         if (!acc) return { success: false, error: `Account matching "${accountName}" not found` };
 
@@ -800,7 +802,7 @@ async function executeTool(name: string, args: any, context: { userId: string, u
         if (!accountName) return { success: false, error: 'AccountName is required' };
 
         const acc = await prisma.account.findFirst({
-          where: { name: { contains: accountName, mode: 'insensitive' } }
+          where: { ...buildOwnerFilter(userRole, userId), name: { contains: accountName, mode: 'insensitive' } }
         });
         if (!acc) return { success: false, error: `Account matching "${accountName}" not found` };
 
@@ -850,7 +852,7 @@ async function executeTool(name: string, args: any, context: { userId: string, u
         if (!accountName) return { success: false, error: 'AccountName is required' };
 
         const acc = await prisma.account.findFirst({
-          where: { name: { contains: accountName, mode: 'insensitive' } }
+          where: { ...buildOwnerFilter(userRole, userId), name: { contains: accountName, mode: 'insensitive' } }
         });
         if (!acc) return { success: false, error: `Account matching "${accountName}" not found` };
 
@@ -1380,31 +1382,38 @@ export async function POST(req: NextRequest) {
   let allToolNames: string[] = [];
 
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+    }
+
     const body = await req.json();
-    const { message, context, conversationHistory = [] } = body;
-    const { userId, userRole } = context || {};
+    const { message, conversationHistory = [] } = body;
+    const sessionUser = session.user as typeof session.user & { dbId?: string; id?: string; role?: string };
 
-    if (!message || !userId) {
-      return NextResponse.json({ success: false, error: 'Missing message or userId' }, { status: 400 });
+    if (typeof message !== 'string' || !message.trim()) {
+      return NextResponse.json({ success: false, error: 'Message is required' }, { status: 400 });
     }
-
-    if (!checkRateLimit(userId)) {
-      return NextResponse.json({ success: false, error: 'Rate limit exceeded. Please try again later.' }, { status: 429 });
-    }
+    const safeMessage = message.trim().slice(0, 8000);
 
     dbUser = await prisma.user.findFirst({
       where: {
         OR: [
-          { id: userId },
-          { zohoId: userId }
+          { id: sessionUser.dbId || '__missing__' },
+          { zohoId: sessionUser.id || '__missing__' },
+          { email: sessionUser.email || '__missing__' },
         ]
       }
     });
     if (!dbUser) {
-      return NextResponse.json({ success: false, error: `User not found for ID: ${userId}` }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'Signed-in user is not linked to a local user record' }, { status: 404 });
     }
 
-    const actualRole = dbUser.role || userRole;
+    if (!checkRateLimit(dbUser.id)) {
+      return NextResponse.json({ success: false, error: 'Rate limit exceeded. Please try again later.' }, { status: 429 });
+    }
+
+    const actualRole = dbUser.role || sessionUser.role || '';
     const admin = isAdmin(actualRole);
     const roleNote = admin 
       ? "You have full admin access to all data across all reps."
@@ -1433,12 +1442,10 @@ IMPORTANT RULES:
 - Always use the tools to query real data — never guess or hallucinate numbers
 `;
 
-    const { client, model: aiModel } = getAIClient();
-
     // Load active database-defined custom tools dynamically
-    const customTools = await prisma.aiCustomTool.findMany({
-      where: { isActive: true }
-    }).catch(() => []);
+    const customTools = admin
+      ? await prisma.aiCustomTool.findMany({ where: { isActive: true } }).catch(() => [])
+      : [];
 
     // Merge static and dynamic tools
     const allTools = [
@@ -1454,23 +1461,26 @@ IMPORTANT RULES:
     ];
 
     // Include recent conversation history for context
-    const historyMessages = conversationHistory.slice(-20).map((m: any) => ({
-      role: m.role,
-      content: m.content
-    }));
+    const historyMessages = (Array.isArray(conversationHistory) ? conversationHistory : [])
+      .slice(-12)
+      .filter((item): item is { role: 'user' | 'assistant'; content: string } =>
+        Boolean(item)
+        && (item.role === 'user' || item.role === 'assistant')
+        && typeof item.content === 'string'
+      )
+      .map(item => ({ role: item.role, content: item.content.slice(0, 4000) }));
 
     const messages: any[] = [
       { role: 'system', content: systemPrompt },
       ...historyMessages,
-      { role: 'user', content: message }
+      { role: 'user', content: safeMessage }
     ];
 
     let finalResponse = '';
     const maxRounds = 5;
     
     for (let round = 0; round < maxRounds; round++) {
-      const response = await client.chat.completions.create({
-        model: aiModel,
+      const { response } = await createAIChatCompletion({
         messages,
         tools: allTools.length > 0 ? (allTools as any) : undefined,
         tool_choice: 'auto'
@@ -1538,7 +1548,7 @@ IMPORTANT RULES:
         data: {
           userId: dbUser.id,
           userRole: actualRole,
-          question: message,
+          question: safeMessage,
           answer: finalResponse,
           toolsUsed: toolsUsedStr || null,
           responseTimeMs: Date.now() - startTime,

@@ -2,11 +2,9 @@ import { Handler } from "@netlify/functions"
 import { corsHeaders, handleOptions } from "./lib/cors"
 import { prisma } from "./lib/prisma"
 import { fetchEmails, fetchEmailContent } from "./lib/zoho-mail"
-import OpenAI from "openai"
+import { createAIChatCompletion } from "../../src/lib/ai-client"
 
 const ZOHO_ACCOUNT_ID = "6682814000000008002"
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-
 async function classifyEmail(subject: string, body: string) {
   try {
     const prompt = `Classify this email. Does it need a response? Return true or false.
@@ -15,8 +13,7 @@ Body: ${body}
 
 Respond with only "true" or "false".`
     
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+    const { response } = await createAIChatCompletion({
       messages: [{ role: "user", content: prompt }]
     })
     
@@ -41,8 +38,7 @@ async function generateSuggestedReply(subject: string, body: string) {
 Subject: ${subject}
 Body: ${body}`
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+    const { response } = await createAIChatCompletion({
       messages: [{ role: "user", content: prompt }]
     })
     

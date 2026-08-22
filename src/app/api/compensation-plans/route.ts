@@ -1,14 +1,26 @@
 import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 export async function GET(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) return NextResponse.json({ error: "Authentication required" }, { status: 401 })
     const url = new URL(req.url)
     const repId = url.searchParams.get("repId")
     const status = url.searchParams.get("status")
 
+    const user = session.user as typeof session.user & { dbId?: string; id?: string; role?: string }
+    const actorId = user.dbId || user.id
+    const role = (user.role || "").toLowerCase()
+    const canViewTeam = role.includes("admin") || role.includes("manager")
+    if (!canViewTeam && !actorId) return NextResponse.json({ error: "Signed-in user is not linked to a local account" }, { status: 403 })
+
     const where: any = {}
-    if (repId) where.repId = repId
+    if (canViewTeam && repId) where.repId = repId
+    if (!canViewTeam) where.repId = actorId
     if (status) where.status = status
 
     const plans = await prisma.compensationPlan.findMany({
@@ -26,6 +38,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const body = await req.json()
     const {
       repId, name, status, startDate, endDate,
@@ -83,6 +97,8 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const body = await req.json()
     const { id, ...updates } = body
 
@@ -115,6 +131,8 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const body = await req.json()
     const { id } = body
 

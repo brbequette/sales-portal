@@ -1,5 +1,6 @@
 import { handler } from "../../../../../netlify/functions/email-sync";
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdministrator } from "@/lib/auth-helpers";
 
 async function executeNetlifyFunction(req: NextRequest) {
   const url = new URL(req.url);
@@ -33,8 +34,8 @@ async function executeNetlifyFunction(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await require("next-auth").getServerSession(require("@/lib/auth").authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await requireAdministrator();
+  if (auth.errorResponse) return auth.errorResponse;
   return executeNetlifyFunction(req);
 }
 export async function OPTIONS(req: NextRequest) { return executeNetlifyFunction(req); }

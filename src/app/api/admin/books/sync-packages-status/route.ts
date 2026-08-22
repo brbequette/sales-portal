@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 /**
  * GET /api/admin/books/sync-packages-status
@@ -15,6 +16,8 @@ import { prisma } from "@/lib/prisma"
  */
 export async function GET() {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const keys = [
       "last_package_sync_status",
       "last_package_sync_result",

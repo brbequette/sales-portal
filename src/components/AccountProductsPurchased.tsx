@@ -1,8 +1,8 @@
 "use client"
 
 
-import { useState, useEffect } from "react"
-import { FiSearch, FiPackage, FiShoppingBag, FiArrowRight } from "react-icons/fi"
+import { useState, useEffect, useMemo } from "react"
+import { FiSearch, FiPackage, FiShoppingBag, FiArrowRight, FiChevronUp, FiChevronDown } from "react-icons/fi"
 import { useProductModal } from "@/components/ProductModalProvider"
 
 interface AccountProductsPurchasedProps {
@@ -14,6 +14,10 @@ export function AccountProductsPurchased({ accountId }: AccountProductsPurchased
   const [purchases, setPurchases] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+  const [sort, setSort] = useState<{ key: "sku" | "name" | "quantity" | "avgPrice" | "totalSpend"; direction: "asc" | "desc" }>({
+    key: "totalSpend",
+    direction: "desc",
+  })
 
   useEffect(() => {
     const fetchPurchases = async () => {
@@ -33,9 +37,39 @@ export function AccountProductsPurchased({ accountId }: AccountProductsPurchased
     fetchPurchases()
   }, [accountId])
 
-  const filteredPurchases = purchases.filter(p => 
-    p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredPurchases = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase()
+    return purchases
+      .filter(p => String(p.sku || "").toLowerCase().includes(query) || String(p.name || "").toLowerCase().includes(query))
+      .sort((a, b) => {
+        const value = (purchase: any) => {
+          if (sort.key === "avgPrice") return Number(purchase.quantity) > 0 ? Number(purchase.totalSpend) / Number(purchase.quantity) : 0
+          if (sort.key === "quantity" || sort.key === "totalSpend") return Number(purchase[sort.key]) || 0
+          return String(purchase[sort.key] || "").toUpperCase()
+        }
+        const left = value(a)
+        const right = value(b)
+        const comparison = typeof left === "number" && typeof right === "number"
+          ? left - right
+          : String(left).localeCompare(String(right))
+        return sort.direction === "asc" ? comparison : -comparison
+      })
+  }, [purchases, searchTerm, sort])
+
+  const changeSort = (key: typeof sort.key) => {
+    setSort(current => ({ key, direction: current.key === key && current.direction === "asc" ? "desc" : "asc" }))
+  }
+
+  const SortHeading = ({ column, children, align = "left" }: { column: typeof sort.key; children: React.ReactNode; align?: "left" | "right" }) => (
+    <button
+      type="button"
+      onClick={() => changeSort(column)}
+      className={`inline-flex w-full items-center gap-1 hover:text-white focus:outline-none focus:text-emerald-400 ${align === "right" ? "justify-end" : "justify-start"}`}
+      aria-label={`Sort by ${String(children)}`}
+    >
+      {children}
+      {sort.key === column && (sort.direction === "asc" ? <FiChevronUp aria-hidden /> : <FiChevronDown aria-hidden />)}
+    </button>
   )
 
   if (loading) {
@@ -74,11 +108,11 @@ export function AccountProductsPurchased({ accountId }: AccountProductsPurchased
         <table className="w-full text-left text-xs min-w-[600px]">
           <thead className="glass-panel/60 text-neutral-400 border-b border-white/10 uppercase tracking-wider text-[9px] font-bold">
             <tr>
-              <th className="p-4 w-28">SKU</th>
-              <th className="p-4">Product Name</th>
-              <th className="p-4 text-right">Quantity</th>
-              <th className="p-4 text-right">Avg Price</th>
-              <th className="p-4 text-right">Total Spend</th>
+              <th className="p-4 w-28"><SortHeading column="sku">SKU</SortHeading></th>
+              <th className="p-4"><SortHeading column="name">Product Name</SortHeading></th>
+              <th className="p-4 text-right"><SortHeading column="quantity" align="right">Quantity</SortHeading></th>
+              <th className="p-4 text-right"><SortHeading column="avgPrice" align="right">Avg Price</SortHeading></th>
+              <th className="p-4 text-right"><SortHeading column="totalSpend" align="right">Total Spend</SortHeading></th>
               <th className="p-4 text-center w-16">Details</th>
             </tr>
           </thead>
@@ -87,7 +121,7 @@ export function AccountProductsPurchased({ accountId }: AccountProductsPurchased
               const avgPrice = p.quantity > 0 ? (p.totalSpend / p.quantity) : 0
               return (
                 <tr
-                  key={idx}
+                  key={`${p.sku}-${idx}`}
                   onClick={() => showProduct(p.sku, { name: p.name, sku: p.sku })}
                   className="hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/30 transition-colors cursor-pointer group"
                 >

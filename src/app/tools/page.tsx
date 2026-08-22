@@ -2,6 +2,7 @@
 
 
 import { useState, useEffect } from "react"
+import { createPortal } from "react-dom"
 import Link from "next/link"
 import { useZoho } from "@/components/ZohoProvider"
 import { useProductModal } from "@/components/ProductModalProvider"
@@ -369,13 +370,13 @@ export default function ToolsRepository() {
                       <div className="pt-3 mt-2 border-t border-white/8 flex items-center justify-between">
                         <span className="text-[10px] text-neutral-600">{asset.size}</span>
                         <div className="flex gap-1">
-                          <button onClick={() => handleDownload(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-emerald-700/50 text-neutral-400 hover:text-white transition-colors"><FiDownload size={12} /></button>
-                          <button onClick={() => handleCopyLink(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-blue-700/50 text-neutral-400 hover:text-white transition-colors">
+                          <button aria-label={`Download ${asset.title}`} onClick={() => handleDownload(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-emerald-700/50 text-neutral-400 hover:text-white transition-colors"><FiDownload size={12} /></button>
+                          <button aria-label={`Copy link for ${asset.title}`} onClick={() => handleCopyLink(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-blue-700/50 text-neutral-400 hover:text-white transition-colors">
                             {copiedId === asset.id ? <FiCheck size={12} className="text-emerald-400" /> : <FiShare2 size={12} />}
                           </button>
                           {isAdmin && (<>
-                            <button onClick={() => openEditModal(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-700 text-neutral-500 hover:text-white transition-colors"><FiEdit2 size={12} /></button>
-                            <button onClick={() => handleDeleteAsset(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-red-900/50 text-neutral-500 hover:text-red-400 transition-colors"><FiTrash2 size={12} /></button>
+                            <button aria-label={`Edit ${asset.title}`} onClick={() => openEditModal(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-700 text-neutral-500 hover:text-white transition-colors"><FiEdit2 size={12} /></button>
+                            <button aria-label={`Delete ${asset.title}`} onClick={() => handleDeleteAsset(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-red-900/50 text-neutral-500 hover:text-red-400 transition-colors"><FiTrash2 size={12} /></button>
                           </>)}
                         </div>
                       </div>
@@ -398,9 +399,9 @@ export default function ToolsRepository() {
                         <td className="td-td text-neutral-500">{asset.size}</td>
                         <td className="td-td text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            <button onClick={() => handleDownload(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-emerald-700/50 text-neutral-400 hover:text-white transition-colors"><FiDownload size={12} /></button>
-                            <button onClick={() => handleCopyLink(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-blue-700/50 text-neutral-400 hover:text-white transition-colors">{copiedId === asset.id ? <FiCheck size={12} className="text-emerald-400" /> : <FiShare2 size={12} />}</button>
-                            {isAdmin && (<><button onClick={() => openEditModal(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-700 text-neutral-500 hover:text-white transition-colors"><FiEdit2 size={12} /></button><button onClick={() => handleDeleteAsset(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-red-900/50 text-neutral-500 hover:text-red-400 transition-colors"><FiTrash2 size={12} /></button></>)}
+                            <button aria-label={`Download ${asset.title}`} onClick={() => handleDownload(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-emerald-700/50 text-neutral-400 hover:text-white transition-colors"><FiDownload size={12} /></button>
+                            <button aria-label={`Copy link for ${asset.title}`} onClick={() => handleCopyLink(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-blue-700/50 text-neutral-400 hover:text-white transition-colors">{copiedId === asset.id ? <FiCheck size={12} className="text-emerald-400" /> : <FiShare2 size={12} />}</button>
+                            {isAdmin && (<><button aria-label={`Edit ${asset.title}`} onClick={() => openEditModal(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-700 text-neutral-500 hover:text-white transition-colors"><FiEdit2 size={12} /></button><button aria-label={`Delete ${asset.title}`} onClick={() => handleDeleteAsset(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-red-900/50 text-neutral-500 hover:text-red-400 transition-colors"><FiTrash2 size={12} /></button></>)}
                           </div>
                         </td>
                       </tr>
@@ -468,12 +469,12 @@ export default function ToolsRepository() {
       </div>
 
       {/* ─── Admin Modal ────────────────────────────── */}
-      {showModal && (
+      {showModal && createPortal(
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="td-modal w-full max-w-md">
             <div className="td-modal-header">
               <h2 className="td-modal-title">{editingAsset ? "Edit Media Asset" : "Add New Media Asset"}</h2>
-              <button onClick={() => setShowModal(false)} className="td-modal-close">✕</button>
+              <button aria-label="Close media asset editor" onClick={() => setShowModal(false)} className="td-modal-close">✕</button>
             </div>
             <form onSubmit={handleSaveAsset} className="p-5 space-y-4">
               {errorMsg && <div className="bg-red-950/40 border border-red-500/25 text-red-400 text-xs p-3 rounded-xl">{errorMsg}</div>}
@@ -495,7 +496,7 @@ export default function ToolsRepository() {
               </div>
             </form>
           </div>
-        </div>
+        </div>, document.body
       )}
     </div>
   )

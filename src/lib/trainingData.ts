@@ -16,7 +16,7 @@ export const trainingCategories = [
   "Admin & Management",
 ]
 
-export const trainingModules: TrainingModule[] = [
+const rawTrainingModules: TrainingModule[] = [
   // ------------------------------- GETTING STARTED -------------------------------
   {
     id: "getting-started-overview",
@@ -1634,3 +1634,10 @@ This means the cost breakdown loads instantly on the next open without re-proces
     `,
   },
 ]
+
+// Keep the first canonical module for each stable ID. Historical content
+// merges introduced repeated blocks; filtering here prevents duplicate menu
+// entries and React key collisions while preserving the canonical copy.
+export const trainingModules = rawTrainingModules.filter(
+  (module, index, modules) => modules.findIndex(candidate => candidate.id === module.id) === index,
+)

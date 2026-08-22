@@ -1,66 +1,47 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { Metadata } from 'next';
+import { connection } from 'next/server';
 import { FiZap, FiTruck, FiShield, FiCheckCircle, FiLock, FiArrowRight, FiPhone, FiFileText, FiLayers } from 'react-icons/fi';
 import { SparkCanvas } from '@/components/SparkCanvas';
+import { SignatureBladeShowcase } from '@/components/SignatureBladeShowcase';
+import { FeaturedSignatureCarousel } from '@/components/FeaturedSignatureCarousel';
+import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 
 export const metadata: Metadata = {
   title: 'Titan Diamond USA | Professional Diamond Blades & Concrete Cutting Tools',
   description: 'Industrial concrete cutting blades, diamond core bits, cup wheels, and abrasive products for contractors and distributors nationwide. Laser welded for maximum durability.',
 };
 
-const PRODUCT_CATEGORIES = [
-  {
-    title: "Professional Saw Blades",
-    description: "High-speed laser-welded diamond blades for reinforced concrete, asphalt, and hard masonry.",
-    categoryQuery: "Professional Blades",
-    image: "/product-images/SMX10LV.png",
-    badge: "HEAVY DUTY"
-  },
-  {
-    title: "ZENESIS™ Pattern Tech",
-    description: "Equidistant diamond placement for 50% faster cutting speed and extended blade longevity.",
-    categoryQuery: "ZENESIS™",
-    image: "/product-images/CD30M.jpg",
-    badge: "PATENTED TECH"
-  },
-  {
-    title: "DIAMONDX™ Vacuum Brazed",
-    description: "Extreme heat tolerance for steel, rebar, iron, and multi-purpose demolition cutting.",
-    categoryQuery: "DIAMONDX™",
-    image: "/product-images/DXA2730P.png",
-    badge: "DEMOLITION GRADE"
-  },
-  {
-    title: "Diamond Core Bits",
-    description: "Wet and dry concrete core drilling bits engineered for fast penetration through heavy rebar.",
-    categoryQuery: "Core Bits",
-    image: "/product-images/DXA0125P.png",
-    badge: "DEEP DRILLING"
-  },
-  {
-    title: "Concrete Cup Wheels",
-    description: "Aggressive surface grinding, epoxy coating removal, and slab prep cup wheels.",
-    categoryQuery: "Concrete Polisher",
-    image: "/product-images/RCG.png",
-    badge: "SURFACE PREP"
-  },
-  {
-    title: "Specialized Ring Saw Blades",
-    description: "Deep cut ring saw blades for hydraulic and gas saws up to 16\" depth.",
-    categoryQuery: "Saw Blades",
-    image: "/product-images/SM20UT.png",
-    badge: "DEEP CUT"
-  }
-];
+const SIGNATURES = ['THE DRAGON','THE ZEUS','THE MEDUSA','THE BARBARIAN','THE DARK KNIGHT','THE BATTLE AXE','THE HOUND OF HADES','THE HYDRA','THE KING','THE MAXIMUS','THE GLADIATOR','THE DEMO DEMON'] as const;
+const SIGNATURE_IMAGES: Record<string,string> = { 'THE DRAGON':'dragon-formatted.png','THE ZEUS':'zeus-formatted.png','THE MEDUSA':'medusa-formatted.png','THE BARBARIAN':'barbarian-formatted.png','THE DARK KNIGHT':'dark knight-formatted.png','THE BATTLE AXE':'battle axe-formatted.png','THE HOUND OF HADES':'hounds of hades-formatted.png','THE HYDRA':'hydra-formatted.png','THE KING':'king-formatted.png','THE MAXIMUS':'maximus-formatted.png','THE GLADIATOR':'gladiator-formatted.png','THE DEMO DEMON':'demo demon-formatted.png' };
+type SignatureRow = { sku:string; name:string; description:string|null; size:string|null; application:string|null; equipment:string|null; materials:unknown };
+const split = (value: unknown) => Array.isArray(value) ? value.map(String).filter(Boolean) : typeof value === 'string' ? value.split(/[,;|]/).map(v => v.trim()).filter(Boolean) : [];
+const unique = (items:string[]) => [...new Set(items.filter(Boolean))];
+const normalizedSizes = (items:string[]) => unique(items.flatMap(item => { const match=item.replace(/[”″]/g,'"').match(/(?:^|\s)(\d{1,2}(?:\.\d+|\s+\d+\/\d+)?)\s*(?:"|IN|INCH|X|$)/i); return match ? [`${match[1]}"`] : []; }));
+const controlledValues = (items:string[], kind:'application'|'material'|'equipment') => { const text=items.join(' ').toLowerCase(); const rules = kind === 'application' ? [['Asphalt cutting',/asphalt/],['Green concrete cutting',/green concrete|early.entry/],['Reinforced concrete cutting',/reinforced|rebar/],['Concrete cutting',/concrete/],['Masonry cutting',/masonry|brick|block|paver/],['Stone cutting',/stone|granite|marble/],['Metal cutting',/metal|steel|iron|demolition/]] as const : kind === 'material' ? [['Asphalt',/asphalt/],['Green concrete',/green concrete/],['Reinforced concrete',/reinforced|rebar/],['Concrete',/concrete/],['Brick, block & pavers',/masonry|brick|block|paver/],['Stone & granite',/stone|granite|marble/],['Metal & steel',/metal|steel|iron/]] as const : [['Walk-behind saw',/walk.?behind|flat saw/],['High-speed saw',/high.?speed|cut.?off|power cutter/],['Handheld saw',/handheld|hand saw/],['Table saw',/table saw/],['Angle grinder',/angle grinder/],['Ring saw',/ring saw/],['Wall saw',/wall saw/]] as const; return rules.filter(([,pattern])=>pattern.test(text)).map(([label])=>label); };
+async function featuredSignatures() {
+  const rows = await prisma.$queryRaw<SignatureRow[]>(Prisma.sql`SELECT sku,name,description,size,application,equipment,materials FROM "Product" WHERE "giftItem" = false ORDER BY name,sku`);
+  return SIGNATURES.flatMap((family) => {
+    const variants = rows.filter(row => row.name.toUpperCase().startsWith(family) && !/\s-\sWHS$/i.test(row.name));
+    if (!variants.length) return [];
+    const rawValues = (field: 'size'|'application'|'equipment'|'materials') => unique(variants.flatMap(row => split(row[field])));
+    let description = variants.map(row => row.description || '').find(Boolean) || 'Commercial Signature Series diamond blade engineered for professional production cutting.';
+    try { const parsed = JSON.parse(description); description = parsed.text || parsed.pertinentInfo || description; } catch { /* plain Zoho description */ }
+    return [{ family, image:`/product-images/${SIGNATURE_IMAGES[family]}`, description, skus:unique(variants.map(v => v.sku)), sizes:normalizedSizes(rawValues('size')), applications:controlledValues(rawValues('application'),'application'), equipment:controlledValues(rawValues('equipment'),'equipment'), materials:controlledValues(rawValues('materials'),'material'), variants:variants.length }];
+  });
+}
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  await connection();
+  const signatureBlades = await featuredSignatures();
   return (
     <div className="bg-neutral-950 text-white min-h-screen">
       {/* Hero Section */}
       <section className="relative overflow-hidden border-b border-white/10 pt-12 pb-24 lg:pt-20 lg:pb-32 bg-neutral-950">
         <SparkCanvas />
-        <div className="absolute inset-0 z-0 opacity-40">
+        <div className="absolute inset-0 z-0 opacity-70">
           <Image 
             src="/images/hero/hero_blade.jpg" 
             alt="Titan Diamond Blade Sparks" 
@@ -69,8 +50,8 @@ export default function LandingPage() {
             priority
             className="object-cover object-center filter contrast-125 saturate-150"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/70 to-neutral-950/30" />
-          <div className="absolute inset-0 bg-gradient-to-r from-neutral-950 via-neutral-950/80 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/90 via-neutral-950/35 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-neutral-950/80 via-neutral-950/35 to-transparent" />
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -211,61 +192,27 @@ export default function LandingPage() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-4">
             <div>
               <span className="text-xs font-bold uppercase tracking-widest text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-full inline-block mb-3">
-                PRODUCT DIVISIONS
+                TITAN SIGNATURE SERIES
               </span>
               <h2 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-tight">
-                FEATURED DIAMOND TOOLING
+                FEATURED SIGNATURE BLADES
               </h2>
             </div>
             <Link 
               href="/shop"
               className="text-xs font-bold uppercase tracking-wider text-amber-400 hover:text-amber-300 flex items-center gap-2 group"
             >
-              View Full Product Line <FiArrowRight className="group-hover:translate-x-1 transition-transform" />
+              Explore All Signature Blades <FiArrowRight className="group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {PRODUCT_CATEGORIES.map((cat, idx) => (
-              <Link 
-                key={idx}
-                href={`/shop?category=${encodeURIComponent(cat.categoryQuery)}`}
-                className="bg-neutral-900/60 border border-white/10 rounded-3xl overflow-hidden hover:border-amber-500/40 transition-all duration-300 group flex flex-col justify-between hover:shadow-[0_10px_35px_rgba(245,158,11,0.12)]"
-              >
-                <div className="h-60 bg-gradient-to-b from-neutral-950 to-neutral-900 flex items-center justify-center p-8 relative border-b border-white/5">
-                  <span className="absolute top-4 left-4 text-[9px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2.5 py-1 rounded-full">
-                    {cat.badge}
-                  </span>
-                  <Image 
-                    src={cat.image} 
-                    alt={cat.title} 
-                    width={400}
-                    height={400}
-                    className="max-h-full max-w-full object-contain filter drop-shadow-[0_12px_24px_rgba(0,0,0,0.8)] group-hover:scale-110 transition-transform duration-500"
-                  />
-                </div>
-
-                <div className="p-6 flex-1 flex flex-col justify-between">
-                  <div>
-                    <h3 className="text-xl font-bold text-white group-hover:text-amber-400 transition-colors mb-2">
-                      {cat.title}
-                    </h3>
-                    <p className="text-xs text-neutral-400 leading-relaxed mb-4">
-                      {cat.description}
-                    </p>
-                  </div>
-                  
-                  <div className="flex items-center text-xs font-bold text-amber-400 gap-2 pt-4 border-t border-white/5">
-                    Browse Specs <FiArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
+          <FeaturedSignatureCarousel blades={signatureBlades} />
         </div>
       </section>
 
       {/* Technical Content Gate Teaser */}
+      <SignatureBladeShowcase />
+
       <section className="py-20 bg-neutral-900/60 border-y border-white/10 relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -364,7 +311,7 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-950 border border-amber-500/30 rounded-3xl p-10 sm:p-14 shadow-[0_0_60px_rgba(245,158,11,0.12)] relative overflow-hidden">
             <div className="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
-              <Image src="/images/logos/logo-dark.png" alt="Watermark" width={320} height={180} className="w-80 h-auto" />
+              <Image src="/images/brand/logo-system/titan-mark-light.png" alt="" width={470} height={760} className="h-80 w-auto" />
             </div>
 
             <span className="text-xs font-bold uppercase tracking-widest text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-full inline-block mb-4">
@@ -381,10 +328,10 @@ export default function LandingPage() {
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <a 
-                href="tel:18005550199"
+                href="tel:14804702577"
                 className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black text-xs uppercase tracking-wider px-8 py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
               >
-                <FiPhone size={16} /> Call Direct Sales: (800) 555-0199
+                <FiPhone size={16} /> Call Direct Sales: (480) 470-2577
               </a>
               <Link 
                 href="/contact"

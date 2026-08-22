@@ -8,7 +8,7 @@ import { useEffect, useState, useCallback } from "react"
 import { usePagination, Pagination } from "@/components/Pagination"
 import {
   FiSettings, FiUsers, FiRefreshCw, FiSave, FiAlertTriangle,
-  FiShield, FiCheckCircle, FiX, FiChevronDown, FiActivity, FiTarget, FiDollarSign, FiClock, FiMessageSquare, FiPieChart, FiZap
+  FiShield, FiCheckCircle, FiX, FiChevronDown, FiActivity, FiTarget, FiDollarSign, FiClock, FiMessageSquare, FiPieChart, FiZap, FiDatabase
 } from "react-icons/fi"
 
 interface User {
@@ -226,8 +226,8 @@ export default function AdminSettingsPage() {
             <FiSettings className="text-purple-500" size={17} />
           </div>
           <div>
-            <h1 className="page-title">Update Configuration</h1>
-            <p className="page-subtitle">Manage update account configuration &amp; assignments</p>
+            <h1 className="page-title">Portal &amp; Activity Rules</h1>
+            <p className="page-subtitle">Manage inactivity windows, role visibility, update groups and representative targets</p>
           </div>
         </div>
       </div>
@@ -362,6 +362,18 @@ export default function AdminSettingsPage() {
 
         {/* Navigation Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+          <div
+            onClick={() => router.push('/admin/catalog-import')}
+            className="glass-panel border border-white/10 rounded-2xl p-5 shadow-lg hover:border-emerald-500/50 cursor-pointer transition-all group"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2.5 rounded-xl bg-emerald-950/40 text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                <FiDatabase size={18} />
+              </div>
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider">Catalog CSV Import</h2>
+            </div>
+            <p className="text-xs text-neutral-400">Add product attributes, missing SKUs, and images to the portal and Zoho Books.</p>
+          </div>
           <div 
             onClick={() => router.push('/admin/users')}
             className="glass-panel border border-white/10 rounded-2xl p-5 shadow-lg hover:border-purple-500/50 cursor-pointer transition-all group"

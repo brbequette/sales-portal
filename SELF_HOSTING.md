@@ -25,6 +25,26 @@ Copy `.env.selfhost.example` to `.env.selfhost`. Replace
 `SELFHOST_DB_PASSWORD` with a long random value. Do not commit either local
 environment file; both are ignored by Git.
 
+The application also reads its private integration and company settings from
+`.env`. Before enabling payments, returns, or outbound notifications, verify
+that `.env` contains the real production values for:
+
+```text
+COMPANY_NAME
+COMPANY_PHONE
+COMPANY_FROM_EMAIL
+COMPANY_SHIPPING_EMAIL
+COMPANY_ADDRESS_LINE1
+COMPANY_ADDRESS_CITY
+COMPANY_ADDRESS_STATE
+COMPANY_ADDRESS_ZIP
+PAYMENT_ALERT_EMAIL
+```
+
+`PAYMENT_ALERT_EMAIL` is optional; payment alerts fall back to
+`COMPANY_NOTIFICATION_EMAIL` when it is omitted. The address fields are
+required for return labels and must describe the real company return origin.
+
 ## Start
 
 ```powershell
@@ -33,6 +53,16 @@ docker compose up -d postgres ollama
 docker compose exec ollama ollama pull qwen3:4b
 docker compose up -d db-init app
 docker compose ps
+```
+
+For a controlled production update, use the guarded deployment script. It
+checks the patch, creates a mandatory database backup, builds the image, applies
+validated migrations, starts the application and Books sync worker, and waits
+for the production health check:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/deploy-selfhost.ps1 `
+  -ConfirmProduction DEPLOY
 ```
 
 On Windows, `scripts/start-selfhost.ps1` starts the stack and keeps WSL alive

@@ -1,41 +1,17 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { getAuthenticatedDbUser } from "@/lib/session-user"
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    const auth = await getAuthenticatedDbUser()
+    if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const { targetBatchSize = 50, forceReUp = false } = await req.json().catch(() => ({}))
 
-    // 1. Resolve actual database User record
-    let dbUser = null
-    if (session.user.id) {
-      dbUser = await prisma.user.findUnique({ where: { id: session.user.id } })
-    }
-    if (!dbUser && session.user.email) {
-      dbUser = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { zohoId: session.user.id },
-            { email: { equals: session.user.email, mode: 'insensitive' } }
-          ]
-        }
-      })
-    }
-    if (!dbUser) {
-      dbUser = await prisma.user.findFirst() // Fallback to first user
-    }
-
-    if (!dbUser) {
-      return NextResponse.json({ error: "User not found in system" }, { status: 404 })
-    }
-
-    const userId = dbUser.id
+    const userId = auth.user.id
 
     // 2. Get current active claimed leads for this rep
     const existingClaimed = await prisma.lead.findMany({
@@ -101,7 +77,8 @@ export async function POST(req: Request) {
         // Claim selected leads for rep
         await prisma.lead.updateMany({
           where: {
-            id: { in: selectedIds }
+            id: { in: selectedIds },
+            claimedById: null,
           },
           data: {
             claimedById: userId,

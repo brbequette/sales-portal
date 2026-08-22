@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
 import { getZohoAccessToken } from "@/lib/zoho-auth"
+import { getAuthenticatedDbUser } from "@/lib/session-user"
 
 const ZOHO_DC = process.env.ZOHO_DC || "com"
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
+    const auth = await getAuthenticatedDbUser()
+    if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -34,9 +33,15 @@ export async function POST(req: Request) {
         where: { OR: [{ id: targetLeadId }, { zohoId: targetLeadId }] },
       })
     }
+    if (!lead) {
+      return NextResponse.json({ error: "Lead not found" }, { status: 404 })
+    }
+    if (!auth.isAdmin && lead.ownerId !== auth.user.id && lead.claimedById !== auth.user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
 
     const targetCompanyName = companyName || lead?.company || "New Converted Account"
-    const targetOwnerId = session.user.id
+    const targetOwnerId = auth.user.id
 
     const accountZohoId =
       lead?.zohoId && !lead.zohoId.startsWith("lead_local_")
@@ -116,6 +121,7 @@ export async function POST(req: Request) {
       where: {
         company: { equals: targetCompanyName, mode: "insensitive" },
         status: { not: "Converted" },
+        ...(!auth.isAdmin ? { OR: [{ ownerId: auth.user.id }, { claimedById: auth.user.id }] } : {}),
       },
     })
 

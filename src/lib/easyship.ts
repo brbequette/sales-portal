@@ -334,7 +334,7 @@ export interface ShipmentResult {
   currency: string;
 }
 
-async function getOriginFromDB(): Promise<Address> {
+export async function getOriginFromDB(): Promise<Address> {
   try {
     const rows = await prisma.systemSetting.findMany({
       where: { key: { startsWith: 'ship_from_' } }
@@ -545,4 +545,3 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
     currency,
   };
 }
-

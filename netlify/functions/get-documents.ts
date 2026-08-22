@@ -1,6 +1,7 @@
-import { withFunctionAuth } from "./lib/auth-middleware"
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from '@netlify/functions'
 import { prisma } from "./lib/prisma"
+import { isAdminRole } from "../../src/lib/roles"
 
 const authenticatedHandler: Handler = async (event, context) => {
   // CORS Headers
@@ -16,6 +17,8 @@ const authenticatedHandler: Handler = async (event, context) => {
   }
 
   try {
+    const sessionUser = await authenticateFunction(event)
+    const actorId = sessionUser.dbId || sessionUser.userId
     const { 
       page = '1', 
       pageSize = '50', 
@@ -35,7 +38,12 @@ const authenticatedHandler: Handler = async (event, context) => {
 
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
 
-    const ownerFilterStr = ownerIds ? ownerIds.split(',') : []
+    const ownerFilterStr = isAdminRole(sessionUser.role)
+      ? (ownerIds ? ownerIds.split(',').filter(Boolean) : [])
+      : (actorId ? [actorId] : [])
+    if (!isAdminRole(sessionUser.role) && ownerFilterStr.length === 0) {
+      return { statusCode: 403, headers, body: JSON.stringify({ success: false, error: "Signed-in user is not linked to a local account" }) }
+    }
     const accountWhere: any = ownerFilterStr.length > 0 ? { ownerId: { in: ownerFilterStr } } : {}
 
     const invoiceWhere: any = Object.keys(accountWhere).length > 0 ? { account: accountWhere } : {}
@@ -156,20 +164,24 @@ const authenticatedHandler: Handler = async (event, context) => {
           profit = subTotal - deadCostTotal - additionalCosts - ccFees
         } else {
           let deadCostTotal = parseFloat(items.deadCostTotal ?? items.dead_cost_total ?? items.cf_dead_cost_total ?? extractField(items, 'cf_dead_cost_total') ?? 0)
-          if ((isNaN(deadCostTotal) || deadCostTotal === 0) && subTotal > 0) {
-            deadCostTotal = subTotal * 0.50
-          }
+          if (isNaN(deadCostTotal)) deadCostTotal = 0
           const additionalCosts = parseFloat(items.additionalCosts ?? items.additional_costs ?? items.cf_additional_costs_to_order ?? extractField(items, 'cf_additional_costs_to_order') ?? 0)
           const ccFees = parseFloat(items.ccFees ?? items.cc_fees ?? items.cf_credit_card_processing_fees ?? extractField(items, 'cf_credit_card_processing_fees') ?? 0)
           const giftCost = parseFloat(items.giftCost ?? items.gifts_cost ?? items.gifts ?? extractField(items, 'cf_gifts') ?? 0)
-          profit = subTotal - deadCostTotal - additionalCosts - ccFees - giftCost
+          const hasStoredFinancials = [
+            'deadCostTotal', 'dead_cost_total', 'cf_dead_cost_total', 'deadProfitActual',
+            'profit', 'netProfit', 'net_profit',
+          ].some(key => items[key] !== undefined && items[key] !== null)
+          profit = hasStoredFinancials
+            ? parseFloat(items.profit ?? items.netProfit ?? items.net_profit ?? items.deadProfitActual ?? (subTotal - deadCostTotal - additionalCosts - ccFees - giftCost)) || 0
+            : 0
         }
         
         deadCostNoVig = parseFloat(items.deadCostNoVig ?? items.cf_dead_cost_no_vig ?? extractField(items, 'cf_dead_cost_no_vig') ?? 0)
         deadCostSubjectToVig = parseFloat(items.deadCostSubjectToVig ?? items.cf_dead_cost_subject_to_vig ?? extractField(items, 'cf_dead_cost_subject_to_vig') ?? 0)
         const rawComm = items.commission ?? items.cf_commision_amount ?? items.salesCommission ?? null
         const parsedComm = rawComm !== null ? parseFloat(rawComm) : extractField(items, 'cf_commision_amount')
-        commission = parsedComm || (profit * 0.5) || 0
+        commission = Number.isFinite(parsedComm) ? parsedComm : 0
       } else if (Array.isArray(items)) {
         profit = items.reduce((sum: number, it: any) => {
           const sub = parseFloat(it.sub_total ?? it.subTotal ?? it.amount ?? 0)

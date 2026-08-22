@@ -1,4 +1,4 @@
-import { withFunctionAuth } from "./lib/auth-middleware"
+import { authenticateFunction, authErrorResponse, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { corsHeaders, handleOptions } from "./lib/cors"
 import { prisma } from "./lib/prisma"
@@ -19,6 +19,11 @@ const authenticatedHandler: Handler = async (event) => {
   }
   
   if (event.httpMethod === "POST") {
+    try {
+      await authenticateFunction(event, { requireAdmin: true })
+    } catch (error) {
+      return authErrorResponse(error, corsHeaders)
+    }
     try {
       const { name, subject, body, category } = JSON.parse(event.body || "{}")
       if (!name || !subject || !body) {

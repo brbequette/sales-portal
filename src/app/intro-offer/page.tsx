@@ -212,7 +212,7 @@ export default function AppleStylePatriotOfferPage() {
           {/* Logo & Admin Back Button */}
           <div className="flex items-center gap-3">
             <img
-              src="/images/titan-spartan-logo.png"
+              src="/images/brand/titan-diamond-2026.png"
               alt="Titan Diamond USA Spartan Logo"
               className="h-12 sm:h-16 w-auto object-contain filter drop-shadow-[0_0_18px_rgba(255,255,255,0.6)]"
             />

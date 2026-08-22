@@ -13,6 +13,7 @@ import {
 import { classifyAtRiskInvoices, DEFAULT_CLAWBACK_SETTINGS, type AtRiskInvoice, type ClawbackSettings } from '@/lib/clawback-calculator'
 import { sessionGet, sessionSet, TTL } from "@/lib/dataCache"
 import { UpdateBanner } from '@/lib/useStaleCheck'
+import { isAdminRole } from "@/lib/roles"
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(n || 0)
@@ -73,6 +74,7 @@ export default function CommissionsPage() {
   const [expandedKpi, setExpandedKpi] = useState<string | null>(null)
   const [showClawbackPanel, setShowClawbackPanel] = useState(false)
   const [apiClawbackSettings, setApiClawbackSettings] = useState<ClawbackSettings | null>(null)
+  const [clawbackByRep, setClawbackByRep] = useState<Record<string, any[]>>({})
 
   const checkForUpdates = async (sig: string, url: string) => {
     try {
@@ -85,10 +87,10 @@ export default function CommissionsPage() {
     } catch {}
   }
 
-  const normalizedRole = (user?.role || "").toLowerCase()
-  const isAdmin = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("manager")
+  const isAdmin = isAdminRole(user?.role)
 
   const fetchCommissions = async (force = false) => {
+    if (!user?.id && !user?.email) return
     const cacheKey = `commissions-${selectedYear}-${user?.id || user?.email}`
     if (!force) {
       const cached = sessionGet<any>(cacheKey, TTL.FIFTEEN_MIN)
@@ -97,6 +99,7 @@ export default function CommissionsPage() {
         setAvailableYears(cached.years); 
         setSelectedRepId(cached.selectedRepId); 
         if (cached.clawbackSettings) setApiClawbackSettings(cached.clawbackSettings);
+        setClawbackByRep(cached.clawbackByRep || {});
         return 
       }
     }
@@ -117,6 +120,7 @@ export default function CommissionsPage() {
         setByRep(data.byRep || {})
         if (data.years && data.years.length > 0) setAvailableYears(data.years)
         if (data.clawbackSettings) setApiClawbackSettings(data.clawbackSettings)
+        setClawbackByRep(data.clawbackByRep || {})
         
         const repsList = Object.keys(data.byRep || {})
         let matchedRep = repsList[0]
@@ -130,7 +134,7 @@ export default function CommissionsPage() {
                        repsList[0]
           setSelectedRepId(matchedRep)
         }
-        sessionSet(cacheKey, { byRep: data.byRep || {}, years: data.years || [], selectedRepId: matchedRep, clawbackSettings: data.clawbackSettings })
+        sessionSet(cacheKey, { byRep: data.byRep || {}, years: data.years || [], selectedRepId: matchedRep, clawbackSettings: data.clawbackSettings, clawbackByRep: data.clawbackByRep || {} })
         
         // Staleness check: sig = invoice count (matches checkOnly response)
         const sig = `${data.stats?.totalInvoices ?? 0}`
@@ -287,12 +291,13 @@ export default function CommissionsPage() {
       .reduce((sum: number, inv: any) => sum + (inv.commission?.future || 0), 0)
 
     // Map invoices to the shape needed by the clawback calculator  
-    const mappedInvoices = currentRepData.invoices
+    const mappedInvoices = (clawbackByRep[selectedRepId] || [])
       .filter((inv: any) => !inv.isPaid && inv.daysOld > 0)
       .map((inv: any) => ({
         id: inv.id,
         invoiceNumber: inv.invoiceNumber,
         issueDate: inv.issueDate,
+        dueDate: inv.dueDate,
         amount: inv.amount || 0,
         deadCost: inv.deadCost || 0,
         deadProfit: inv.deadProfit || 0,
@@ -319,7 +324,7 @@ export default function CommissionsPage() {
     }
     
     return { pendingCommission: pending, atRiskInvoices: atRisk, clawbackTotals: clawTotals }
-  }, [currentRepData, clawbackSettings])
+  }, [currentRepData, clawbackByRep, selectedRepId, clawbackSettings])
 
   // Year-to-date totals — always computed from full year data regardless of period filter
   const ytdTotals = useMemo(() => {

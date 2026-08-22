@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import fs from "fs"
 import path from "path"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 const ALL_PICS_DIR = process.env.ALL_PICS_DIR || "/tmp/all-pics-storage"
 
@@ -8,6 +9,8 @@ const PROCESSED_DIR = path.join(ALL_PICS_DIR, "processed")
 
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const { searchParams } = new URL(req.url)
     const file = searchParams.get("file")
     const type = searchParams.get("type") || "raw"

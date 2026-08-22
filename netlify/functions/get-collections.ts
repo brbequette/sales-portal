@@ -1,7 +1,8 @@
-import { withFunctionAuth } from "./lib/auth-middleware"
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { syncRecentBooksInvoices } from "./lib/zoho-books"
 import { prisma, Prisma } from "./lib/prisma"
+import { isAdminRole } from "../../src/lib/roles"
 
 const authenticatedHandler: Handler = async (event) => {
   const cors = {
@@ -15,12 +16,44 @@ const authenticatedHandler: Handler = async (event) => {
   try {
     const { tab = "overdue", repId, refresh, zohoId, email, checkOnly } = event.queryStringParameters || {}
     const now = new Date()
+    const businessDateParts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Phoenix",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(now)
+    const businessDateValue = Object.fromEntries(businessDateParts.map(part => [part.type, part.value]))
+    const todayBoundary = new Date(Date.UTC(
+      Number(businessDateValue.year),
+      Number(businessDateValue.month) - 1,
+      Number(businessDateValue.day),
+    ))
+    const auth = await authenticateFunction(event)
+    const sessionUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          auth.dbId ? { id: auth.dbId } : undefined,
+          auth.userId ? { id: auth.userId } : undefined,
+          auth.email ? { email: { equals: auth.email, mode: "insensitive" } } : undefined,
+        ].filter(Boolean) as any,
+      },
+      select: { id: true, role: true },
+    })
+    if (!sessionUser) {
+      return { statusCode: 403, headers: cors, body: JSON.stringify({ error: "Signed-in user is not linked to a local user record" }) }
+    }
+    const isAdmin = isAdminRole(sessionUser.role)
+    const effectiveRepId = isAdmin && repId ? repId : (isAdmin ? undefined : sessionUser.id)
 
     // ── checkOnly mode: returns count + latestUpdatedAt only ──────────────
     if (checkOnly === 'true') {
       const [count, latest] = await Promise.all([
-        prisma.invoice.count({}),
-        prisma.invoice.findFirst({ orderBy: { updatedAt: 'desc' }, select: { updatedAt: true } })
+        prisma.invoice.count({ where: effectiveRepId ? { account: { ownerId: effectiveRepId } } : {} }),
+        prisma.invoice.findFirst({
+          where: effectiveRepId ? { account: { ownerId: effectiveRepId } } : {},
+          orderBy: { updatedAt: 'desc' },
+          select: { updatedAt: true },
+        })
       ])
       return {
         statusCode: 200,
@@ -29,7 +62,7 @@ const authenticatedHandler: Handler = async (event) => {
       }
     }
 
-    if (refresh === "true" && (zohoId || email)) {
+    if (refresh === "true" && isAdmin && (zohoId || email)) {
       // --- 60-minute sync cooldown ---
       const COOLDOWN_KEY = 'collections_last_synced_at'
       const COOLDOWN_MS = 60 * 60 * 1000 // 60 minutes
@@ -59,25 +92,6 @@ const authenticatedHandler: Handler = async (event) => {
     // and pushes repId filter into WHERE instead of post-filtering a full JS array.
     const EXCLUDED_STATUSES = ['Paid','Closed','Void','Voided','Draft','Writeoff','Write_off','Write Off','Bad Debt','paid','closed','void','voided','draft','writeoff','write_off','write off','bad debt']
 
-    // NEW-007 fix: enforce rep-scoping for non-admins
-    // The frontend always passes ?email=<currentUser.email>. We look up their role and,
-    // if they are not an admin or manager, force the repId to their own user ID.
-    let effectiveRepId = repId
-    if (email) {
-      const requestingUser = await prisma.user.findUnique({
-        where: { email },
-        select: { id: true, role: true }
-      })
-      if (requestingUser) {
-        const roleLower = (requestingUser.role || '').toLowerCase()
-        const isAdmin = roleLower.includes('admin') || roleLower.includes('manager')
-        if (!isAdmin) {
-          // Non-admin: force scope to their own data regardless of repId in URL
-          effectiveRepId = requestingUser.id
-        }
-      }
-    }
-
     const repFilterSql = effectiveRepId
       ? Prisma.sql`AND a."ownerId" = ${effectiveRepId}`
       : Prisma.empty
@@ -89,8 +103,8 @@ const authenticatedHandler: Handler = async (event) => {
       tabFilterSql = Prisma.sql`
         AND i.status NOT IN (${Prisma.join(EXCLUDED_STATUSES)})
         AND (
-          i.status ILIKE '%overdue%'
-          OR i."dueDate" < ${now}
+          i."dueDate" < ${todayBoundary}
+          OR (i."dueDate" IS NULL AND i.status ILIKE '%overdue%')
         )`
     } else {
       // current: unpaid, not overdue, not past due
@@ -110,6 +124,7 @@ const authenticatedHandler: Handler = async (event) => {
         i."issueDate",
         i."dueDate",
         i."createdAt",
+        i."updatedAt",
         -- Account fields
         a.id::text        AS "accountId",
         a."zohoId"        AS "accountZohoId",
@@ -117,6 +132,8 @@ const authenticatedHandler: Handler = async (event) => {
         a."billingCity",
         a."billingState",
         a.quality         AS "accountQuality",
+        a."lastCalledAt",
+        COALESCE(pc.contacts, '[]'::jsonb) AS contacts,
         -- Owner (salesperson) fields
         u.id::text        AS "ownerId",
         u.name            AS "ownerName",
@@ -136,6 +153,20 @@ const authenticatedHandler: Handler = async (event) => {
       FROM "Invoice" i
       JOIN "Account" a ON a.id = i."accountId"
       LEFT JOIN "User" u ON u.id = a."ownerId"
+      LEFT JOIN LATERAL (
+        SELECT jsonb_agg(
+          jsonb_build_object(
+            'id', c.id,
+            'name', NULLIF(TRIM(CONCAT_WS(' ', c."firstName", c."lastName")), ''),
+            'phone', COALESCE(c."mobilePhone", c.phone),
+            'isPrimary', c."isPrimary"
+          )
+          ORDER BY c."isPrimary" DESC, c."updatedAt" DESC
+        ) AS contacts
+        FROM "Contact" c
+        WHERE c."accountId" = a.id
+          AND COALESCE(c."mobilePhone", c.phone) IS NOT NULL
+      ) pc ON TRUE
       WHERE 1=1
         ${tabFilterSql}
         ${repFilterSql}
@@ -144,7 +175,20 @@ const authenticatedHandler: Handler = async (event) => {
 
     const daysOverdue = (dueDate: Date | null) => {
       if (!dueDate) return 0
-      return Math.max(0, Math.floor((now.getTime() - new Date(dueDate).getTime()) / 86400000))
+      return Math.max(0, Math.floor((todayBoundary.getTime() - new Date(dueDate).getTime()) / 86400000))
+    }
+
+    const normalizePhone = (value: unknown) => {
+      const raw = String(value || "").trim().replace(/^['\"]+/, "")
+      const digits = raw.replace(/\D/g, "")
+      const national = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits
+      if (national.length === 10) {
+        return {
+          phone: `(${national.slice(0, 3)}) ${national.slice(3, 6)}-${national.slice(6)}`,
+          phone_href: `+1${national}`,
+        }
+      }
+      return { phone: raw, phone_href: digits ? `+${digits}` : raw }
     }
 
     const formatted = invoices.map(inv => {
@@ -158,9 +202,9 @@ const authenticatedHandler: Handler = async (event) => {
         zohoId: inv.zohoId,
         invoice_id: inv.zohoId,
         invoice_number: items?.invoiceNumber || items?.invoice_number || inv.zohoId?.slice(-6) || "—",
-        customer_name: inv.accountName || "Unknown",
+        customer_name: (inv.accountName || "Unknown").toUpperCase(),
         customer_id: inv.accountZohoId || inv.accountId,
-        salesperson_name: salespersonVal,
+        salesperson_name: String(salespersonVal).toUpperCase(),
         salesperson_id: inv.ownerId,
         salesperson_zoho_id: inv.ownerZohoId || null,
         salesperson_email: inv.ownerEmail || null,
@@ -170,6 +214,7 @@ const authenticatedHandler: Handler = async (event) => {
         account_owner_email: inv.ownerEmail || null,
         due_date: dueDateVal,
         issue_date: issueDateVal,
+        updated_at: inv.updatedAt ? new Date(inv.updatedAt).toISOString() : null,
         balance: inv.balance ?? inv.amount,  // BUG-008 fix: remaining balance, not full amount
         total: inv.amount,
         status: inv.status,
@@ -179,8 +224,16 @@ const authenticatedHandler: Handler = async (event) => {
         dead_cost: parseFloat(items?.deadCostTotal || 0) || 0,
         customer_city: inv.billingCity || null,
         customer_state: inv.billingState || null,
+        customer_contacts: Array.isArray(inv.contacts)
+          ? inv.contacts.map((contact: any) => ({
+              ...contact,
+              ...normalizePhone(contact.phone),
+              name: contact.name ? String(contact.name).toUpperCase() : "CONTACT",
+            }))
+          : [],
         shipping_charge: items?.shippingCharge ?? null,
         account_quality: inv.accountQuality || null,
+        last_called_at: inv.lastCalledAt ? new Date(inv.lastCalledAt).toISOString() : null,
       }
     })
 

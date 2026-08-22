@@ -1,7 +1,10 @@
 import { handler } from "../../../../../netlify/functions/vig-history"
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 async function run(req: NextRequest) {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
   const url = new URL(req.url)
   const event = {
     path: url.pathname,

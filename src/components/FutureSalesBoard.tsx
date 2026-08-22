@@ -94,7 +94,7 @@ export function FutureSalesBoard() {
 
   return <div ref={boardRef} className={styles.board}>
     <header className={styles.header}>
-      <div className={styles.brand}><img className={styles.fullLogo} src="/images/brand/titan-diamond-2026.png" alt="Titan Diamond USA" /><small>SALES COMMAND CENTER</small></div>
+      <div className={styles.brand}><img className={styles.fullLogo} src="/images/brand/logo-system/titan-horizontal-light.png" alt="Titan Diamond USA" /><small>SALES COMMAND CENTER</small></div>
       <div className={styles.live}><i className={refreshError ? styles.warn : ""} />{refreshError ? "VERIFIED CACHE" : "LIVE LOCAL DATA"}<span>UPDATED {updated}</span></div>
       <div className={styles.controls}><button onClick={() => setIsPaused(!isPaused)} aria-label={isPaused ? "Resume" : "Pause"}>{isPaused ? <FiPlay /> : <FiPause />}</button><button onClick={toggleFullscreen} aria-label="Fullscreen">{isFullscreen ? <FiMinimize /> : <FiMaximize />}</button></div>
     </header>

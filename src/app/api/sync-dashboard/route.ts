@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAdministrator } from '@/lib/auth-helpers'
 
 /**
  * GET /api/sync-dashboard
@@ -9,6 +10,9 @@ import { prisma } from '@/lib/prisma'
  * Zero Zoho API calls — all data from local DB.
  */
 export async function GET() {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
+
   try {
     const now = Date.now()
 

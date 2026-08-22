@@ -96,7 +96,7 @@ export default function PayVoucherPrint({ params }: { params: Promise<{ repId: s
           if (isSinglePay && inv.issueDate) {
             const idate = new Date(inv.issueDate)
             if (idate >= weekStart && idate <= weekEnd && !inv.isPaid) {
-              const potentialComm = inv.commission?.future || inv.commission?.total || (inv.profit * 0.5) || 0
+              const potentialComm = inv.commission?.future ?? inv.commission?.total ?? 0
               salesCreatedThisWeek.push({
                 name: inv.name || inv.accountName,
                 invoiceNumber: inv.invoiceNumber,
@@ -109,7 +109,7 @@ export default function PayVoucherPrint({ params }: { params: Promise<{ repId: s
           }
           // All unpaid invoices across all time
           if (!inv.isPaid) {
-            const futureComm = inv.commission?.future || inv.commission?.total || (inv.profit * 0.5) || 0
+            const futureComm = inv.commission?.future ?? inv.commission?.total ?? 0
             if (futureComm > 0) {
               allPendingCommissions.push({
                 name: inv.name || inv.accountName,
@@ -323,7 +323,7 @@ export default function PayVoucherPrint({ params }: { params: Promise<{ repId: s
                   {/* ── HEADER ── */}
                   <div className="flex justify-between items-center border-b-2 border-black pb-4 mb-6 pt-4 px-8 print:px-0 print:pt-0">
                     <div className="flex items-center gap-4">
-                      <img src="/images/logo_light.png" alt="Titan Diamond LLC" className="h-12 w-auto object-contain" />
+                      <img src="/images/brand/titan-diamond-2026.png" alt="Titan Diamond LLC" className="h-12 w-auto object-contain" />
                       <div>
                         <h1 className="text-2xl font-black uppercase tracking-widest text-black">Titan Diamond LLC</h1>
                         <p className="text-xs font-bold text-gray-800 uppercase tracking-wider mt-0.5">Weekly Pay Voucher</p>

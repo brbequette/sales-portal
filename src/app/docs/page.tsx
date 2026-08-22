@@ -30,7 +30,7 @@ type UnifiedDoc = {
   documentUrl: string | null
 }
 
-type SortField = 'date' | 'amount' | 'number' | 'customer' | 'status'
+type SortField = 'date' | 'amount' | 'number' | 'customer' | 'rep' | 'status'
 type SortDir = 'asc' | 'desc'
 
 function SalesDocsInner() {
@@ -89,8 +89,8 @@ function SalesDocsInner() {
     setDetailLoading(true)
     setDetailData(null)
     try {
-      const docType = doc.type === 'invoice' ? 'invoice' : doc.type === 'salesorder' ? 'salesorder' : 'estimate'
-      const res = await fetch(`/api/get-invoice-details?zohoId=${doc.zohoId}&type=${docType}`)
+      const docType = doc.type === 'invoice' ? 'Invoice' : doc.type === 'salesorder' ? 'SalesOrder' : 'Quote'
+      const res = await fetch(`/api/get-invoice-details?targetId=${doc.zohoId}&type=${docType}`)
       const data = await res.json()
       if (data.success !== false) {
         setDetailData(data)
@@ -147,15 +147,15 @@ function SalesDocsInner() {
       params.set('sort', sort)
       params.set('dir', dir)
       params.set('page', page.toString())
-      if (user?.id) params.set('callerDbId', user.id)
-      if (user?.role) params.set('callerRole', user.role)
-
       // Sync URL
       const currentUrlParams = new URLSearchParams(searchParams.toString())
       Array.from(params.entries()).forEach(([k, v]) => {
         if (!['callerDbId', 'callerRole'].includes(k)) currentUrlParams.set(k, v)
       })
-      router.replace(`?${currentUrlParams.toString()}`, { scroll: false })
+      const nextUrlParams = currentUrlParams.toString()
+      if (nextUrlParams !== searchParams.toString()) {
+        router.replace(`?${nextUrlParams}`, { scroll: false })
+      }
 
       const res = await fetch(`/api/search-docs?${params.toString()}`)
       const data = await res.json()
@@ -165,16 +165,7 @@ function SalesDocsInner() {
         setTotal(data.total)
         setPages(data.totalPages)
         
-        // Calculate basic stats for current view if page 1
-        if (page === 1) {
-          let iCount = 0, qCount = 0, sCount = 0
-          data.docs.forEach((d: UnifiedDoc) => {
-            if (d.type === 'invoice') iCount++
-            if (d.type === 'quote') qCount++
-            if (d.type === 'salesorder') sCount++
-          })
-          setStats({ invoices: iCount, quotes: qCount, salesOrders: sCount })
-        }
+        setStats(data.stats || { invoices: 0, quotes: 0, salesOrders: 0 })
         
         const sig = `${data.docs.length}|${data.docs[0]?.date ?? ''}`
         setDataSig(sig)

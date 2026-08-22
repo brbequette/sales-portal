@@ -13,8 +13,8 @@
  */
 
 export interface ClawbackSettings {
-  clawback_threshold_days: number   // default 365
-  warning_window_days: number       // default 90
+  clawback_threshold_days: number   // days overdue until write-off; default 120
+  warning_window_days: number       // warning lead time; default 90 (risk begins at 30 overdue)
   rep_cost_split_pct: number        // default 0.50
   auto_cascade: boolean             // default false (warning-only)
   auto_bonus_reversal: boolean      // default false (flagged for review)
@@ -22,7 +22,7 @@ export interface ClawbackSettings {
 }
 
 export const DEFAULT_CLAWBACK_SETTINGS: ClawbackSettings = {
-  clawback_threshold_days: 365,
+  clawback_threshold_days: 120,
   warning_window_days: 90,
   rep_cost_split_pct: 0.50,
   auto_cascade: false,
@@ -34,6 +34,7 @@ export interface InvoiceForClawback {
   id: string
   invoiceNumber?: string | null
   issueDate: string | Date
+  dueDate?: string | Date | null
   amount: number          // subtotal
   deadCost: number
   deadProfit: number
@@ -41,7 +42,7 @@ export interface InvoiceForClawback {
   vigRate: number
   actualShippingCost: number
   isPaid: boolean
-  daysOld: number
+  daysOld: number          // days overdue (retained name for API compatibility)
   repId: string
   accountName: string
   contactName?: string | null
@@ -158,7 +159,7 @@ export function classifyAtRiskInvoices(
 ): AtRiskInvoice[] {
   const thresholdDays = settings.clawback_threshold_days
   const warningDays = settings.warning_window_days
-  const warningStart = thresholdDays - warningDays
+  const warningStart = Math.max(0, thresholdDays - warningDays)
 
   return invoices
     .filter(inv => !inv.isPaid && inv.daysOld >= warningStart)

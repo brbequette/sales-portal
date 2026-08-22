@@ -1,9 +1,6 @@
 import { withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
-import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
-
-const ORG_ID = ZOHO_ORGANIZATION_ID
-const ZOHO_DC = process.env.ZOHO_DC || 'com';
+import { prisma } from "./lib/prisma"
 
 const authenticatedHandler: Handler = async (event, context) => {
   if (event.httpMethod !== "GET") {
@@ -11,22 +8,22 @@ const authenticatedHandler: Handler = async (event, context) => {
   }
 
   try {
-    const token = await getZohoAccessToken()
-    const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
-
-    // Fetch vendors from Zoho Books
-    const res = await fetch(`${baseUrl}/contacts?contact_type=vendor&organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
-      headers: { Authorization: `Zoho-oauthtoken ${token}` }
+    const storedVendors = await prisma.vendor.findMany({
+      where: { status: { notIn: ["inactive", "deleted"], mode: "insensitive" } },
+      orderBy: [{ companyName: "asc" }, { contactName: "asc" }],
     })
-    
-    const data = await res.json()
-    if (data.code !== 0) {
-      throw new Error(`Zoho Books API Error: ${data.message}`)
-    }
+    const vendors = storedVendors.map(vendor => ({
+      contact_id: vendor.zohoId,
+      contact_name: vendor.contactName || vendor.companyName || "Unnamed Vendor",
+      company_name: vendor.companyName,
+      email: vendor.email,
+      phone: vendor.phone,
+      status: vendor.status,
+    }))
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ success: true, vendors: data.contacts })
+      body: JSON.stringify({ success: true, vendors })
     }
 
   } catch (err: any) {

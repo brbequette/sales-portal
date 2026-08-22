@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getZohoAccessToken, ZOHO_DC, ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 export const maxDuration = 60
 
@@ -17,6 +18,8 @@ export const maxDuration = 60
  */
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const body     = await req.json().catch(() => ({}))
     const entity   = body.entity   || "invoices"
     const page     = parseInt(body.page    || "1",  10)

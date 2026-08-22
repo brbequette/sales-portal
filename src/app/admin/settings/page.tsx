@@ -3,9 +3,15 @@ import { useState, useEffect, useCallback } from "react"
 import { FiSave, FiSettings, FiDollarSign, FiMessageSquare, FiTruck, FiTool, FiRefreshCw, FiMonitor, FiAlertCircle, FiCheckCircle } from "react-icons/fi"
 import VigManagementBuilder from "@/components/VigManagementBuilder"
 import { ThemeSettingsModal } from "@/components/ThemeSettingsModal"
+import { useSearchParams } from "next/navigation"
 
 export default function AdminSettingsPage() {
-  const [activeTab, setActiveTab] = useState<'financial'|'communications'|'shipping'|'developer'|'sync'>('financial')
+  const searchParams = useSearchParams()
+  const requestedTab = searchParams.get('tab')
+  const initialTab = ['financial', 'communications', 'shipping', 'developer', 'sync'].includes(requestedTab || '')
+    ? requestedTab as 'financial'|'communications'|'shipping'|'developer'|'sync'
+    : 'financial'
+  const [activeTab, setActiveTab] = useState<'financial'|'communications'|'shipping'|'developer'|'sync'>(initialTab)
   const [settings, setSettings] = useState<any>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -865,7 +871,7 @@ export default function AdminSettingsPage() {
 
 function ClawbackSettingsSection() {
   const [clawback, setClawback] = useState({
-    clawback_threshold_days: 365,
+    clawback_threshold_days: 120,
     warning_window_days: 90,
     rep_cost_split_pct: 0.50,
     auto_cascade: false,
@@ -933,12 +939,12 @@ function ClawbackSettingsSection() {
       </div>
 
       <div className="glass-panel border border-white/10 rounded-xl p-6 space-y-6 shadow-xl">
-        <Field label="Clawback Threshold (Days)" desc="Unpaid invoices older than this are eligible for clawback. Default: 365 (12 months).">
+        <Field label="Write-Off Threshold (Days Overdue)" desc="Days after the invoice due date when it is written off. This global rule applies to every sales rep. Default: 120 days overdue.">
           <div className="flex items-center gap-3">
             <input
               type="number" min={30} max={730}
               value={clawback.clawback_threshold_days}
-              onChange={e => setClawback(p => ({ ...p, clawback_threshold_days: parseInt(e.target.value) || 365 }))}
+              onChange={e => setClawback(p => ({ ...p, clawback_threshold_days: parseInt(e.target.value) || 120 }))}
               className="w-32 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-red-400 font-mono font-bold focus:outline-none focus:border-red-500"
             />
             <span className="text-neutral-500 font-black">days</span>
@@ -947,7 +953,7 @@ function ClawbackSettingsSection() {
 
         <hr className="border-white/10" />
 
-        <Field label="Warning Window (Days)" desc="How many days before the threshold to start showing clawback warnings. Default: 90 days.">
+        <Field label="At-Risk Warning Window (Days)" desc="How many days before write-off to show risk. At 120/90, invoices become at risk at 30 days overdue.">
           <div className="flex items-center gap-3">
             <input
               type="number" min={14} max={180}

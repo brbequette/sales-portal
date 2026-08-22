@@ -1,5 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { isAdminRole } from '@/lib/roles'
 
 /**
  * GET /api/document-lifecycle?zohoId=xxx&type=Invoice|SalesOrder|Quote
@@ -10,12 +13,28 @@ import { NextResponse } from 'next/server'
  * All lookups are indexed DB queries (no full-table scans).
  */
 export async function GET(req: Request) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+
   const { searchParams } = new URL(req.url)
   const zohoId = searchParams.get('zohoId')
   const type   = searchParams.get('type') || 'Invoice'
 
   if (!zohoId) {
     return NextResponse.json({ success: false, error: 'Missing zohoId' }, { status: 400 })
+  }
+
+  const user = session.user as typeof session.user & { dbId?: string; id?: string; role?: string }
+  if (!isAdminRole(user.role)) {
+    const actorId = user.dbId || user.id
+    const reference = type === 'SalesOrder'
+      ? await prisma.salesOrder.findUnique({ where: { zohoId }, select: { account: { select: { ownerId: true } } } })
+      : type === 'Quote'
+        ? await prisma.quote.findUnique({ where: { zohoId }, select: { account: { select: { ownerId: true } } } })
+        : await prisma.invoice.findUnique({ where: { zohoId }, select: { account: { select: { ownerId: true } } } })
+    if (!actorId || reference?.account.ownerId !== actorId) {
+      return NextResponse.json({ error: 'You can only view document history for your accounts' }, { status: 403 })
+    }
   }
 
   try {

@@ -2,9 +2,12 @@ import { prisma } from '@/lib/prisma';
 import { NextResponse } from "next/server"
 
 import { calculateDocumentCosts, buildFieldsToUpdate } from "../../../../../../netlify/functions/lib/cost-calculations"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 export async function POST(req: Request) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const { invoiceId, selectedItemSkus, shippingCost, carrier, trackingNumber, notes } = await req.json()
 
     if (!invoiceId || !shippingCost) {

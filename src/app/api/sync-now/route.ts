@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { getZohoAccessToken, ZOHO_ORGANIZATION_ID } from '@/lib/zoho-auth'
+import { isAdministratorRole } from '@/lib/roles'
 import {
   getSyncConfig,
   getSyncStatus,
@@ -43,6 +44,9 @@ export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (!isAdministratorRole(session.user.role)) {
+      return NextResponse.json({ error: 'Administrator access required' }, { status: 403 })
     }
 
     const lock = await prisma.systemSetting.findUnique({ where: { key: 'sync_in_progress' } })

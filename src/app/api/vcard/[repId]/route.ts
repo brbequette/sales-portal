@@ -31,7 +31,7 @@ export async function GET(req: Request, context: { params: Promise<{ repId: stri
     const firstName = nameParts[0] || "Rep"
     const lastName = nameParts.slice(1).join(" ") || "Titan"
     const email = queryEmail || user?.email || ""
-    const phone = queryPhone || user?.phone || "(800) 555-0199"
+    const phone = queryPhone || user?.phone || "(480) 470-2577"
     const title = queryTitle || user?.title || "Sales Representative"
     const company = queryCompany || (user as any)?.vcardCompany || COMPANY_CONFIG.name
     const website = queryWebsite || (user as any)?.vcardWebsite || "https://tdusales.com"

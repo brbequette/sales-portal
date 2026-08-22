@@ -18,7 +18,7 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "Method not allowed" }) }
 
   try {
-    await authenticateFunction(event)
+    await authenticateFunction(event, { requireAdmin: true })
   } catch (error) {
     return authErrorResponse(error, cors)
   }

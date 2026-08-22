@@ -18,24 +18,26 @@
 
 :root {
   color-scheme: dark;
-  --primary: #f97316;
-  --primary-hover: #ea580c;
-  --background: #08090b;
-  --surface: #101216;
-  --surface-2: #181b20;
-  --surface-3: #20242b;
+  --primary: #18a8ff;
+  --primary-hover: #087fd1;
+  --work-orange: #ff7a18;
+  --steel: #9aa9b8;
+  --background: #05080c;
+  --surface: #0b1118;
+  --surface-2: #101a24;
+  --surface-3: #172431;
   --foreground: #f7f7f8;
   --muted: #a6a8ad;
   --muted-2: #737780;
-  --border: rgba(255, 255, 255, 0.09);
-  --border-strong: rgba(255, 255, 255, 0.16);
+  --border: rgba(130, 185, 225, 0.12);
+  --border-strong: rgba(130, 205, 255, 0.24);
   --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;
   --info: #3b82f6;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 16px 40px rgba(0, 0, 0, 0.28);
-  --shadow-lg: 0 28px 90px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 18px 44px rgba(0, 0, 0, 0.38), 0 0 24px rgba(24, 168, 255, 0.035);
+  --shadow-lg: 0 30px 100px rgba(0, 0, 0, 0.58), 0 0 44px rgba(24, 168, 255, 0.06);
   --radius-sm: 10px;
   --radius-md: 14px;
   --radius-lg: 20px;
@@ -92,8 +94,13 @@ body {
   min-height: 100dvh;
   margin: 0;
   background:
-    radial-gradient(circle at 80% -10%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 34rem),
+    linear-gradient(rgba(66, 151, 211, 0.026) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(66, 151, 211, 0.026) 1px, transparent 1px),
+    radial-gradient(circle at 82% -8%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 36rem),
+    radial-gradient(circle at -8% 95%, color-mix(in srgb, var(--work-orange) 7%, transparent), transparent 30rem),
     var(--background);
+  background-size: 32px 32px, 32px 32px, auto, auto, auto;
+  background-attachment: fixed;
   color: var(--foreground);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
@@ -170,10 +177,13 @@ textarea:focus-visible,
 
 /* Glassmorphism Panel Styles */
 .glass-panel {
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.035), transparent 35%),
+    color-mix(in srgb, var(--surface) 91%, transparent);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border);
+  box-shadow: inset 0 1px rgba(255,255,255,.025), 0 12px 32px rgba(0,0,0,.2);
 }
 
 .glass-panel-glow {
@@ -211,8 +221,10 @@ textarea:focus-visible,
   justify-content: space-between;
   gap: 16px;
   padding: 14px clamp(16px, 2.3vw, 30px);
-  border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--background) 84%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--primary) 6%, transparent), transparent 38%),
+    color-mix(in srgb, var(--background) 88%, transparent);
   backdrop-filter: blur(22px) saturate(1.25);
   -webkit-backdrop-filter: blur(22px) saturate(1.25);
 }
@@ -224,7 +236,8 @@ textarea:focus-visible,
   left: 6%;
   height: 1px;
   content: "";
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--primary) 45%, transparent), transparent);
+  background: linear-gradient(90deg, transparent, var(--primary), color-mix(in srgb, var(--work-orange) 65%, transparent), transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--primary) 55%, transparent);
   pointer-events: none;
 }
 
@@ -232,9 +245,11 @@ textarea:focus-visible,
   overflow: hidden;
   color: var(--foreground);
   font-size: clamp(1.05rem, 1.6vw, 1.35rem);
-  font-weight: 750;
-  letter-spacing: -0.035em;
+  font-weight: 850;
+  letter-spacing: 0.035em;
   line-height: 1.15;
+  text-transform: uppercase;
+  text-shadow: 0 0 24px color-mix(in srgb, var(--primary) 12%, transparent);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -244,7 +259,9 @@ textarea:focus-visible,
   overflow: hidden;
   color: var(--muted-2);
   font-size: 0.74rem;
-  font-weight: 500;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-weight: 600;
+  letter-spacing: 0.025em;
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -264,15 +281,16 @@ textarea:focus-visible,
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background:
-    linear-gradient(145deg, color-mix(in srgb, white 3%, transparent), transparent 44%),
+    linear-gradient(145deg, color-mix(in srgb, var(--primary) 5%, transparent), transparent 44%),
     var(--surface);
   box-shadow: var(--shadow-sm);
   transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
 .modern-card:hover {
-  border-color: var(--border-strong);
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--border-strong));
   box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
 }
 
 /* Buttons */
@@ -288,7 +306,9 @@ textarea:focus-visible,
   background: var(--surface-2);
   color: var(--foreground);
   font-size: 0.8125rem;
-  font-weight: 680;
+  font-weight: 780;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
   line-height: 1;
   box-shadow: var(--shadow-sm);
   cursor: pointer;
@@ -316,7 +336,7 @@ textarea:focus-visible,
 .td-btn-primary {
   border-color: color-mix(in srgb, var(--primary) 82%, white 8%);
   background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 94%, white 6%), var(--primary-hover));
-  color: white;
+  color: #eefaff;
   box-shadow: 0 8px 24px color-mix(in srgb, var(--primary) 25%, transparent);
 }
 
@@ -368,8 +388,10 @@ textarea:focus-visible,
   margin-bottom: 7px;
   color: var(--muted);
   font-size: 0.72rem;
-  font-weight: 680;
-  letter-spacing: 0.02em;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-weight: 760;
+  letter-spacing: 0.065em;
+  text-transform: uppercase;
 }
 
 .td-input,
@@ -430,7 +452,7 @@ textarea:focus-visible,
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
   box-shadow: var(--shadow-sm);
 }
 
@@ -447,7 +469,7 @@ textarea:focus-visible,
   z-index: 2;
   padding: 11px 14px;
   border-bottom: 1px solid var(--border-strong);
-  background: color-mix(in srgb, var(--surface-2) 94%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 8%, var(--surface-2)), var(--surface-2));
   color: var(--muted);
   font-size: 0.68rem;
   font-weight: 720;
@@ -469,7 +491,8 @@ textarea:focus-visible,
 }
 
 .td-table tbody tr:hover {
-  background: color-mix(in srgb, var(--primary) 5%, transparent);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  box-shadow: inset 3px 0 var(--primary);
 }
 
 .td-table tbody tr:last-child .td-td {
@@ -751,3 +774,35 @@ html.light footer {
   background-color: var(--surface);
   border-color: var(--border);
 }
+
+/* Flyer Studio controls are intentionally scoped so campaign tooling can evolve
+   without changing form controls elsewhere in the sales portal. */
+.flyer-studio .field {
+  display: block;
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--border) 90%, white 10%);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--surface) 74%, black 26%);
+  color: var(--foreground);
+  padding: 0.7rem 0.8rem;
+  font-size: 0.875rem;
+  outline: none;
+}
+.flyer-studio .field:focus { border-color: #f97316; box-shadow: 0 0 0 3px rgb(249 115 22 / 12%); }
+.flyer-studio .btn-primary,
+.flyer-studio .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 42px;
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  transition: 150ms ease;
+}
+.flyer-studio .btn-primary { background: #f97316; color: #111; border: 1px solid #fb923c; }
+.flyer-studio .btn-primary:hover { background: #fb923c; }
+.flyer-studio .btn-secondary { background: rgb(255 255 255 / 5%); color: var(--foreground); border: 1px solid var(--border); justify-content: center; }
+.flyer-studio .btn-secondary:hover { border-color: rgb(249 115 22 / 60%); color: #fb923c; }
+.flyer-studio button:disabled { cursor: not-allowed; opacity: 0.55; }

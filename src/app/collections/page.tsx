@@ -11,6 +11,7 @@ import { sessionGet, sessionSet, TTL } from "@/lib/dataCache"
 import { UpdateBanner } from '@/lib/useStaleCheck'
 import { PeriodSelector, isInPeriod, type PeriodValue } from "@/components/PeriodSelector"
 import { useZoho } from "@/components/ZohoProvider"
+import { isAdminRole } from "@/lib/roles"
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n || 0)
@@ -18,12 +19,14 @@ function fmt(n: number) {
 
 export default function CollectionsPage() {
   const { zohoContext: currentUser } = useZoho()
+  const canViewAllReps = isAdminRole(currentUser?.role)
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [dataSig, setDataSig] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [selectedRep, setSelectedRep] = useState<string>("all")
+  const [sortBy, setSortBy] = useState("days_desc")
   const [collPeriod, setCollPeriod] = useState<PeriodValue>("all")
   const [collCustomStart, setCollCustomStart] = useState("")
   const [collCustomEnd, setCollCustomEnd] = useState("")
@@ -46,7 +49,9 @@ export default function CollectionsPage() {
   }
 
   const fetchCollections = useCallback(async (force = false) => {
-    const cached = !force && sessionGet<Invoice[]>('collections', TTL.TEN_MIN)
+    if (!currentUser?.id && !currentUser?.email) return
+    const cacheKey = `collections-v2-${currentUser?.id || currentUser?.email || "anonymous"}`
+    const cached = !force && currentUser ? sessionGet<Invoice[]>(cacheKey, TTL.TEN_MIN) : null
     if (cached) { setInvoices(cached); setLoading(false); return }
     // First load with no data: full spinner. Subsequent: subtle refresh
     if (invoices.length === 0) setLoading(true)
@@ -56,7 +61,7 @@ export default function CollectionsPage() {
       const data = await res.json()
       if (data.success && Array.isArray(data.invoices)) {
         setInvoices(data.invoices)
-        sessionSet('collections', data.invoices)
+        sessionSet(cacheKey, data.invoices)
         const sig = `${data.invoices.length}|${data.invoices[0]?.updated_at ?? ''}`
         setDataSig(sig)
         setUpdateAvailable(false)
@@ -87,22 +92,34 @@ export default function CollectionsPage() {
 
   // Filtered invoices
   const filteredInvoices = useMemo(() => {
-    return invoices.filter(inv => {
+    const filtered = invoices.filter(inv => {
       const matchesSearch = 
         !search ||
         inv.invoice_number?.toLowerCase().includes(search.toLowerCase()) ||
         inv.customer_name?.toLowerCase().includes(search.toLowerCase()) ||
-        inv.salesperson_name?.toLowerCase().includes(search.toLowerCase())
+        inv.salesperson_name?.toLowerCase().includes(search.toLowerCase()) ||
+        inv.customer_contacts?.some(contact =>
+          contact.name?.toLowerCase().includes(search.toLowerCase()) ||
+          contact.phone?.includes(search)
+        )
       
       const matchesRep = 
         selectedRep === "all" || 
         inv.salesperson_name === selectedRep
 
-      const matchesPeriod = collPeriod === "all" || isInPeriod(inv.issue_date, collPeriod, collCustomStart, collCustomEnd)
+      const matchesPeriod = collPeriod === "all" || isInPeriod(inv.due_date, collPeriod, collCustomStart, collCustomEnd)
 
       return matchesSearch && matchesRep && matchesPeriod
     })
-  }, [invoices, search, selectedRep, collPeriod, collCustomStart, collCustomEnd])
+
+    return filtered.sort((a, b) => {
+      if (sortBy === "balance_desc") return (b.balance || 0) - (a.balance || 0)
+      if (sortBy === "balance_asc") return (a.balance || 0) - (b.balance || 0)
+      if (sortBy === "due_asc") return new Date(a.due_date || "9999-12-31").getTime() - new Date(b.due_date || "9999-12-31").getTime()
+      if (sortBy === "customer_asc") return (a.customer_name || "").localeCompare(b.customer_name || "")
+      return (b.days_overdue || 0) - (a.days_overdue || 0)
+    })
+  }, [invoices, search, selectedRep, collPeriod, collCustomStart, collCustomEnd, sortBy])
 
   // Summary Metrics
   const metrics = useMemo(() => {
@@ -113,6 +130,7 @@ export default function CollectionsPage() {
     
     return {
       count: filteredInvoices.length,
+      accountCount: new Set(filteredInvoices.map(invoice => invoice.customer_id).filter(Boolean)).size,
       totalBalance,
       over90Balance,
       avgOverdue: filteredInvoices.length > 0 
@@ -166,7 +184,7 @@ export default function CollectionsPage() {
             { label: "Total Overdue", value: fmt(metrics.totalBalance), sub: `${metrics.count} invoices${collPeriod !== 'all' ? ' in period' : ' pending'}`, icon: FiDollarSign, iconColor: "text-red-400", accent: "border-red-500/20" },
             { label: "90+ Days Overdue", value: fmt(metrics.over90Balance), sub: "Critical attention required", icon: FiAlertCircle, iconColor: "text-amber-400", accent: "border-amber-500/20", valueColor: "text-amber-400" },
             { label: "Avg Overdue Days", value: `${metrics.avgOverdue} Days`, sub: "Across all open accounts", icon: FiClock, iconColor: "text-blue-400", accent: "border-blue-500/20" },
-            { label: "Open Accounts", value: String(metrics.count), sub: "Active collection targets", icon: FiUser, iconColor: "text-emerald-400", accent: "border-emerald-500/20" },
+            { label: "Open Accounts", value: String(metrics.accountCount), sub: "Unique active collection targets", icon: FiUser, iconColor: "text-emerald-400", accent: "border-emerald-500/20" },
           ].map(({ label, value, sub, icon: Icon, iconColor, accent, valueColor }) => (
             <div key={label} className={`glass-panel p-4 rounded-2xl border ${accent} space-y-1`}>
               <div className="flex items-center justify-between text-neutral-500 text-[10px] font-bold uppercase tracking-wider">
@@ -203,7 +221,7 @@ export default function CollectionsPage() {
               className="td-input pl-9"
             />
           </div>
-          <div className="flex items-center gap-2">
+          {canViewAllReps && <div className="flex items-center gap-2">
             <FiFilter className="text-neutral-500 shrink-0" size={14} />
             <select
               value={selectedRep}
@@ -215,7 +233,14 @@ export default function CollectionsPage() {
                 <option key={rep} value={rep}>{rep}</option>
               ))}
             </select>
-          </div>
+          </div>}
+          <select value={sortBy} onChange={event => setSortBy(event.target.value)} className="td-select" aria-label="Sort collections">
+            <option value="days_desc">Most Overdue</option>
+            <option value="balance_desc">Highest Balance</option>
+            <option value="balance_asc">Lowest Balance</option>
+            <option value="due_asc">Due Date</option>
+            <option value="customer_asc">Customer A–Z</option>
+          </select>
         </div>
         </div>
 
@@ -239,6 +264,7 @@ export default function CollectionsPage() {
                   <th className="td-th">Invoice #</th>
                   <th className="td-th">Customer</th>
                   <th className="td-th">Sales Rep</th>
+                  <th className="td-th">Phone</th>
                   <th className="td-th">Due Date</th>
                   <th className="td-th">Last Contact</th>
                   <th className="td-th">Days Overdue</th>
@@ -255,6 +281,17 @@ export default function CollectionsPage() {
                       <td className="td-td font-mono font-bold text-white">#{inv.invoice_number}</td>
                       <td className="td-td font-semibold text-neutral-200">{inv.customer_name}</td>
                       <td className="td-td text-neutral-400 text-xs">{inv.salesperson_name || "Unassigned"}</td>
+                      <td className="td-td text-xs whitespace-nowrap">
+                        {inv.customer_contacts?.length ? (
+                          <div className="flex flex-col gap-1">
+                            {inv.customer_contacts.map(contact => (
+                              <a key={contact.id} href={`tel:${contact.phone_href || contact.phone}`} className="text-emerald-400 hover:text-emerald-300 font-semibold" title={`${contact.name}${contact.isPrimary ? " (Primary)" : ""}`}>
+                                {contact.name}: {contact.phone}
+                              </a>
+                            ))}
+                          </div>
+                        ) : <span className="text-neutral-600">No phone</span>}
+                      </td>
                       <td className="td-td text-neutral-400 text-xs">{inv.due_date || "--"}</td>
                       <td className="td-td text-purple-300 text-xs font-medium whitespace-nowrap">
                         {(inv as any).last_called_at || (inv as any).lastCalledAt

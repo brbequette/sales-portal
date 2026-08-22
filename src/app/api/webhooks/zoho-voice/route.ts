@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { hasValidWebhookToken } from '@/lib/webhook-auth'
 
 export async function POST(req: Request) {
   try {
-    const { searchParams } = new URL(req.url)
-    const token = searchParams.get('token')
-    if (!token || token !== process.env.ZOHO_WEBHOOK_SECRET) {
+    if (!hasValidWebhookToken(req, process.env.ZOHO_VOICE_WEBHOOK_SECRET || process.env.ZOHO_WEBHOOK_SECRET)) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -72,6 +71,30 @@ export async function POST(req: Request) {
           if (account) accountId = account.id
         }
       }
+    }
+
+    // CallLog.accountId is required. Preserve unmatched inbound activity under
+    // one stable holding account so the webhook never drops calls because of a
+    // foreign-key failure; admins can later reassign the call to the customer.
+    if (!accountId) {
+      const adminUser = await prisma.user.findFirst({
+        where: { role: { contains: 'admin', mode: 'insensitive' } },
+        orderBy: { createdAt: 'asc' },
+      })
+      if (!adminUser) {
+        return NextResponse.json({ success: false, error: 'No administrator is available to own unmatched calls' }, { status: 503 })
+      }
+      const holdingAccount = await prisma.account.upsert({
+        where: { zohoId: 'unknown-voice-caller' },
+        update: {},
+        create: {
+          name: 'Unknown Voice Caller',
+          zohoId: 'unknown-voice-caller',
+          status: 'Lead',
+          ownerId: adminUser.id,
+        },
+      })
+      accountId = holdingAccount.id
     }
 
     // Upsert CallLog

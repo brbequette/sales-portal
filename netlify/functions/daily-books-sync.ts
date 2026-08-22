@@ -36,7 +36,12 @@ const ORG_ID = ZOHO_ORGANIZATION_ID
  * a record since the last sync, it's flagged (syncConflict=true) for admin
  * review instead of being silently overwritten.
  */
-export async function runBooksSync() {
+export interface BooksSyncOptions {
+  fullYear?: number
+  forceDetails?: boolean
+}
+
+export async function runBooksSync(options: BooksSyncOptions = {}) {
   console.log("=== Daily Books Sync Started ===")
   const startTime = Date.now()
   const runStartedAt = new Date()
@@ -145,12 +150,20 @@ export async function runBooksSync() {
       : new Date(Date.now() - 48 * 60 * 60 * 1000)
     console.log(`--- Pass 2: delta sweep since ${since.toISOString()} ---`)
     const sinceStr = since.toISOString().split(".")[0] + "+0000"
+    const fullYear = options.fullYear
+    const fullYearQuery = fullYear
+      ? `&date_start=${fullYear}-01-01&date_end=${fullYear}-12-31`
+      : `&last_modified_time=${encodeURIComponent(sinceStr)}`
+    const forceDetails = options.forceDetails === true
+    if (fullYear) {
+      console.log(`--- Full ${fullYear} refresh: every document will be fetched with line-item detail ---`)
+    }
 
     // Invoices
     try {
       let page = 1, hasMore = true
       while (hasMore) {
-        const url = `${baseUrl}/invoices?organization_id=${ORG_ID}&last_modified_time=${encodeURIComponent(sinceStr)}&page=${page}&per_page=200&sort_column=last_modified_time&sort_order=D`
+        const url = `${baseUrl}/invoices?organization_id=${ORG_ID}${fullYearQuery}&page=${page}&per_page=200&sort_column=date&sort_order=D`
         const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } })
         if (!res.ok) { syncIncomplete = true; console.error(`Invoices page ${page} failed: ${res.status}`); break }
         const data: any = await res.json()
@@ -175,7 +188,7 @@ export async function runBooksSync() {
             console.log(`[daily-sync] Created new Invoice ${inv.invoice_id} for ${inv.customer_name}`)
           }
           // Skip if already processed in Pass 1 (pendingZohoFetch already cleared)
-          if (!dbDoc.lastSyncedAt || isStale(dbDoc.lastSyncedAt, inv.last_modified_time)) {
+          if (forceDetails || !dbDoc.lastSyncedAt || isStale(dbDoc.lastSyncedAt, inv.last_modified_time)) {
             const r = await syncFullDocument(token, baseUrl, "Invoice", inv.invoice_id, dbDoc, inv)
             if (r === "conflict") conflictsFlagged++
             invoicesSynced++
@@ -191,7 +204,7 @@ export async function runBooksSync() {
     try {
       let page = 1, hasMore = true
       while (hasMore) {
-        const url = `${baseUrl}/salesorders?organization_id=${ORG_ID}&last_modified_time=${encodeURIComponent(sinceStr)}&page=${page}&per_page=200&sort_column=last_modified_time&sort_order=D`
+        const url = `${baseUrl}/salesorders?organization_id=${ORG_ID}${fullYearQuery}&page=${page}&per_page=200&sort_column=date&sort_order=D`
         const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } })
         if (!res.ok) { syncIncomplete = true; console.error(`SalesOrders page ${page} failed: ${res.status}`); break }
         const data: any = await res.json()
@@ -214,7 +227,7 @@ export async function runBooksSync() {
             newRecordsCreated++
             console.log(`[daily-sync] Created new SalesOrder ${so.salesorder_id} for ${so.customer_name}`)
           }
-          if (!dbDoc.lastSyncedAt || isStale(dbDoc.lastSyncedAt, so.last_modified_time)) {
+          if (forceDetails || !dbDoc.lastSyncedAt || isStale(dbDoc.lastSyncedAt, so.last_modified_time)) {
             const r = await syncFullDocument(token, baseUrl, "SalesOrder", so.salesorder_id, dbDoc, so)
             if (r === "conflict") conflictsFlagged++
             sosSynced++
@@ -226,11 +239,13 @@ export async function runBooksSync() {
       }
     } catch (e) { syncIncomplete = true; console.error("SalesOrder sweep error:", e) }
 
-    // Estimates (invoiced only)
+    // Estimates. Full-year refreshes include every status; the lightweight
+    // recurring delta retains the narrower invoiced-only behavior.
     try {
       let page = 1, hasMore = true
       while (hasMore) {
-        const url = `${baseUrl}/estimates?organization_id=${ORG_ID}&status=invoiced&last_modified_time=${encodeURIComponent(sinceStr)}&page=${page}&per_page=200&sort_column=last_modified_time&sort_order=D`
+        const estimateStatus = fullYear ? "" : "&status=invoiced"
+        const url = `${baseUrl}/estimates?organization_id=${ORG_ID}${estimateStatus}${fullYearQuery}&page=${page}&per_page=200&sort_column=date&sort_order=D`
         const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } })
         if (!res.ok) { syncIncomplete = true; console.error(`Estimates page ${page} failed: ${res.status}`); break }
         const data: any = await res.json()
@@ -238,7 +253,7 @@ export async function runBooksSync() {
         console.log(`Estimate page ${page}: ${estimates.length}`)
 
         for (const est of estimates) {
-          if ((est.status || "").toLowerCase() !== "invoiced") continue
+          if (!fullYear && (est.status || "").toLowerCase() !== "invoiced") continue
           let dbDoc = await prisma.quote.findFirst({
             where: { zohoId: est.estimate_id },
             select: { id: true, zohoId: true, status: true, items: true, lastSyncedAt: true, appModifiedAt: true, lastZohoModifiedTime: true }
@@ -254,7 +269,7 @@ export async function runBooksSync() {
             newRecordsCreated++
             console.log(`[daily-sync] Created new Quote ${est.estimate_id} for ${est.customer_name}`)
           }
-          if (!dbDoc.lastSyncedAt || isStale(dbDoc.lastSyncedAt, est.last_modified_time)) {
+          if (forceDetails || !dbDoc.lastSyncedAt || isStale(dbDoc.lastSyncedAt, est.last_modified_time)) {
             const r = await syncFullDocument(token, baseUrl, "Quote", est.estimate_id, dbDoc, est)
             if (r === "conflict") conflictsFlagged++
             quotesSynced++

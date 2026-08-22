@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
+import { requireAdministrator } from '@/lib/auth-helpers';
 
 export async function POST(req: Request) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const { easyshipShipmentIds, preferredDate, preferredTimeSlot } = await req.json();
 
     if (!easyshipShipmentIds || !Array.isArray(easyshipShipmentIds) || easyshipShipmentIds.length === 0) {

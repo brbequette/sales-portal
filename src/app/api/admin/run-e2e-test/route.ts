@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { calculateDocumentCosts } from "../../../../../netlify/functions/lib/cost-calculations"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 export async function GET() {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
   const logs: string[] = []
   const log = (msg: string) => {
     console.log(msg)

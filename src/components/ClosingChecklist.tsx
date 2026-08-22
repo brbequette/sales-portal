@@ -2,19 +2,28 @@
 
 
 import { useState } from "react"
-import { FiCheckCircle } from "react-icons/fi"
+import { FiCheckCircle, FiChevronDown, FiChevronRight } from "react-icons/fi"
+
+export type ClosingChecklistState = {
+  paymentVerified: boolean
+  giftSent: boolean
+  satisfactionChecked: boolean
+}
 
 interface ClosingChecklistProps {
   dealId: string
   currentStageSlug: string
   onComplete: () => void
+  initialState?: Partial<ClosingChecklistState> | null
+  onChange?: (state: ClosingChecklistState) => void
 }
 
-export function ClosingChecklist({ dealId, currentStageSlug, onComplete }: ClosingChecklistProps) {
+export function ClosingChecklist({ dealId, currentStageSlug, onComplete, initialState, onChange }: ClosingChecklistProps) {
+  const [expanded, setExpanded] = useState(false)
   const [checkedItems, setCheckedItems] = useState({
-    paymentVerified: false,
-    giftSent: false,
-    satisfactionChecked: false,
+    paymentVerified: initialState?.paymentVerified === true,
+    giftSent: initialState?.giftSent === true,
+    satisfactionChecked: initialState?.satisfactionChecked === true,
   })
 
   const isVisible =
@@ -28,19 +37,25 @@ export function ClosingChecklist({ dealId, currentStageSlug, onComplete }: Closi
   const allChecked = Object.values(checkedItems).every(Boolean)
 
   const toggleCheck = (key: keyof typeof checkedItems) => {
-    setCheckedItems(prev => ({ ...prev, [key]: !prev[key] }))
+    setCheckedItems(prev => {
+      const next = { ...prev, [key]: !prev[key] }
+      onChange?.(next)
+      return next
+    })
   }
+
+  const completedCount = Object.values(checkedItems).filter(Boolean).length
 
   return (
     <div 
-      className="mt-3 glass-panel border border-white/10 rounded-xl p-4 shadow-xl animate-in fade-in slide-in-from-bottom-4 duration-300"
+      className="mt-3 border border-white/10 rounded-lg bg-black/20"
       onClick={e => e.stopPropagation()}
     >
-      <h4 className="text-sm font-black uppercase tracking-wider text-neutral-100 mb-3 flex items-center gap-2">
-        <FiCheckCircle className="text-emerald-500" />
-        Closing Checklist
-      </h4>
-      <div className="space-y-2 mb-4">
+      <button onClick={() => setExpanded(value => !value)} className="w-full px-2.5 py-2 flex items-center justify-between text-[10px] font-bold uppercase tracking-wide text-neutral-300">
+        <span className="flex items-center gap-1.5"><FiCheckCircle className="text-emerald-500" /> Closing checklist {completedCount}/3</span>
+        {expanded ? <FiChevronDown /> : <FiChevronRight />}
+      </button>
+      {expanded && <div className="space-y-2 px-3 pb-3">
         <label className="flex items-center gap-3 cursor-pointer group">
           <input
             type="checkbox"
@@ -74,9 +89,9 @@ export function ClosingChecklist({ dealId, currentStageSlug, onComplete }: Closi
             Customer satisfaction checked / review requested
           </span>
         </label>
-      </div>
+      </div>}
 
-      {allChecked && (
+      {expanded && allChecked && (
         <button
           onClick={(e) => {
             e.stopPropagation();

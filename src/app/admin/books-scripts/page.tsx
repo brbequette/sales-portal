@@ -1,10 +1,11 @@
 "use client"
 
 import { toastConfirm } from '@/lib/toastConfirm'
+import Link from 'next/link'
 import React, { useEffect, useState } from "react"
 import {
   FiPlay, FiCheck, FiAlertCircle, FiLoader, FiCpu,
-  FiDatabase, FiRefreshCw, FiZap, FiCloud, FiX, FiAlertTriangle, FiChevronDown, FiChevronUp
+  FiDatabase, FiRefreshCw, FiZap, FiCloud, FiAlertTriangle
 } from "react-icons/fi"
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -64,6 +65,12 @@ export default function BooksScriptsPage() {
   const [bulkStartDate, setBulkStartDate] = useState(`${nowY}-${nowM}-01`)
   const [bulkEndDate, setBulkEndDate] = useState(`${nowY}-${nowM}-${lastDayOfMonth}`)
 
+  // ── Linked document date repair state ──────────────────────────────────
+  const [dateRepairScope, setDateRepairScope] = useState<'range' | 'all'>('range')
+  const [dateRepairStart, setDateRepairStart] = useState(`${nowY}-${nowM}-01`)
+  const [dateRepairEnd, setDateRepairEnd] = useState(`${nowY}-${nowM}-${lastDayOfMonth}`)
+  const [dateRepairResult, setDateRepairResult] = useState<any>(null)
+
   // ── Sync Pending to Zoho state ───────────────────────────────────────────
   const [pendingCounts, setPendingCounts] = useState<PendingCounts | null>(null)
   const [pendingLoading, setPendingLoading] = useState(false)
@@ -71,36 +78,9 @@ export default function BooksScriptsPage() {
     running: false, result: null, error: null, lastRan: null,
   })
 
-  // ── Conflict state ───────────────────────────────────────────────────────
-  const [conflicts, setConflicts] = useState<any>(null)
-  const [conflictsOpen, setConflictsOpen] = useState(false)
-  const [conflictLoading, setConflictLoading] = useState<string | null>(null)
-
-  const fetchConflicts = async () => {
-    try {
-      const res = await fetch('/api/admin/books/sync-conflicts')
-      if (res.ok) setConflicts(await res.json())
-    } catch { /* non-fatal */ }
-  }
-
-  const resolveConflict = async (docType: string, docId: string, resolution: 'app' | 'zoho' | 'dismiss') => {
-    setConflictLoading(docId)
-    try {
-      await fetch('/api/admin/books/sync-conflicts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'resolve', docType, docId, resolution }),
-      })
-      await fetchConflicts()
-    } catch { /* non-fatal */ } finally {
-      setConflictLoading(null)
-    }
-  }
-
-  // ── Auto-load pending counts + conflicts on mount ────────────────────────
+  // ── Auto-load pending counts on mount ────────────────────────────────────
   useEffect(() => {
     fetchPendingCounts()
-    fetchConflicts()
   }, [])
 
   const fetchPendingCounts = async () => {
@@ -331,6 +311,37 @@ export default function BooksScriptsPage() {
     });
   }
 
+  const runInvoiceDateRepair = async (apply: boolean) => {
+    const execute = async () => {
+      setLoading('invoice-date-repair')
+      try {
+        const res = await fetch('/api/admin/backfill-invoice-dates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            scope: dateRepairScope,
+            startDate: dateRepairStart,
+            endDate: dateRepairEnd,
+            apply,
+          }),
+        })
+        const data = await res.json()
+        if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`)
+        setDateRepairResult(data)
+      } catch (error: any) {
+        setDateRepairResult({ success: false, message: error.message })
+      } finally {
+        setLoading(null)
+      }
+    }
+
+    if (!apply) return execute()
+    toastConfirm(
+      `Apply linked sales-order/estimate dates to ${dateRepairScope === 'all' ? 'ALL invoices' : `invoices currently dated ${dateRepairStart} through ${dateRepairEnd}`}? Existing dates will be preserved in each invoice's audit data.`,
+      execute,
+    )
+  }
+
   // ── Render ───────────────────────────────────────────────────────────────
   const anyBusy = fullSync.running || bulkRunning || loading !== null || zohoSync.running
 
@@ -352,85 +363,18 @@ export default function BooksScriptsPage() {
       {/* ─── Body ───────────────────────────────────── */}
       <div className="page-body animate-fade-in space-y-6">
 
-  {/* ── Sync Conflicts Panel ── */}
-      {conflicts && conflicts.totalConflicts > 0 && (
-        <div className="border border-amber-500/40 bg-amber-500/5 rounded-2xl overflow-hidden">
-          <button
-            onClick={() => setConflictsOpen(o => !o)}
-            className="w-full flex items-center justify-between px-6 py-4 hover:bg-amber-500/10 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <FiAlertTriangle className="text-amber-400" size={18} />
-              <span className="font-bold text-amber-400 text-sm">
-                {conflicts.totalConflicts} Sync Conflict{conflicts.totalConflicts !== 1 ? 's' : ''} Require Review
-              </span>
-              <span className="text-xs text-amber-400/60">
-                {conflicts.invoiceConflicts > 0 && `${conflicts.invoiceConflicts} invoice${conflicts.invoiceConflicts !== 1 ? 's' : ''}`}
-                {conflicts.salesOrderConflicts > 0 && `, ${conflicts.salesOrderConflicts} SO${conflicts.salesOrderConflicts !== 1 ? 's' : ''}`}
-                {conflicts.quoteConflicts > 0 && `, ${conflicts.quoteConflicts} quote${conflicts.quoteConflicts !== 1 ? 's' : ''}`}
-              </span>
-            </div>
-            {conflictsOpen ? <FiChevronUp className="text-amber-400" /> : <FiChevronDown className="text-amber-400" />}
-          </button>
-
-          {conflictsOpen && (
-            <div className="px-6 pb-6 space-y-3">
-              <p className="text-xs text-neutral-400 pb-1">
-                Both the app and Zoho modified these documents since the last sync.
-                Choose which side wins — or dismiss to keep the current state and clear the flag.
-              </p>
-              {[...conflicts.invoices, ...conflicts.salesOrders, ...conflicts.quotes].map((doc: any) => (
-                <div key={doc.id} className="bg-neutral-900 border border-neutral-700 rounded-xl p-4 space-y-3">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div>
-                      <span className="font-bold text-white text-sm">{doc.docNumber}</span>
-                      <span className="ml-2 text-xs text-neutral-400">{doc.customer}</span>
-                      <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-300">{doc.docType}</span>
-                    </div>
-                    <div className="text-xs text-neutral-500 space-y-0.5 text-right">
-                      <div>App modified: {doc.appModifiedAt ? new Date(doc.appModifiedAt).toLocaleString() : '—'}</div>
-                      <div>Zoho modified: {doc.lastZohoModifiedTime ? new Date(doc.lastZohoModifiedTime).toLocaleString() : '—'}</div>
-                    </div>
-                  </div>
-
-                  {/* Conflicting fields */}
-                  {doc.conflictFields && Object.keys(doc.conflictFields).length > 0 && (
-                    <div className="bg-neutral-800 rounded-lg p-3 space-y-1">
-                      <p className="text-xs font-bold text-neutral-400 mb-2">Conflicting fields:</p>
-                      {Object.entries(doc.conflictFields as Record<string, { app: unknown; zoho: unknown }>).map(([field, vals]) => (
-                        <div key={field} className="grid grid-cols-3 text-xs gap-2">
-                          <span className="text-neutral-400 font-mono">{field}</span>
-                          <span className="text-sky-400">App: <strong>{String(vals.app)}</strong></span>
-                          <span className="text-emerald-400">Zoho: <strong>{String(vals.zoho)}</strong></span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="flex gap-2 pt-1">
-                    <button
-                      disabled={conflictLoading === doc.id}
-                      onClick={() => resolveConflict(doc.docType, doc.id, 'app')}
-                      className="px-3 py-1.5 text-xs font-bold rounded-lg bg-sky-700 hover:bg-sky-600 text-white transition-colors disabled:opacity-50"
-                    >Keep App Values</button>
-                    <button
-                      disabled={conflictLoading === doc.id}
-                      onClick={() => resolveConflict(doc.docType, doc.id, 'zoho')}
-                      className="px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-800 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50"
-                    >Use Zoho Data</button>
-                    <button
-                      disabled={conflictLoading === doc.id}
-                      onClick={() => resolveConflict(doc.docType, doc.id, 'dismiss')}
-                      className="px-3 py-1.5 text-xs font-bold rounded-lg bg-neutral-700 hover:bg-neutral-600 text-neutral-300 transition-colors disabled:opacity-50"
-                    >Dismiss</button>
-                    {conflictLoading === doc.id && <FiLoader className="animate-spin text-amber-400 mt-1" size={14} />}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 px-6 py-4">
+        <div className="flex items-center gap-3">
+          <FiAlertTriangle className="text-amber-400" size={18} />
+          <div>
+            <p className="text-sm font-bold text-amber-300">Sync conflicts are managed in one dedicated workspace</p>
+            <p className="text-xs text-neutral-400">Review field differences and approve which system wins before records change.</p>
+          </div>
         </div>
-      )}
+        <Link href="/admin/sync-conflicts" className="rounded-lg bg-amber-500 px-4 py-2 text-xs font-bold text-black transition-colors hover:bg-amber-400">
+          Review Sync Conflicts
+        </Link>
+      </div>
 
       {/* ── Sync Pending to Zoho — TOP PRIORITY CARD ── */}
       <div className="glass-panel border border-sky-500/40 p-6 rounded-2xl space-y-4">
@@ -710,6 +654,57 @@ export default function BooksScriptsPage() {
       <div>
         <h2 className="text-base font-bold text-neutral-400 uppercase tracking-widest mb-4">Utility Scripts</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+
+          {/* Linked source date repair */}
+          <div className="glass-panel border border-sky-500/30 p-6 rounded-2xl flex flex-col justify-between space-y-4 sm:col-span-2 lg:col-span-3">
+            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-sky-400 flex items-center gap-2"><FiRefreshCw /> Set Invoice Dates from Linked Documents</h2>
+                <p className="text-sm text-neutral-400 mt-2 max-w-3xl">
+                  Uses the linked <strong className="text-white">sales-order date first</strong>, then the linked estimate date when no sales order is available. Preview before applying. The prior invoice date is preserved in audit data and Zoho document dates are not changed.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <select value={dateRepairScope} onChange={e => setDateRepairScope(e.target.value as 'range' | 'all')} disabled={anyBusy}
+                  className="bg-neutral-800 border border-neutral-700 text-white text-xs font-bold rounded-lg px-3 py-2">
+                  <option value="range">Date Range</option>
+                  <option value="all">All Invoices</option>
+                </select>
+                {dateRepairScope === 'range' && <>
+                  <input type="date" value={dateRepairStart} onChange={e => setDateRepairStart(e.target.value)} disabled={anyBusy}
+                    className="bg-neutral-800 border border-neutral-700 text-white text-xs rounded-lg px-2 py-1.5 [color-scheme:dark]" />
+                  <span className="text-neutral-500 text-xs">to</span>
+                  <input type="date" value={dateRepairEnd} onChange={e => setDateRepairEnd(e.target.value)} disabled={anyBusy}
+                    className="bg-neutral-800 border border-neutral-700 text-white text-xs rounded-lg px-2 py-1.5 [color-scheme:dark]" />
+                </>}
+              </div>
+            </div>
+
+            {dateRepairResult && (
+              <div className={`rounded-xl border p-3 text-xs ${dateRepairResult.success ? 'border-sky-500/25 bg-sky-500/10 text-sky-200' : 'border-red-500/25 bg-red-500/10 text-red-300'}`}>
+                <strong>{dateRepairResult.message}</strong>
+                {dateRepairResult.success && <div className="mt-1 text-neutral-400">
+                  Scanned {dateRepairResult.scannedCount} · matched {dateRepairResult.matchedCount} · skipped {dateRepairResult.skippedCount}
+                </div>}
+                {Array.isArray(dateRepairResult.sample) && dateRepairResult.sample.length > 0 && (
+                  <div className="mt-2 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-1 font-mono text-[11px] text-neutral-300 max-h-28 overflow-y-auto">
+                    {dateRepairResult.sample.map((row: any) => <span key={`${row.invoiceNumber}-${row.to}`}>#{row.invoiceNumber}: {row.from} → {row.to} ({row.source})</span>)}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button disabled={anyBusy} onClick={() => runInvoiceDateRepair(false)}
+                className="bg-sky-950 hover:bg-sky-900 border border-sky-500/40 text-sky-200 font-bold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50">
+                {loading === 'invoice-date-repair' ? <FiLoader className="animate-spin" /> : <FiRefreshCw />} Preview Date Changes
+              </button>
+              <button disabled={anyBusy || !dateRepairResult?.success || dateRepairResult?.matchedCount === 0} onClick={() => runInvoiceDateRepair(true)}
+                className="bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-40">
+                <FiCheck /> Apply {dateRepairResult?.matchedCount || 0} Date Changes
+              </button>
+            </div>
+          </div>
 
           {/* Script 1: Process Drafts */}
           <div className="glass-panel border border-[var(--border)] p-6 rounded-2xl flex flex-col justify-between space-y-4">

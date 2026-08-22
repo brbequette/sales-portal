@@ -1,12 +1,15 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from "next/server"
 import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
+import { requireAdministrator } from "@/lib/auth-helpers"
 const ORG_ID = ZOHO_ORGANIZATION_ID
 
 const ZOHO_DC = process.env.ZOHO_DC || "com"
 
 export async function POST() {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const token = await getZohoAccessToken()
     if (!token) return NextResponse.json({ error: "No Zoho token" }, { status: 500 })
 

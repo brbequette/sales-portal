@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 // Helper to determine start and end date of current period based on cadence
 function getPeriodBounds(cadence: string, referenceDate: Date = new Date()) {
@@ -35,13 +38,22 @@ function getPeriodBounds(cadence: string, referenceDate: Date = new Date()) {
 
 export async function GET(req: Request) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) return NextResponse.json({ error: "Authentication required" }, { status: 401 })
     const url = new URL(req.url)
     const repId = url.searchParams.get("repId")
     const scope = url.searchParams.get("scope")
     const cadence = url.searchParams.get("cadence")
 
+    const user = session.user as typeof session.user & { dbId?: string; id?: string; role?: string }
+    const actorId = user.dbId || user.id
+    const role = (user.role || "").toLowerCase()
+    const canViewTeam = role.includes("admin") || role.includes("manager")
+    if (!canViewTeam && !actorId) return NextResponse.json({ error: "Signed-in user is not linked to a local account" }, { status: 403 })
+
     const where: any = {}
-    if (repId) where.OR = [{ repId }, { scope: "TEAM" }]
+    if (canViewTeam && repId) where.OR = [{ repId }, { scope: "TEAM" }]
+    if (!canViewTeam) where.OR = [{ repId: actorId }, { scope: "TEAM" }]
     if (scope) where.scope = scope
     if (cadence) where.cadence = cadence
 
@@ -53,6 +65,7 @@ export async function GET(req: Request) {
       prisma.user.findMany({
         where: {
           AND: [
+            ...(!canViewTeam ? [{ id: actorId }] : []),
             { NOT: { email: { contains: "dummy.titandiamond.com" } } },
             { NOT: { email: { contains: "example.com" } } },
             { NOT: { name: { contains: "test_migration" } } }
@@ -157,6 +170,8 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const body = await req.json()
     const { title, description, scope, repId, repName, metric, targetValue, bonusAmount, cadence, isActive } = body
 
@@ -189,6 +204,8 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const body = await req.json()
     const { id, title, description, scope, repId, repName, metric, targetValue, bonusAmount, cadence, isActive } = body
 
@@ -222,6 +239,8 @@ export async function PUT(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const url = new URL(req.url)
     const id = url.searchParams.get("id")
 

@@ -1,10 +1,11 @@
-import { withFunctionAuth } from "./lib/auth-middleware"
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
 const ORG_ID = ZOHO_ORGANIZATION_ID
 import { syncRecentBooksInvoices } from "./lib/zoho-books"
 
 import { prisma, Prisma } from "./lib/prisma"
+import { isAdminRole } from "../../src/lib/roles"
 
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
@@ -16,7 +17,7 @@ const authenticatedHandler: Handler = async (event, context) => {
   }
 
   try {
-    let { zohoId, email, refresh, force, ownerIdFilter, statusFilter, role: passedRole, page: pageParam, limit: limitParam, search, includeDocs, includeHidden, checkOnly } = event.queryStringParameters || {}
+    let { zohoId, email, refresh, force, ownerIdFilter, statusFilter, page: pageParam, limit: limitParam, search, includeDocs, includeHidden, checkOnly } = event.queryStringParameters || {}
 
   // Load admin email aliases from SystemSettings (key: 'admin_email_aliases', comma-separated)
   let adminEmailAliases: Record<string, string> = {}
@@ -35,79 +36,55 @@ const authenticatedHandler: Handler = async (event, context) => {
     email = adminEmailAliases[email.toLowerCase()]
   }
     const wantDocs = includeDocs === 'true'
-    const showHidden = includeHidden === 'true'
     const parsedLimit = parseInt(limitParam || '2000', 10)
     const PAGE_SIZE = isNaN(parsedLimit) || parsedLimit <= 0 ? 2000 : Math.min(parsedLimit, 10000)
     const page = parseInt(pageParam || '1', 10)
-    let user = null
+    const auth = await authenticateFunction(event)
+    const sessionUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          auth.dbId ? { id: auth.dbId } : undefined,
+          auth.userId ? { id: auth.userId } : undefined,
+          auth.email ? { email: { equals: auth.email, mode: 'insensitive' } } : undefined,
+        ].filter(Boolean) as any,
+      },
+    })
 
-    // 1. Try to find the user by their Zoho CRM User ID or Prisma CUID
-    if (zohoId) {
-      if (zohoId.startsWith('c') && zohoId.length >= 20) {
-        user = await prisma.user.findUnique({ where: { id: zohoId } })
-      } else {
-        user = await prisma.user.findUnique({ where: { zohoId: zohoId } })
+    if (!sessionUser) {
+      return {
+        statusCode: 403,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({ success: false, message: 'Signed-in user is not linked to a local user record' }),
       }
     }
 
-    // 2. Fall back to finding them by email (case-insensitive)
-    if (!user && email) {
-      user = await prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } } })
+    const sessionEmailLower = (sessionUser.email || auth.email || '').toLowerCase()
+    const sessionIsAdmin = isAdminRole(sessionUser.role)
+      || (adminEmailPatterns.length > 0 && adminEmailPatterns.some(pattern => sessionEmailLower.includes(pattern)))
+
+    // Query parameters may narrow an administrator to a rep for impersonation,
+    // but they can never elevate a signed-in rep or select another rep's data.
+    let user = sessionUser
+    if (sessionIsAdmin && (zohoId || (email && email.toLowerCase() !== sessionEmailLower))) {
+      const requestedUser = await prisma.user.findFirst({
+        where: {
+          OR: [
+            zohoId ? { id: zohoId } : undefined,
+            zohoId ? { zohoId } : undefined,
+            email ? { email: { equals: email, mode: 'insensitive' } } : undefined,
+          ].filter(Boolean) as any,
+        },
+      })
+      if (requestedUser) user = requestedUser
     }
 
-    if (!user) {
-      user = await prisma.user.findFirst()
-      if (!user) {
-        try {
-          user = await prisma.user.create({
-            data: {
-              email: email || `demo-${Date.now()}@titandiamond.net`,
-              zohoId: zohoId || `mock-zoho-${Date.now()}`,
-              name: email ? email.split('@')[0] : 'Demo User',
-              role: passedRole || 'Administrator'
-            }
-          })
-        } catch (err) {
-          console.error("User auto-create error:", err)
-        }
-      }
-    }
-
-    // Auto-heal roles using DB-configured patterns instead of hard-coded names
-    if (user) {
-      let needsUpdate = false
-      const updateData: any = {}
-      const lowerEmail = user.email?.toLowerCase() || ''
-
-      // Check if this user should be force-elevated to Administrator
-      // Patterns come from SystemSetting 'admin_email_patterns' (comma-separated substrings)
-      const shouldBeAdmin = adminEmailPatterns.length > 0
-        ? adminEmailPatterns.some(p => lowerEmail.includes(p))
-        : false // If no patterns configured, don't auto-elevate anyone
-
-      if (shouldBeAdmin && user.role !== 'Administrator') {
-        updateData.role = 'Administrator'
-        needsUpdate = true
-      }
-
-      if (needsUpdate) {
-        console.log(`[get-accounts] Auto-healing role for ${user.email}...`)
-        user = await prisma.user.update({ where: { id: user.id }, data: updateData })
-      }
-    }
-
-    const userEmailLower = (user?.email || email || '').toLowerCase()
-    const userRoleLower  = (passedRole || user?.role || '').toLowerCase()
-    // Admin detection: role-based OR matching admin email patterns
-    // 'agent' = Titan employees with full access (not sales-only reps)
-    const isAdmin = userRoleLower.includes('admin') || userRoleLower.includes('administrator') || userRoleLower.includes('manager')
-      || userRoleLower.includes('agent') || userRoleLower.includes('owner') || userRoleLower.includes('super')
-      || (adminEmailPatterns.length > 0 && adminEmailPatterns.some(p => userEmailLower.includes(p)))
+    const isAdmin = sessionIsAdmin && user.id === sessionUser.id
     const isSalesOnly = !isAdmin
+    const showHidden = isAdmin && includeHidden === 'true'
 
     // 3. Only sync LIVE accounts from Zoho CRM if explicitly requested via refresh=true.
     let shouldSync = false
-    if (refresh === 'true') {
+    if (refresh === 'true' && isAdmin) {
       const lastUpdatedAccount = await prisma.account.findFirst({
         where: isSalesOnly && user ? { ownerId: user.id } : {},
         orderBy: { updatedAt: 'desc' }
@@ -1083,12 +1060,40 @@ const authenticatedHandler: Handler = async (event, context) => {
             AND i.status <> 'Paid'
             AND COALESCE(i.balance, i.amount) > 0
         ), '[]'::json) AS "unpaidInvoiceSummary",
-        -- primary contact only (no full array)
-        (SELECT row_to_json(c) FROM (
-          SELECT c2.phone, c2."mobilePhone", c2."isPrimary", c2."firstName", c2."lastName",
-                 c2."mailingStreet", c2."mailingCity", c2."mailingState", c2."mailingZip"
-          FROM "Contact" c2 WHERE c2."accountId" = a.id ORDER BY c2."isPrimary" DESC LIMIT 1
-        ) c) AS "primaryContact"
+        -- Contacts are local-first data used by search and the expandable drawer.
+        COALESCE((
+          SELECT json_agg(json_build_object(
+            'id', c2.id,
+            'zohoId', c2."zohoId",
+            'firstName', c2."firstName",
+            'lastName', c2."lastName",
+            'email', c2.email,
+            'phone', c2.phone,
+            'mobilePhone', c2."mobilePhone",
+            'isPrimary', c2."isPrimary",
+            'designation', c2.designation,
+            'mailingStreet', c2."mailingStreet",
+            'mailingCity', c2."mailingCity",
+            'mailingState', c2."mailingState",
+            'mailingZip', c2."mailingZip"
+          ) ORDER BY c2."isPrimary" DESC, c2."lastName", c2."firstName")
+          FROM "Contact" c2
+          WHERE c2."accountId" = a.id
+        ), '[]'::json) AS contacts,
+        -- Distinct invoiced products power the product-history filter without
+        -- fetching documents or parsing Zoho JSON in the browser.
+        COALESCE((
+          SELECT json_agg(json_build_object('name', products."productName", 'sku', products.sku))
+          FROM (
+            SELECT li."productName", li.sku
+            FROM "LineItem" li
+            JOIN "Invoice" product_invoice ON product_invoice.id = li."invoiceId"
+            WHERE product_invoice."accountId" = a.id
+              AND product_invoice.status NOT IN (${Prisma.raw(EXCL_SQL)})
+            GROUP BY li."productName", li.sku
+            ORDER BY li."productName", li.sku
+          ) products
+        ), '[]'::json) AS "boughtProducts"
       FROM paged_accounts a
       LEFT JOIN "User" u ON u.id = a."ownerId"
       LEFT JOIN "Invoice" i ON i."accountId" = a.id
@@ -1133,8 +1138,11 @@ const authenticatedHandler: Handler = async (event, context) => {
       unpaidBalance:        parseFloat(acc.unpaidBalance) || 0,
       unpaidCount:          parseInt(acc.unpaidCount)     || 0,
       unpaidInvoiceSummary: Array.isArray(acc.unpaidInvoiceSummary) ? acc.unpaidInvoiceSummary : [],
-      purchasedProductNames: [],
-      contacts: acc.primaryContact ? [acc.primaryContact] : [],
+      boughtProducts: Array.isArray(acc.boughtProducts) ? acc.boughtProducts : [],
+      purchasedProductNames: Array.isArray(acc.boughtProducts)
+        ? acc.boughtProducts.map((product: any) => product.name).filter(Boolean)
+        : [],
+      contacts: Array.isArray(acc.contacts) ? acc.contacts : [],
       _count: { invoices: parseInt(acc.unpaidCount) || 0, quotes: 0, salesOrders: 0 },
     }))
 

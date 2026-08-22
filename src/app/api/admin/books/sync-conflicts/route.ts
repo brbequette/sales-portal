@@ -16,6 +16,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
+import { requireAdministrator } from "@/lib/auth-helpers"
 import { authOptions } from "@/lib/auth"
 import { getZohoAccessToken, ZOHO_DC, ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
 import { prisma } from "@/lib/prisma"
@@ -27,6 +28,8 @@ const ORG_ID = ZOHO_ORGANIZATION_ID
 // ---------------------------------------------------------------------------
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const session = await getServerSession(authOptions)
     if (!session || (session as any).user?.role !== 'Administrator') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -133,6 +136,8 @@ export async function GET(req: NextRequest) {
 // ---------------------------------------------------------------------------
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const session = await getServerSession(authOptions)
     if (!session || (session as any).user?.role !== 'Administrator') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

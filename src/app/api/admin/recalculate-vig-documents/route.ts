@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { calculateDocumentCosts } from "../../../../../netlify/functions/lib/cost-calculations"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 function formatMonthKey(d: Date): string {
   const y = d.getFullYear()
@@ -18,6 +19,8 @@ function monthKeyToDateRange(mk: string): { gte: Date; lte: Date } {
 
 export async function POST(req: Request) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const { repId, monthKey, applyToAll, invoiceIds, newVigRate } = await req.json().catch(() => ({}))
 
     // Fetch target user(s)

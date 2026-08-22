@@ -5,6 +5,7 @@ import { useZoho } from "@/components/ZohoProvider"
 import { MetricDerivationInfo } from "@/components/MetricDerivationModal"
 import { extractProfit, extractCommissionAmount, extractVigRate, extractDeadCostTotal, extractCustomFieldValue } from "@/lib/custom-field-extractor"
 import { useDashboardData as useRawDashboardData } from '@/hooks/useDashboardData'
+import { clearSharedJson, fetchSharedJson } from "@/lib/shared-api-fetch"
 
 export interface DashboardData {
   companyWeeklyTotal: number
@@ -229,8 +230,8 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   useEffect(() => {
-    fetch("/api/dashboard-weekly-sales", { cache: "no-store" })
-      .then(res => res.ok ? res.json() : Promise.reject(new Error(`Weekly sales ${res.status}`)))
+    if (refreshTrigger > 0) clearSharedJson("/api/dashboard-weekly-sales")
+    fetchSharedJson<any>("/api/dashboard-weekly-sales")
       .then(result => setWeeklyLifecycleDocs(Array.isArray(result.documents) ? result.documents : []))
       .catch(error => console.error("Failed to load lifecycle-aware weekly sales", error))
   }, [refreshTrigger])

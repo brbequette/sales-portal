@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 /**
  * Calculate base pay for a rep for a given weekly period.
@@ -13,6 +14,8 @@ import { NextRequest, NextResponse } from "next/server"
  */
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const body = await req.json()
     const { repId, weekStart } = body
 

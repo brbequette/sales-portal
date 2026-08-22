@@ -3,6 +3,7 @@
 import { toastConfirm } from '@/lib/toastConfirm'
 
 import React, { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { FiClock, FiCheckCircle, FiXCircle, FiEdit2, FiAlertCircle, FiMapPin, FiPlus, FiTrash2, FiToggleLeft, FiToggleRight, FiSearch } from "react-icons/fi"
 import { toast } from 'react-hot-toast';
 
@@ -46,6 +47,7 @@ interface GeofenceLocation {
 }
 
 export default function AdminTimeclockPage() {
+  const searchParams = useSearchParams()
   const [entries, setEntries] = useState<TimeEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [monthFilter, setMonthFilter] = useState(() => {
@@ -71,7 +73,9 @@ export default function AdminTimeclockPage() {
   const [addOut, setAddOut] = useState("")
 
   // Geofence Management State
-  const [activeAdminTab, setActiveAdminTab] = useState<"entries" | "geofences">("entries")
+  const [activeAdminTab, setActiveAdminTab] = useState<"entries" | "geofences">(
+    searchParams.get("tab") === "geofences" ? "geofences" : "entries",
+  )
   const [geofences, setGeofences] = useState<GeofenceLocation[]>([])
   const [showGeoForm, setShowGeoForm] = useState(false)
   const [editingGeo, setEditingGeo] = useState<GeofenceLocation | null>(null)

@@ -3,35 +3,59 @@ import Image from 'next/image';
 import { HeaderNav } from '@/components/HeaderNav';
 import { ScrollProgress } from '@/components/ScrollProgress';
 import { FloatingCallBar } from '@/components/FloatingCallBar';
+import { SparkCanvas } from '@/components/SparkCanvas';
+import { PublicSalesSections } from '@/components/PublicSalesSections';
+import { PublicHeroAtmosphere } from '@/components/PublicHeroAtmosphere';
+import './public-site.css';
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-neutral-950 text-white selection:bg-amber-500/30 font-sans transition-colors duration-300">
+    <div className="public-site min-h-screen bg-neutral-950 text-white selection:bg-amber-500/30 font-sans transition-colors duration-300">
+      <div className="public-atmosphere" aria-hidden="true">
+        <div className="public-aurora" />
+        <div className="public-grid" />
+        <SparkCanvas />
+      </div>
       <ScrollProgress />
       {/* Top Announcement Bar */}
       <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-600 text-white text-[11px] font-bold py-1.5 px-4 text-center tracking-wider uppercase flex items-center justify-center gap-4 border-b border-amber-500/20">
         <span>⚡ DIRECT CONTRACTOR PRICING & SAME-DAY NATIONWIDE SHIPPING</span>
         <span className="hidden sm:inline text-amber-200">•</span>
-        <a href="tel:18005550199" className="hidden sm:inline hover:underline font-extrabold text-amber-100">
-          CALL SALES: (800) 555-0199
+        <a href="tel:14804702577" className="hidden sm:inline hover:underline font-extrabold text-amber-100">
+          CALL SALES: (480) 470-2577
         </a>
       </div>
 
       {/* Header Navigation */}
       <HeaderNav />
       
-      <main>{children}</main>
+      <main className="public-stage"><PublicHeroAtmosphere />{children}</main>
+
+      <PublicSalesSections />
+
+      <section className="public-cta" aria-label="Titan Diamond contractor support">
+        <div className="public-cta-art public-cta-art-blade" aria-hidden="true" />
+        <div className="public-cta-art public-cta-art-helmet" aria-hidden="true" />
+        <div className="public-cta-shade" aria-hidden="true" />
+        <div className="relative z-10 mx-auto flex max-w-7xl flex-col items-start justify-between gap-8 px-6 py-16 sm:py-20 lg:flex-row lg:items-end">
+          <div className="max-w-3xl">
+            <span className="public-kicker">Built for contractors who cannot slow down</span>
+            <h2 className="mt-4 text-4xl font-black uppercase leading-none tracking-[-.045em] sm:text-6xl">The right blade.<br /><span className="text-orange-400">Before the next cut.</span></h2>
+            <p className="mt-5 max-w-xl text-sm leading-6 text-neutral-300">Tell us the saw, material, aggregate, depth, and production target. Titan will match the bond and configuration.</p>
+          </div>
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+            <Link href="/blade-finder" className="public-cta-secondary">Find my blade</Link>
+            <Link href="/contact" className="public-cta-primary">Talk to a diamond tech</Link>
+          </div>
+        </div>
+      </section>
       
       {/* Footer */}
-      <footer className="border-t border-white/10 bg-neutral-950 pt-16 pb-8 px-6">
+      <footer className="relative z-10 border-t border-white/10 bg-neutral-950/95 pt-16 pb-8 px-6 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 md:gap-8">
           <div>
             <Link href="/" className="flex items-center gap-3 mb-6">
-              <Image src="/titan-logo.png" alt="Titan Diamond USA" width={64} height={40} className="h-10 w-auto" />
-              <div>
-                <span className="text-base font-black tracking-tight text-white block">TITAN DIAMOND</span>
-                <span className="text-[9px] text-amber-500 font-bold tracking-widest block -mt-1">USA DIVISION</span>
-              </div>
+              <Image src="/images/brand/logo-system/titan-horizontal-light.png" alt="Titan Diamond USA" width={1122} height={697} className="h-20 w-auto object-contain" />
             </Link>
             <p className="text-xs text-neutral-400 leading-relaxed mb-4">
               Premium diamond cutting blades, core bits, cup wheels, and abrasives engineered for extreme performance on concrete, stone, and asphalt.
@@ -74,8 +98,8 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
                 National Direct Sales & Distribution
               </li>
               <li>
-                <a href="tel:18005550199" className="text-amber-400 font-bold hover:underline">
-                  ☎ (800) 555-0199
+                <a href="tel:14804702577" className="text-amber-400 font-bold hover:underline">
+                  ☎ (480) 470-2577
                 </a>
               </li>
               <li>

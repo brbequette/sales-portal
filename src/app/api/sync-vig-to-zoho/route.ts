@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
 const ORG_ID = ZOHO_ORGANIZATION_ID
 import { getSystemSettings } from "../../../../netlify/functions/lib/settings"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 /**
  * sync-vig-to-zoho — Inline Next.js route (no Netlify proxy)
@@ -24,22 +25,24 @@ async function updateCustomFieldInZoho(
   token: string,
   apiName: string,
   newValue: any
-): Promise<boolean> {
+): Promise<{ ok: boolean; apiCalls: number }> {
   const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3/${module}`
   const cacheKey = `${module}_${apiName}`
   let customfield_id = customFieldIdCache[cacheKey]
+  let apiCalls = 0
 
   if (!customfield_id) {
     const getRes = await fetch(`${baseUrl}/${docId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
       headers: { Authorization: `Zoho-oauthtoken ${token}` },
     })
-    if (!getRes.ok) return false
+    apiCalls++
+    if (!getRes.ok) return { ok: false, apiCalls }
     const data = await getRes.json()
     const docType = module === "invoices" ? "invoice" : module === "salesorders" ? "salesorder" : "estimate"
     const doc = data[docType]
-    if (!doc?.custom_fields) return false
+    if (!doc?.custom_fields) return { ok: false, apiCalls }
     const field = doc.custom_fields.find((f: any) => f.api_name === apiName)
-    if (!field) return false
+    if (!field) return { ok: false, apiCalls }
     customfield_id = field.customfield_id
     customFieldIdCache[cacheKey] = customfield_id
   }
@@ -54,11 +57,15 @@ async function updateCustomFieldInZoho(
       custom_fields: [{ customfield_id, value: newValue }],
     }),
   })
-  return putRes.ok
+  apiCalls++
+  return { ok: putRes.ok, apiCalls }
 }
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
+
     const appSettings = await getSystemSettings(prisma)
     if (appSettings.pause_mass_zoho_updates) {
       return NextResponse.json(
@@ -73,12 +80,21 @@ export async function POST(req: NextRequest) {
     if (!repId || !monthKey || newVigRate === undefined) {
       return NextResponse.json({ error: "Missing required fields: repId, monthKey, newVigRate" }, { status: 400 })
     }
+    const parsedVigRate = Number(newVigRate)
+    if (!Number.isFinite(parsedVigRate) || parsedVigRate <= 0 || parsedVigRate > 10) {
+      return NextResponse.json({ error: "newVigRate must be a number between 0 and 10" }, { status: 400 })
+    }
 
     const token = await getZohoAccessToken()
     if (!token) throw new Error("Failed to get Zoho access token")
 
-    const startOfMonth = new Date(`${monthKey}-01T00:00:00Z`)
-    const endOfMonth = new Date(startOfMonth.getFullYear(), startOfMonth.getMonth() + 1, 0, 23, 59, 59, 999)
+    const [monthYear, monthNumber] = monthKey.split("-").map(Number)
+    if (!Number.isInteger(monthYear) || !Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12) {
+      return NextResponse.json({ error: "monthKey must use YYYY-MM format" }, { status: 400 })
+    }
+    // Arizona is UTC-07:00 year-round.
+    const startOfMonth = new Date(Date.UTC(monthYear, monthNumber - 1, 1, 7))
+    const endOfMonth = new Date(Date.UTC(monthYear, monthNumber, 1, 7))
 
     // Resolve user
     let repUser = await prisma.user.findUnique({ where: { id: repId } })
@@ -101,7 +117,8 @@ export async function POST(req: NextRequest) {
     const repNameLower = repUser.name?.toLowerCase().trim() || repUser.email.split("@")[0].toLowerCase()
 
     const localInvoices = await prisma.invoice.findMany({
-      where: { issueDate: { gte: startOfMonth, lte: endOfMonth } },
+      where: { issueDate: { gte: startOfMonth, lt: endOfMonth } },
+      include: { account: { select: { ownerId: true } } },
     })
 
     const normalizeRepName = (n: string) => {
@@ -115,7 +132,7 @@ export async function POST(req: NextRequest) {
 
     for (const inv of localInvoices) {
       const items = inv.items as any
-      const salesperson = items?.salesperson || ""
+      const salesperson = items?.salesperson || items?.salesperson_name || items?.cf_salesperson || ""
       const normSalesperson = normalizeRepName(salesperson)
       const normRepName = normalizeRepName(repNameLower)
 
@@ -125,21 +142,18 @@ export async function POST(req: NextRequest) {
           normSalesperson.includes(normRepName) ||
           normRepName.includes(normSalesperson))
 
-      if (!matches && inv.accountId) {
-        const acc = await prisma.account.findUnique({ where: { id: inv.accountId } })
-        if (acc?.ownerId === targetRepId) matches = true
-      }
+      if (!matches && inv.account.ownerId === targetRepId) matches = true
 
       if (matches && inv.zohoId) {
-        const ok = await updateCustomFieldInZoho(
+        const updateResult = await updateCustomFieldInZoho(
           "invoices",
           inv.zohoId as string,
           token as string,
           "cf_salesperson_vig",
-          newVigRate
+          parsedVigRate
         )
-        apiCallsCount += 2
-        if (ok) successCount++
+        apiCallsCount += updateResult.apiCalls
+        if (updateResult.ok) successCount++
         else failCount++
         await delay(250)
       }
@@ -149,12 +163,12 @@ export async function POST(req: NextRequest) {
     await prisma.monthlyVigGoal
       .upsert({
         where: { repId_monthKey: { repId: targetRepId, monthKey } },
-        update: { lastSyncedVigRate: parseFloat(newVigRate), lastSyncedAt: new Date() },
+        update: { lastSyncedVigRate: parsedVigRate, lastSyncedAt: new Date() },
         create: {
           repId: targetRepId,
           monthKey,
-          manualVigRate: parseFloat(newVigRate),
-          lastSyncedVigRate: parseFloat(newVigRate),
+          manualVigRate: parsedVigRate,
+          lastSyncedVigRate: parsedVigRate,
           lastSyncedAt: new Date(),
         },
       })
@@ -165,7 +179,7 @@ export async function POST(req: NextRequest) {
       apiCallsCount,
       successCount,
       failCount,
-      message: `Synced VIG Rate (${newVigRate}x) for ${repUser.name} (${monthKey}) across ${successCount} invoice(s).`,
+      message: `Synced VIG Rate (${parsedVigRate}x) for ${repUser.name} (${monthKey}) across ${successCount} invoice(s).`,
     })
   } catch (err: any) {
     console.error("sync-vig-to-zoho error:", err)

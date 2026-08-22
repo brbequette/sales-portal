@@ -1,31 +1,21 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getAuthenticatedDbUser } from "@/lib/session-user"
 
 export const dynamic = "force-dynamic"
 
 export async function GET(req: Request) {
   try {
+    const actor = await getAuthenticatedDbUser()
+    if (!actor) return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 })
+
     const url = new URL(req.url)
-    const userId = url.searchParams.get("userId")
-    const email = url.searchParams.get("email")
     const month = url.searchParams.get("month")
-
-    if (!userId && !email) {
-      return NextResponse.json({ success: false, error: "Missing userId or email" }, { status: 400 })
+    if (month && !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+      return NextResponse.json({ success: false, error: "Invalid month" }, { status: 400 })
     }
 
-    const userConditions: any[] = []
-    if (userId) userConditions.push({ userId })
-    if (email) {
-      userConditions.push({ user: { email } })
-      const dbUser = await prisma.user.findUnique({ where: { email } })
-      if (dbUser) userConditions.push({ userId: dbUser.id })
-    }
-
-    const where: any = {}
-    if (userConditions.length > 0) {
-      where.OR = userConditions
-    }
+    const where: any = { userId: actor.user.id }
     if (month) where.date = { startsWith: month }
 
     const entries = await prisma.timeEntry.findMany({

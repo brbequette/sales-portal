@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { bulkSyncPage } from "../../../../../netlify/functions/lib/bulk-sync"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const body = await req.json().catch(() => ({}))
     const entity = body.entity || 'invoices'
     const page = parseInt(body.page || '1', 10)

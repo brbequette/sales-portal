@@ -5,6 +5,7 @@ const ORG_ID = ZOHO_ORGANIZATION_ID
 import { prisma } from "./lib/prisma"
 import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
 import { assertNoBooksConflictBeforeWrite } from "../../src/lib/sync-engine"
+import { authorizeDocumentAccess } from "./lib/document-access"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 export const handler: Handler = async (event) => {
@@ -18,8 +19,9 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: cors, body: "" }
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "Method not allowed" }) }
 
+  let sessionUser
   try {
-    await authenticateFunction(event)
+    sessionUser = await authenticateFunction(event)
   } catch (error) {
     return authErrorResponse(error, cors)
   }
@@ -47,6 +49,12 @@ export const handler: Handler = async (event) => {
 
   if (!validActions[type]?.includes(action)) {
     return { statusCode: 400, headers: cors, body: JSON.stringify({ error: `Invalid action '${action}' for type '${type}'` }) }
+  }
+
+  const documentKind = type === "SalesOrder" ? "salesOrder" : "quote"
+  const access = await authorizeDocumentAccess(sessionUser, documentKind, { id: documentId })
+  if (!access.authorized) {
+    return { statusCode: 403, headers: cors, body: JSON.stringify({ error: "You can only update documents belonging to your accounts" }) }
   }
 
   try {

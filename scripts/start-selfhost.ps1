@@ -28,9 +28,9 @@ $composeArguments = @(
   "--env-file", "$wslProjectDirectory/.env.selfhost"
 )
 if ($hasTunnelToken) {
-  $composeArguments += @("--profile", "public", "up", "-d", "postgres", "ollama", "app", "cloudflared")
+  $composeArguments += @("--profile", "public", "up", "-d", "postgres", "ollama", "app", "books-sync", "cloudflared")
 } else {
-  $composeArguments += @("up", "-d", "postgres", "ollama", "app")
+  $composeArguments += @("up", "-d", "postgres", "ollama", "app", "books-sync")
 }
 
 & wsl.exe $composeArguments

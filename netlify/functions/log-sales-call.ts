@@ -1,7 +1,8 @@
-import { withFunctionAuth } from "./lib/auth-middleware"
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 
 import { prisma } from "./lib/prisma"
+import { isAdminRole } from "../../src/lib/roles"
 const ZOHO_DC = process.env.ZOHO_DC || 'com'
 
 const authenticatedHandler: Handler = async (event) => {
@@ -14,6 +15,8 @@ const authenticatedHandler: Handler = async (event) => {
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "Method not allowed" }) }
 
   try {
+    const sessionUser = await authenticateFunction(event)
+    const actorId = sessionUser.dbId || sessionUser.userId
     const body = JSON.parse(event.body || "{}")
     const {
       accountId,
@@ -24,8 +27,6 @@ const authenticatedHandler: Handler = async (event) => {
       spokeTo,
       followUpDate,
       durationMinutes,
-      userId,
-
       // ── Fact-Finding Fields ──────────────────────────────────────────
       // These map directly to Account fields and are persisted immediately
       factFinding,
@@ -55,14 +56,15 @@ const authenticatedHandler: Handler = async (event) => {
     })
     if (!account) return { statusCode: 404, headers: cors, body: JSON.stringify({ error: "Account not found" }) }
 
-    // ── Resolve caller ───────────────────────────────────────────────
-    let caller = userId
-      ? await prisma.user.findUnique({ where: { id: userId } })
-      : null
-    if (!caller) {
-      caller = await prisma.user.findFirst({ where: { email: { contains: "@titandiamond" } } })
+    if (!isAdminRole(sessionUser.role) && account.ownerId !== actorId) {
+      return { statusCode: 403, headers: cors, body: JSON.stringify({ error: "You can only log calls for your own accounts" }) }
     }
-    if (!caller) return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "No user found" }) }
+
+    // ── Resolve caller ───────────────────────────────────────────────
+    const caller = actorId
+      ? await prisma.user.findUnique({ where: { id: actorId } })
+      : null
+    if (!caller) return { statusCode: 403, headers: cors, body: JSON.stringify({ error: "Signed-in user is not linked to a local account" }) }
 
     // ── Build note content ───────────────────────────────────────────
     const outcomeLabels: Record<string, string> = {
@@ -103,7 +105,7 @@ const authenticatedHandler: Handler = async (event) => {
       durationMinutes ? `Duration: ${durationMinutes} min` : null,
       notes ? `Notes: ${notes}` : null,
       followUpDate ? `Follow-up Scheduled: ${followUpDate}` : null,
-      `By: ${callerName || caller.name || "Sales Rep"}`,
+      `By: ${caller.name || callerName || "Sales Rep"}`,
     ].filter(Boolean) as string[]
 
     // Fact-finding section — only append if any data was collected

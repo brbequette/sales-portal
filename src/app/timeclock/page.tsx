@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useMemo } from "react"
+import { createPortal } from "react-dom"
 import { useZoho } from "@/components/ZohoProvider"
 import { FiClock, FiAlertCircle, FiCheckCircle, FiXCircle, FiMapPin, FiAlertTriangle, FiLock, FiPlay, FiSquare, FiRefreshCw, FiSearch } from "react-icons/fi"
 import { calculateHours, formatHours } from "@/lib/timeclock-utils"
@@ -19,6 +20,14 @@ interface TimeEntry {
   locationStatus?: string
   clockInLocation?: string | null
   active?: boolean
+}
+
+const getPhoenixDate = () => {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Phoenix', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(new Date())
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find(part => part.type === type)?.value || ''
+  return `${value('year')}-${value('month')}-${value('day')}`
 }
 
 export default function UserTimeclockPage() {
@@ -42,7 +51,7 @@ export default function UserTimeclockPage() {
   const fetchEntries = async () => {
     if (!currentUser?.id && !currentUser?.email) return
     try {
-      const res = await fetch(`/api/timeclock/get-entries?userId=${currentUser.id || ''}&email=${encodeURIComponent(currentUser.email || '')}`, { cache: 'no-store' })
+      const res = await fetch('/api/timeclock/get-entries', { cache: 'no-store' })
       const data = await res.json()
       if (data.success) {
         setEntries(data.entries || [])
@@ -60,7 +69,8 @@ export default function UserTimeclockPage() {
 
   // Determine current active shift (today's shift without a clockOut)
   const activeEntry = useMemo(() => {
-    return entries.find(e => !e.clockOut && !e.manualClockOut) || null
+    const today = getPhoenixDate()
+    return entries.find(e => e.date === today && !e.clockOut && !e.manualClockOut) || null
   }, [entries])
 
   // Live timer for active shift
@@ -250,7 +260,8 @@ export default function UserTimeclockPage() {
       .filter((entry) => {
         const pending = entry.changeRequests?.some((request) => request.status === "PENDING")
         const edited = Boolean(entry.manualClockIn || entry.manualClockOut)
-        if (historyFilter === "active" && (entry.clockOut || entry.manualClockOut)) return false
+        const isActiveToday = entry.date === getPhoenixDate() && !(entry.clockOut || entry.manualClockOut)
+        if (historyFilter === "active" && !isActiveToday) return false
         if (historyFilter === "pending" && !pending) return false
         if (historyFilter === "edited" && !edited) return false
         if (historyFilter === "location-issue" && !["OUT_OF_RANGE", "DENIED", "UNAVAILABLE"].includes(String(entry.locationStatus || "").toUpperCase())) return false
@@ -445,7 +456,8 @@ export default function UserTimeclockPage() {
                       {group.entries.map(entry => {
                         const effectiveIn = entry.manualClockIn || entry.clockIn
                         const effectiveOut = entry.manualClockOut || entry.clockOut
-                        const isCurrentActive = !effectiveOut
+                        const isCurrentActive = entry.date === getPhoenixDate() && !effectiveOut
+                        const isMissingClockOut = entry.date !== getPhoenixDate() && !effectiveOut
                         const pendingRequest = entry.changeRequests?.find(r => r.status === "PENDING")
                         const rejectedRequest = entry.changeRequests?.find(r => r.status === "REJECTED")
 
@@ -461,6 +473,8 @@ export default function UserTimeclockPage() {
                               <td className="td-td hidden md:table-cell">
                                 {isCurrentActive ? (
                                   <span className="text-xs bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-full font-bold">Active Now</span>
+                                ) : isMissingClockOut ? (
+                                  <span className="text-xs bg-amber-500/15 text-amber-400 px-2 py-0.5 rounded-full font-bold">Missing Clock Out</span>
                                 ) : (
                                   <>
                                     {formatTime(effectiveOut)}
@@ -536,7 +550,7 @@ export default function UserTimeclockPage() {
       </div>
 
       {/* Change Request Modal */}
-      {showChangeModal && (
+      {showChangeModal && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowChangeModal(false)} />
           <div className="relative w-full max-w-md glass-panel border border-white/10 rounded-2xl flex flex-col shadow-2xl text-white z-[9999] p-6 max-h-[90vh] overflow-y-auto">
@@ -599,7 +613,7 @@ export default function UserTimeclockPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>, document.body
       )}
     </div>
   )

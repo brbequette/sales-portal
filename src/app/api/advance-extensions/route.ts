@@ -1,8 +1,11 @@
 import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const url = new URL(req.url)
     const advanceId = url.searchParams.get("advanceId")
     const status = url.searchParams.get("status")
@@ -30,6 +33,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const body = await req.json()
     const { advanceId, requestedBy, additionalWeeks, reason } = body
 
@@ -61,6 +66,8 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const body = await req.json()
     const { id, status, reviewedBy, notes } = body
 

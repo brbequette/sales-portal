@@ -177,7 +177,7 @@ export default function CareersPage() {
                       required 
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      placeholder="(800) 555-0199"
+                      placeholder="(480) 470-2577"
                       className="w-full bg-neutral-950 border border-white/10 rounded-xl py-3 px-4 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500"
                     />
                   </div>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 /**
@@ -38,6 +39,8 @@ function isGiftItem(item: any): boolean {
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms))
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
   try {
     let body: any = {}
     try { body = await req.json() } catch { /* use defaults */ }

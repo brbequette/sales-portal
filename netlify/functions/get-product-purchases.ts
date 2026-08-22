@@ -1,4 +1,4 @@
-import { withFunctionAuth } from "./lib/auth-middleware"
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 
 import { prisma } from "./lib/prisma"
@@ -15,6 +15,7 @@ const authenticatedHandler: Handler = async (event) => {
   if (event.httpMethod !== "GET") return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "Method not allowed" }) }
 
   try {
+    const caller = await authenticateFunction(event)
     const { sku } = event.queryStringParameters || {}
 
     if (!sku) {
@@ -25,9 +26,14 @@ const authenticatedHandler: Handler = async (event) => {
       }
     }
 
-    // Fetch all invoices to inspect their line_items in memory.
-    // This is safe, simple, and avoids complex DB JSON array-contains parsing issues.
+    const role = String(caller.role || "").toLowerCase()
+    const privileged = role.includes("admin") || role.includes("manager")
+    const callerId = String(caller.dbId || caller.userId || "")
+
+    // JSON line-item matching still happens in memory, but non-privileged users
+    // only load invoices belonging to accounts they own.
     const invoices = await prisma.invoice.findMany({
+      where: privileged ? undefined : { account: { ownerId: callerId } },
       include: {
         account: {
           select: {

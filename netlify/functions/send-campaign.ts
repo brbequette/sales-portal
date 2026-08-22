@@ -402,4 +402,4 @@ const authenticatedHandler: Handler = async (event, context) => {
   }
 }
 
-export const handler = withFunctionAuth(authenticatedHandler)
+export const handler = withFunctionAuth(authenticatedHandler, { requireAdmin: true })

@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from "next/server";
-;
+import { checkAccountOwnership } from "@/lib/auth-helpers";
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,26 +12,26 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Missing zohoId" }, { status: 400 });
     }
 
-    let localDocId = null;
+    let localDocId: string | null = null;
+    let accountId: string | null = null;
 
     if (type === "Invoice") {
-      const doc = await prisma.invoice.findFirst({ where: { OR: [{ id: zohoId }, { zohoId: zohoId }] } });
-      if (doc) localDocId = doc.id;
+      const doc = await prisma.invoice.findFirst({ where: { OR: [{ id: zohoId }, { zohoId: zohoId }] }, select: { id: true, accountId: true } });
+      if (doc) { localDocId = doc.id; accountId = doc.accountId }
     } else if (type === "SalesOrder") {
-      const doc = await prisma.salesOrder.findFirst({ where: { OR: [{ id: zohoId }, { zohoId: zohoId }] } });
-      if (doc) localDocId = doc.id;
+      const doc = await prisma.salesOrder.findFirst({ where: { OR: [{ id: zohoId }, { zohoId: zohoId }] }, select: { id: true, accountId: true } });
+      if (doc) { localDocId = doc.id; accountId = doc.accountId }
     } else if (type === "Quote") {
-      const doc = await prisma.quote.findFirst({ where: { OR: [{ id: zohoId }, { zohoId: zohoId }] } });
-      if (doc) localDocId = doc.id;
+      const doc = await prisma.quote.findFirst({ where: { OR: [{ id: zohoId }, { zohoId: zohoId }] }, select: { id: true, accountId: true } });
+      if (doc) { localDocId = doc.id; accountId = doc.accountId }
     }
 
     if (!localDocId) {
-       // Just search tasks that have zohoId in them as what_id somehow, or fallback.
-       const tasks = await prisma.task.findMany({
-         where: { zohoId: zohoId } // Not perfect but a fallback if it was saved directly
-       })
-       return NextResponse.json({ success: true, tasks });
+       return NextResponse.json({ success: true, tasks: [] });
     }
+
+    const ownership = await checkAccountOwnership(accountId || "")
+    if (!ownership.authorized) return ownership.errorResponse || NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 })
 
     const tasks = await prisma.task.findMany({
       where: {

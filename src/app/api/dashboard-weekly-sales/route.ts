@@ -18,9 +18,10 @@ const number = (value: unknown) => {
 const subtotal = (items: Record<string, unknown>, amount: number) =>
   number(items.sub_total ?? items.subTotal ?? amount)
 
-// Arizona does not observe daylight saving time, so its business-day boundary
-// is always UTC-07:00. Build explicit UTC instants instead of inheriting the
-// container's timezone (which is UTC in self-hosted Docker).
+// Arizona does not observe daylight saving time. Derive the Arizona calendar
+// date, but query document dates from UTC midnight because Zoho date-only
+// values are stored at either 00:00 or 12:00 UTC. Using 07:00 UTC as the lower
+// bound drops Monday documents stored at midnight (for example invoice 10952).
 const ARIZONA_UTC_OFFSET_HOURS = 7
 const arizonaWeek = (now: Date) => {
   const arizonaNow = new Date(now.getTime() - ARIZONA_UTC_OFFSET_HOURS * 60 * 60 * 1000)
@@ -29,7 +30,7 @@ const arizonaWeek = (now: Date) => {
     arizonaNow.getUTCFullYear(),
     arizonaNow.getUTCMonth(),
     arizonaNow.getUTCDate() + (day === 0 ? -6 : 1 - day),
-    ARIZONA_UTC_OFFSET_HOURS,
+    0,
   ))
   const end = new Date(monday.getTime() + 7 * 24 * 60 * 60 * 1000 - 1)
   return { monday, end }

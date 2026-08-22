@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getAIClient, isAIConfigured } from '@/lib/ai-client'
+import { createAIChatCompletion, isAIConfigured } from '@/lib/ai-client'
+import { checkAccountOwnership } from '@/lib/auth-helpers'
+
+type SuggestionMessage = { direction?: string; body?: string }
 
 export async function POST(req: Request) {
   try {
@@ -8,9 +11,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'AI provider not configured' }, { status: 500 })
     }
 
-    const { messages, accountId } = await req.json()
+    const { messages, accountId } = await req.json() as { messages?: SuggestionMessage[]; accountId?: string }
 
-    if (!messages || !Array.isArray(messages)) {
+    if (!accountId) {
+      return NextResponse.json({ success: false, error: 'Account is required' }, { status: 400 })
+    }
+
+    const access = await checkAccountOwnership(accountId)
+    if (!access.authorized) return access.errorResponse
+
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json({ success: false, error: 'Messages array is required' }, { status: 400 })
     }
 
@@ -22,14 +32,12 @@ export async function POST(req: Request) {
     }
 
     // Format messages for OpenAI
-    const formattedMessages = messages.map((m: any) => ({
+    const formattedMessages = messages.slice(-10).map(m => ({
       role: (m.direction === 'INBOUND' ? 'user' : 'assistant') as 'user' | 'assistant',
-      content: m.body || ''
+      content: (m.body || '').slice(0, 4000),
     }))
 
-    const { client, model } = getAIClient()
-    const completion = await client.chat.completions.create({
-      model,
+    const { response: completion, provider, model } = await createAIChatCompletion({
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: systemPrompt + ' IMPORTANT: You must return a JSON object with a single key suggestions containing an array of 3 string suggestions.' },
@@ -38,17 +46,19 @@ export async function POST(req: Request) {
     })
 
     const rawResponse = completion.choices[0].message.content || '{}'
-    let suggestions = []
+    let suggestions: string[] = []
     try {
-      const parsed = JSON.parse(rawResponse)
-      suggestions = parsed.suggestions || []
-    } catch (e) {
+      const parsed = JSON.parse(rawResponse) as { suggestions?: unknown }
+      suggestions = Array.isArray(parsed.suggestions)
+        ? parsed.suggestions.filter((item): item is string => typeof item === 'string').slice(0, 3)
+        : []
+    } catch {
       console.error('Failed to parse AI response', rawResponse)
     }
 
-    return NextResponse.json({ success: true, suggestions })
-  } catch (error: any) {
+    return NextResponse.json({ success: true, suggestions, ai: { provider, model } })
+  } catch (error: unknown) {
     console.error('AI Suggestion Error:', error)
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    return NextResponse.json({ success: false, error: error instanceof Error ? error.message : 'Unable to generate suggestions' }, { status: 500 })
   }
 }

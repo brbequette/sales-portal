@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 export const dynamic = "force-dynamic"
 
 export async function GET(req: Request) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const url = new URL(req.url)
     const month = url.searchParams.get("month") // Optional YYYY-MM
 
@@ -71,6 +74,8 @@ export async function GET(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const body = await req.json()
     const { type } = body
 
@@ -197,6 +202,8 @@ export async function PATCH(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const body = await req.json()
     const { userId, manualClockIn, manualClockOut } = body
 

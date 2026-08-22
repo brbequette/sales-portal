@@ -1,16 +1,13 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from "next/server"
+import { requireAdministrator } from '@/lib/auth-helpers'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: Request) {
   try {
-    const url = new URL(req.url)
-    const role = url.searchParams.get("role") || ""
-
-    if (!role.toUpperCase().includes("ADMIN") && !role.toUpperCase().includes("MANAGER")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
-    }
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
 
     const [callLogs, smsLogs] = await Promise.all([
       prisma.callLog.findMany({

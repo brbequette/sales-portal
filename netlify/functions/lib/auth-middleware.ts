@@ -1,14 +1,22 @@
 import { getToken } from "next-auth/jwt"
 import { Handler, HandlerEvent } from "@netlify/functions"
+import crypto from "crypto"
 
 interface AuthOptions {
   requireAdmin?: boolean
   allowWebhook?: boolean
 }
 
+function secretsMatch(supplied: string | undefined, expected: string | undefined) {
+  if (!supplied || !expected) return false
+  const suppliedBuffer = Buffer.from(supplied)
+  const expectedBuffer = Buffer.from(expected)
+  return suppliedBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(suppliedBuffer, expectedBuffer)
+}
+
 export async function authenticateFunction(event: HandlerEvent, options: AuthOptions = {}) {
   if (options.allowWebhook && event.queryStringParameters?.token) {
-    if (event.queryStringParameters.token === process.env.ZOHO_WEBHOOK_SECRET) {
+    if (secretsMatch(event.queryStringParameters.token, process.env.ZOHO_WEBHOOK_SECRET)) {
       return { userId: "webhook", role: "webhook" }
     }
   }
@@ -48,7 +56,7 @@ export async function authenticateFunction(event: HandlerEvent, options: AuthOpt
 
   const role = token.role as string
 
-  if (options.requireAdmin && role !== "Administrator" && role !== "ADMIN") {
+  if (options.requireAdmin && !String(role || "").toLowerCase().includes("admin")) {
     const error: any = new Error("Forbidden: Admin required")
     error.statusCode = 403
     throw error
@@ -129,7 +137,7 @@ export function authenticateWebhookToken(
     || headerNames.map((name) => event.headers[name.toLowerCase()]).find(Boolean)
     || event.headers["x-webhook-token"]
 
-  if (!supplied || supplied !== expected) {
+  if (!secretsMatch(supplied, expected)) {
     const error: any = new Error("Unauthorized")
     error.statusCode = 401
     throw error

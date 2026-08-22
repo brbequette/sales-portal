@@ -20,10 +20,10 @@ export function CallScriptViewer({ accountId, accountProp, contact }: { accountI
 
   useEffect(() => {
     if (!accountProp && accountId) {
-      fetch(`/api/get-zoho-account?id=${accountId}`)
+      fetch(`/api/get-account-details?id=${encodeURIComponent(accountId)}`)
         .then(res => res.json())
         .then(data => {
-          if (data.success && data.data?.[0]) setAccount(data.data[0])
+          if (data.success && data.account) setAccount(data.account)
         })
     }
   }, [accountId, accountProp])
