@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { normalizeProductOffer } from '@/lib/product-offers';
+import { publicStrings, publicUseCases } from '@/lib/public-product-normalization';
 
 export const dynamic = 'force-dynamic';
 
@@ -93,6 +94,14 @@ export async function GET() {
       const diameter = normalizeDiameter(attributeValue(attributes, 'Blade Diameter'));
       const suitableMaterials = Array.isArray(attributes['Suitable Materials']) ? attributes['Suitable Materials'].map(String) : [];
       const equipment = attributeValue(attributes, 'Equipment');
+      const useCases = publicUseCases([
+        ...publicStrings(product.application),
+        ...publicStrings(product.materials),
+        ...suitableMaterials,
+        ...derived.applications,
+        ...derived.materials,
+        details.description,
+      ]);
       return [{
         id: product.id,
         sku: product.sku,
@@ -102,9 +111,10 @@ export async function GET() {
         imageUrl: product.imageUrl || details.image,
         productType: product.productType || derived.productType,
         size: diameter || product.size || derived.sizes.join(' | '),
-        application: product.application || derived.applications.join(' | '),
+        application: useCases.join(' | '),
+        useCases,
         equipment: product.equipment || equipment || derived.equipment.join(' | '),
-        materials: Array.isArray(product.materials) && product.materials.length ? product.materials : suitableMaterials.length ? suitableMaterials : derived.materials,
+        materials: useCases,
         attributes: {
           segmentHeight: attributeValue(attributes, 'Segment Height'),
           slotType: attributeValue(attributes, 'Slot Type'),

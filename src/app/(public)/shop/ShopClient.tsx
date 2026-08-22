@@ -12,18 +12,18 @@ import type { ProductOffer } from '@/lib/product-offers';
 type RawProduct = {
   id: string; name: string; sku: string; category?: string | null; imageUrl?: string | null; description?: string | null;
   price?: number; stock?: number; giftItem?: boolean; size?: string | null; application?: string | null;
-  vendor?: string | null; productType?: string | null; toolType?: string | null; equipment?: string | null; materials?: unknown; attributes?: unknown;
+  vendor?: string | null; productType?: string | null; toolType?: string | null; equipment?: string | null; materials?: unknown; useCases?: unknown; attributes?: unknown;
 };
 type PublicAttributes = { segmentHeight?: string; slotType?: string; offer?: ProductOffer };
 type CatalogProduct = {
   id: string; name: string; sku: string; category: string; imageUrl: string; description: string; size: string; application: string;
-  productType: string; toolType: string; equipment: string; materials: string[]; applications: string[]; sizes: string[]; technical: PublicAttributes; searchable: string;
+  productType: string; toolType: string; equipment: string; useCases: string[]; sizes: string[]; technical: PublicAttributes; searchable: string;
 };
-type Filters = { category: string; application: string; material: string; size: string };
+type Filters = { category: string; useCase: string; size: string };
 type SortMode = 'featured' | 'name-asc' | 'name-desc' | 'sku-asc';
 
 const imageMap = imageMapData as Record<string, { image?: string | null }>;
-const EMPTY_FILTERS: Filters = { category: '', application: '', material: '', size: '' };
+const EMPTY_FILTERS: Filters = { category: '', useCase: '', size: '' };
 const PAGE_SIZES = [24, 48, 96];
 
 function values(value: unknown): string[] {
@@ -87,10 +87,9 @@ function parseProduct(item: RawProduct): CatalogProduct {
   const imageUrl = mapped || (!stored.includes('placeholder') ? stored : '') || `/product-images/${encodeURIComponent(sku)}.png`;
   const searchable = [item.name, sku, category, item.productType, item.toolType, size, application, equipment, materials.join(' '), description, 'Titan Diamond USA'].filter(Boolean).join(' ').toLowerCase();
   const canonicalText = [application, equipment, materials.join(' '), description, item.productType, item.toolType].filter(Boolean).join(' ');
-  const applications = canonicalApplications(canonicalText);
-  const materialFacets = canonicalMaterials(materials.join(' '));
+  const useCases = unique([...values(item.useCases), ...canonicalApplications(canonicalText), ...canonicalMaterials(materials.join(' '))]);
   const technical = attributes as PublicAttributes;
-  return { id: item.id || sku, name: item.name, sku, category, imageUrl, description, size, application, productType: item.productType || '', toolType: item.toolType || '', equipment, materials: materialFacets.length ? materialFacets : materials, applications, sizes: canonicalSizes(size), technical, searchable };
+  return { id: item.id || sku, name: item.name, sku, category, imageUrl, description, size, application: useCases.join(' · '), productType: item.productType || '', toolType: item.toolType || '', equipment, useCases, sizes: canonicalSizes(size), technical, searchable };
 }
 
 function ShopContent() {
@@ -118,8 +117,7 @@ function ShopContent() {
 
   const facets = useMemo(() => ({
     category: unique(products.map((item) => item.category)),
-    application: unique(products.flatMap((item) => item.applications)),
-    material: unique(products.flatMap((item) => item.materials)),
+    useCase: unique(products.flatMap((item) => item.useCases)),
     size: unique(products.flatMap((item) => item.sizes)),
   }), [products]);
 
@@ -128,8 +126,7 @@ function ShopContent() {
     const list = products.filter((item) => {
       if (terms.some((term) => !item.searchable.includes(term))) return false;
       if (filters.category && item.category.toLowerCase() !== filters.category.toLowerCase()) return false;
-      if (filters.application && !item.applications.includes(filters.application)) return false;
-      if (filters.material && !item.materials.some((value) => value.toLowerCase() === filters.material.toLowerCase())) return false;
+      if (filters.useCase && !item.useCases.includes(filters.useCase)) return false;
       if (filters.size && !item.sizes.includes(filters.size)) return false;
       return true;
     });
@@ -156,7 +153,7 @@ function ShopContent() {
       <section className="border-b border-white/10 px-4 pb-12 pt-14 text-center sm:pt-20">
         <span className="public-kicker"><FiCheckCircle /> Live contractor catalog</span>
         <h1 className="mt-5 text-4xl font-black uppercase tracking-[-.045em] sm:text-6xl">Find the right tool.<br /><span className="text-orange-400">Fast.</span></h1>
-        <p className="mx-auto mt-5 max-w-2xl text-sm leading-6 text-neutral-400">Search Titan tooling by product, SKU, material, application, size, or equipment. Guest browsing is open; contractor pricing stays protected.</p>
+        <p className="mx-auto mt-5 max-w-2xl text-sm leading-6 text-neutral-400">Search Titan tooling by product, SKU, cut type, size, or equipment. Guest browsing is open; contractor pricing stays protected.</p>
       </section>
 
       <div className="mx-auto max-w-[94rem] px-4 py-8 sm:px-6 lg:px-8">
@@ -164,7 +161,7 @@ function ShopContent() {
           <div className="flex flex-col gap-3 lg:flex-row">
             <label className="relative flex-1">
               <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-orange-400" />
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, SKU, material, saw, size…" className="h-12 w-full rounded-xl border border-white/10 bg-black/60 pl-11 pr-11 text-sm text-white outline-none transition focus:border-orange-400/60 focus:ring-4 focus:ring-orange-500/10" />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, SKU, cut type, saw, size…" className="h-12 w-full rounded-xl border border-white/10 bg-black/60 pl-11 pr-11 text-sm text-white outline-none transition focus:border-orange-400/60 focus:ring-4 focus:ring-orange-500/10" />
               {query && <button onClick={() => setQuery('')} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-neutral-500 hover:bg-white/5 hover:text-white"><FiX /></button>}
             </label>
             <button onClick={() => setFilterOpen(!filterOpen)} className={`flex h-12 items-center justify-center gap-2 rounded-xl border px-5 text-xs font-black uppercase tracking-wider lg:hidden ${filterOpen || activeFilters.length ? 'border-orange-400/50 bg-orange-500/10 text-orange-300' : 'border-white/10 bg-white/5 text-neutral-300'}`}><FiFilter /> Filters {activeFilters.length > 0 && `(${activeFilters.length})`}</button>
@@ -177,8 +174,7 @@ function ShopContent() {
             <div className="mb-5 flex items-center justify-between"><h2 className="flex items-center gap-2 text-xs font-black uppercase tracking-widest"><FiFilter className="text-orange-400" /> Refine results</h2>{(activeFilters.length > 0 || query) && <button onClick={clearAll} className="text-[10px] font-bold uppercase text-orange-400 hover:text-orange-300">Clear all</button>}</div>
             <div className="space-y-4">
               <Facet label="Category" value={filters.category} options={facets.category} onChange={(value) => setFilters({ ...filters, category: value })} />
-              <Facet label="Application" value={filters.application} options={facets.application} onChange={(value) => setFilters({ ...filters, application: value })} />
-              <Facet label="Material" value={filters.material} options={facets.material} onChange={(value) => setFilters({ ...filters, material: value })} />
+              <Facet label="Cuts / application" value={filters.useCase} options={facets.useCase} onChange={(value) => setFilters({ ...filters, useCase: value })} />
               <Facet label="Size" value={filters.size} options={facets.size} onChange={(value) => setFilters({ ...filters, size: value })} />
             </div>
             <Link href="/blade-finder" className="mt-6 flex items-center justify-center gap-2 rounded-xl border border-orange-400/30 bg-orange-500/10 px-3 py-3 text-[10px] font-black uppercase tracking-wider text-orange-300"><FiSliders /> Not sure? Use blade finder</Link>
@@ -243,8 +239,7 @@ function ProductModal({ product, onClose }: { product: CatalogProduct; onClose: 
             {product.productType && <Spec label="Product type" value={product.productType} />}
             {product.toolType && <Spec label="Tool type" value={product.toolType} />}
             {product.size && <Spec label="Size / diameter" value={product.size} />}
-            {product.application && <Spec label="Application" value={product.application} />}
-            {product.materials.length > 0 && <Spec label="Materials" value={product.materials.join(' · ')} />}
+            {product.useCases.length > 0 && <Spec label="Cuts / applications" value={product.useCases.join(' · ')} />}
             {product.equipment && <Spec label="Equipment" value={product.equipment} />}
             {product.technical.segmentHeight && <Spec label="Segment height" value={product.technical.segmentHeight} />}
             {product.technical.slotType && <Spec label="Slot type" value={product.technical.slotType} />}

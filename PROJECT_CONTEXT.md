@@ -241,6 +241,22 @@ live state before destructive changes or external writes.
 
 ## Public storefront refresh (August 2026)
 
+- Public hero artwork now has a coordinated 15-scene field series under
+  `public/images/hero/field-series/`. Every scene uses the homepage hero as its
+  lighting/grade reference and the real 14-inch patriotic `THE TITAN` blade as
+  its product reference on a realistically proportioned STIHL TS 420-style
+  handheld saw. Routes use unique jobsites and actions while retaining dark
+  copy space, restrained sparks, authentic PPE, subtle American flags, and the
+  existing reduced-motion overlays. The reproducible API workflow is
+  `scripts/generate-public-hero-series.ps1`; never store its API key in source.
+- Product application and material presentation is consolidated into the
+  controlled `publicUseCases` taxonomy in
+  `src/lib/public-product-normalization.ts`. Public and internal catalog filters
+  expose one `Cuts / Application` selector instead of redundant application and
+  material selectors. Public detail cards and Signature cards also show the
+  combined field. Raw `Product.application`, `Product.materials`, and imported
+  source attributes remain stored unchanged for integrations and auditing.
+
 - The public site now uses a shared dark industrial visual system with restrained
   ember motion, atmospheric grid/aurora layers, and reduced-motion support.
 - `/shop` has expanded customer-facing search, sorting, facets, result counts,
@@ -481,3 +497,19 @@ live state before destructive changes or external writes.
 - The requested all-time invoice cost and commission recalculation remains
   intentionally paused. No invoice cost-processing, commission-recalculation,
   or Zoho cost-sync endpoint was called during the identity repair.
+
+## 2026-08-22 master-derived cutout Netlify release
+
+- A verified Netlify database recovery backup was created before release at
+  `backups/netlify-20260822-033731.dump` (33.77 MB). No migration, catalog data
+  mutation, cost sync, or commission process was run.
+- Scoped production commit `55160b1594ea383867ff3de693bfaa053bde2734`
+  added the 358 approved master-derived transparent product cutouts, the guarded
+  rebuild tool, updated image map, direct Signature paths, and larger storefront
+  product presentation. Unrelated local `deno.lock` was excluded.
+- Netlify deploy `6a897d317646130008917059` published successfully at
+  2026-08-22 10:46 UTC with plugin status `success`. Live HTTP checks returned
+  200 for `/`, `/shop`, `/signature-series`, `/api/public/products`, and
+  `/login`. The CDN Dragon asset was verified as 1200×1200 RGBA with genuine
+  transparent and opaque pixels, and desktop/mobile visual checks confirmed
+  the blade fills its presentation area without a background.

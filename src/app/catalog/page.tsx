@@ -13,6 +13,7 @@ import {
 } from "react-icons/fi"
 import imageMapData from "@/lib/image-map.json"
 import { isAdministratorRole } from "@/lib/roles"
+import { publicStrings, publicUseCases } from "@/lib/public-product-normalization"
 
 type SortKey = "sku" | "name" | "vendor" | "classification" | "price" | "stock"
 
@@ -39,7 +40,6 @@ export default function ProductCatalogPage() {
   const [filterProductType, setFilterProductType] = useState("")
   const [filterToolType, setFilterToolType] = useState("")
   const [filterEquipment, setFilterEquipment] = useState("")
-  const [filterMaterial, setFilterMaterial] = useState("")
 
   const [showInactive, setShowInactive] = useState(false)
   const [onlyWithImages, setOnlyWithImages] = useState(false)
@@ -115,7 +115,7 @@ export default function ProductCatalogPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [search, category, filterSize, filterApp, filterMfg, filterVendor, filterProductType, filterToolType, filterEquipment, filterMaterial, showInactive, onlyWithImages])
+  }, [search, category, filterSize, filterApp, filterMfg, filterVendor, filterProductType, filterToolType, filterEquipment, showInactive, onlyWithImages])
 
   const parseProductDescription = (desc: string | null) => {
     if (!desc) return { text: "--", cost: null, vendor: null, retail: null, pertinentInfo: null, image: null, status: "active" }
@@ -167,12 +167,11 @@ export default function ProductCatalogPage() {
 
   // Derive filter options dynamically
   const sizes = Array.from(new Set(products.map(p => p.size).filter(Boolean))).sort()
-  const apps = Array.from(new Set(products.map(p => p.application).filter(Boolean))).sort()
+  const apps = Array.from(new Set(products.flatMap(p => publicUseCases([...publicStrings(p.application), ...publicStrings(p.materials)])))).sort()
   const mfgs = Array.from(new Set(products.map(p => p.manufacturer).filter(Boolean))).sort()
   const productTypes = Array.from(new Set(products.map(p => p.productType).filter(Boolean))).sort()
   const toolTypes = Array.from(new Set(products.map(p => p.toolType).filter(Boolean))).sort()
   const equipmentOptions = Array.from(new Set(products.map(p => p.equipment).filter(Boolean))).sort()
-  const materialOptions = Array.from(new Set(products.flatMap(p => Array.isArray(p.materials) ? p.materials : []).filter(Boolean))).sort()
   const vendors = Array.from(new Set(products.map(p => {
     const parsed = parseProductDescription(p.description)
     return p.vendor || parsed.vendor
@@ -192,13 +191,12 @@ export default function ProductCatalogPage() {
     const isActive = parsed.status !== "inactive"
     
     const matchesSize = !filterSize || p.size === filterSize
-    const matchesApp = !filterApp || p.application === filterApp
+    const matchesApp = !filterApp || publicUseCases([...publicStrings(p.application), ...publicStrings(p.materials)]).includes(filterApp)
     const matchesMfg = !filterMfg || p.manufacturer === filterMfg
     const matchesVendor = !filterVendor || p.vendor === filterVendor || parsed.vendor === filterVendor
     const matchesProductType = !filterProductType || p.productType === filterProductType
     const matchesToolType = !filterToolType || p.toolType === filterToolType
     const matchesEquipment = !filterEquipment || p.equipment === filterEquipment
-    const matchesMaterial = !filterMaterial || (Array.isArray(p.materials) && p.materials.includes(filterMaterial))
 
     const hasImg = Boolean(
       getProductImage(p.name, p.sku, p.imageUrl) ||
@@ -206,7 +204,7 @@ export default function ProductCatalogPage() {
     )
     const matchesImage = !onlyWithImages || hasImg
 
-    return matchesSearch && matchesCategory && (showInactive || isActive) && matchesSize && matchesApp && matchesMfg && matchesVendor && matchesProductType && matchesToolType && matchesEquipment && matchesMaterial && matchesImage
+    return matchesSearch && matchesCategory && (showInactive || isActive) && matchesSize && matchesApp && matchesMfg && matchesVendor && matchesProductType && matchesToolType && matchesEquipment && matchesImage
   }).sort((a, b) => {
     const parsedA = parseProductDescription(a.description)
     const parsedB = parseProductDescription(b.description)
@@ -240,7 +238,7 @@ export default function ProductCatalogPage() {
     </button>
   )
 
-  // Group by Quality Tier if Application or Size is selected
+  // Group by Quality Tier if Cuts / Application or Size is selected
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize))
   const visiblePage = Math.min(currentPage, totalPages)
   const pageStart = (visiblePage - 1) * pageSize
@@ -547,16 +545,9 @@ export default function ProductCatalogPage() {
             </select>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Material</label>
-            <select value={filterMaterial} onChange={e => setFilterMaterial(e.target.value)} className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:border-emerald-500 outline-none">
-              <option value="">All Materials</option>
-              {materialOptions.map(value => <option key={String(value)} value={String(value)}>{String(value)}</option>)}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Application</label>
+            <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Cuts / Application</label>
             <select value={filterApp} onChange={e => setFilterApp(e.target.value)} className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:border-emerald-500 outline-none">
-              <option value="">All Applications</option>
+              <option value="">All Cuts / Applications</option>
               {apps.map(a => <option key={String(a)} value={String(a)}>{String(a)}</option>)}
             </select>
           </div>
@@ -581,16 +572,16 @@ export default function ProductCatalogPage() {
               {mfgs.map(m => <option key={String(m)} value={String(m)}>{String(m)}</option>)}
             </select>
           </div>
-          {(filterSize || filterApp || filterVendor || filterMfg || filterProductType || filterToolType || filterEquipment || filterMaterial) && (
+          {(filterSize || filterApp || filterVendor || filterMfg || filterProductType || filterToolType || filterEquipment) && (
             <div className="flex items-end">
-              <button onClick={() => { setFilterSize(""); setFilterApp(""); setFilterVendor(""); setFilterMfg(""); setFilterProductType(""); setFilterToolType(""); setFilterEquipment(""); setFilterMaterial(""); }} className="text-xs text-neutral-400 hover:text-white px-2 py-1.5">Clear Filters</button>
+              <button onClick={() => { setFilterSize(""); setFilterApp(""); setFilterVendor(""); setFilterMfg(""); setFilterProductType(""); setFilterToolType(""); setFilterEquipment(""); }} className="text-xs text-neutral-400 hover:text-white px-2 py-1.5">Clear Filters</button>
             </div>
           )}
         </div>
 
         {shouldGroup && (
           <div className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 px-4 py-2 rounded-lg">
-            <strong>Grouping Active:</strong> Showing products grouped by Good/Better/Best tiers because an Application or Size filter is applied.
+            <strong>Grouping Active:</strong> Showing products grouped by Good/Better/Best tiers because a Cuts / Application or Size filter is applied.
           </div>
         )}
 
@@ -659,7 +650,7 @@ export default function ProductCatalogPage() {
             </div>
             <form onSubmit={handleSaveProduct} className="p-6 space-y-4">
               <div>
-                <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Application</label>
+                <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Cuts / Application</label>
                 <input type="text" value={editingProduct.application || ""} onChange={e => setEditingProduct({...editingProduct, application: e.target.value})} className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none" placeholder="e.g. Concrete, Asphalt, Polishing" />
               </div>
               <div>
