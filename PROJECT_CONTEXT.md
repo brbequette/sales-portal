@@ -398,3 +398,10 @@ live state before destructive changes or external writes.
   `brbequette/sales-portal` main, not this workspace's historical `origin`
   (`brbequette/TDGPT`). Production code promotion must target the connected
   repository or use an account authorized for manual production deploys.
+- Release commit `de50819b1eb2e807db88f47b14caa7158c018f3e` was pushed as a
+  fast-forward to the Netlify-linked `main` branch. Netlify deploy
+  `6a890b031e3cdc000868a87e` was immediately skipped with `account credit usage
+  exceeded`; the custom domain therefore continues serving prior code deploy
+  `6a85eb5d75f02b00080bff6f` until the account's build credits are restored and
+  the queued production commit is retried. The managed database changes are
+  already live and backward-compatible with that prior code.
