@@ -1,6 +1,6 @@
 # Titan Diamond — Consolidated Project Context
 
-Last reconciled: **2026-08-21 (America/Phoenix)**
+Last reconciled: **2026-08-22 (America/Phoenix)**
 
 This file is the durable handoff for new Codex tasks. It consolidates the
 material status from the tasks titled **Review project**, **Redesign TV
@@ -420,3 +420,25 @@ live state before destructive changes or external writes.
   sends the current flyer back as the primary high-fidelity edit source. The
   revision route preserves supplied campaign facts and product references while
   applying the requested visual/layout edits.
+
+## 2026-08-22 Flyer Studio and catalog cutout release (pending deployment)
+
+- Reference flyers are style guidance only. They are no longer composited into
+  deterministic previews, and the artwork prompt expressly prohibits copying
+  their pixels, products, people, logos, wording, offers, or backgrounds.
+- Flyer Studio supplies the official light Titan horizontal logo as an exact
+  image input. It now has separate pre-render creative-direction and post-render
+  revision prompts; neither may override locked products, pricing, offer facts,
+  logo, or rep contact data.
+- Non-JSON gateway/function responses are decoded into useful flyer-generation
+  errors instead of failing with a generic JSON parse exception.
+- The 693 SKU image-map entries resolve to 381 unique catalog master images.
+  All 381 now have generated 1200px transparent PNG cutouts under
+  `public/product-images/cutouts/`; originals and annotated detail diagrams stay
+  untouched. Flyer Studio bootstrap prefers the same SKU cutout map.
+- The cutout library was verified with zero missing, opaque, or blank master
+  images. `scripts/build_product_cutouts.py` is the reproducible batch tool.
+- Weekly TV payloads now include each invoice/sales-order account owner ID and
+  the TV board attributes documents by that stable rep ID before falling back
+  to salesperson-name matching. This addresses rep rows with blank/zero values
+  caused by name variants.

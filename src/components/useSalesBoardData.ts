@@ -702,7 +702,7 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           teamWeekly.deadCostSubjectToVig += deadCostSubjectToVig
           teamWeekly.commission += commission
 
-          const matchedRep = getMatchedRep(doc.salesperson || "")
+          const matchedRep = repsMap[String(doc.repId || "")] || getMatchedRep(doc.salesperson || "")
           if (!matchedRep) continue
           if (doc.type === "estimate") {
             matchedRep.activePipeline.estimateCount += 1
