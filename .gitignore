@@ -66,6 +66,7 @@ scripts/backfill/*backup*.json
 /.codex-artifact/
 /.codex-tmp/
 /outputs/
+/.cache/
 
 # Local source-image/data drops (may contain private or licensed material)
 /All Pics/

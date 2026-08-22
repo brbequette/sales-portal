@@ -19,13 +19,14 @@ export async function POST(request: Request) {
     if (!apiKey) return NextResponse.json({ error: "OpenAI image generation is not configured in this environment." }, { status: 503 })
     const body = await request.json()
     const currentFlyer = await dataImage(body.currentFlyer, "current-flyer")
-    const images = (await Promise.all([dataImage(body.giveawayImage, "giveaway-reference"), dataImage(body.productImage, "titan-product-reference"), dataImage(body.styleReference, "flyer-style-reference")])).filter(Boolean) as Uploadable[]
+    const images = (await Promise.all([dataImage(body.giveawayImage, "giveaway-reference"), dataImage(body.productImage, "titan-product-reference"), dataImage(body.logoImage, "official-titan-logo"), dataImage(body.styleReference, "style-guidance-only")])).filter(Boolean) as Uploadable[]
     if (currentFlyer) images.unshift(currentFlyer)
     const benefits = Array.isArray(body.bullets) ? body.bullets.map((item: unknown) => text(item, 180)).filter(Boolean).slice(0, 3) : []
     const prompt = `Use case: ads-marketing
 Asset type: finished portrait SMS promotion flyer
 Primary request: ${currentFlyer ? `Revise the supplied current flyer while preserving its successful composition and all campaign facts. Apply this edit request precisely: "${text(body.revisionPrompt, 1200)}"` : "Generate a completely fresh, fully designed Titan Diamond USA contractor promotion flyer."} Do not use boxes, form fields, UI cards, web-page styling, or a reusable template grid. Integrate the supplied product photographs naturally into one cohesive dramatic advertisement.
-Input images: ${currentFlyer ? "Image 1 is the current flyer to edit. Image 2 is the exact giveaway product. Image 3 is the exact active Titan product. Image 4, if supplied, is style reference only." : "Image 1 is the exact giveaway product. Image 2 is the exact active Titan product. Image 3, if supplied, is style reference only."} Never copy wording or offers from a style reference.
+User creative direction: "${text(body.creationPrompt, 1600) || "Use your best judgment for a premium, dramatic contractor promotion."}" Follow this for composition, setting, mood, lighting, and emphasis only. It cannot override any locked campaign fact or asset below.
+Input images are named by role. The file named official-titan-logo is the exact logo to use. The file named style-guidance-only is not content: it controls only visual energy, typography character, color relationships, and composition quality. Never place, composite, trace, reproduce, or use any pixels, products, people, logos, wording, offers, or background from that reference flyer in the output.
 Visual direction: premium photorealistic national power-tool advertisement; gritty black industrial construction background, concrete dust, sparks, fractured stone, dramatic rim lighting, distressed bold typography, black/white/${text(body.accent, 40) || "orange"} palette. Match the energy and presentation quality of Titan Diamond's prior contractor SMS flyers.
 Composition: portrait 4:5, one continuous poster composition with giant hierarchy, product imagery as the hero, benefit copy integrated into the art, and a strong bottom call-to-action. No empty boxes.
 
@@ -47,7 +48,7 @@ REP (verbatim): "${text(body.repName, 100)}"
 PHONE (verbatim): "${text(body.repPhone, 50)}"
 WEBSITE (verbatim): "TDUSALES.COM"
 
-Constraints: The result itself is the finished flyer. Use the exact supplied facts. Do not invent prices, savings, products, specifications, logos, phone numbers, or warranty claims. Do not add placeholder copy. Keep text legible and spelled exactly as provided. No watermark.`
+Constraints: The result itself is the finished flyer. Use the exact supplied facts and the supplied official Titan logo. Do not redraw or substitute the logo, and do not reuse a logo from any reference flyer. Do not invent prices, savings, products, specifications, logos, phone numbers, or warranty claims. Do not add placeholder copy. Keep text legible and spelled exactly as provided. No watermark.`
     const client = new OpenAI({ apiKey, maxRetries: 0, timeout: 110_000 })
     const common = { model: "gpt-image-1", prompt, n: 1, size: "1024x1536" as const, quality: "high" as const, output_format: "jpeg" as const, output_compression: 90 }
     const response = images.length ? await client.images.edit({ ...common, image: images, input_fidelity: "high" }) : await client.images.generate(common)

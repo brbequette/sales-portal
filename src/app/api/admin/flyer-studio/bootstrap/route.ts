@@ -2,6 +2,9 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAdministrator } from "@/lib/auth-helpers"
 import { FLYER_CAMPAIGN_TYPES, FLYER_CATALOGS } from "@/lib/flyer-studio-config"
+import imageMapData from "@/lib/image-map.json"
+
+const imageMap = imageMapData as Record<string, { image?: string | null }>
 
 function productDetails(description: string | null) {
   if (!description) return { text: "" }
@@ -38,7 +41,7 @@ export async function GET() {
     return {
       ...product,
       description: typeof details.text === "string" ? details.text : product.description,
-      imageUrl: typeof details.image === "string" ? details.image : null,
+      imageUrl: imageMap[product.sku]?.image || (typeof details.image === "string" ? details.image : null),
       unitCost: Number.isFinite(costCandidate) ? costCandidate : 0,
       productStatus: typeof details.status === "string" ? details.status.toLowerCase() : "active",
       catalogIds: FLYER_CATALOGS.filter((catalog) => catalog.matches(product)).map((catalog) => catalog.id),

@@ -83,11 +83,12 @@ async function buildWeeklyPayload(
         id: true, zohoId: true, amount: true, status: true, issueDate: true,
         items: true, salesOrderZohoId: true, estimateZohoId: true, salesorderNumber: true,
         computedDeadProfit: true, computedDeadCost: true, computedSalesperson: true,
+        account: { select: { ownerId: true } },
       },
     }),
     prisma.salesOrder.findMany({
       where: { orderDate: { gte: monday, lte: sunday } },
-      select: { id: true, zohoId: true, amount: true, status: true, orderDate: true, items: true },
+      select: { id: true, zohoId: true, amount: true, status: true, orderDate: true, items: true, account: { select: { ownerId: true } } },
     }),
     prisma.$queryRaw<Array<{
       id: string
@@ -200,7 +201,7 @@ async function buildWeeklyPayload(
       .map(text).filter(Boolean).forEach(value => convertedEstimateNumbers.add(value))
   }
 
-  const documents: Array<{ id: string; type: "invoice" | "salesorder" | "estimate"; subtotal: number; deadCost: number; profit: number; date: string; salesperson: string; costPending?: boolean }> = []
+  const documents: Array<{ id: string; type: "invoice" | "salesorder" | "estimate"; subtotal: number; deadCost: number; profit: number; date: string; salesperson: string; repId?: string; costPending?: boolean }> = []
   const missingCostInvoiceIds: string[] = []
   const missingCostSalesOrderIds: string[] = []
 
@@ -222,6 +223,7 @@ async function buildWeeklyPayload(
       profit: hasStoredDeadCost ? number(invoice.computedDeadProfit ?? extractDeadProfit(items, invoiceSubtotal)) : 0,
       date: invoice.issueDate.toISOString(),
       salesperson: String(invoice.computedSalesperson || items.salesperson_name || items.salesperson || ""),
+      repId: invoice.account.ownerId,
       costPending: !hasStoredDeadCost,
     })
   }
@@ -247,6 +249,7 @@ async function buildWeeklyPayload(
       profit: hasStoredDeadCost ? number(extractDeadProfit(items, orderSubtotal)) : 0,
       date: order.orderDate.toISOString(),
       salesperson: String(items.salesperson_name || items.salesperson || ""),
+      repId: order.account.ownerId,
       costPending: !hasStoredDeadCost,
     })
   }
