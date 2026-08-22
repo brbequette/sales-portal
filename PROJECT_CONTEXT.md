@@ -411,3 +411,12 @@ live state before destructive changes or external writes.
   for `/`, `/shop`, `/signature-series`, `/api/public/products`, and `/login`;
   Prisma reports all seven migrations current. `www.tdusales.com` is now on the
   refreshed storefront release.
+- Contractor Flyer Studio accepts an image from the system clipboard anywhere
+  on the page. A Print Screen followed by Ctrl+V reuses the authenticated
+  product-screenshot vision route, sets the screenshot as the giveaway image,
+  and fills visible product details for review. Text-only paste continues to
+  behave normally.
+- After AI artwork is generated, Flyer Studio displays a revision prompt and
+  sends the current flyer back as the primary high-fidelity edit source. The
+  revision route preserves supplied campaign facts and product references while
+  applying the requested visual/layout edits.
