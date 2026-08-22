@@ -18,12 +18,14 @@ export async function POST(request: Request) {
     const apiKey = getOpenAIApiKey()
     if (!apiKey) return NextResponse.json({ error: "OpenAI image generation is not configured in this environment." }, { status: 503 })
     const body = await request.json()
+    const currentFlyer = await dataImage(body.currentFlyer, "current-flyer")
     const images = (await Promise.all([dataImage(body.giveawayImage, "giveaway-reference"), dataImage(body.productImage, "titan-product-reference"), dataImage(body.styleReference, "flyer-style-reference")])).filter(Boolean) as Uploadable[]
+    if (currentFlyer) images.unshift(currentFlyer)
     const benefits = Array.isArray(body.bullets) ? body.bullets.map((item: unknown) => text(item, 180)).filter(Boolean).slice(0, 3) : []
     const prompt = `Use case: ads-marketing
 Asset type: finished portrait SMS promotion flyer
-Primary request: Generate a completely fresh, fully designed Titan Diamond USA contractor promotion flyer. Do not use boxes, form fields, UI cards, web-page styling, or a reusable template grid. Integrate the supplied product photographs naturally into one cohesive dramatic advertisement.
-Input images: Image 1 is the exact giveaway product. Image 2 is the exact active Titan product. Image 3, if supplied, is style reference only; never copy its wording or offer.
+Primary request: ${currentFlyer ? `Revise the supplied current flyer while preserving its successful composition and all campaign facts. Apply this edit request precisely: "${text(body.revisionPrompt, 1200)}"` : "Generate a completely fresh, fully designed Titan Diamond USA contractor promotion flyer."} Do not use boxes, form fields, UI cards, web-page styling, or a reusable template grid. Integrate the supplied product photographs naturally into one cohesive dramatic advertisement.
+Input images: ${currentFlyer ? "Image 1 is the current flyer to edit. Image 2 is the exact giveaway product. Image 3 is the exact active Titan product. Image 4, if supplied, is style reference only." : "Image 1 is the exact giveaway product. Image 2 is the exact active Titan product. Image 3, if supplied, is style reference only."} Never copy wording or offers from a style reference.
 Visual direction: premium photorealistic national power-tool advertisement; gritty black industrial construction background, concrete dust, sparks, fractured stone, dramatic rim lighting, distressed bold typography, black/white/${text(body.accent, 40) || "orange"} palette. Match the energy and presentation quality of Titan Diamond's prior contractor SMS flyers.
 Composition: portrait 4:5, one continuous poster composition with giant hierarchy, product imagery as the hero, benefit copy integrated into the art, and a strong bottom call-to-action. No empty boxes.
 
