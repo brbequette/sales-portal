@@ -22,10 +22,10 @@ type SignatureBlade = { family: string; name: string; image: string; description
 const imageMap = imageMapData as Record<string, { image?: string | null }>;
 const SIGNATURE_FAMILIES = ['THE DRAGON', 'THE ZEUS', 'THE MEDUSA', 'THE BARBARIAN', 'THE DARK KNIGHT', 'THE BATTLE AXE', 'THE HOUND OF HADES', 'THE HYDRA', 'THE KING', 'THE MAXIMUS', 'THE GLADIATOR', 'THE DEMO DEMON'] as const;
 const FALLBACK_IMAGES: Record<string, string> = {
-  'THE DRAGON': '/product-images/dragon-formatted.png', 'THE ZEUS': '/product-images/zeus-formatted.png', 'THE MEDUSA': '/product-images/medusa-formatted.png',
-  'THE BARBARIAN': '/product-images/barbarian-formatted.png', 'THE DARK KNIGHT': '/product-images/dark knight-formatted.png', 'THE BATTLE AXE': '/product-images/battle axe-formatted.png',
-  'THE HOUND OF HADES': '/product-images/hounds of hades-formatted.png', 'THE HYDRA': '/product-images/hydra-formatted.png', 'THE KING': '/product-images/king-formatted.png',
-  'THE MAXIMUS': '/product-images/maximus-formatted.png', 'THE GLADIATOR': '/product-images/gladiator-formatted.png', 'THE DEMO DEMON': '/product-images/demo demon-formatted.png',
+  'THE DRAGON': '/product-images/cutouts-v2/dragon-formatted.png', 'THE ZEUS': '/product-images/cutouts-v2/zeus-formatted.png', 'THE MEDUSA': '/product-images/cutouts-v2/medusa-formatted.png',
+  'THE BARBARIAN': '/product-images/cutouts-v2/barbarian-formatted.png', 'THE DARK KNIGHT': '/product-images/cutouts-v2/dark knight-formatted.png', 'THE BATTLE AXE': '/product-images/cutouts-v2/battle axe-formatted.png',
+  'THE HOUND OF HADES': '/product-images/cutouts-v2/hounds of hades-formatted.png', 'THE HYDRA': '/product-images/cutouts-v2/hydra-formatted.png', 'THE KING': '/product-images/cutouts-v2/king-formatted.png',
+  'THE MAXIMUS': '/product-images/cutouts-v2/maximus-formatted.png', 'THE GLADIATOR': '/product-images/cutouts-v2/gladiator-formatted.png', 'THE DEMO DEMON': '/product-images/cutouts-v2/demo demon-formatted.png',
 };
 
 function asStrings(value: unknown): string[] {

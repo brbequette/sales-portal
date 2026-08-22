@@ -29,7 +29,7 @@ async function featuredSignatures() {
     const rawValues = (field: 'size'|'application'|'equipment'|'materials') => unique(variants.flatMap(row => split(row[field])));
     let description = variants.map(row => row.description || '').find(Boolean) || 'Commercial Signature Series diamond blade engineered for professional production cutting.';
     try { const parsed = JSON.parse(description); description = parsed.text || parsed.pertinentInfo || description; } catch { /* plain Zoho description */ }
-    return [{ family, image:`/product-images/${SIGNATURE_IMAGES[family]}`, description, skus:unique(variants.map(v => v.sku)), sizes:normalizedSizes(rawValues('size')), applications:controlledValues(rawValues('application'),'application'), equipment:controlledValues(rawValues('equipment'),'equipment'), materials:controlledValues(rawValues('materials'),'material'), variants:variants.length }];
+    return [{ family, image:`/product-images/cutouts-v2/${SIGNATURE_IMAGES[family]}`, description, skus:unique(variants.map(v => v.sku)), sizes:normalizedSizes(rawValues('size')), applications:controlledValues(rawValues('application'),'application'), equipment:controlledValues(rawValues('equipment'),'equipment'), materials:controlledValues(rawValues('materials'),'material'), variants:variants.length }];
   });
 }
 
