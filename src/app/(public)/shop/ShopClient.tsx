@@ -8,6 +8,7 @@ import { useSearchParams } from 'next/navigation';
 import { FiArrowLeft, FiArrowRight, FiAward, FiBox, FiCheckCircle, FiChevronDown, FiDollarSign, FiFilter, FiGift, FiLock, FiPackage, FiSearch, FiSliders, FiTag, FiTrendingUp, FiX } from 'react-icons/fi';
 import imageMapData from '@/lib/image-map.json';
 import type { ProductOffer } from '@/lib/product-offers';
+import { publicUseCases } from '@/lib/public-product-normalization';
 
 type RawProduct = {
   id: string; name: string; sku: string; category?: string | null; imageUrl?: string | null; description?: string | null;
@@ -32,25 +33,6 @@ function values(value: unknown): string[] {
   return [];
 }
 function unique(items: string[]) { return [...new Set(items.map((item) => item.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })); }
-function canonicalApplications(text: string) {
-  const found: string[] = [];
-  const add = (pattern: RegExp, label: string) => pattern.test(text) && found.push(label);
-  add(/REINFORCED|REBAR/i, 'Reinforced concrete'); add(/GREEN CONCRETE|EARLY.?ENTRY/i, 'Green concrete');
-  add(/ASPHALT/i, 'Asphalt'); add(/CONCRETE|AGGREGATE|RIVER ROCK/i, 'Concrete'); add(/MASONRY|BRICK|BLOCK|PAVER/i, 'Masonry');
-  add(/TILE|PORCELAIN|CERAMIC/i, 'Tile & porcelain'); add(/STONE|GRANITE|MARBLE|QUARTZ/i, 'Stone');
-  add(/DUCTILE/i, 'Ductile iron'); add(/METAL|STEEL|FERROUS|IRON/i, 'Metal'); add(/GLASS/i, 'Glass');
-  add(/CORE BIT|CORE DRILL|CORING/i, 'Core drilling'); add(/GRIND|CUP WHEEL|SURFACE PREP|POLISH/i, 'Surface preparation');
-  return unique(found);
-}
-function canonicalMaterials(text: string) {
-  const found: string[] = [];
-  const add = (pattern: RegExp, label: string) => pattern.test(text) && found.push(label);
-  add(/REINFORCED|REBAR/i, 'Reinforced concrete'); add(/GREEN CONCRETE/i, 'Green concrete'); add(/ASPHALT/i, 'Asphalt');
-  add(/CONCRETE|AGGREGATE|RIVER ROCK/i, 'Concrete'); add(/MASONRY|BRICK|BLOCK|PAVER/i, 'Masonry');
-  add(/TILE|PORCELAIN|CERAMIC/i, 'Tile & porcelain'); add(/STONE|GRANITE|MARBLE|QUARTZ/i, 'Stone');
-  add(/DUCTILE/i, 'Ductile iron'); add(/METAL|STEEL|FERROUS|IRON/i, 'Metal'); add(/GLASS/i, 'Glass'); add(/WOOD/i, 'Wood');
-  return unique(found);
-}
 function canonicalSizes(raw: string) {
   return unique(values(raw).flatMap((value) => {
     const cleaned = value.trim().replace(/[”″]/g, '"');
@@ -87,7 +69,7 @@ function parseProduct(item: RawProduct): CatalogProduct {
   const imageUrl = mapped || (!stored.includes('placeholder') ? stored : '') || `/product-images/${encodeURIComponent(sku)}.png`;
   const searchable = [item.name, sku, category, item.productType, item.toolType, size, application, equipment, materials.join(' '), description, 'Titan Diamond USA'].filter(Boolean).join(' ').toLowerCase();
   const canonicalText = [application, equipment, materials.join(' '), description, item.productType, item.toolType].filter(Boolean).join(' ');
-  const useCases = unique([...values(item.useCases), ...canonicalApplications(canonicalText), ...canonicalMaterials(materials.join(' '))]);
+  const useCases = publicUseCases([...values(item.useCases), canonicalText]);
   const technical = attributes as PublicAttributes;
   return { id: item.id || sku, name: item.name, sku, category, imageUrl, description, size, application: useCases.join(' · '), productType: item.productType || '', toolType: item.toolType || '', equipment, useCases, sizes: canonicalSizes(size), technical, searchable };
 }
