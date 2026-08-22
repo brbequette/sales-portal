@@ -447,3 +447,27 @@ live state before destructive changes or external writes.
   checks returned HTTP 200 for `/`, `/shop`, `/tv`, `/api/public/products`, and
   the authenticated Flyer Studio redirect. A live cutout was verified as
   1200x1200 RGBA with real transparent and opaque pixels.
+
+## 2026-08-22 Benjamin Bequette production identity merge
+
+- A fresh Netlify production database recovery snapshot was created and
+  verified before the identity repair (`2026-08-22T10:02:17.519Z`).
+- The three Benjamin/Ben Bequette user rows were audited through an
+  administrator-only maintenance route. The Zoho-linked account
+  `cmppahv5m0000lsi0s00jywp3` (`ben@titandiamond.net`) was selected as the
+  canonical identity.
+- Duplicate users `cmsruy9q90000mt5im0gdb91z` and
+  `cmswgtear0000uuoqtog6jenw` were merged transactionally and deleted only
+  after their relationships were moved. The canonical account now owns the
+  additional 35 notes, 2 tasks, 5 notifications, and compensation plan. Its
+  final audit reports one matching Benjamin account, 11,014 notes, 21 tasks,
+  28 notifications, and one compensation plan.
+- The duplicate time entry collided with an existing canonical entry on the
+  same date; related change requests were preserved against the canonical day
+  before the duplicate row was removed. Compound monthly-goal collisions are
+  also guarded by the maintenance workflow.
+- Netlify deploy `6a8972f7cff5180008fefee3` published the guarded maintenance
+  workflow from production commit `e518183139a69530a99328238803136e1a658a45`.
+- The requested all-time invoice cost and commission recalculation remains
+  intentionally paused. No invoice cost-processing, commission-recalculation,
+  or Zoho cost-sync endpoint was called during the identity repair.
