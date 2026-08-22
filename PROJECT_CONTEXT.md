@@ -405,3 +405,9 @@ live state before destructive changes or external writes.
   `6a85eb5d75f02b00080bff6f` until the account's build credits are restored and
   the queued production commit is retried. The managed database changes are
   already live and backward-compatible with that prior code.
+- Follow-up production build `6a8955d43974a12121ed53c0` completed on
+  2026-08-22 and published deploy `6a8955d43974a12121ed53c2` from commit
+  `077217d50bf019bb4c88f9870d0eb903d1ba3b5d`. Live checks returned HTTP 200
+  for `/`, `/shop`, `/signature-series`, `/api/public/products`, and `/login`;
+  Prisma reports all seven migrations current. `www.tdusales.com` is now on the
+  refreshed storefront release.
