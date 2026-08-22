@@ -421,7 +421,7 @@ live state before destructive changes or external writes.
   revision route preserves supplied campaign facts and product references while
   applying the requested visual/layout edits.
 
-## 2026-08-22 Flyer Studio and catalog cutout release (pending deployment)
+## 2026-08-22 Flyer Studio and catalog cutout release
 
 - Reference flyers are style guidance only. They are no longer composited into
   deterministic previews, and the artwork prompt expressly prohibits copying
@@ -442,3 +442,8 @@ live state before destructive changes or external writes.
   the TV board attributes documents by that stable rep ID before falling back
   to salesperson-name matching. This addresses rep rows with blank/zero values
   caused by name variants.
+- Netlify production deploy `6a896ac9f1b8bb00086636f9` published commit
+  `612df2a0db48c364fd8d70e33ef9298fb2ba09e5` at 2026-08-22 09:27 UTC. Live
+  checks returned HTTP 200 for `/`, `/shop`, `/tv`, `/api/public/products`, and
+  the authenticated Flyer Studio redirect. A live cutout was verified as
+  1200x1200 RGBA with real transparent and opaque pixels.
