@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { calculateDocumentCosts } from "../../../../../netlify/functions/lib/cost-calculations"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 /**
  * POST /api/admin/fix-vig-rate
@@ -14,6 +15,8 @@ import { calculateDocumentCosts } from "../../../../../netlify/functions/lib/cos
  */
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const body = await req.json()
     const { invoiceIds, fixAll, repId, monthKey, newVigRate } = body
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getZohoAccessToken } from '@/lib/zoho-auth'
 import { sendDirectEmail } from '@/lib/notifications'
+import { requireAdministrator } from '@/lib/auth-helpers'
 
 const ZOHO_DC = process.env.ZOHO_DC || 'com'
 const ORG_ID = process.env.ZOHO_ORG_ID || process.env.ZOHO_ORGANIZATION_ID
@@ -15,6 +16,8 @@ function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const token = await getZohoAccessToken()
     const limit = parseInt(req.nextUrl.searchParams.get('limit') || String(DEFAULT_BATCH))
     const notifyEmail = req.nextUrl.searchParams.get('notifyEmail')
@@ -139,6 +142,8 @@ export async function POST(req: NextRequest) {
 
 // GET endpoint to check progress
 export async function GET() {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
   const total = await prisma.invoice.count()
   const processed = await prisma.invoice.count({ where: { invoiceNumber: { not: null } } })
   const linked = await prisma.invoice.count({ where: { salesOrderZohoId: { not: null } } })

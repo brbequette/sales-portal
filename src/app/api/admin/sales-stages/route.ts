@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAdministrator } from '@/lib/auth-helpers'
 
 export async function GET() {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const stages = await prisma.salesStage.findMany({
       orderBy: { order: 'asc' }
     })
@@ -15,6 +18,8 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const body = await req.json()
     const { name, color, description, order, autoActions, notifications, transitionRule, flowConfig } = body
 
@@ -59,6 +64,8 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const body = await req.json()
     const { id, name, color, description, order, autoActions, notifications, transitionRule, flowConfig, isActive } = body
 
@@ -105,6 +112,8 @@ export async function PUT(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const { searchParams } = new URL(req.url)
     const id = searchParams.get('id')
 

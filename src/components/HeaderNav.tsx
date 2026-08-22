@@ -19,13 +19,8 @@ export function HeaderNav() {
         
         {/* Logo (Image only - no text overlap) */}
         <Link href="/" className="flex items-center group shrink-0">
-          <Image 
-            src="/titan-logo.png" 
-            alt="Titan Diamond USA Spartan Logo" 
-            width={64}
-            height={40}
-            className="h-10 sm:h-12 w-auto object-contain filter drop-shadow-[0_0_12px_rgba(245,158,11,0.3)] group-hover:scale-105 transition-all duration-300"
-          />
+          <Image src="/images/brand/logo-system/titan-wordmark-light.png" alt="Titan Diamond USA" width={810} height={304} className="h-8 w-auto object-contain drop-shadow-[0_0_12px_rgba(245,158,11,.2)] transition duration-300 group-hover:scale-105 sm:hidden" />
+          <Image src="/images/brand/logo-system/titan-wordmark-light.png" alt="Titan Diamond USA" width={810} height={304} className="hidden h-10 w-auto object-contain drop-shadow-[0_0_12px_rgba(245,158,11,.16)] transition duration-300 group-hover:scale-[1.03] sm:block" />
         </Link>
 
         {/* Desktop Navigation Links */}
@@ -52,7 +47,7 @@ export function HeaderNav() {
             onMouseEnter={() => setToolsDropdownOpen(true)}
             onMouseLeave={() => setToolsDropdownOpen(false)}
           >
-            <button className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors py-2">
+            <button type="button" aria-expanded={toolsDropdownOpen} onClick={() => { setToolsDropdownOpen((open) => !open); setAppsDropdownOpen(false); }} className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors py-2">
               <span>⚡ Pro Tools</span>
               <FiChevronDown className={`w-3.5 h-3.5 transition-transform ${toolsDropdownOpen ? 'rotate-180 text-amber-400' : ''}`} />
             </button>
@@ -128,7 +123,7 @@ export function HeaderNav() {
             onMouseEnter={() => setAppsDropdownOpen(true)}
             onMouseLeave={() => setAppsDropdownOpen(false)}
           >
-            <button className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors py-2">
+            <button type="button" aria-expanded={appsDropdownOpen} onClick={() => { setAppsDropdownOpen((open) => !open); setToolsDropdownOpen(false); }} className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors py-2">
               <span>Applications</span>
               <FiChevronDown className={`w-3.5 h-3.5 transition-transform ${appsDropdownOpen ? 'rotate-180 text-amber-400' : ''}`} />
             </button>

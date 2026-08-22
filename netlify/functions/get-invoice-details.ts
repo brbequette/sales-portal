@@ -1,18 +1,10 @@
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
-import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
+import { getZohoAccessToken, ZOHO_DC, ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 import { prisma } from "./lib/prisma"
-const ZOHO_DC = process.env.ZOHO_DC || 'com';
-
-// How long a cached record is considered fresh before we re-fetch from Zoho
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
-
-function isCacheFresh(items: any): boolean {
-  if (!items?.lastSyncedAt) return false
-  if (!items?.line_items || (Array.isArray(items.line_items) && items.line_items.length === 0)) return false
-  return (Date.now() - new Date(items.lastSyncedAt).getTime()) < CACHE_TTL_MS
-}
+import { isAdminRole } from "../../src/lib/roles"
 
 function buildLocalResponse(dbDoc: any, type: string, vigRate: number, packages: any[] = [], dropshipments: any[] = []) {
   const items = dbDoc.items as any || {}
@@ -94,7 +86,7 @@ function buildLocalResponse(dbDoc: any, type: string, vigRate: number, packages:
   }
 }
 
-export const handler: Handler = async (event) => {
+const authenticatedHandler: Handler = async (event) => {
   const cors = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
@@ -106,6 +98,8 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod !== "GET") return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "Method not allowed" }) }
 
   try {
+    const sessionUser = await authenticateFunction(event)
+    const actorId = sessionUser.dbId || sessionUser.userId
     const { id, invoiceId, targetId: paramTargetId, type = "Invoice", force } = event.queryStringParameters || {}
     let targetId = invoiceId || id || paramTargetId
 
@@ -141,9 +135,21 @@ export const handler: Handler = async (event) => {
       })
     }
 
-    // ── Step 2: Serve from cache if fresh and not force-refreshed ──
-    if (dbDoc && force !== 'true' && isCacheFresh(dbDoc.items as any)) {
-      console.log(`Cache hit for ${type} ${targetId} (last synced ${(dbDoc.items as any).lastSyncedAt})`)
+    if (!isAdminRole(sessionUser.role)) {
+      if (!actorId || !dbDoc || dbDoc.account?.ownerId !== actorId) {
+        return { statusCode: 403, headers: cors, body: JSON.stringify({ success: false, error: "You can only view documents belonging to your accounts" }) }
+      }
+    }
+
+    if (force === 'true' && !isAdminRole(sessionUser.role)) {
+      return { statusCode: 403, headers: cors, body: JSON.stringify({ success: false, error: "Only administrators can refresh a document from Zoho" }) }
+    }
+
+    // ── Step 2: Normal application reads always come from the local database. ──
+    // Scheduled sync/webhooks keep this record current. A live Zoho request is only
+    // allowed through the explicit administrator-only force refresh action below.
+    if (dbDoc && force !== 'true') {
+      console.log(`Local DB hit for ${type} ${targetId}`)
 
       // Still need vig rate for the modal
       const vigRate = await getVigRate(prisma, (dbDoc.items as any)?.salesperson || '')
@@ -409,3 +415,5 @@ async function getVigRate(prisma: any, salespersonName: string): Promise<number>
 
   return vigRate
 }
+
+export const handler = withFunctionAuth(authenticatedHandler)

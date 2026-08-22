@@ -61,7 +61,8 @@ export function detectConflict(
   localRecord: {
     lastSyncedAt: Date | null
     appModifiedAt: Date | null
-    zohoModifiedTime: Date | null
+    lastZohoModifiedTime?: Date | null
+    zohoModifiedTime?: Date | null
     items: unknown
   },
   zohoDoc: Record<string, unknown>,
@@ -127,6 +128,58 @@ export const APP_OWNED_KEYS = [
   "itemsDcBreakdown",
   "costsCalculatedAt",
 ]
+
+export async function assertNoBooksConflictBeforeWrite(
+  docType: DocType,
+  localRecord: {
+    id: string
+    zohoId: string | null
+    lastSyncedAt: Date | null
+    appModifiedAt: Date | null
+    lastZohoModifiedTime: Date | null
+    items: unknown
+  },
+): Promise<void> {
+  if (!localRecord.zohoId) return
+
+  const token = await getZohoAccessToken()
+  const endpoint = docType === "invoice" ? "invoices" : docType === "salesorder" ? "salesorders" : "estimates"
+  const response = await fetch(
+    `https://www.zohoapis.${ZOHO_DC}/books/v3/${endpoint}/${localRecord.zohoId}?organization_id=${ORG_ID}`,
+    { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } },
+  )
+  if (!response.ok) throw new Error(`Unable to verify current Books record (${response.status})`)
+
+  const payload = await response.json()
+  const remote = payload.invoice || payload.salesorder || payload.estimate
+  if (!remote) throw new Error("Books returned no document during conflict check")
+
+  const remoteModifiedAt = remote.last_modified_time ? new Date(remote.last_modified_time) : null
+  const remoteChanged = !localRecord.lastSyncedAt
+    || (!!remoteModifiedAt && remoteModifiedAt.getTime() > localRecord.lastSyncedAt.getTime())
+  if (!remoteChanged) return
+
+  const conflict = detectConflict({ ...localRecord, appModifiedAt: new Date() }, remote)
+  if (!conflict.hasConflict) {
+    conflict.hasConflict = true
+    conflict.fields._record = {
+      app: localRecord.lastSyncedAt?.toISOString() || "never synced",
+      zoho: remoteModifiedAt?.toISOString() || "modified in Books",
+    }
+  }
+
+  const data = {
+    syncConflict: true,
+    pendingZohoFetch: false,
+    lastZohoModifiedTime: remoteModifiedAt || new Date(),
+    conflictFields: JSON.parse(JSON.stringify(conflict.fields)),
+  }
+  if (docType === "invoice") await prisma.invoice.update({ where: { id: localRecord.id }, data })
+  else if (docType === "salesorder") await prisma.salesOrder.update({ where: { id: localRecord.id }, data })
+  else await prisma.quote.update({ where: { id: localRecord.id }, data })
+
+  throw new Error("SYNC_CONFLICT: Books and the portal both changed this record. Administrator approval is required.")
+}
 
 // Zoho-owned fields we mirror locally (compared during conflict check)
 const ZOHO_OWNED_SCALAR_KEYS = [
@@ -291,6 +344,14 @@ export async function updateInvoiceRecord(opts: {
     paymentDate:        lastPaymentDate?.toISOString().split("T")[0] ?? currentItems.paymentDate,
   }
 
+  const finiteNumber = (value: unknown): number | null => {
+    const parsed = typeof value === "number" ? value : Number.parseFloat(String(value ?? ""))
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  const commission = finiteNumber(calcItems.commission)
+  const status = String(zohoDoc.status || "").toLowerCase()
+  const isPaid = status === "paid" || finiteNumber(zohoDoc.balance) === 0
+
   await prisma.invoice.update({
     where: { id: localId },
     data: {
@@ -305,6 +366,14 @@ export async function updateInvoiceRecord(opts: {
                               ? JSON.parse(JSON.stringify(conflictResult.fields))
                               : undefined,
       pendingZohoFetch:     false,
+      computedProfit:       finiteNumber(calcItems.profit),
+      computedDeadProfit:   finiteNumber(calcItems.deadProfitActual),
+      computedDeadCost:     finiteNumber(calcItems.deadCostTotal),
+      computedVigRate:      finiteNumber(calcItems.vigRate),
+      computedSalesperson:  String(zohoDoc.salesperson_name || "").trim() || null,
+      computedInvoiceNumber:String(zohoDoc.invoice_number || "").trim() || null,
+      computedUpfront:      commission == null ? null : commission / 2,
+      computedFinal:        commission == null ? null : (isPaid ? commission / 2 : 0),
       // Payment summary
       paymentMade:          parseFloat((zohoDoc.payment_made as string) ?? "0") || 0,
       paymentExpected:      zohoDoc.payment_expected != null
@@ -317,6 +386,7 @@ export async function updateInvoiceRecord(opts: {
       items: JSON.parse(JSON.stringify(mergedItems)),
     },
   })
+  await syncStoredLineItems("invoice", localId, zohoDoc.line_items)
 }
 
 /**
@@ -372,6 +442,7 @@ export async function updateSalesOrderRecord(opts: {
       items:                JSON.parse(JSON.stringify(mergedItems)),
     },
   })
+  await syncStoredLineItems("salesOrder", localId, zohoDoc.line_items)
 }
 
 /**
@@ -424,5 +495,57 @@ export async function updateQuoteRecord(opts: {
       pendingZohoFetch:     false,
       items:                JSON.parse(JSON.stringify(mergedItems)),
     },
+  })
+  await syncStoredLineItems("quote", localId, zohoDoc.line_items)
+}
+
+export async function syncStoredLineItems(
+  docType: "invoice" | "salesOrder" | "quote",
+  documentId: string,
+  rawLineItems: unknown,
+): Promise<void> {
+  const lineItems = Array.isArray(rawLineItems) ? rawLineItems as Record<string, unknown>[] : []
+  const finiteNumber = (value: unknown, fallback = 0): number => {
+    const parsed = typeof value === "number" ? value : Number(value)
+    return Number.isFinite(parsed) ? parsed : fallback
+  }
+  const relation = docType === "invoice"
+    ? { invoiceId: documentId }
+    : docType === "salesOrder"
+      ? { salesOrderId: documentId }
+      : { quoteId: documentId }
+
+  await prisma.$transaction(async tx => {
+    await tx.lineItem.deleteMany({ where: relation })
+    if (lineItems.length === 0) return
+
+    await tx.lineItem.createMany({
+      data: lineItems.map((item, index) => {
+        const quantity = finiteNumber(item.quantity)
+        const unitPrice = finiteNumber(item.rate ?? item.unit_price)
+        const total = finiteNumber(item.item_total ?? item.total)
+        // Books sometimes returns a percentage string (for example "100%")
+        // instead of a numeric discount amount. Derive its monetary value from
+        // the line total so Prisma never receives NaN.
+        const discount = finiteNumber(
+          item.discount_amount,
+          Math.max(0, (quantity * unitPrice) - total),
+        )
+
+        return {
+          ...relation,
+          // Books may carry an item ID forward when one document is converted
+          // into another, so scope it to the owning document locally.
+          zohoLineItemId: `${docType}:${documentId}:${String(item.line_item_id || item.item_id || index)}`,
+          productName: String(item.name || item.item_name || item.description || "Line item"),
+          sku: item.sku ? String(item.sku) : null,
+          quantity,
+          unitPrice,
+          discount,
+          total,
+          description: item.description ? String(item.description) : null,
+        }
+      }),
+    })
   })
 }

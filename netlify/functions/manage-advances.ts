@@ -1,5 +1,6 @@
 
 import { prisma } from "./lib/prisma"
+import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
 
 export const handler = async (event: any) => {
   // Add CORS headers
@@ -17,11 +18,24 @@ export const handler = async (event: any) => {
     };
   }
 
+  let authenticatedUser
+  try {
+    authenticatedUser = await authenticateFunction(event)
+  } catch (error) {
+    return authErrorResponse(error, headers)
+  }
+
+  const isAdmin = authenticatedUser.role === 'ADMIN' || authenticatedUser.role === 'Administrator'
+
   try {
     if (event.httpMethod === 'GET') {
       const { userId } = event.queryStringParameters || {};
+      if (!isAdmin && userId && userId !== authenticatedUser.dbId) {
+        return { statusCode: 403, headers, body: JSON.stringify({ error: 'Forbidden' }) };
+      }
+      const effectiveUserId = isAdmin ? userId : authenticatedUser.dbId;
       const advances = await prisma.advance.findMany({
-        where: userId ? { userId } : undefined,
+        where: effectiveUserId ? { userId: effectiveUserId } : undefined,
       });
       return {
         statusCode: 200,
@@ -31,6 +45,9 @@ export const handler = async (event: any) => {
     }
 
     if (event.httpMethod === 'POST') {
+      if (!isAdmin) {
+        return { statusCode: 403, headers, body: JSON.stringify({ error: 'Administrator access required' }) };
+      }
       const body = JSON.parse(event.body || '{}');
       const { userId, amount, reason, issueDate, splitOverWeeks, deductionRate } = body;
       

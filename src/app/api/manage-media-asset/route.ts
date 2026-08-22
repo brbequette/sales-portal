@@ -1,14 +1,22 @@
 import { handler } from "../../../../netlify/functions/manage-media-asset";
 import { NextRequest, NextResponse } from "next/server";
+import { getAuthenticatedDbUser } from "@/lib/session-user";
 
 async function executeNetlifyFunction(req: NextRequest) {
   const url = new URL(req.url);
+  const actor = await getAuthenticatedDbUser();
+  if (!actor) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  if (!actor.isAdmin) return NextResponse.json({ error: "Administrator access required" }, { status: 403 });
+
+  const requestBody = req.method !== 'GET' && req.method !== 'HEAD'
+    ? { ...JSON.parse(await req.text() || '{}'), userId: actor.user.id }
+    : null;
   const event = {
     path: url.pathname,
     httpMethod: req.method,
     headers: Object.fromEntries(req.headers.entries()),
     queryStringParameters: Object.fromEntries(url.searchParams.entries()),
-    body: req.method !== 'GET' && req.method !== 'HEAD' ? await req.text() : null,
+    body: requestBody ? JSON.stringify(requestBody) : null,
     isBase64Encoded: false,
   };
 
@@ -32,8 +40,6 @@ async function executeNetlifyFunction(req: NextRequest) {
   }
 }
 
-export async function GET(req: NextRequest) { return executeNetlifyFunction(req); }
 export async function POST(req: NextRequest) { return executeNetlifyFunction(req); }
 export async function PUT(req: NextRequest) { return executeNetlifyFunction(req); }
 export async function DELETE(req: NextRequest) { return executeNetlifyFunction(req); }
-export async function OPTIONS(req: NextRequest) { return executeNetlifyFunction(req); }

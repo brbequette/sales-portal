@@ -1,11 +1,32 @@
-import handler from "../../../../../netlify/functions/email-sync";
+import { handler } from "../../../../../netlify/functions/email-sync";
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdministrator } from "@/lib/auth-helpers";
 
-// The Netlify function is now a v2 handler: (req: Request, context) => Response.
-// Forward the incoming request straight through and return its Response.
 async function executeNetlifyFunction(req: NextRequest) {
+  const url = new URL(req.url);
+  const event = {
+    path: url.pathname,
+    httpMethod: req.method,
+    headers: Object.fromEntries(req.headers.entries()),
+    queryStringParameters: Object.fromEntries(url.searchParams.entries()),
+    body: req.method !== 'GET' && req.method !== 'HEAD' ? await req.text() : null,
+    isBase64Encoded: false,
+  };
+
+  const context = {};
+
   try {
-    return await handler(req as unknown as Request, {} as any);
+    const result: any = await handler(event as any, context as any);
+    if (!result) return new NextResponse('', { status: 200 });
+    
+    if (result.statusCode === 302 || result.statusCode === 301) {
+      const location = result.headers?.Location || result.headers?.location;
+      if (location) return NextResponse.redirect(location);
+    }
+    return new NextResponse(result.body || '', {
+      status: result.statusCode || 200,
+      headers: result.headers || { 'Content-Type': 'application/json' },
+    });
   } catch (error: any) {
     console.error('Error executing email sync:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
@@ -13,8 +34,8 @@ async function executeNetlifyFunction(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await require("next-auth").getServerSession(require("@/lib/auth").authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await requireAdministrator();
+  if (auth.errorResponse) return auth.errorResponse;
   return executeNetlifyFunction(req);
 }
 export async function OPTIONS(req: NextRequest) { return executeNetlifyFunction(req); }

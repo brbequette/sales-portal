@@ -1,6 +1,23 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { extractProfit, extractCommissionAmount, extractVigRate } from '@/lib/custom-field-extractor';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { isAdministratorRole } from '@/lib/roles';
+
+function getSubTotal(items: any, amount: number) {
+  let sub = parseFloat(items.sub_total ?? items.subTotal ?? 0);
+  if (isNaN(sub) || sub === 0) {
+    const details = items.lineItemDetails || items.line_items || items.items;
+    if (Array.isArray(details)) {
+      sub = details.reduce((sum: number, item: any) => {
+        if (item.line_item_category === 'header' || item.line_item_category === 'subtotal') return sum;
+        return sum + (parseFloat(item.quantity || 0) * parseFloat(item.rate || item.itemTotal || item.item_total || 0));
+      }, 0);
+    }
+  }
+  return isNaN(sub) || sub === 0 ? amount || 0 : sub;
+}
 
 /**
  * GET /api/zoho-invoices
@@ -9,11 +26,185 @@ import { extractProfit, extractCommissionAmount, extractVigRate } from '@/lib/cu
  */
 export async function GET(request: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const statusFilter = searchParams.get('status');
+    const actorId = session.user.dbId || session.user.id;
+    const canViewCompanyDocuments = isAdministratorRole(session.user.role)
+      || String(session.user.role || '').toLowerCase().includes('manager');
+    const documentScope = canViewCompanyDocuments ? {} : { account: { ownerId: actorId } };
+
+    if (searchParams.get('summary') === 'true') {
+      const now = new Date();
+      const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 7));
+      const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 7));
+      const [monthInvoices, monthOrders, invoiceBalances, orderPipeline] = await Promise.all([
+        prisma.invoice.findMany({
+          where: { issueDate: { gte: monthStart, lt: monthEnd } },
+          select: { amount: true, items: true, computedProfit: true, computedUpfront: true, computedFinal: true },
+        }),
+        prisma.salesOrder.findMany({
+          where: { orderDate: { gte: monthStart, lt: monthEnd } },
+          select: { amount: true, items: true },
+        }),
+        prisma.invoice.findMany({
+          where: { balance: { gt: 0 }, status: { notIn: ['Paid', 'paid', 'closed', 'Void', 'void', 'voided', 'Draft', 'draft'] } },
+          select: { balance: true, dueDate: true, status: true },
+        }),
+        prisma.salesOrder.aggregate({
+          where: { status: { notIn: ['Paid', 'paid', 'closed', 'Void', 'void', 'voided', 'Draft', 'draft', 'Invoiced', 'invoiced', 'billed'] } },
+          _sum: { amount: true },
+        }),
+      ]);
+
+      let mtdSales = 0;
+      let mtdProfit = 0;
+      let mtdCommission = 0;
+      const includeRep = (items: any) => {
+        const rep = String(items?.salesorder_salesperson_name || items?.salesperson_name || items?.salesperson || '').toUpperCase();
+        return !(rep.includes('PAUL') && (rep.includes('GENCUSKI') || rep.includes('GENKUSKI')));
+      };
+      for (const invoice of monthInvoices) {
+        const items = (invoice.items as any) || {};
+        if (!includeRep(items)) continue;
+        mtdSales += getSubTotal(items, invoice.amount);
+        mtdProfit += Number(invoice.computedProfit ?? extractProfit(items)) || 0;
+        mtdCommission += Number(
+          invoice.computedUpfront != null || invoice.computedFinal != null
+            ? (invoice.computedUpfront || 0) + (invoice.computedFinal || 0)
+            : extractCommissionAmount(items)
+        ) || 0;
+      }
+      for (const order of monthOrders) {
+        const items = (order.items as any) || {};
+        if (!includeRep(items)) continue;
+        mtdSales += getSubTotal(items, order.amount);
+        mtdProfit += Number(extractProfit(items)) || 0;
+        mtdCommission += Number(extractCommissionAmount(items)) || 0;
+      }
+
+      const invoicePipeline = invoiceBalances.reduce((sum, invoice) => sum + Number(invoice.balance || 0), 0);
+      const overdue = invoiceBalances.reduce((sum, invoice) => {
+        const explicitlyOverdue = String(invoice.status).toLowerCase() === 'overdue';
+        return explicitlyOverdue || (invoice.dueDate && invoice.dueDate < now)
+          ? sum + Number(invoice.balance || 0)
+          : sum;
+      }, 0);
+
+      return NextResponse.json({
+        summary: {
+          mtdSales,
+          mtdProfit,
+          mtdCommission,
+          pipeline: invoicePipeline + Number(orderPipeline._sum.amount || 0),
+          overdue,
+        },
+      });
+    }
+
+    if (searchParams.get('view') === 'pipeline') {
+      const recentPaidCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const [pipelineInvoices, pipelineOrders, pipelineQuotes] = await Promise.all([
+        prisma.invoice.findMany({
+          where: {
+            ...documentScope,
+            status: { notIn: ['Void', 'void', 'voided', 'Deleted', 'deleted'] },
+            OR: [
+              { status: { notIn: ['Paid', 'paid', 'closed'] } },
+              { issueDate: { gte: recentPaidCutoff } },
+            ],
+          },
+          select: {
+            id: true, zohoId: true, invoiceNumber: true, amount: true, balance: true,
+            status: true, issueDate: true, dueDate: true, items: true,
+            computedProfit: true, computedSalesperson: true,
+            account: { select: { name: true } },
+          },
+          orderBy: { issueDate: 'desc' },
+          take: 1000,
+        }),
+        prisma.salesOrder.findMany({
+          where: {
+            ...documentScope,
+            status: { notIn: ['Void', 'void', 'voided', 'Deleted', 'deleted', 'Cancelled', 'cancelled', 'canceled', 'Invoiced', 'invoiced', 'billed'] },
+          },
+          select: {
+            id: true, zohoId: true, amount: true, status: true, orderDate: true,
+            items: true, account: { select: { name: true } },
+          },
+          orderBy: { orderDate: 'desc' },
+          take: 1000,
+        }),
+        prisma.quote.findMany({
+          where: {
+            ...documentScope,
+            status: { notIn: ['Void', 'void', 'voided', 'Deleted', 'deleted', 'Declined', 'declined', 'Converted', 'converted', 'Invoiced', 'invoiced'] },
+          },
+          select: {
+            id: true, zohoId: true, amount: true, status: true, createdAt: true,
+            items: true, account: { select: { name: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1000,
+        }),
+      ]);
+
+      const now = Date.now();
+      const pipelineDocumentIds = [
+        ...pipelineInvoices.map(record => record.zohoId || record.id),
+        ...pipelineOrders.map(record => record.zohoId || record.id),
+        ...pipelineQuotes.map(record => record.zohoId || record.id),
+      ];
+      const savedChecklists = await prisma.salesClosingChecklist.findMany({
+        where: { documentId: { in: pipelineDocumentIds } },
+      });
+      const checklistByDocument = new Map(savedChecklists.map(checklist => [checklist.documentId, checklist]));
+      const makeDeal = (record: any, type: 'invoice' | 'salesorder' | 'estimate') => {
+        const items = record.items || {};
+        const dateValue = record.issueDate || record.orderDate || items.date || items.estimate_date || record.createdAt;
+        const date = new Date(dateValue);
+        const status = String(record.status || '').toLowerCase();
+        const balance = Number(record.balance ?? items.balance ?? record.amount ?? 0) || 0;
+        let stage: string = type;
+        if (type === 'invoice') {
+          if (status === 'overdue' || (record.dueDate && new Date(record.dueDate).getTime() < now && balance > 0 && !['paid', 'void', 'draft'].includes(status))) stage = 'overdue';
+          else if (status === 'partially_paid') stage = 'partially_paid';
+          else if (['paid', 'closed'].includes(status)) stage = 'needs_gift';
+          else stage = 'invoiced';
+        }
+        const id = record.zohoId || record.id;
+        const checklist = checklistByDocument.get(id) || null;
+        if (checklist?.completedAt) stage = 'complete';
+        return {
+          id,
+          customer: String(items.customer_name || record.account?.name || 'UNKNOWN').toUpperCase(),
+          invoiceNumber: String(record.invoiceNumber || items.invoice_number || items.salesorder_number || items.estimate_number || record.zohoId || record.id),
+          amount: getSubTotal(items, record.amount),
+          profit: Number(record.computedProfit ?? extractProfit(items)) || 0,
+          date: Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString(),
+          daysInStage: Number.isNaN(date.getTime()) ? 0 : Math.max(0, Math.floor((now - date.getTime()) / 86_400_000)),
+          stage,
+          rep: String(record.computedSalesperson || items.salesorder_salesperson_name || items.salesperson_name || items.salesperson || 'UNKNOWN').toUpperCase(),
+          balance,
+          checklist,
+        };
+      };
+
+      return NextResponse.json({
+        deals: [
+          ...pipelineQuotes.map(record => makeDeal(record, 'estimate')),
+          ...pipelineOrders.map(record => makeDeal(record, 'salesorder')),
+          ...pipelineInvoices.map(record => makeDeal(record, 'invoice')),
+        ],
+      });
+    }
 
     // Fetch all invoices from local DB
-    const invoiceWhere: any = {};
+    const invoiceWhere: any = { ...documentScope };
     if (statusFilter) {
       const statusMap: Record<string, string[]> = {
         'paid': ['Paid', 'paid', 'closed'],
@@ -35,30 +226,12 @@ export async function GET(request: Request) {
         take: 2000,
       }),
       prisma.salesOrder.findMany({
+        where: documentScope,
         include: { account: { select: { name: true } } },
         orderBy: { orderDate: 'desc' },
         take: 1000,
       }),
     ]);
-
-    const getSubTotal = (items: any, amount: number) => {
-      let sub = parseFloat(items.sub_total ?? items.subTotal ?? 0)
-      if (isNaN(sub) || sub === 0) {
-        const details = items.lineItemDetails || items.line_items || items.items
-        if (Array.isArray(details)) {
-          sub = details.reduce((sum: number, it: any) => {
-            if (it.line_item_category === "header" || it.line_item_category === "subtotal") return sum;
-            const qty = parseFloat(it.quantity || 0)
-            const rate = parseFloat(it.rate || it.itemTotal || it.item_total || 0)
-            return sum + (qty * rate)
-          }, 0)
-        }
-      }
-      if (isNaN(sub) || sub === 0) {
-        sub = amount || 0
-      }
-      return sub
-    }
 
     // Transform invoices to match component expectations with robust date fallbacks
     const invoicesMapped = invoices.map(inv => {

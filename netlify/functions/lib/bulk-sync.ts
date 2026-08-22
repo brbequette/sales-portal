@@ -1,7 +1,6 @@
 import { prisma } from "./prisma"
-import { getZohoAccessToken, ZOHO_ORGANIZATION_ID } from "./zoho-auth"
+import { getZohoAccessToken, ZOHO_DC, ZOHO_ORGANIZATION_ID } from "./zoho-auth"
 
-const ZOHO_DC = process.env.ZOHO_DC || 'com'
 const ORG_ID = ZOHO_ORGANIZATION_ID
 const BOOKS_BASE = `https://www.zohoapis.${ZOHO_DC}/books/v3`
 
@@ -133,21 +132,17 @@ export async function bulkSyncPage(
           where: {
             OR: [
               { zohoId: { in: uniqueInvNums } },
-              ...uniqueInvNums.map(num => ({
-                items: { path: ['invoiceNumber'], equals: num }
-              })),
-              ...uniqueInvNums.map(num => ({
-                items: { path: ['booksInvoiceId'], equals: num }
-              })),
-            ] as any
+              { invoiceNumber: { in: uniqueInvNums } },
+            ]
           },
-          select: { id: true, zohoId: true, items: true }
+          select: { id: true, zohoId: true, invoiceNumber: true, items: true }
         })
 
         // Build lookup maps keyed by every identifier an invoice might match on
         paymentInvoiceLookup = new Map()
         for (const inv of matchedInvoices) {
           if (inv.zohoId) paymentInvoiceLookup.set(inv.zohoId, inv)
+          if (inv.invoiceNumber) paymentInvoiceLookup.set(inv.invoiceNumber, inv)
           const invItems = (inv.items as any) || {}
           if (invItems.invoiceNumber) paymentInvoiceLookup.set(invItems.invoiceNumber, inv)
           if (invItems.booksInvoiceId) paymentInvoiceLookup.set(invItems.booksInvoiceId, inv)
@@ -351,7 +346,8 @@ export async function bulkSyncPage(
         const targetInvoice = (invNum && paymentInvoiceLookup) ? (paymentInvoiceLookup.get(invNum) || null) : null
 
         const paymentData = {
-          invoiceId: targetInvoice ? targetInvoice.id : (item.invoice_id || null),
+          invoiceId: item.invoice_id || null,
+          invoiceDbId: targetInvoice?.id || null,
           invoiceNumber: invNum || item.reference_number || null,
           amount: parseFloat(item.amount || 0),
           date: item.date ? new Date(item.date) : null,
@@ -367,17 +363,6 @@ export async function bulkSyncPage(
           create: { zohoId: payId, ...paymentData }
         }))
 
-        if (targetInvoice) {
-          ops.push(prisma.invoice.update({
-            where: { id: targetInvoice.id },
-            data: {
-              status: 'paid',
-              items: typeof targetInvoice.items === 'object' && targetInvoice.items
-                ? { ...targetInvoice.items, balance: 0, isPaid: true }
-                : { balance: 0, isPaid: true }
-            }
-          }))
-        }
         continue
       }
 
@@ -414,6 +399,8 @@ export async function bulkSyncPage(
           payment_terms: item.payment_terms,
           payment_terms_label: item.payment_terms_label,
           salesorder_number: item.salesorder_number || null,
+          salesorder_id: item.salesorder_id || null,
+          estimate_id: item.estimate_id || null,
           shipping_address: item.shipping_address || null,
           billing_address: item.billing_address || null,
           ...existingItems, // merge calculated fields (profit, deadCostTotal, ccFees, etc.)
@@ -435,6 +422,10 @@ export async function bulkSyncPage(
             issueDate: finalIssueDate,
             dueDate: item.due_date ? new Date(item.due_date) : null,
             zohoModifiedTime: item.last_modified_time ? new Date(item.last_modified_time) : null,
+            invoiceNumber: item.invoice_number || null,
+            salesOrderZohoId: item.salesorder_id || null,
+            estimateZohoId: item.estimate_id || null,
+            salesorderNumber: item.salesorder_number || null,
             items: invoiceItems,
             dealId: dealId || undefined,
           },
@@ -446,6 +437,10 @@ export async function bulkSyncPage(
             issueDate: finalIssueDate,
             dueDate: item.due_date ? new Date(item.due_date) : null,
             zohoModifiedTime: item.last_modified_time ? new Date(item.last_modified_time) : null,
+            invoiceNumber: item.invoice_number || null,
+            salesOrderZohoId: item.salesorder_id || null,
+            estimateZohoId: item.estimate_id || null,
+            salesorderNumber: item.salesorder_number || null,
             items: invoiceItems,
             dealId: dealId || undefined,
           }
@@ -462,6 +457,8 @@ export async function bulkSyncPage(
 
         const soItems = {
           salesOrderNumber: item.salesorder_number,
+          estimate_id: item.estimate_id || null,
+          estimate_number: item.estimate_number || null,
           salesperson: item.salesperson_name || null,
           customer_name: item.customer_name || null,
           reference_number: item.reference_number || null,
@@ -509,6 +506,7 @@ export async function bulkSyncPage(
 
         const estItems = {
           estimateNumber: item.estimate_number,
+          date: item.date || null,
           salesperson: item.salesperson_name || null,
           ...existingEstItems, // merge calculated fields
           sub_total: savedEstSubtotal, // enforce subtotal is not overwritten by spread

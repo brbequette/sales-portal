@@ -1,6 +1,8 @@
 import { handler as sendHandler } from "../../../../netlify/functions/email-send";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 async function executeNetlifyFunction(req: NextRequest) {
   const url = new URL(req.url);
@@ -36,11 +38,30 @@ async function executeNetlifyFunction(req: NextRequest) {
 // GET: List emails (optionally filtered by accountId)
 export async function GET(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
     const { searchParams } = new URL(req.url);
     const accountId = searchParams.get('accountId');
 
-    const where: any = {};
-    if (accountId) where.accountId = accountId;
+    const role = String(session.user.role || '').toLowerCase();
+    const privileged = role.includes('admin') || role.includes('manager');
+    const callerId = String((session.user as { dbId?: string; id?: string }).dbId || (session.user as { id?: string }).id || '');
+    const ownedAccountIds = privileged
+      ? []
+      : (await prisma.account.findMany({ where: { ownerId: callerId }, select: { id: true } })).map(account => account.id);
+
+    const where: any = privileged ? {} : { OR: [{ accountId: { in: ownedAccountIds } }, { userId: callerId }] };
+    if (accountId) {
+      const account = await prisma.account.findFirst({
+        where: { OR: [{ id: accountId }, { zohoId: accountId }] },
+        select: { id: true, ownerId: true },
+      });
+      if (!account || (!privileged && account.ownerId !== callerId)) {
+        return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+      }
+      where.accountId = account.id;
+      delete where.OR;
+    }
 
     const emails = await prisma.email.findMany({
       where,

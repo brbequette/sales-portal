@@ -1,8 +1,10 @@
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 
 import { prisma } from "./lib/prisma"
+import { isAdminRole } from "../../src/lib/roles"
 
-export const handler: Handler = async (event) => {
+const authenticatedHandler: Handler = async (event) => {
   const cors = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
@@ -14,6 +16,8 @@ export const handler: Handler = async (event) => {
   }
 
   try {
+    const sessionUser = await authenticateFunction(event)
+    const administrator = isAdminRole(sessionUser.role)
     const params = event.queryStringParameters || {}
     const visibleOnly = params.visibleOnly === "true"
 
@@ -46,10 +50,20 @@ export const handler: Handler = async (event) => {
       }
     }
 
+    const responseUsers = administrator
+      ? filtered
+      : filtered.map(user => ({
+          id: user.id,
+          name: user.name,
+          role: user.role,
+          zohoId: user.zohoId,
+          showOnSalesBoard: user.showOnSalesBoard,
+        }))
+
     return {
       statusCode: 200,
       headers: cors,
-      body: JSON.stringify({ success: true, users: filtered })
+      body: JSON.stringify({ success: true, users: responseUsers })
     }
   } catch (error: any) {
     console.error("Get Users Error:", error)
@@ -60,3 +74,5 @@ export const handler: Handler = async (event) => {
     }
   }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler)

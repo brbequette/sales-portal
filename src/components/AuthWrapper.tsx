@@ -8,7 +8,6 @@ import { useZoho } from "./ZohoProvider"
 const PUBLIC_ROUTES = [
   "/",
   "/shop",
-  "/catalog",
   "/about",
   "/contact",
   "/resources",

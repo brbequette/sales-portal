@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getZohoAccessToken, ZOHO_DC, ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 export const maxDuration = 60
 
@@ -17,6 +18,8 @@ export const maxDuration = 60
  */
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const body     = await req.json().catch(() => ({}))
     const entity   = body.entity   || "invoices"
     const page     = parseInt(body.page    || "1",  10)
@@ -90,6 +93,10 @@ export async function POST(req: NextRequest) {
     // -- Step 2: Call each doc's Next.js API route directly (works on Vercel) --
     const results: any[] = []
     let processed = 0, errors = 0, skipped = 0
+    // The per-document routes enforce the same NextAuth session as a direct
+    // browser request. Preserve it for these server-to-server calls; without
+    // this cookie every document is rejected with HTTP 401.
+    const sessionCookie = req.headers.get("cookie") || ""
 
     async function processOne(item: any): Promise<void> {
       const docNum   = item[cfg.numField]
@@ -101,7 +108,10 @@ export async function POST(req: NextRequest) {
         const fnUrl = `${req.nextUrl.origin}${cfg.apiRoute}`
         const res = await fetch(fnUrl, { signal: AbortSignal.timeout(15000),
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(sessionCookie ? { cookie: sessionCookie } : {}),
+          },
           body: JSON.stringify({ [cfg.idBodyField]: zohoId, skipLoopGuard: force, applyTariff }),
         })
 

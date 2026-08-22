@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAdministrator } from '@/lib/auth-helpers'
 
 export async function GET() {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
+
   try {
     const users = await prisma.user.findMany({
       where: {
@@ -55,6 +59,9 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
+
   try {
     const { defaultVigRate, repConfigs } = await req.json()
 

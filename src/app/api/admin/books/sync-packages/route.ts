@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from "next/server"
 import { Prisma } from '@prisma/client'
 import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 
@@ -74,6 +75,8 @@ async function fetchPages(
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const token = await getToken()
 
     // Optional: ?since=30d or ?since=7d  (default: 30 days)

@@ -5,6 +5,7 @@ import { useZoho } from "@/components/ZohoProvider"
 import { MetricDerivationInfo } from "@/components/MetricDerivationModal"
 import { extractProfit, extractCommissionAmount, extractVigRate, extractDeadCostTotal, extractCustomFieldValue } from "@/lib/custom-field-extractor"
 import { useDashboardData as useRawDashboardData } from '@/hooks/useDashboardData'
+import { clearSharedJson, fetchSharedJson } from "@/lib/shared-api-fetch"
 
 export interface DashboardData {
   companyWeeklyTotal: number
@@ -183,6 +184,7 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
   const [clockLoading, setClockLoading] = useState(false)
   const [selectedMetricInfo, setSelectedMetricInfo] = useState<MetricDerivationInfo | null>(null)
   const [rawInvoicesList, setRawInvoicesList] = useState<any[]>([])
+  const [weeklyLifecycleDocs, setWeeklyLifecycleDocs] = useState<any[]>([])
 
   const [repWidgets, setRepWidgets] = useState<RepWidgetConfig[]>(DEFAULT_REP_DASHBOARD_LAYOUT)
   const [isRepCustomizerOpen, setIsRepCustomizerOpen] = useState(false)
@@ -226,6 +228,13 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
   
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+
+  useEffect(() => {
+    if (refreshTrigger > 0) clearSharedJson("/api/dashboard-weekly-sales")
+    fetchSharedJson<any>("/api/dashboard-weekly-sales")
+      .then(result => setWeeklyLifecycleDocs(Array.isArray(result.documents) ? result.documents : []))
+      .catch(error => console.error("Failed to load lifecycle-aware weekly sales", error))
+  }, [refreshTrigger])
 
   const checkForUpdates = useCallback(async (sig: string, url: string) => {
     try {
@@ -446,7 +455,7 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
           if (commData[invMonth] !== undefined) commData[invMonth] += commission
 
           // Status donut
-          const statusKey = (status === "paid" || status === "completed") ? "Paid" : status === "overdue" ? "Overdue" : status === "draft" ? "Draft" : (status === "sent" || status === "open" || status === "unpaid") ? "Sent" : status === "partially_paid" ? "Partial" : "Other"
+          const statusKey = status === "paid" ? "Paid" : status === "overdue" ? "Overdue" : status === "draft" ? "Draft" : status === "sent" ? "Sent" : status === "partially_paid" ? "Partial" : "Other"
           statusCounts[statusKey] = (statusCounts[statusKey] || 0) + 1
 
           // Won/Lost
@@ -504,13 +513,16 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
       const avgDealSizeTrend = revenueByMonth.map(m => ({ month: m.month, avgSize: m.revenue > 0 ? Math.round(m.revenue / Math.max(1, topReps.length)) : 0 }))
 
       // Use rep-scoped totals for the individual KPI cards
-      const weeklyTotal = repTotalsKpi.invoiceWeeklyRevenue || 0
+      const scopedWeeklyDocs = weeklyLifecycleDocs.filter(doc =>
+        matchesRep(doc.salesperson || "", filterRepName, repEmail)
+      )
+      const weeklyTotal = scopedWeeklyDocs.reduce((sum, doc) => sum + (Number(doc.subtotal) || 0), 0)
       const monthlyTotal = repTotalsKpi.invoiceSubtotal || 0
       const monthlyProfit = repTotalsKpi.invoiceNetProfit || 0
       const monthlyCommission = repTotalsKpi.invoiceCommission || 0
       const monthlyDeals = repTotalsKpi.invoiceCount || 0
 
-      const companyWeeklyTotal = companyTotalsKpi.invoiceWeeklyRevenue || 0
+      const companyWeeklyTotal = weeklyLifecycleDocs.reduce((sum, doc) => sum + (Number(doc.subtotal) || 0), 0)
       const companyMonthlyTotal = companyTotalsKpi.invoiceSubtotal || 0
 
       // Pipeline and overdue from current rep scope
@@ -562,7 +574,7 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
       console.error("Dashboard data transformation error:", err)
       return null
     }
-  }, [rawData])
+  }, [rawData, weeklyLifecycleDocs, filterRepName, repEmail])
 
   useEffect(() => {
     const handleGlobalMetricEvent = (e: any) => {

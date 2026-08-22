@@ -16,6 +16,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
+import { requireAdministrator } from "@/lib/auth-helpers"
 import { authOptions } from "@/lib/auth"
 import { getZohoAccessToken, ZOHO_DC, ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
 import { prisma } from "@/lib/prisma"
@@ -27,6 +28,8 @@ const ORG_ID = ZOHO_ORGANIZATION_ID
 // ---------------------------------------------------------------------------
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const session = await getServerSession(authOptions)
     if (!session || (session as any).user?.role !== 'Administrator') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -95,6 +98,7 @@ export async function GET(req: NextRequest) {
         lastSyncedAt: r.lastSyncedAt,
         lastZohoModifiedTime: r.lastZohoModifiedTime,
         appModifiedAt: r.appModifiedAt,
+        recommendedSource: newestSource(r.appModifiedAt, r.lastZohoModifiedTime),
         conflictFields: r.conflictFields,
       })),
       salesOrders: salesOrders.map(r => ({
@@ -106,6 +110,7 @@ export async function GET(req: NextRequest) {
         lastSyncedAt: r.lastSyncedAt,
         lastZohoModifiedTime: r.lastZohoModifiedTime,
         appModifiedAt: r.appModifiedAt,
+        recommendedSource: newestSource(r.appModifiedAt, r.lastZohoModifiedTime),
         conflictFields: r.conflictFields,
       })),
       quotes: quotes.map(r => ({
@@ -117,6 +122,7 @@ export async function GET(req: NextRequest) {
         lastSyncedAt: r.lastSyncedAt,
         lastZohoModifiedTime: r.lastZohoModifiedTime,
         appModifiedAt: r.appModifiedAt,
+        recommendedSource: newestSource(r.appModifiedAt, r.lastZohoModifiedTime),
         conflictFields: r.conflictFields,
       })),
     })
@@ -130,6 +136,8 @@ export async function GET(req: NextRequest) {
 // ---------------------------------------------------------------------------
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const session = await getServerSession(authOptions)
     if (!session || (session as any).user?.role !== 'Administrator') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -178,7 +186,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      await clearConflict(docType, docId)
+      await clearConflict(docType, docId, true)
       return NextResponse.json({ success: true, resolution: "app", fieldsWritten: customFields.length })
     }
 
@@ -203,13 +211,16 @@ export async function POST(req: NextRequest) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function clearConflict(docType: string, docId: string) {
+async function clearConflict(docType: string, docId: string, markSynced = false) {
+  const syncState = markSynced
+    ? { lastSyncedAt: new Date(), appModifiedAt: new Date(), lastZohoModifiedTime: new Date() }
+    : {}
   if (docType === "invoice") {
-    await prisma.invoice.update({ where: { id: docId }, data: { syncConflict: false, conflictFields: Prisma.DbNull } })
+    await prisma.invoice.update({ where: { id: docId }, data: { syncConflict: false, conflictFields: Prisma.DbNull, ...syncState } })
   } else if (docType === "salesorder") {
-    await prisma.salesOrder.update({ where: { id: docId }, data: { syncConflict: false, conflictFields: Prisma.DbNull } })
+    await prisma.salesOrder.update({ where: { id: docId }, data: { syncConflict: false, conflictFields: Prisma.DbNull, ...syncState } })
   } else {
-    await prisma.quote.update({ where: { id: docId }, data: { syncConflict: false, conflictFields: Prisma.DbNull } })
+    await prisma.quote.update({ where: { id: docId }, data: { syncConflict: false, conflictFields: Prisma.DbNull, ...syncState } })
   }
 }
 
@@ -255,6 +266,10 @@ function docTypeToEndpoint(docType: string): string {
 
 function docTypeToZohoId(docType: string, zohoId: string): string {
   return zohoId // already the Zoho ID
+}
+
+function newestSource(appModifiedAt: Date | null, zohoModifiedAt: Date | null): "app" | "zoho" {
+  return (appModifiedAt?.getTime() ?? 0) >= (zohoModifiedAt?.getTime() ?? 0) ? "app" : "zoho"
 }
 
 // Rebuild the custom_fields array from locally stored calc values

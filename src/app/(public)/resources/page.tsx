@@ -146,10 +146,10 @@ export default function ResourcesPage() {
                 Need a custom blade matrix for pre-stressed concrete or asphalt over concrete? Speak directly with a Titan sales technician.
               </p>
               <a 
-                href="tel:18005550199"
+                href="tel:14804702577"
                 className="w-full bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs py-3 px-4 rounded-xl block text-center transition-colors"
               >
-                Call Tech Sales: (800) 555-0199
+                Call Tech Sales: (480) 470-2577
               </a>
             </div>
           </div>

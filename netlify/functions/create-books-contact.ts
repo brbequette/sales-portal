@@ -1,3 +1,4 @@
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
 
@@ -5,7 +6,7 @@ const ORG_ID = ZOHO_ORGANIZATION_ID
 import { prisma } from "./lib/prisma"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
-export const handler: Handler = async (event) => {
+const authenticatedHandler: Handler = async (event) => {
   const cors = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
@@ -17,6 +18,7 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "Method not allowed" }) }
 
   try {
+    const caller = await authenticateFunction(event)
     const body = JSON.parse(event.body || "{}")
     const { accountId } = body
 
@@ -32,6 +34,13 @@ export const handler: Handler = async (event) => {
 
     if (!account) {
       return { statusCode: 404, headers: cors, body: JSON.stringify({ success: false, error: "Account not found in local DB" }) }
+    }
+
+    const role = String(caller.role || "").toLowerCase()
+    const privileged = role.includes("admin") || role.includes("manager")
+    const callerId = String(caller.dbId || caller.userId || "")
+    if (!privileged && account.ownerId !== callerId) {
+      return { statusCode: 403, headers: cors, body: JSON.stringify({ success: false, error: "Forbidden" }) }
     }
 
     const token = await getZohoAccessToken()
@@ -144,3 +153,5 @@ export const handler: Handler = async (event) => {
     }
   }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler)

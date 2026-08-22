@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import {
   FiAlertTriangle,
@@ -58,6 +58,35 @@ export default function OrphanedRecordsPage() {
   // Smart Matching States
   const [suggestions, setSuggestions] = useState<Record<string, any>>({})
   const [autoMatching, setAutoMatching] = useState(false)
+  const [tableSearch, setTableSearch] = useState("")
+  const [dateFilter, setDateFilter] = useState<"all" | "dated" | "missing">("all")
+  const [tableSort, setTableSort] = useState<"date-desc" | "date-asc" | "amount-desc" | "amount-asc" | "name-asc">("date-desc")
+
+  const filterAndSort = <T extends PurchaseOrder | Payment>(records: T[]) => {
+    const query = tableSearch.trim().toLowerCase()
+    return records
+      .filter((record) => {
+        if (dateFilter === "dated" && !record.date) return false
+        if (dateFilter === "missing" && record.date) return false
+        if (!query) return true
+        return Object.values(record).some((value) => String(value ?? "").toLowerCase().includes(query))
+      })
+      .sort((a, b) => {
+        const amountA = "total" in a ? a.total : a.amount
+        const amountB = "total" in b ? b.total : b.amount
+        const nameA = "vendorName" in a ? a.vendorName : a.customerName
+        const nameB = "vendorName" in b ? b.vendorName : b.customerName
+        if (tableSort === "amount-desc") return amountB - amountA
+        if (tableSort === "amount-asc") return amountA - amountB
+        if (tableSort === "name-asc") return String(nameA || "").localeCompare(String(nameB || ""))
+        const dateA = a.date ? new Date(a.date).getTime() : 0
+        const dateB = b.date ? new Date(b.date).getTime() : 0
+        return tableSort === "date-asc" ? dateA - dateB : dateB - dateA
+      })
+  }
+
+  const visiblePOs = useMemo(() => filterAndSort(pos), [pos, tableSearch, dateFilter, tableSort])
+  const visiblePayments = useMemo(() => filterAndSort(payments), [payments, tableSearch, dateFilter, tableSort])
 
   const fetchSuggestions = async () => {
     try {
@@ -346,13 +375,42 @@ export default function OrphanedRecordsPage() {
 
         {/* Content Table / List */}
         <div className="bg-slate-900/20 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+          {!loading && (
+            <div className="flex flex-col gap-3 border-b border-slate-800 bg-slate-950/40 p-4 lg:flex-row lg:items-center">
+              <label className="relative min-w-0 flex-1">
+                <span className="sr-only">Search orphaned records</span>
+                <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <input
+                  value={tableSearch}
+                  onChange={(event) => setTableSearch(event.target.value)}
+                  placeholder={activeTab === "pos" ? "Search PO, vendor, status, or sales order..." : "Search payment, customer, mode, or reference..."}
+                  className="w-full rounded-lg border border-slate-800 bg-slate-950 py-2.5 pl-10 pr-4 text-sm text-white outline-none focus:border-blue-500"
+                />
+              </label>
+              <select aria-label="Filter by date availability" value={dateFilter} onChange={(event) => setDateFilter(event.target.value as typeof dateFilter)} className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2.5 text-sm text-white">
+                <option value="all">All dates</option>
+                <option value="dated">Has date</option>
+                <option value="missing">Missing date</option>
+              </select>
+              <select aria-label="Sort orphaned records" value={tableSort} onChange={(event) => setTableSort(event.target.value as typeof tableSort)} className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2.5 text-sm text-white">
+                <option value="date-desc">Newest date</option>
+                <option value="date-asc">Oldest date</option>
+                <option value="amount-desc">Highest amount</option>
+                <option value="amount-asc">Lowest amount</option>
+                <option value="name-asc">Name A–Z</option>
+              </select>
+              <span className="whitespace-nowrap text-xs font-bold uppercase tracking-wider text-slate-500">
+                {activeTab === "pos" ? visiblePOs.length : visiblePayments.length} results
+              </span>
+            </div>
+          )}
           {loading ? (
             <div className="p-12 flex flex-col items-center justify-center text-slate-400 gap-3">
               <FiRefreshCw className="animate-spin text-3xl text-blue-400" />
               <span>Loading orphaned records...</span>
             </div>
           ) : activeTab === "pos" ? (
-            pos.length === 0 ? (
+            visiblePOs.length === 0 ? (
               <div className="p-12 flex flex-col items-center justify-center text-slate-400 gap-2">
                 <FiCheckCircle className="text-4xl text-emerald-400" />
                 <span className="font-semibold text-white">No orphaned Purchase Orders</span>
@@ -372,7 +430,7 @@ export default function OrphanedRecordsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 bg-slate-900/10">
-                    {pos.map((po) => (
+                    {visiblePOs.map((po) => (
                       <tr key={po.id} className="hover:bg-slate-900/40 transition">
                         <td className="px-6 py-4 font-semibold text-white">
                           <div>{po.zohoId}</div>
@@ -420,7 +478,7 @@ export default function OrphanedRecordsPage() {
               </div>
             )
           ) : (
-            payments.length === 0 ? (
+            visiblePayments.length === 0 ? (
               <div className="p-12 flex flex-col items-center justify-center text-slate-400 gap-2">
                 <FiCheckCircle className="text-4xl text-emerald-400" />
                 <span className="font-semibold text-white">No orphaned Payments</span>
@@ -440,7 +498,7 @@ export default function OrphanedRecordsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 bg-slate-900/10">
-                    {payments.map((p) => (
+                    {visiblePayments.map((p) => (
                       <tr key={p.id} className="hover:bg-slate-900/40 transition">
                         <td className="px-6 py-4 font-semibold text-white">{p.zohoId}</td>
                         <td className="px-6 py-4">{p.customerName || "N/A"}</td>

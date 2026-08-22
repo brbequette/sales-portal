@@ -5,6 +5,7 @@ import { StandaloneOrderBuilder } from '@/components/StandaloneOrderBuilder'
 import { formatPhoneNumber } from "@/lib/formatters"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Suspense, useState, useEffect } from "react"
+import { createPortal } from "react-dom"
 import {
   FiFileText, FiDatabase, FiPhone, FiMessageSquare,
   FiShoppingCart, FiAlertTriangle, FiGrid, FiList,
@@ -699,7 +700,7 @@ function AccountHubContent() {
             <div className="h-5 w-px bg-neutral-700 shrink-0" />
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="text-base font-bold truncate">{account.name}</h1>
+                <h1 className="text-base font-bold truncate uppercase">{account.name}</h1>
                 <button
                   onClick={() => setIsEditingAccount(true)}
                   className="text-[9px] bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-300 px-1.5 py-0.5 rounded-lg transition-colors uppercase tracking-wider font-bold shrink-0"
@@ -908,7 +909,7 @@ function AccountHubContent() {
       </div>
 
       {/* Drill-down modal */}
-      {drillInvoices && (
+      {drillInvoices && createPortal(
         <div
           className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
           onClick={() => setDrillInvoices(null)}
@@ -924,7 +925,7 @@ function AccountHubContent() {
                   {drillInvoices.length}
                 </span>
               </h3>
-              <button onClick={() => setDrillInvoices(null)} className="text-neutral-500 hover:text-white text-xl">
+              <button aria-label="Close invoice list" onClick={() => setDrillInvoices(null)} className="text-neutral-500 hover:text-white text-xl">
                 &times;
               </button>
             </div>
@@ -970,7 +971,7 @@ function AccountHubContent() {
               }
             </div>
           </div>
-        </div>
+        </div>, document.body
       )}
 
       {viewingInvoice && (

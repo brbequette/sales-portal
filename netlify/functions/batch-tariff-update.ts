@@ -1,3 +1,4 @@
+import { withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
 
@@ -24,7 +25,7 @@ function isGiftItem(item: any): boolean {
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms))
 
-export const handler: Handler = async (event) => {
+const authenticatedHandler: Handler = async (event) => {
   const cors = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
@@ -214,3 +215,5 @@ export const handler: Handler = async (event) => {
     }
   }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler, { requireAdmin: true })

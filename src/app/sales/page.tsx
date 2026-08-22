@@ -28,6 +28,7 @@ import { toast } from 'react-hot-toast';
 import { useCampaignProgress } from "@/components/CampaignProgressProvider"
 import { sessionGet, sessionSet, localGet, localSet, TTL } from "@/lib/dataCache"
 import { UpdateBanner } from "@/lib/useStaleCheck"
+import { isAdminRole, isAdministratorRole } from "@/lib/roles"
 
 const optimizeImage = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -380,8 +381,8 @@ export default function SalesPage() {
   }, [preferences, prefsLoaded])
 
   const effectiveRole = preferences.impersonatedUser ? preferences.impersonatedUser.role : (dbUser?.role || currentUser?.role || "Administrator")
-  const normalizedRole = (effectiveRole || "").toLowerCase()
-  const isAdminUser = !normalizedRole.includes("sales") || normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("collections") || normalizedRole.includes("manager") || !currentUser?.email
+  const isAdminUser = isAdminRole(effectiveRole)
+  const canSyncZoho = isAdministratorRole(effectiveRole)
 
   useEffect(() => {
     fetchUsers()
@@ -471,8 +472,11 @@ export default function SalesPage() {
       const emailQuery = userEmail ? `&email=${encodeURIComponent(userEmail)}` : ""
       const roleQuery = effectiveRole ? `&role=${encodeURIComponent(effectiveRole)}` : ""
 
-      // --- PERF: Render first page immediately, load rest silently in background ---
-      const firstRes = await fetch(`/api/get-accounts?page=1&limit=200${emailQuery}${roleQuery}`)
+      // Load the local account snapshot in one request. Splitting the same
+      // snapshot into many concurrent requests repeated the expensive account,
+      // contact, invoice, and product-history aggregations for every page.
+      const accountPageSize = 10000
+      const firstRes = await fetch(`/api/get-accounts?page=1&limit=${accountPageSize}${emailQuery}${roleQuery}`)
       const firstData = await firstRes.json()
       const firstBatch: any[] = firstData.accounts || []
       const serverHasMore = firstData.pagination?.hasMore || firstData.hasMore || false
@@ -485,29 +489,34 @@ export default function SalesPage() {
       const emailParam = userEmail || currentUser?.email || dbUser?.email || ""
       let fetchedTasks: any[] = []
       const tasksPromise = emailParam
-        ? fetch(`/api/get-tasks?email=${encodeURIComponent(emailParam)}&ownerIdFilter=${ownerFilter}${triggerRefresh ? "&refresh=true" : ""}`)
+        ? fetch(`/api/get-tasks?email=${encodeURIComponent(emailParam)}&ownerIdFilter=${ownerFilter}`)
             .then(r => r.json())
             .then(tData => { if (tData.tasks) { fetchedTasks = tData.tasks; setTasks(fetchedTasks) } })
             .catch(() => {})
         : Promise.resolve()
 
       if (serverHasMore) {
-        let allAccounts = [...firstBatch]
-        let currentPage = 2
-        let hasMoreToFetch = true
-        while (hasMoreToFetch && currentPage <= 20) {
-          try {
-            const res = await fetch(`/api/get-accounts?page=${currentPage}&limit=200${emailQuery}${roleQuery}`)
-            const data = await res.json()
-            const batch: any[] = data.accounts || []
-            if (batch.length === 0) { hasMoreToFetch = false; break }
-            allAccounts = [...allAccounts, ...batch]
-            setAccounts([...allAccounts])
-            setAccountsTotalCount(data.pagination?.totalCount || allAccounts.length)
-            if (!(data.pagination?.hasMore || data.hasMore)) hasMoreToFetch = false
-            else currentPage++
-          } catch { hasMoreToFetch = false }
-        }
+        // Load the remaining local pages concurrently. The old sequential loop
+        // multiplied the request latency by the number of pages and re-rendered
+        // the entire pipeline after every response.
+        const totalCount = firstData.pagination?.totalCount || firstBatch.length
+        const totalPages = Math.min(10, Math.ceil(totalCount / accountPageSize))
+        const remainingPages = Array.from({ length: Math.max(0, totalPages - 1) }, (_, index) => index + 2)
+        const pageResults = await Promise.all(
+          remainingPages.map(async currentPage => {
+            try {
+              const res = await fetch(`/api/get-accounts?page=${currentPage}&limit=${accountPageSize}${emailQuery}${roleQuery}`)
+              if (!res.ok) return []
+              const data = await res.json()
+              return (data.accounts || []) as any[]
+            } catch {
+              return []
+            }
+          })
+        )
+        const allAccounts = [...firstBatch, ...pageResults.flat()]
+        setAccounts(allAccounts)
+        setAccountsTotalCount(totalCount)
         setAccountsHasMore(false)
         await tasksPromise
         sessionSet(cacheKey, { accounts: allAccounts, tasks: fetchedTasks })
@@ -1288,14 +1297,14 @@ export default function SalesPage() {
                           )}
                         </button>
 
-                        <button
+                        {canSyncZoho && <button
                           onClick={handleSync}
                           disabled={loading}
                           className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-emerald-500/30 bg-emerald-950/20 hover:bg-emerald-950/40 text-emerald-400 transition-all cursor-pointer disabled:opacity-50"
                         >
                           <FiRefreshCw size={12} className={loading ? "animate-spin" : ""} />
                           <span>{loading ? "Syncing..." : "Sync CRM"}</span>
-                        </button>
+                        </button>}
 
                         <button
                           onClick={() => setShowAddAccount(true)}
@@ -1318,7 +1327,9 @@ export default function SalesPage() {
                           <p className="text-xs text-neutral-500 mt-1 max-w-md mx-auto">
                             {accounts.length > 0
                               ? `Loaded ${accounts.length} total accounts in memory, but your current active filters are hiding them all.`
-                              : "Click below to clear filters or pull live data directly from Zoho CRM."}
+                              : canSyncZoho
+                                ? "Click below to clear filters or pull live data directly from Zoho CRM."
+                                : "Clear the active filters to return to your assigned account list."}
                           </p>
                           <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
                             <button
@@ -1328,14 +1339,14 @@ export default function SalesPage() {
                               <FiFilter size={12} />
                               <span>Reset / Clear All Filters</span>
                             </button>
-                            <button
+                            {canSyncZoho && <button
                               onClick={() => handleSync()}
                               disabled={loading}
                               className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
                             >
                               <FiRefreshCw size={12} className={loading ? "animate-spin" : ""} />
                               <span>{loading ? "Syncing..." : "Sync Live CRM Accounts"}</span>
-                            </button>
+                            </button>}
                           </div>
                         </div>
                       ) : (
@@ -1621,7 +1632,7 @@ export default function SalesPage() {
                                         </Link>
                                         <div className="min-w-0">
                                           <Link href={`/account?id=${account.zohoId}`} className="text-sm font-bold text-white truncate block hover:text-emerald-400 transition-colors">
-                                            {account.name}
+                                            <span className="uppercase">{account.name}</span>
                                           </Link>
                                           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                                             <QualityPicker

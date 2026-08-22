@@ -1,3 +1,4 @@
+import { withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from '@netlify/functions'
 import { prisma } from './lib/prisma'
 
@@ -8,7 +9,7 @@ const headers = {
   'Content-Type': 'application/json'
 }
 
-export const handler: Handler = async (event) => {
+const authenticatedHandler: Handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers, body: '' }
   }
@@ -45,3 +46,5 @@ export const handler: Handler = async (event) => {
     return { statusCode: 500, headers, body: JSON.stringify({ success: false, error: err.message }) }
   }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler)

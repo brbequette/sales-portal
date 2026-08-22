@@ -1,3 +1,4 @@
+import { withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 
 import { prisma } from "./lib/prisma"
@@ -11,7 +12,7 @@ const initialAssets = [
   { title: "Concrete Saw Safety Guidelines", type: "PDF", category: "Training", url: "https://titandiamond.net/docs/saw-safety.pdf", size: "2.5 MB" },
 ]
 
-export const handler: Handler = async (event, context) => {
+const authenticatedHandler: Handler = async (event, context) => {
   if (event.httpMethod !== "GET") {
     return {
       statusCode: 405,
@@ -55,3 +56,5 @@ export const handler: Handler = async (event, context) => {
     }
   }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler)

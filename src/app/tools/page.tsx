@@ -2,6 +2,7 @@
 
 
 import { useState, useEffect } from "react"
+import { createPortal } from "react-dom"
 import Link from "next/link"
 import { useZoho } from "@/components/ZohoProvider"
 import { useProductModal } from "@/components/ProductModalProvider"
@@ -28,6 +29,7 @@ export default function ToolsRepository() {
   const [searchTerm, setSearchTerm] = useState("")
   const [activeCategory, setActiveCategory] = useState("All")
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+  const [assetSort, setAssetSort] = useState<"title" | "category" | "type" | "size">("title")
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
   // Products State
@@ -36,6 +38,7 @@ export default function ToolsRepository() {
   const [productsLoading, setProductsLoading] = useState(false)
   const [productSearch, setProductSearch] = useState("")
   const [productCategory, setProductCategory] = useState("All")
+  const [productSort, setProductSort] = useState<"name" | "sku" | "category" | "price-desc" | "price-asc">("name")
 
   const parseProductDescription = (desc: string | null) => {
     if (!desc) return { text: "--", cost: null, vendor: null, retail: null, pertinentInfo: null, image: null }
@@ -246,7 +249,7 @@ export default function ToolsRepository() {
     const matchesSearch = asset.title.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = activeCategory === "All" || asset.category === activeCategory
     return matchesSearch && matchesCategory
-  })
+  }).sort((a, b) => String(a[assetSort] || "").localeCompare(String(b[assetSort] || ""), undefined, { numeric: true }))
 
   const filteredProducts = products.filter(p => {
     const parsed = parseProductDescription(p.description)
@@ -257,6 +260,13 @@ export default function ToolsRepository() {
                           (parsed.pertinentInfo && parsed.pertinentInfo.toLowerCase().includes(productSearch.toLowerCase()))
     const matchesCategory = productCategory === "All" || p.category === productCategory
     return matchesSearch && matchesCategory
+  }).sort((a, b) => {
+    if (productSort === "price-desc" || productSort === "price-asc") {
+      const aPrice = Number(parseProductDescription(a.description).retail || 0)
+      const bPrice = Number(parseProductDescription(b.description).retail || 0)
+      return productSort === "price-asc" ? aPrice - bPrice : bPrice - aPrice
+    }
+    return String(a[productSort] || "").localeCompare(String(b[productSort] || ""), undefined, { numeric: true })
   })
 
   // Helper for rendering file icons
@@ -319,6 +329,10 @@ export default function ToolsRepository() {
                 <input type="text" placeholder="Search assets..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="td-input pl-9" />
               </div>
               <div className="flex items-center gap-2">
+                <select aria-label="Sort media assets" value={assetSort} onChange={(event) => setAssetSort(event.target.value as typeof assetSort)} className="td-select text-xs">
+                  <option value="title">Title A–Z</option><option value="category">Category</option><option value="type">File type</option><option value="size">File size</option>
+                </select>
+                <span className="whitespace-nowrap text-[10px] font-bold uppercase tracking-wider text-neutral-600">{filteredAssets.length} assets</span>
                 <span className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider hidden sm:inline">{currentUser?.role || "Sales Rep"}</span>
                 <div className="glass-panel rounded-lg p-0.5 flex border border-white/10">
                   <button onClick={() => setViewMode("grid")} className={`p-2 rounded ${viewMode === "grid" ? "bg-neutral-800 text-orange-400" : "text-neutral-500 hover:text-white"}`} title="Grid"><FiGrid size={14} /></button>
@@ -356,13 +370,13 @@ export default function ToolsRepository() {
                       <div className="pt-3 mt-2 border-t border-white/8 flex items-center justify-between">
                         <span className="text-[10px] text-neutral-600">{asset.size}</span>
                         <div className="flex gap-1">
-                          <button onClick={() => handleDownload(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-emerald-700/50 text-neutral-400 hover:text-white transition-colors"><FiDownload size={12} /></button>
-                          <button onClick={() => handleCopyLink(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-blue-700/50 text-neutral-400 hover:text-white transition-colors">
+                          <button aria-label={`Download ${asset.title}`} onClick={() => handleDownload(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-emerald-700/50 text-neutral-400 hover:text-white transition-colors"><FiDownload size={12} /></button>
+                          <button aria-label={`Copy link for ${asset.title}`} onClick={() => handleCopyLink(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-blue-700/50 text-neutral-400 hover:text-white transition-colors">
                             {copiedId === asset.id ? <FiCheck size={12} className="text-emerald-400" /> : <FiShare2 size={12} />}
                           </button>
                           {isAdmin && (<>
-                            <button onClick={() => openEditModal(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-700 text-neutral-500 hover:text-white transition-colors"><FiEdit2 size={12} /></button>
-                            <button onClick={() => handleDeleteAsset(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-red-900/50 text-neutral-500 hover:text-red-400 transition-colors"><FiTrash2 size={12} /></button>
+                            <button aria-label={`Edit ${asset.title}`} onClick={() => openEditModal(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-700 text-neutral-500 hover:text-white transition-colors"><FiEdit2 size={12} /></button>
+                            <button aria-label={`Delete ${asset.title}`} onClick={() => handleDeleteAsset(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-red-900/50 text-neutral-500 hover:text-red-400 transition-colors"><FiTrash2 size={12} /></button>
                           </>)}
                         </div>
                       </div>
@@ -385,9 +399,9 @@ export default function ToolsRepository() {
                         <td className="td-td text-neutral-500">{asset.size}</td>
                         <td className="td-td text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            <button onClick={() => handleDownload(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-emerald-700/50 text-neutral-400 hover:text-white transition-colors"><FiDownload size={12} /></button>
-                            <button onClick={() => handleCopyLink(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-blue-700/50 text-neutral-400 hover:text-white transition-colors">{copiedId === asset.id ? <FiCheck size={12} className="text-emerald-400" /> : <FiShare2 size={12} />}</button>
-                            {isAdmin && (<><button onClick={() => openEditModal(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-700 text-neutral-500 hover:text-white transition-colors"><FiEdit2 size={12} /></button><button onClick={() => handleDeleteAsset(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-red-900/50 text-neutral-500 hover:text-red-400 transition-colors"><FiTrash2 size={12} /></button></>)}
+                            <button aria-label={`Download ${asset.title}`} onClick={() => handleDownload(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-emerald-700/50 text-neutral-400 hover:text-white transition-colors"><FiDownload size={12} /></button>
+                            <button aria-label={`Copy link for ${asset.title}`} onClick={() => handleCopyLink(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-blue-700/50 text-neutral-400 hover:text-white transition-colors">{copiedId === asset.id ? <FiCheck size={12} className="text-emerald-400" /> : <FiShare2 size={12} />}</button>
+                            {isAdmin && (<><button aria-label={`Edit ${asset.title}`} onClick={() => openEditModal(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-700 text-neutral-500 hover:text-white transition-colors"><FiEdit2 size={12} /></button><button aria-label={`Delete ${asset.title}`} onClick={() => handleDeleteAsset(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-red-900/50 text-neutral-500 hover:text-red-400 transition-colors"><FiTrash2 size={12} /></button></>)}
                           </div>
                         </td>
                       </tr>
@@ -412,6 +426,10 @@ export default function ToolsRepository() {
                   <button key={cat} onClick={() => setProductCategory(cat)} className={`filter-chip whitespace-nowrap ${productCategory === cat ? "filter-chip-active" : ""}`}>{cat}</button>
                 ))}
               </div>
+              <select aria-label="Sort products" value={productSort} onChange={(event) => setProductSort(event.target.value as typeof productSort)} className="td-select text-xs">
+                <option value="name">Name A–Z</option><option value="sku">SKU</option><option value="category">Category</option><option value="price-desc">Highest price</option><option value="price-asc">Lowest price</option>
+              </select>
+              <span className="whitespace-nowrap text-[10px] font-bold uppercase tracking-wider text-neutral-600">{filteredProducts.length} products</span>
             </div>
             {productsLoading ? (
               <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" /></div>
@@ -451,12 +469,12 @@ export default function ToolsRepository() {
       </div>
 
       {/* ─── Admin Modal ────────────────────────────── */}
-      {showModal && (
+      {showModal && createPortal(
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="td-modal w-full max-w-md">
             <div className="td-modal-header">
               <h2 className="td-modal-title">{editingAsset ? "Edit Media Asset" : "Add New Media Asset"}</h2>
-              <button onClick={() => setShowModal(false)} className="td-modal-close">✕</button>
+              <button aria-label="Close media asset editor" onClick={() => setShowModal(false)} className="td-modal-close">✕</button>
             </div>
             <form onSubmit={handleSaveAsset} className="p-5 space-y-4">
               {errorMsg && <div className="bg-red-950/40 border border-red-500/25 text-red-400 text-xs p-3 rounded-xl">{errorMsg}</div>}
@@ -478,7 +496,7 @@ export default function ToolsRepository() {
               </div>
             </form>
           </div>
-        </div>
+        </div>, document.body
       )}
     </div>
   )

@@ -9,6 +9,7 @@ import {
   FiBookOpen, FiZap
 } from "react-icons/fi"
 import { toast } from "react-hot-toast"
+import { isAdministratorRole } from "@/lib/roles"
 
 export function EmailInbox({
   accountId,
@@ -20,6 +21,7 @@ export function EmailInbox({
   contacts?: any[]
 }) {
   const { zohoContext: currentUser } = useZoho()
+  const canSync = isAdministratorRole(currentUser?.role)
   
   // State
   const [emails, setEmails] = useState<any[]>([])
@@ -111,8 +113,7 @@ export function EmailInbox({
         toAddress: composeTo,
         ccAddress: composeCc,
         subject: composeSubject,
-        body: composeBody,
-        fromAddress: currentUser?.email
+        content: composeBody,
       }
       
       const res = await fetch('/api/emails', {
@@ -145,8 +146,7 @@ export function EmailInbox({
         accountId,
         toAddress: selectedEmail.fromAddress,
         subject: `Re: ${selectedEmail.subject}`,
-        body: responseBody,
-        fromAddress: currentUser?.email
+        content: responseBody,
       }
       
       const res = await fetch('/api/emails', {
@@ -206,9 +206,11 @@ export function EmailInbox({
 
   const filteredEmails = useMemo(() => {
     return emails.filter(e => {
-      if (activeTab === "Needs Response") return e.status === "needs_response"
-      if (activeTab === "Sent") return e.direction === "outbound"
-      if (activeTab === "Archived") return e.status === "archived"
+      const status = String(e.status || "").toUpperCase()
+      const direction = String(e.direction || "").toUpperCase()
+      if (activeTab === "Needs Response") return e.needsResponse === true || status === "NEEDS_RESPONSE"
+      if (activeTab === "Sent") return direction === "OUTBOUND"
+      if (activeTab === "Archived") return status === "ARCHIVED"
       return true
     })
   }, [emails, activeTab])
@@ -391,14 +393,14 @@ export function EmailInbox({
           <h2 className="font-bold text-white">Email Inbox</h2>
         </div>
         <div className="flex gap-2">
-          <button 
+          {canSync && <button
             onClick={handleSync}
             disabled={isSyncing}
             className="td-btn td-btn-sm td-btn-ghost"
             title="Sync Now"
           >
             <FiRefreshCw size={14} className={isSyncing ? "animate-spin" : ""} />
-          </button>
+          </button>}
           <button 
             onClick={() => setIsComposing(true)}
             className="td-btn td-btn-primary td-btn-sm"
@@ -466,10 +468,10 @@ export function EmailInbox({
                   </div>
                 </div>
                 <div className="shrink-0 flex flex-col items-end gap-2">
-                  {email.status === "needs_response" && (
+                  {(email.needsResponse === true || String(email.status || "").toUpperCase() === "NEEDS_RESPONSE") && (
                     <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" title="Needs Response"></span>
                   )}
-                  {email.status === "replied" && (
+                  {String(email.status || "").toUpperCase() === "REPLIED" && (
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" title="Replied"></span>
                   )}
                 </div>

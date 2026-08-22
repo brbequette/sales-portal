@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { getAuthenticatedDbUser } from "@/lib/session-user"
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
+    const auth = await getAuthenticatedDbUser()
+    if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -18,6 +17,9 @@ export async function POST(req: Request) {
     const lead = await prisma.lead.findUnique({ where: { id: leadId } })
     if (!lead) {
       return NextResponse.json({ error: "Lead not found" }, { status: 404 })
+    }
+    if (!auth.isAdmin && lead.ownerId !== auth.user.id && lead.claimedById !== auth.user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
     const updatedLead = await prisma.lead.update({
@@ -41,7 +43,7 @@ export async function POST(req: Request) {
           status: "Not Started",
           priority: "High",
           dueDate: new Date(callbackDate),
-          ownerId: session.user.id
+          ownerId: auth.user.id
         }
       })
     }

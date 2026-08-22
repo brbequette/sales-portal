@@ -82,27 +82,28 @@ export function SalesBoard() {
     )
   }
 
-  if (!loading && data && data.reps.length === 0) {
+  if (!loading && data && (data.reps.length === 0 || data.rawInvoices.length === 0)) {
+    const isNoReps = data.reps.length === 0;
     return (
       <div className="w-full h-full min-h-[600px] flex flex-col items-center justify-center glass-panel rounded-2xl border border-white/10 text-white shadow-2xl relative overflow-hidden p-8 space-y-4">
         <FiAlertCircle size={48} className="text-[var(--muted)] mb-2" />
         <h3 className="text-xl font-bold">No data available</h3>
-        <p className="text-[var(--muted)] text-sm">No sales reps found.</p>
+        <p className="text-[var(--muted)] text-sm">{isNoReps ? "No reps found" : "No invoices this period"}.</p>
       </div>
     )
   }
 
   return (
-    <div ref={boardRef} className="w-full h-full bg-black/20 rounded-2xl border border-white/10 text-white shadow-2xl relative flex flex-col font-sans overflow-hidden flex-1 min-h-0">
+    <div ref={boardRef} className="w-full h-full bg-black/20 rounded-none sm:rounded-2xl border border-white/10 text-white shadow-2xl relative flex flex-col font-sans overflow-hidden flex-1 min-h-0">
       
       {/* Top Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-black/40 backdrop-blur-md z-20">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 border-b border-white/10 bg-black/40 backdrop-blur-md z-20">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
             <FiActivity size={16} className="text-white" />
           </div>
           <div>
-            <h2 className="text-lg font-black tracking-tight text-white uppercase">Titan Sales Monitor</h2>
+            <h2 className="text-sm sm:text-lg font-black tracking-tight text-white uppercase">Titan Sales Monitor</h2>
             <p className="text-[10px] text-emerald-400 font-bold tracking-widest uppercase mt-0.5 flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
               Live Sync
@@ -111,8 +112,8 @@ export function SalesBoard() {
         </div>
         
         {/* Controls */}
-        <div className="flex items-center gap-4 bg-white/5 p-1.5 rounded-xl border border-white/10">
-          <div className="flex items-center gap-1.5 px-2">
+        <div className="flex items-center gap-2 sm:gap-4 max-w-full overflow-x-auto bg-white/5 p-1 sm:p-1.5 rounded-xl border border-white/10">
+          <div className="hidden sm:flex items-center gap-1.5 px-1 sm:px-2">
             {SCREENS.map(screen => (
               <button 
                 key={screen} 
@@ -133,7 +134,7 @@ export function SalesBoard() {
             className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-bold rounded-lg border border-emerald-500/30 transition-all shadow-[0_0_10px_rgba(52,211,153,0.15)]"
             title="Customize Dashboard Layout"
           >
-            <FiSliders size={14} /> Customize Layout
+            <FiSliders size={14} /> <span className="hidden lg:inline">Customize Layout</span>
           </button>
           <div className="w-[1px] h-4 bg-white/10"></div>
           <button onClick={toggleFullscreen} className="text-neutral-400 hover:text-white transition-colors pr-2">
@@ -151,59 +152,40 @@ export function SalesBoard() {
       <div className="flex-1 relative overflow-hidden bg-gradient-to-b from-black/20 to-transparent">
         
         {/* SCREEN 1: WEEKLY GRID */}
-        <div className={`absolute inset-0 p-6 lg:p-8 flex flex-col transition-all duration-700 transform ${currentScreen === "WEEKLY_GRID" ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0 pointer-events-none"}`}>
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+        <div className={`absolute inset-0 p-2 sm:p-4 lg:p-8 flex flex-col transition-all duration-700 transform ${currentScreen === "WEEKLY_GRID" ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0 pointer-events-none"}`}>
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 sm:gap-4 mb-2 sm:mb-6">
              <div>
                 <h3 className="text-neutral-400 text-xs font-bold tracking-widest uppercase flex items-center gap-2">
                    <FiActivity className="text-emerald-400 animate-pulse" /> Live Weekly Subtotal & Financial Performance
                 </h3>
                 <p className="text-[11px] text-neutral-500 font-semibold mt-0.5">
-                  Pipeline: <span className="text-cyan-400 font-bold">48h Estimates</span> &amp; <span className="text-amber-400 font-bold">Uninvoiced Sales Orders</span> &amp; <span className="text-purple-300 font-bold">Invoices</span>
+                  Pipeline: <span className="text-cyan-400 font-bold">Active Estimates</span>, <span className="text-amber-400 font-bold">Uninvoiced Sales Orders</span> &amp; <span className="text-emerald-400 font-bold">Invoices</span>
                 </p>
              </div>
              
-             {/* --- 5-Badge Financial Metric Strip --- */}
-             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 w-full md:w-auto">
-                <div 
-                  onClick={() => window.dispatchEvent(new CustomEvent("open-metric-derivation", { detail: { key: "weeklyGoal" } }))}
-                  className="bg-gradient-to-br from-sky-950/60 to-blue-950/60 p-2.5 rounded-xl border border-sky-500/30 shadow-[0_0_15px_rgba(56,189,248,0.1)] hover:scale-[1.02] transition-transform cursor-pointer"
-                >
-                   <span className="text-[9px] uppercase font-bold text-sky-400 tracking-wider block">Total Subtotal</span>
-                   <span className="text-sm font-black text-white block mt-0.5">{formatCurrency(data.teamSubtotals?.total || data.teamWeekly.sales)}</span>
+             {/* --- 4-Badge Financial Metric Strip --- */}
+             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-3 w-full md:w-auto">
+                <div className="bg-gradient-to-br from-sky-950/60 to-blue-950/60 p-3 rounded-xl border border-sky-500/20 shadow-[0_0_15px_rgba(56,189,248,0.1)] hover:scale-[1.02] transition-transform">
+                   <span className="text-[9px] uppercase font-bold text-sky-400 tracking-wider block">Subtotal</span>
+                   <span className="text-base font-black text-white block mt-0.5">{formatCurrency(data.teamWeekly.sales)}</span>
                 </div>
-                <div 
-                  onClick={() => window.dispatchEvent(new CustomEvent("open-metric-derivation", { detail: { key: "estimates" } }))}
-                  className="bg-gradient-to-br from-cyan-950/60 to-teal-950/60 p-2.5 rounded-xl border border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.1)] hover:scale-[1.02] transition-transform cursor-pointer"
-                >
-                   <span className="text-[9px] uppercase font-bold text-cyan-400 tracking-wider block">48h Estimates</span>
-                   <span className="text-sm font-black text-cyan-200 block mt-0.5">{formatCurrency(data.teamSubtotals?.estimates || 0)}</span>
+                <div className="bg-gradient-to-br from-amber-950/60 to-orange-950/60 p-3 rounded-xl border border-amber-500/20 shadow-[0_0_15px_rgba(251,191,36,0.1)] hover:scale-[1.02] transition-transform">
+                   <span className="text-[9px] uppercase font-bold text-amber-400 tracking-wider block">DC (Subject VIG)</span>
+                   <span className="text-base font-black text-amber-200 block mt-0.5">{formatCurrency(data.teamWeekly.deadCostSubjectToVig)}</span>
                 </div>
-                <div 
-                  onClick={() => window.dispatchEvent(new CustomEvent("open-metric-derivation", { detail: { key: "salesOrders" } }))}
-                  className="bg-gradient-to-br from-amber-950/60 to-orange-950/60 p-2.5 rounded-xl border border-amber-500/30 shadow-[0_0_15px_rgba(251,191,36,0.1)] hover:scale-[1.02] transition-transform cursor-pointer"
-                >
-                   <span className="text-[9px] uppercase font-bold text-amber-400 tracking-wider block">Uninvoiced SOs</span>
-                   <span className="text-sm font-black text-amber-200 block mt-0.5">{formatCurrency(data.teamSubtotals?.salesOrders || 0)}</span>
+                <div className="bg-gradient-to-br from-purple-950/60 to-fuchsia-950/60 p-3 rounded-xl border border-purple-500/20 shadow-[0_0_15px_rgba(232,121,249,0.1)] hover:scale-[1.02] transition-transform">
+                   <span className="text-[9px] uppercase font-bold text-purple-300 tracking-wider block">🎁 DC (No VIG)</span>
+                   <span className="text-base font-black text-purple-200 block mt-0.5">{formatCurrency(data.teamWeekly.deadCostNoVig)}</span>
                 </div>
-                <div 
-                  onClick={() => window.dispatchEvent(new CustomEvent("open-metric-derivation", { detail: { key: "invoices" } }))}
-                  className="bg-gradient-to-br from-purple-950/60 to-indigo-950/60 p-2.5 rounded-xl border border-purple-500/30 shadow-[0_0_15px_rgba(168,85,247,0.1)] hover:scale-[1.02] transition-transform cursor-pointer"
-                >
-                   <span className="text-[9px] uppercase font-bold text-purple-300 tracking-wider block">Invoices (All Statuses)</span>
-                   <span className="text-sm font-black text-purple-200 block mt-0.5">{formatCurrency(data.teamSubtotals?.invoices || 0)}</span>
-                </div>
-                <div 
-                  onClick={() => window.dispatchEvent(new CustomEvent("open-metric-derivation", { detail: { key: "monthlyProfit" } }))}
-                  className="bg-gradient-to-br from-emerald-950/60 to-teal-950/60 p-2.5 rounded-xl border border-emerald-500/30 shadow-[0_0_15px_rgba(52,211,153,0.1)] hover:scale-[1.02] transition-transform cursor-pointer"
-                >
+                <div className="bg-gradient-to-br from-emerald-950/60 to-teal-950/60 p-3 rounded-xl border border-emerald-500/20 shadow-[0_0_15px_rgba(52,211,153,0.1)] hover:scale-[1.02] transition-transform">
                    <span className="text-[9px] uppercase font-bold text-emerald-400 tracking-wider block">Net Profit</span>
-                   <span className="text-sm font-black text-emerald-300 block mt-0.5">{formatCurrency(data.teamWeekly.profit)}</span>
+                   <span className="text-base font-black text-emerald-300 block mt-0.5">{formatCurrency(data.teamWeekly.profit)}</span>
                 </div>
              </div>
           </div>
 
           <div className="flex-1 overflow-auto bg-white/[0.02] border border-white/10 rounded-2xl p-1">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-[720px] text-left border-collapse">
                <thead>
                   <tr className="bg-white/[0.03]">
                      <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10">Sales Rep</th>
@@ -241,7 +223,7 @@ export function SalesBoard() {
                            <td className="p-4 text-sm font-bold border-b border-white/10 text-white align-middle" rowSpan={2}>
                               <div className="flex items-center gap-3">
                                  <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${rep.gradient} flex items-center justify-center font-bold text-xs shadow-lg`}>{rep.name.charAt(0)}</div>
-                                 {rep.name}
+                                 <span className="uppercase">{rep.name}</span>
                               </div>
                            </td>
                            <td className="p-4 text-xs font-medium text-neutral-400 border-b border-white/10">Subtotal</td>
@@ -267,32 +249,18 @@ export function SalesBoard() {
                                      <thead>
                                        <tr className="bg-white/[0.02]">
                                          <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Date</th>
-                                         <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Type</th>
-                                         <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Customer | Document</th>
-                                         <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Status</th>
+                                         <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Customer | Invoice</th>
                                          <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Subtotal</th>
                                          <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Dead Profit</th>
                                        </tr>
                                      </thead>
                                      <tbody>
-                                       {rep.weekly.invoices.map((inv:any) => {
-                                         const docType = inv.type || 'Invoice'
-                                         const typeBadge = docType === 'Quote' 
-                                           ? { label: '48h Estimate', bg: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' }
-                                           : docType === 'SalesOrder'
-                                           ? { label: 'Sales Order', bg: 'bg-amber-500/10 text-amber-400 border-amber-500/30' }
-                                           : { label: 'Invoice', bg: 'bg-purple-500/10 text-purple-300 border-purple-500/30' }
-                                         return (
+                                       {rep.weekly.invoices.map((inv:any) => (
                                          <tr key={inv.id} className="border-t border-white/10 hover:bg-white/10 hover:shadow-lg transition-all duration-300 transition-colors">
                                            <td className="p-2 text-xs font-medium text-neutral-400">{inv.date}</td>
                                            <td className="p-2">
-                                             <span className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase ${typeBadge.bg}`}>
-                                               {typeBadge.label}
-                                             </span>
-                                           </td>
-                                           <td className="p-2">
                                               <a 
-                                                href={getZohoBooksUrl(inv.type || 'Invoice', inv.zohoId || inv.id)} 
+                                                href={getZohoBooksUrl('invoices', inv.zohoId || inv.id)} 
                                                 target="_blank" 
                                                 rel="noopener noreferrer"
                                                 className="text-xs font-bold text-white hover:text-emerald-400 hover:underline transition-colors block"
@@ -300,7 +268,7 @@ export function SalesBoard() {
                                                 {inv.customer}
                                               </a>
                                               <a 
-                                                href={getZohoBooksUrl(inv.type || 'Invoice', inv.zohoId || inv.id)} 
+                                                href={getZohoBooksUrl('invoices', inv.zohoId || inv.id)} 
                                                 target="_blank" 
                                                 rel="noopener noreferrer"
                                                 className="text-[10px] text-neutral-500 hover:text-emerald-400 hover:underline transition-colors font-medium"
@@ -308,15 +276,10 @@ export function SalesBoard() {
                                                 {inv.invoiceNumber}
                                               </a>
                                            </td>
-                                           <td className="p-2">
-                                             <span className="text-[10px] text-neutral-400 font-medium capitalize">
-                                               {inv.status || 'Draft'}
-                                             </span>
-                                           </td>
                                            <td className="p-2 text-xs font-medium text-neutral-300 text-right">{formatCurrency(inv.amount)}</td>
                                            <td className="p-2 text-xs font-medium text-neutral-400 text-right">{formatCurrency(inv.profit)}</td>
                                          </tr>
-                                       )})}
+                                       ))}
                                      </tbody>
                                    </table>
                                  </div>
@@ -331,7 +294,7 @@ export function SalesBoard() {
           </div>
         </div>
 
-        <div className={`absolute inset-0 p-6 lg:p-8 flex flex-col transition-all duration-700 transform ${currentScreen === "REPS_KPI" ? "translate-x-0 opacity-100" : (SCREENS.indexOf(currentScreen) > 1 ? "-translate-x-full opacity-0 pointer-events-none" : "translate-x-full opacity-0 pointer-events-none")}`}>
+        <div className={`absolute inset-0 p-2 sm:p-4 lg:p-8 flex flex-col overflow-y-auto transition-all duration-700 transform ${currentScreen === "REPS_KPI" ? "translate-x-0 opacity-100" : (SCREENS.indexOf(currentScreen) > 1 ? "-translate-x-full opacity-0 pointer-events-none" : "translate-x-full opacity-0 pointer-events-none")}`}>
           <h3 className="text-neutral-400 text-sm font-bold tracking-widest uppercase mb-4 flex items-center gap-3">
             <FiStar className="text-amber-400" /> Weekly Top Performers
           </h3>
@@ -347,7 +310,7 @@ export function SalesBoard() {
                         {rep.name.charAt(0)}
                       </div>
                       <div>
-                        <h4 className="font-bold text-base text-white">{rep.name}</h4>
+                        <h4 className="font-bold text-base text-white uppercase">{rep.name}</h4>
                         <p className="text-[9px] text-neutral-500 uppercase tracking-wider">{rep.role}</p>
                       </div>
                     </div>
@@ -386,19 +349,15 @@ export function SalesBoard() {
                       </div>
                     </div>
 
-                    {/* Active Pipeline Badges (48h Estimates, Uninvoiced SOs, Invoices) */}
-                    <div className="grid grid-cols-3 gap-1.5 pt-1.5 border-t border-white/10 text-[9px]">
-                      <div className="bg-cyan-950/40 p-1.5 rounded-lg border border-cyan-500/20">
-                        <span className="text-cyan-400 font-bold block uppercase truncate">48h Est</span>
-                        <span className="text-white font-bold truncate block">{rep.subtotals?.estimatesCount ?? rep.activePipeline.estimateCount} ({formatCurrency(rep.subtotals?.estimates ?? rep.activePipeline.estimateAmount)})</span>
+                    {/* Active Pipeline Badges (48h Estimates & Uninvoiced SOs) */}
+                    <div className="flex items-center gap-1.5 pt-1.5 border-t border-white/10">
+                      <div className="flex-1 bg-cyan-950/40 p-1.5 rounded-lg border border-cyan-500/20 text-[9px]">
+                        <span className="text-cyan-400 font-bold block uppercase">48h Estimates</span>
+                        <span className="text-white font-bold">{rep.activePipeline.estimateCount} ({formatCurrency(rep.activePipeline.estimateAmount)})</span>
                       </div>
-                      <div className="bg-amber-950/40 p-1.5 rounded-lg border border-amber-500/20">
-                        <span className="text-amber-400 font-bold block uppercase truncate">Open SOs</span>
-                        <span className="text-white font-bold truncate block">{rep.subtotals?.salesOrdersCount ?? rep.activePipeline.salesOrderCount} ({formatCurrency(rep.subtotals?.salesOrders ?? rep.activePipeline.salesOrderAmount)})</span>
-                      </div>
-                      <div className="bg-purple-950/40 p-1.5 rounded-lg border border-purple-500/20">
-                        <span className="text-purple-300 font-bold block uppercase truncate">Invoices</span>
-                        <span className="text-white font-bold truncate block">{rep.subtotals?.invoicesCount ?? 0} ({formatCurrency(rep.subtotals?.invoices ?? 0)})</span>
+                      <div className="flex-1 bg-amber-950/40 p-1.5 rounded-lg border border-amber-500/20 text-[9px]">
+                        <span className="text-amber-400 font-bold block uppercase">Uninvoiced SOs</span>
+                        <span className="text-white font-bold">{rep.activePipeline.salesOrderCount} ({formatCurrency(rep.activePipeline.salesOrderAmount)})</span>
                       </div>
                     </div>
 
@@ -433,7 +392,7 @@ export function SalesBoard() {
         </div>
 
         {/* SCREEN 3: MTD */}
-        <div className={`absolute inset-0 p-6 lg:p-8 flex flex-col transition-all duration-700 transform ${currentScreen === "MTD_STATS" ? "translate-x-0 opacity-100" : (SCREENS.indexOf(currentScreen) > 2 ? "-translate-x-full opacity-0 pointer-events-none" : "translate-x-full opacity-0 pointer-events-none")}`}>
+        <div className={`absolute inset-0 p-2 sm:p-4 lg:p-8 flex flex-col transition-all duration-700 transform ${currentScreen === "MTD_STATS" ? "translate-x-0 opacity-100" : (SCREENS.indexOf(currentScreen) > 2 ? "-translate-x-full opacity-0 pointer-events-none" : "translate-x-full opacity-0 pointer-events-none")}`}>
            <div className="flex items-center justify-between mb-6">
              <h3 className="text-neutral-400 text-sm font-bold tracking-widest uppercase flex items-center gap-3">
               <FiTarget className="text-blue-400" /> Month-To-Date Performance
@@ -484,7 +443,7 @@ export function SalesBoard() {
                         <td className="p-4 text-sm font-bold border-b border-white/10 text-white">
                            <div className="flex items-center gap-3">
                               <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${rep.gradient} flex items-center justify-center font-bold text-[10px] shadow-lg`}>{rep.name.charAt(0)}</div>
-                              {rep.name}
+                              <span className="uppercase">{rep.name}</span>
                            </div>
                         </td>
                         <td className="p-4 text-right border-b border-white/10">
@@ -518,32 +477,18 @@ export function SalesBoard() {
                                   <thead>
                                     <tr className="bg-white/[0.02]">
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Date</th>
-                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Type</th>
-                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Customer | Document</th>
-                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Status</th>
+                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Customer | Invoice</th>
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Subtotal</th>
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Dead Profit</th>
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {rep.mtd.invoices.map((inv:any) => {
-                                      const docType = inv.type || 'Invoice'
-                                      const typeBadge = docType === 'Quote' 
-                                        ? { label: '48h Estimate', bg: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' }
-                                        : docType === 'SalesOrder'
-                                        ? { label: 'Sales Order', bg: 'bg-amber-500/10 text-amber-400 border-amber-500/30' }
-                                        : { label: 'Invoice', bg: 'bg-purple-500/10 text-purple-300 border-purple-500/30' }
-                                      return (
+                                    {rep.mtd.invoices.map((inv:any) => (
                                       <tr key={inv.id} className="border-t border-white/10 hover:bg-white/10 hover:shadow-lg transition-all duration-300 transition-colors">
                                         <td className="p-2 text-xs font-medium text-neutral-400">{inv.date}</td>
                                         <td className="p-2">
-                                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase ${typeBadge.bg}`}>
-                                            {typeBadge.label}
-                                          </span>
-                                        </td>
-                                        <td className="p-2">
                                            <a 
-                                             href={getZohoBooksUrl(inv.type || 'Invoice', inv.zohoId || inv.id)} 
+                                             href={getZohoBooksUrl('invoices', inv.zohoId || inv.id)} 
                                              target="_blank" 
                                              rel="noopener noreferrer"
                                              className="text-xs font-bold text-white hover:text-emerald-400 hover:underline transition-colors block"
@@ -551,7 +496,7 @@ export function SalesBoard() {
                                              {inv.customer}
                                            </a>
                                            <a 
-                                             href={getZohoBooksUrl(inv.type || 'Invoice', inv.zohoId || inv.id)} 
+                                             href={getZohoBooksUrl('invoices', inv.zohoId || inv.id)} 
                                              target="_blank" 
                                              rel="noopener noreferrer"
                                              className="text-[10px] text-neutral-500 hover:text-emerald-400 hover:underline transition-colors font-medium"
@@ -559,15 +504,10 @@ export function SalesBoard() {
                                              {inv.invoiceNumber}
                                            </a>
                                         </td>
-                                        <td className="p-2">
-                                          <span className="text-[10px] text-neutral-400 font-medium capitalize">
-                                            {inv.status || 'Draft'}
-                                          </span>
-                                        </td>
                                         <td className="p-2 text-xs font-medium text-neutral-300 text-right">{formatCurrency(inv.amount)}</td>
                                         <td className="p-2 text-xs font-medium text-neutral-400 text-right">{formatCurrency(inv.profit)}</td>
                                       </tr>
-                                    )})}
+                                    ))}
                                   </tbody>
                                 </table>
                               </div>
@@ -583,7 +523,7 @@ export function SalesBoard() {
         </div>
 
         {/* SCREEN 4: YTD */}
-        <div className={`absolute inset-0 p-6 lg:p-8 flex flex-col transition-all duration-700 transform ${currentScreen === "YTD_STATS" ? "translate-x-0 opacity-100" : (SCREENS.indexOf(currentScreen) > 3 ? "-translate-x-full opacity-0 pointer-events-none" : "translate-x-full opacity-0 pointer-events-none")}`}>
+        <div className={`absolute inset-0 p-2 sm:p-4 lg:p-8 flex flex-col transition-all duration-700 transform ${currentScreen === "YTD_STATS" ? "translate-x-0 opacity-100" : (SCREENS.indexOf(currentScreen) > 3 ? "-translate-x-full opacity-0 pointer-events-none" : "translate-x-full opacity-0 pointer-events-none")}`}>
            <h3 className="text-neutral-400 text-sm font-bold tracking-widest uppercase mb-8 flex items-center gap-3">
             <FiTrendingUp className="text-purple-400" /> Year-To-Date Performance
           </h3>
@@ -620,7 +560,7 @@ export function SalesBoard() {
                         <td className="p-4 text-sm font-bold border-b border-white/10 text-white">
                            <div className="flex items-center gap-3">
                               <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${rep.gradient} flex items-center justify-center font-bold text-[10px] shadow-lg`}>{rep.name.charAt(0)}</div>
-                              {rep.name}
+                              <span className="uppercase">{rep.name}</span>
                            </div>
                         </td>
                         <td className="p-4 text-sm font-black text-white text-right border-b border-white/10">{formatCurrency(rep.ytd.sales)}</td>
@@ -637,32 +577,18 @@ export function SalesBoard() {
                                   <thead>
                                     <tr className="bg-white/[0.02]">
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Date</th>
-                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Type</th>
-                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Customer | Document</th>
-                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Status</th>
+                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Customer | Invoice</th>
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Subtotal</th>
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Dead Profit</th>
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {rep.ytd.invoices.map((inv:any) => {
-                                      const docType = inv.type || 'Invoice'
-                                      const typeBadge = docType === 'Quote' 
-                                        ? { label: '48h Estimate', bg: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' }
-                                        : docType === 'SalesOrder'
-                                        ? { label: 'Sales Order', bg: 'bg-amber-500/10 text-amber-400 border-amber-500/30' }
-                                        : { label: 'Invoice', bg: 'bg-purple-500/10 text-purple-300 border-purple-500/30' }
-                                      return (
+                                    {rep.ytd.invoices.map((inv:any) => (
                                       <tr key={inv.id} className="border-t border-white/10 hover:bg-white/10 hover:shadow-lg transition-all duration-300 transition-colors">
                                         <td className="p-2 text-xs font-medium text-neutral-400">{inv.date}</td>
                                         <td className="p-2">
-                                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase ${typeBadge.bg}`}>
-                                            {typeBadge.label}
-                                          </span>
-                                        </td>
-                                        <td className="p-2">
                                            <a 
-                                             href={getZohoBooksUrl(inv.type || 'Invoice', inv.zohoId || inv.id)} 
+                                             href={getZohoBooksUrl('invoices', inv.zohoId || inv.id)} 
                                              target="_blank" 
                                              rel="noopener noreferrer"
                                              className="text-xs font-bold text-white hover:text-emerald-400 hover:underline transition-colors block"
@@ -670,7 +596,7 @@ export function SalesBoard() {
                                              {inv.customer}
                                            </a>
                                            <a 
-                                             href={getZohoBooksUrl(inv.type || 'Invoice', inv.zohoId || inv.id)} 
+                                             href={getZohoBooksUrl('invoices', inv.zohoId || inv.id)} 
                                              target="_blank" 
                                              rel="noopener noreferrer"
                                              className="text-[10px] text-neutral-500 hover:text-emerald-400 hover:underline transition-colors font-medium"
@@ -678,15 +604,10 @@ export function SalesBoard() {
                                              {inv.invoiceNumber}
                                            </a>
                                         </td>
-                                        <td className="p-2">
-                                          <span className="text-[10px] text-neutral-400 font-medium capitalize">
-                                            {inv.status || 'Draft'}
-                                          </span>
-                                        </td>
                                         <td className="p-2 text-xs font-medium text-neutral-300 text-right">{formatCurrency(inv.amount)}</td>
                                         <td className="p-2 text-xs font-medium text-neutral-400 text-right">{formatCurrency(inv.profit)}</td>
                                       </tr>
-                                    )})}
+                                    ))}
                                   </tbody>
                                 </table>
                               </div>
@@ -702,9 +623,9 @@ export function SalesBoard() {
         </div>
 
         {/* SCREEN 5: OVERDUE INVOICES */}
-        <div className={`absolute inset-0 p-6 lg:p-8 flex flex-col transition-all duration-700 transform ${currentScreen === "OVERDUE_INVOICES" ? "translate-x-0 opacity-100" : "translate-x-full opacity-0 pointer-events-none"}`}>
+        <div className={`absolute inset-0 p-2 sm:p-4 lg:p-8 flex flex-col transition-all duration-700 transform ${currentScreen === "OVERDUE_INVOICES" ? "translate-x-0 opacity-100" : "translate-x-full opacity-0 pointer-events-none"}`}>
           
-          <div className="grid grid-cols-3 gap-6 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-6 mb-2 sm:mb-6">
             <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-5 relative overflow-hidden group">
                <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent"></div>
                <div className="text-[10px] font-bold text-red-400 tracking-widest uppercase mb-2">All-Time Overdue Balance</div>
@@ -723,7 +644,7 @@ export function SalesBoard() {
           </div>
 
           <div className="flex-1 overflow-auto bg-white/[0.02] border border-white/10 rounded-2xl p-1">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-[680px] text-left border-collapse">
                <thead>
                   <tr className="bg-white/[0.03]">
                      <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10">Sales Rep</th>
@@ -752,7 +673,7 @@ export function SalesBoard() {
                         <td className="p-4 text-sm font-bold border-b border-white/10 text-white">
                            <div className="flex items-center gap-3">
                               <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${rep.gradient} flex items-center justify-center font-bold text-[10px] shadow-lg`}>{rep.repName.charAt(0) || '?'}</div>
-                              {rep.repName}
+                              <span className="uppercase">{rep.repName}</span>
                            </div>
                         </td>
                         <td className="p-4 text-sm font-black text-red-400 text-right border-b border-white/10">{formatCurrency(rep.totalBalance)}</td>
@@ -830,7 +751,7 @@ export function SalesBoard() {
        </div>
 
       {/* Weekly Sales Banner */}
-      <div className="bg-gradient-to-r from-emerald-900/30 to-teal-900/30 border-t border-emerald-500/20 px-6 py-4 flex items-center justify-between z-20 backdrop-blur-xl">
+      <div className="bg-gradient-to-r from-emerald-900/30 to-teal-900/30 border-t border-emerald-500/20 px-2 sm:px-4 lg:px-6 py-2 sm:py-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 z-20 backdrop-blur-xl">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30 shadow-lg shadow-emerald-500/20">
             <FiDollarSign className="text-emerald-400 text-xl" />
@@ -843,21 +764,21 @@ export function SalesBoard() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-10">
+        <div className="flex items-center justify-between sm:justify-end gap-3 lg:gap-10">
           <div className="flex flex-col items-end">
             <div className="text-[10px] font-bold text-neutral-400 tracking-widest uppercase mb-0.5">Total Subtotal</div>
-            <div className="text-2xl font-black text-emerald-400 drop-shadow-md">{formatCurrency(data.teamWeekly.sales)}</div>
+            <div className="text-base sm:text-2xl font-black text-emerald-400 drop-shadow-md">{formatCurrency(data.teamWeekly.sales)}</div>
           </div>
           <div className="w-[1px] h-8 bg-white/10"></div>
           <div className="flex flex-col items-end">
             <div className="text-[10px] font-bold text-neutral-400 tracking-widest uppercase mb-0.5">Total Dead Profit</div>
-            <div className="text-2xl font-black text-white">{formatCurrency(data.teamWeekly.profit)}</div>
+            <div className="text-base sm:text-2xl font-black text-white">{formatCurrency(data.teamWeekly.profit)}</div>
           </div>
           <div className="w-[1px] h-8 bg-white/10"></div>
           <div className="flex flex-col items-end">
             <div className="text-[10px] font-bold text-neutral-400 tracking-widest uppercase mb-0.5">Weekly Quota</div>
             <div className="flex items-center gap-2">
-               <div className="text-2xl font-black text-white">{teamQuotaPct}%</div>
+               <div className="text-base sm:text-2xl font-black text-white">{teamQuotaPct}%</div>
                <div className="w-16 h-2 bg-black rounded-full overflow-hidden border border-white/10">
                  <div className="h-full bg-emerald-500" style={{ width: `${teamQuotaPct}%` }}></div>
                </div>

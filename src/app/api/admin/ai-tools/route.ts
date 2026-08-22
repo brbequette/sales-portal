@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAdministrator } from '@/lib/auth-helpers';
 
 // Helper to validate parameters JSON schema format
 function validateJsonSchema(schema: any): boolean {
@@ -10,6 +11,9 @@ function validateJsonSchema(schema: any): boolean {
 }
 
 export async function GET() {
+  const auth = await requireAdministrator();
+  if (auth.errorResponse) return auth.errorResponse;
+
   try {
     const tools = await prisma.aiCustomTool.findMany({
       orderBy: { name: 'asc' }
@@ -21,6 +25,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdministrator();
+  if (auth.errorResponse) return auth.errorResponse;
+
   try {
     const body = await req.json();
     const { name, description, parameters, endpointUrl, method = 'POST', bodyTemplate, isActive = true } = body;
@@ -58,6 +65,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const auth = await requireAdministrator();
+  if (auth.errorResponse) return auth.errorResponse;
+
   try {
     const body = await req.json();
     const { id, name, description, parameters, endpointUrl, method, bodyTemplate, isActive } = body;
@@ -92,6 +102,9 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const auth = await requireAdministrator();
+  if (auth.errorResponse) return auth.errorResponse;
+
   try {
     const url = new URL(req.url);
     const id = url.searchParams.get('id');

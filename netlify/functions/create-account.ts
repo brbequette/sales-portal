@@ -1,16 +1,21 @@
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 
 import { prisma } from "./lib/prisma"
+import { isAdminRole } from "../../src/lib/roles"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
-export const handler: Handler = async (event) => {
+const authenticatedHandler: Handler = async (event) => {
   const cors = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
 
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: cors, body: "" }
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors, body: JSON.stringify({ success: false, error: "Method not allowed" }) }
 
   try {
+    const sessionUser = await authenticateFunction(event)
+    const actorId = sessionUser.dbId || sessionUser.userId
+    const administrator = isAdminRole(sessionUser.role)
     const body = JSON.parse(event.body || "{}")
     const { 
       accountName, phone, email, industry, tags, 
@@ -25,10 +30,16 @@ export const handler: Handler = async (event) => {
 
     // Find creating user to assign as Account Owner
     let creatorUser = null
-    if (repId) {
+    if (administrator && repId) {
       creatorUser = await prisma.user.findFirst({
         where: { OR: [{ id: repId }, { zohoId: repId }, { email: repId }] }
       })
+    }
+    if (!creatorUser && actorId) {
+      creatorUser = await prisma.user.findUnique({ where: { id: actorId } })
+    }
+    if (!creatorUser) {
+      return { statusCode: 403, headers: cors, body: JSON.stringify({ success: false, error: "Signed-in user is not linked to a local user record" }) }
     }
 
     const token = await getZohoAccessToken();
@@ -135,10 +146,12 @@ export const handler: Handler = async (event) => {
 
     // Fallback if we couldn't fetch or map the owner
     if (!ownerId) {
-      const fallbackUser = await prisma.user.findFirst()
-      if (fallbackUser) ownerId = fallbackUser.id
-      else throw new Error("No owner found and no users in database")
+      ownerId = creatorUser.id
     }
+
+    // Assignment rules must never make a rep's newly created account visible to
+    // another rep. Managers may intentionally select a different owner.
+    if (!administrator) ownerId = creatorUser.id
 
     const prismaAccount = await prisma.account.create({
       data: {
@@ -163,3 +176,5 @@ export const handler: Handler = async (event) => {
     return { statusCode: 500, headers: cors, body: JSON.stringify({ success: false, error: err.message }) }
   }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler)

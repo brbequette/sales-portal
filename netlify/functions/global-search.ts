@@ -1,11 +1,13 @@
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 import { prisma } from "./lib/prisma"
+import { isAdminRole } from "../../src/lib/roles"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
-export const handler: Handler = async (event) => {
+const authenticatedHandler: Handler = async (event) => {
   const cors = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
@@ -17,6 +19,12 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod !== "GET") return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "Method not allowed" }) }
 
   try {
+    const sessionUser = await authenticateFunction(event)
+    const ownerId = sessionUser.dbId || sessionUser.userId
+    const restrictToOwner = !isAdminRole(sessionUser.role)
+    if (restrictToOwner && !ownerId) {
+      return { statusCode: 403, headers: cors, body: JSON.stringify({ success: false, error: "User identity is not linked" }) }
+    }
     const { q } = event.queryStringParameters || {}
     if (!q || q.length < 1) {
       return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, results: {} }) }
@@ -27,11 +35,14 @@ export const handler: Handler = async (event) => {
     // 1. Search Accounts (Prisma)
     const accounts = await prisma.account.findMany({
       where: {
-        OR: [
-          { name: { contains: query, mode: "insensitive" } },
-          { zohoId: { contains: query } },
-          { tags: { contains: query, mode: "insensitive" } },
-          { industry: { contains: query, mode: "insensitive" } }
+        AND: [
+          ...(restrictToOwner ? [{ ownerId }] : []),
+          { OR: [
+            { name: { contains: query, mode: "insensitive" } },
+            { zohoId: { contains: query } },
+            { tags: { contains: query, mode: "insensitive" } },
+            { industry: { contains: query, mode: "insensitive" } }
+          ] },
         ]
       },
       take: 10
@@ -42,21 +53,14 @@ export const handler: Handler = async (event) => {
     try {
       invoices = await prisma.invoice.findMany({
         where: {
-          OR: [
-            { zohoId: { contains: query } },
-            { status: { contains: query, mode: "insensitive" } },
-            {
-              items: {
-                path: ['invoiceNumber'],
-                string_contains: query
-              }
-            },
-            {
-              items: {
-                path: ['invoice_number'],
-                string_contains: query
-              }
-            }
+          AND: [
+            ...(restrictToOwner ? [{ account: { ownerId } }] : []),
+            { OR: [
+              { zohoId: { contains: query } },
+              { status: { contains: query, mode: "insensitive" } },
+              { items: { path: ['invoiceNumber'], string_contains: query } },
+              { items: { path: ['invoice_number'], string_contains: query } },
+            ] },
           ]
         },
         include: { account: { select: { name: true, zohoId: true } } },
@@ -67,9 +71,12 @@ export const handler: Handler = async (event) => {
       try {
         invoices = await prisma.invoice.findMany({
           where: {
-            OR: [
-              { zohoId: { contains: query } },
-              { status: { contains: query, mode: "insensitive" } }
+            AND: [
+              ...(restrictToOwner ? [{ account: { ownerId } }] : []),
+              { OR: [
+                { zohoId: { contains: query } },
+                { status: { contains: query, mode: "insensitive" } }
+              ] },
             ]
           },
           include: { account: { select: { name: true, zohoId: true } } },
@@ -83,10 +90,13 @@ export const handler: Handler = async (event) => {
     // 3. Search Deals (Prisma)
     const dealsRaw = await prisma.deal.findMany({
       where: {
-        OR: [
-          { name: { contains: query, mode: "insensitive" } },
-          { zohoId: { contains: query } },
-          { stage: { contains: query, mode: "insensitive" } }
+        AND: [
+          ...(restrictToOwner ? [{ ownerId }] : []),
+          { OR: [
+            { name: { contains: query, mode: "insensitive" } },
+            { zohoId: { contains: query } },
+            { stage: { contains: query, mode: "insensitive" } }
+          ] },
         ]
       },
       include: { account: { select: { name: true, zohoId: true } } },
@@ -131,21 +141,14 @@ export const handler: Handler = async (event) => {
     try {
       quotes = await prisma.quote.findMany({
         where: {
-          OR: [
-            { zohoId: { contains: query } },
-            { status: { contains: query, mode: "insensitive" } },
-            {
-              items: {
-                path: ['estimateNumber'],
-                string_contains: query
-              }
-            },
-            {
-              items: {
-                path: ['estimate_number'],
-                string_contains: query
-              }
-            }
+          AND: [
+            ...(restrictToOwner ? [{ account: { ownerId } }] : []),
+            { OR: [
+              { zohoId: { contains: query } },
+              { status: { contains: query, mode: "insensitive" } },
+              { items: { path: ['estimateNumber'], string_contains: query } },
+              { items: { path: ['estimate_number'], string_contains: query } },
+            ] },
           ]
         },
         include: { account: { select: { name: true } } },
@@ -156,9 +159,12 @@ export const handler: Handler = async (event) => {
       try {
         quotes = await prisma.quote.findMany({
           where: {
-            OR: [
-              { zohoId: { contains: query } },
-              { status: { contains: query, mode: "insensitive" } }
+            AND: [
+              ...(restrictToOwner ? [{ account: { ownerId } }] : []),
+              { OR: [
+                { zohoId: { contains: query } },
+                { status: { contains: query, mode: "insensitive" } }
+              ] },
             ]
           },
           include: { account: { select: { name: true } } },
@@ -174,21 +180,14 @@ export const handler: Handler = async (event) => {
     try {
       salesOrders = await prisma.salesOrder.findMany({
         where: {
-          OR: [
-            { zohoId: { contains: query } },
-            { status: { contains: query, mode: "insensitive" } },
-            {
-              items: {
-                path: ['salesOrderNumber'],
-                string_contains: query
-              }
-            },
-            {
-              items: {
-                path: ['salesorder_number'],
-                string_contains: query
-              }
-            }
+          AND: [
+            ...(restrictToOwner ? [{ account: { ownerId } }] : []),
+            { OR: [
+              { zohoId: { contains: query } },
+              { status: { contains: query, mode: "insensitive" } },
+              { items: { path: ['salesOrderNumber'], string_contains: query } },
+              { items: { path: ['salesorder_number'], string_contains: query } },
+            ] },
           ]
         },
         include: { account: { select: { name: true } } },
@@ -199,9 +198,12 @@ export const handler: Handler = async (event) => {
       try {
         salesOrders = await prisma.salesOrder.findMany({
           where: {
-            OR: [
-              { zohoId: { contains: query } },
-              { status: { contains: query, mode: "insensitive" } }
+            AND: [
+              ...(restrictToOwner ? [{ account: { ownerId } }] : []),
+              { OR: [
+                { zohoId: { contains: query } },
+                { status: { contains: query, mode: "insensitive" } }
+              ] },
             ]
           },
           include: { account: { select: { name: true } } },
@@ -260,3 +262,5 @@ export const handler: Handler = async (event) => {
     }
   }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler)

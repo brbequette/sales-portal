@@ -1,0 +1,13 @@
+SELECT 'User' AS table_name, count(*) AS row_count FROM "User"
+UNION ALL SELECT 'Account', count(*) FROM "Account"
+UNION ALL SELECT 'Contact', count(*) FROM "Contact"
+UNION ALL SELECT 'Product', count(*) FROM "Product"
+UNION ALL SELECT 'Invoice', count(*) FROM "Invoice"
+UNION ALL SELECT 'SalesOrder', count(*) FROM "SalesOrder"
+UNION ALL SELECT 'Quote', count(*) FROM "Quote"
+UNION ALL SELECT 'LineItem', count(*) FROM "LineItem"
+UNION ALL SELECT 'Payment', count(*) FROM "Payment"
+UNION ALL SELECT 'Deal', count(*) FROM "Deal"
+UNION ALL SELECT 'Task', count(*) FROM "Task"
+UNION ALL SELECT 'PromotionDraft', count(*) FROM "PromotionDraft"
+ORDER BY table_name;

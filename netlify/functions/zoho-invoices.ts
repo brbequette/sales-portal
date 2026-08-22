@@ -3,6 +3,7 @@ import { prisma } from "./lib/prisma"
 import { extractProfit, extractCommissionAmount, extractVigRate, extractCcFees, extractAdditionalCosts } from "../../src/lib/custom-field-extractor"
 
 import { zohoCache } from "../../src/lib/services/zohoCache"
+import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
 
 export const handler: Handler = async (event) => {
   const cors = {
@@ -13,6 +14,12 @@ export const handler: Handler = async (event) => {
 
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: cors, body: "" }
+  }
+
+  try {
+    await authenticateFunction(event)
+  } catch (error) {
+    return authErrorResponse(error, cors)
   }
 
   try {

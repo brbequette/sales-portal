@@ -2,6 +2,7 @@ import { Handler } from '@netlify/functions'
 import { corsHeaders, handleOptions } from './lib/cors'
 import { prisma } from './lib/prisma'
 import { getZohoAccessToken, ZOHO_DC } from './lib/zoho-auth'
+import { authenticateWebhookToken, authErrorResponse } from './lib/auth-middleware'
 
 /**
  * Zoho Voice Inbound SMS Webhook
@@ -19,6 +20,12 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return handleOptions()
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers: corsHeaders, body: JSON.stringify({ error: 'Method not allowed' }) }
+  }
+
+  try {
+    authenticateWebhookToken(event, ['ZOHO_VOICE_WEBHOOK_SECRET', 'ZOHO_WEBHOOK_SECRET'], ['x-zoho-webhook-token'])
+  } catch (error) {
+    return authErrorResponse(error, corsHeaders)
   }
 
   try {

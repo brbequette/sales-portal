@@ -2,6 +2,27 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "./auth";
 import { prisma } from "./prisma";
 import { NextResponse } from "next/server";
+import { isAdminRole, isAdministratorRole } from "./roles";
+
+export async function requireAdministrator() {
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user) {
+    return {
+      session: null,
+      errorResponse: NextResponse.json({ error: "Authentication required" }, { status: 401 })
+    };
+  }
+
+  if (!isAdministratorRole(session.user.role)) {
+    return {
+      session: null,
+      errorResponse: NextResponse.json({ error: "Administrator access required" }, { status: 403 })
+    };
+  }
+
+  return { session, errorResponse: null };
+}
 
 export async function checkAccountOwnership(
   accountId: string | null | undefined
@@ -20,8 +41,7 @@ export async function checkAccountOwnership(
     };
   }
 
-  const userRoleLower = (session.user as any).role?.toLowerCase() || "";
-  const isAdmin = userRoleLower.includes("admin") || userRoleLower.includes("administrator");
+  const isAdmin = isAdminRole(session.user.role);
 
   if (isAdmin) {
     return { authorized: true, isAdmin: true, user: session.user };
@@ -32,7 +52,7 @@ export async function checkAccountOwnership(
   }
 
   // Fetch the account to check ownerId
-  const dbId = (session.user as any).dbId;
+  const dbId = session.user.dbId;
   const account = await prisma.account.findFirst({
     where: {
       OR: [

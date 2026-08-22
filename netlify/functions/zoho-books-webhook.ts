@@ -2,9 +2,9 @@ import { Handler } from "@netlify/functions"
 import { getStore } from "@netlify/blobs"
 
 import { prisma } from "./lib/prisma"
-import { handler as processInvoiceCosts } from "./process-invoice-costs"
-import { handler as processQuoteCosts } from "./process-quote-costs"
-import { handler as processSalesOrderCosts } from "./process-salesorder-costs"
+import { internalHandler as processInvoiceCosts } from "./process-invoice-costs"
+import { internalHandler as processQuoteCosts } from "./process-quote-costs"
+import { internalHandler as processSalesOrderCosts } from "./process-salesorder-costs"
 import {
   extractProfit,
   extractCommissionAmount,
@@ -29,8 +29,8 @@ import { corsHeaders, handleOptions } from "./lib/cors"
  *   Vendor Sync        → ?type=Vendor
  *   Payments           → ?type=Payment
  *
- * Auth: Set ZOHO_WEBHOOK_TOKEN env var in Netlify to match the
- *       x-zoho-webhook-token header value (currently: tdu.webhooks2026).
+ * Auth: Set ZOHO_WEBHOOK_TOKEN or ZOHO_WEBHOOK_SECRET to match the
+ *       x-zoho-webhook-token header value. Never commit the secret.
  *
  * Loop-guard: When this app writes cost fields back to Zoho, Zoho fires
  *   another webhook. We detect this via a custom x-source=app-cost-sync
@@ -51,19 +51,14 @@ export const handler: Handler = async (event) => {
   try {
     const { type = "Invoice" } = event.queryStringParameters || {}
 
-    // ── Loop-guard: skip if this webhook was triggered by our own cost write-back ──
-    // When process-invoice-costs writes custom fields to Zoho, Zoho fires
-    // a new webhook. We detect our own write-backs via a custom header and
-    // skip the cost recalculation to prevent infinite loops.
-    const isSelfTriggered = (event.headers?.['x-source'] || '').toLowerCase() === 'app-cost-sync'
-    if (isSelfTriggered) {
-      console.log(`[zoho-books-webhook] Skipping cost recalc — triggered by app write-back (x-source: app-cost-sync)`)
-      return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, message: 'Skipped: app write-back' }) }
-    }
-
     // ── Webhook authentication ──────────────────────────────────────────────
     // Supports HMAC-SHA256 signature (preferred) and shared-secret fallback.
-    const webhookSecret = process.env.ZOHO_WEBHOOK_TOKEN || process.env.ZOHO_WEBHOOK_SECRET
+    const rawWebhookSecret = process.env.ZOHO_WEBHOOK_TOKEN || process.env.ZOHO_WEBHOOK_SECRET || ''
+    const webhookSecret = rawWebhookSecret.trim().replace(/^(["'])(.*)\1$/, '$2')
+    if (!webhookSecret) {
+      console.error('[zoho-books-webhook] Webhook secret is not configured — rejecting request')
+      return { statusCode: 503, headers: corsHeaders, body: JSON.stringify({ error: 'Webhook is not configured' }) }
+    }
     if (webhookSecret) {
       const hmacSignature = event.headers['x-zoho-webhook-signature'] || event.headers['x-webhook-signature'] || ''
       const simpleToken   = event.headers['x-zoho-webhook-token'] || event.headers['x-webhook-token'] || ''
@@ -73,7 +68,9 @@ export const handler: Handler = async (event) => {
         const crypto = await import('crypto')
         const rawBody = event.body || ''
         const expected = crypto.createHmac('sha256', webhookSecret).update(rawBody).digest('hex')
-        if (!crypto.timingSafeEqual(Buffer.from(hmacSignature), Buffer.from(expected))) {
+        const suppliedBuffer = Buffer.from(hmacSignature)
+        const expectedBuffer = Buffer.from(expected)
+        if (suppliedBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(suppliedBuffer, expectedBuffer)) {
           console.warn('[zoho-books-webhook] HMAC signature mismatch — rejecting request')
           return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ error: 'Unauthorized' }) }
         }
@@ -89,6 +86,13 @@ export const handler: Handler = async (event) => {
         console.warn('[zoho-books-webhook] No auth header provided — rejecting request (webhookSecret is configured)')
         return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ error: 'Unauthorized' }) }
       }
+    }
+
+    // Authenticated app write-backs do not need another cost recalculation.
+    const isSelfTriggered = (event.headers?.['x-source'] || '').toLowerCase() === 'app-cost-sync'
+    if (isSelfTriggered) {
+      console.log(`[zoho-books-webhook] Skipping cost recalc — triggered by app write-back (x-source: app-cost-sync)`)
+      return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, message: 'Skipped: app write-back' }) }
     }
 
     // ── Parse body ─────────────────────────────────────────────────────────
@@ -497,10 +501,10 @@ export const handler: Handler = async (event) => {
         }
       })
 
-      await processInvoiceCosts({
+      await Promise.resolve(processInvoiceCosts({
         httpMethod: "POST",
         body: JSON.stringify({ invoiceId: booksId, skipLoopGuard: true }),
-      } as any, {} as any).catch(e => console.error("Webhook error auto-processing invoice costs:", e))
+      } as any, {} as any)).catch(e => console.error("Webhook error auto-processing invoice costs:", e))
 
     } else if (type === "SalesOrder") {
       await prisma.salesOrder.update({
@@ -514,17 +518,17 @@ export const handler: Handler = async (event) => {
         }
       })
 
-      await processSalesOrderCosts({
+      await Promise.resolve(processSalesOrderCosts({
         httpMethod: "POST",
         body: JSON.stringify({ salesorderId: booksId, skipLoopGuard: true }),
-      } as any, {} as any).catch(e => console.error("Webhook error auto-processing SO costs:", e))
+      } as any, {} as any)).catch(e => console.error("Webhook error auto-processing SO costs:", e))
 
     } else {
       await prisma.quote.update({ where: { id: dbDoc.id }, data: { status, items: updatedItems, ...syncFields } })
-      await processQuoteCosts({
+      await Promise.resolve(processQuoteCosts({
         httpMethod: "POST",
         body: JSON.stringify({ estimateId: booksId, skipLoopGuard: true }),
-      } as any, {} as any).catch(e => console.error("Webhook error auto-processing quote costs:", e))
+      } as any, {} as any)).catch(e => console.error("Webhook error auto-processing quote costs:", e))
     }
 
     console.log(`✅ Webhook: Updated ${type} ${booksId} (status: ${status}, ${(updatedItems.line_items || []).length} line items)`)

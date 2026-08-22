@@ -1,5 +1,6 @@
 import { Handler } from "@netlify/functions"
 import { prisma } from "./lib/prisma"
+import { authenticateWebhookToken, authErrorResponse } from "./lib/auth-middleware"
 
 export const handler: Handler = async (event) => {
   const cors = {
@@ -10,6 +11,12 @@ export const handler: Handler = async (event) => {
 
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: cors, body: "" }
+  }
+
+  try {
+    authenticateWebhookToken(event, ["EASYSHIP_WEBHOOK_SECRET", "SHIPPING_WEBHOOK_SECRET"], ["x-easyship-webhook-token"])
+  } catch (error) {
+    return authErrorResponse(error, cors)
   }
 
   try {

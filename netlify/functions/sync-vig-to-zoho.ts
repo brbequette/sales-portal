@@ -4,6 +4,7 @@ const ORG_ID = ZOHO_ORGANIZATION_ID
 import { getSystemSettings } from "./lib/settings"
 
 import { prisma } from "./lib/prisma"
+import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
 const ZOHO_DC = process.env.ZOHO_DC || "com"
 
 // Cache customfield_ids per module to prevent redundant GET requests
@@ -63,6 +64,12 @@ export const handler: Handler = async (event) => {
 
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: cors, body: "" }
+  }
+
+  try {
+    await authenticateFunction(event, { requireAdmin: true })
+  } catch (error) {
+    return authErrorResponse(error, cors)
   }
 
   if (event.httpMethod !== "POST") {

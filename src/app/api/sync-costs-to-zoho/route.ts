@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 /**
@@ -178,6 +179,8 @@ async function syncDocType(
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
   let body: any = {}
   try { body = await req.json() } catch { /* use defaults */ }
 
@@ -217,6 +220,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
   try {
     const [pendingInvoices, pendingQuotes, pendingSOs] = await Promise.all([
       prisma.invoice.count({ where: { pendingCostSync: true } }),

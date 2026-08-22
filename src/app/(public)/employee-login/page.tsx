@@ -54,9 +54,25 @@ function EmployeeLoginForm() {
     setError('');
 
     try {
-      await signIn('zoho', { callbackUrl: '/dashboard' });
-    } catch {
-      setError('Failed to initiate Zoho SSO authentication.');
+      const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
+      const result = await Promise.race([
+        signIn('zoho', { callbackUrl, redirect: false }),
+        new Promise<never>((_, reject) =>
+          window.setTimeout(() => reject(new Error('Zoho sign-in timed out')), 15000)
+        ),
+      ]);
+
+      if (result?.error) {
+        throw new Error(result.error);
+      }
+      if (!result?.url) {
+        throw new Error('Zoho did not return a sign-in URL');
+      }
+
+      window.location.assign(result.url);
+    } catch (error) {
+      console.error('Zoho SSO start failed:', error);
+      setError('Unable to connect to Zoho. Please try again or use your staff password.');
       setLoading(false);
     }
   };
@@ -65,7 +81,7 @@ function EmployeeLoginForm() {
     <div className="w-full max-w-md bg-neutral-900/90 backdrop-blur-2xl border border-amber-500/40 rounded-3xl p-6 sm:p-8 shadow-[0_0_60px_rgba(245,158,11,0.15)] relative z-10">
       <div className="text-center mb-8">
         <div className="mx-auto mb-4 flex h-20 items-center justify-center">
-          <img src="/images/logo_dark.png" alt="Titan Diamond USA" className="h-16 w-auto object-contain filter drop-shadow-[0_0_15px_rgba(245,158,11,0.3)]" />
+          <img src="/images/brand/logo-system/titan-wordmark-light.png" alt="Titan Diamond USA" className="h-14 max-w-full w-auto object-contain filter drop-shadow-[0_0_15px_rgba(245,158,11,0.3)]" />
         </div>
         <span className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400 block mb-1">
           EMPLOYEE & STAFF PORTAL

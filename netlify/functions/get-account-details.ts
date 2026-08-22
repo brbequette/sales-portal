@@ -1,10 +1,8 @@
+import { withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
-import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
-
-const ORG_ID = ZOHO_ORGANIZATION_ID
 import { prisma } from "./lib/prisma"
 
-export const handler: Handler = async (event, context) => {
+const authenticatedHandler: Handler = async (event, context) => {
   if (event.httpMethod !== "GET") {
     return {
       statusCode: 405,
@@ -66,106 +64,6 @@ export const handler: Handler = async (event, context) => {
       }
     }
 
-    let crmDetails: any = null
-
-    if (!account) {
-      // Only attempt Zoho CRM self-heal if the id looks like a real Zoho CRM ID (all digits, 15-20 chars).
-      // Internal DB CUIDs start with 'c' and are never valid Zoho IDs.
-      const looksLikeZohoId = /^\d{15,20}$/.test(id)
-      if (!looksLikeZohoId) {
-        console.warn(`ID "${id}" does not look like a Zoho CRM ID, skipping self-heal.`)
-      } else {
-        // Attempt to fetch dynamically from Zoho CRM on the fly to self-heal missing records
-        try {
-          const accessToken = await getZohoAccessToken()
-          if (accessToken) {
-            const ZOHO_DC = process.env.ZOHO_DC || 'com'
-            const crmRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts/${id}`, { signal: AbortSignal.timeout(15000),
-              headers: {
-                'Authorization': `Zoho-oauthtoken ${accessToken}`
-              }
-            })
-            
-            if (crmRes.ok) {
-              const crmData = await crmRes.json()
-              const record = crmData.data?.[0]
-              
-              if (record) {
-                console.log(`Account ${id} found in Zoho CRM. Dynamic creation...`)
-                
-                // Find or create default owner
-                const ownerZohoId = record.Owner?.id
-                const ownerName = record.Owner?.name
-                let ownerDbId = null
-                
-                if (ownerZohoId) {
-                  let dbOwner = await prisma.user.findUnique({ where: { zohoId: ownerZohoId } })
-                  if (!dbOwner) {
-                    dbOwner = await prisma.user.create({
-                      data: {
-                        zohoId: ownerZohoId,
-                        name: ownerName || "Unknown Owner",
-                        email: `${ownerZohoId}@dummy.titandiamond.com`,
-                        role: "Sales Representative"
-                      }
-                    })
-                  }
-                  ownerDbId = dbOwner.id
-                }
-
-                // Fallback owner if not found
-                if (!ownerDbId) {
-                  const firstUser = await prisma.user.findFirst()
-                  ownerDbId = firstUser?.id || ""
-                }
-
-                let status = 'Open'
-                const lastPurchaseDate = record.Last_Purchase_Date ? new Date(record.Last_Purchase_Date) : null
-                if (lastPurchaseDate) {
-                  const twelveMonthsAgo = new Date()
-                  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12)
-                  status = lastPurchaseDate < twelveMonthsAgo ? 'Update Status' : 'Personal'
-                }
-
-                const tagsStr = Array.isArray(record.Tag)
-                  ? record.Tag.map((t: any) => t.name).filter(Boolean).join(', ')
-                  : null;
-
-                account = await prisma.account.create({
-                  data: {
-                    zohoId: record.id,
-                    name: record.Account_Name || record.name || 'Unnamed Account',
-                    industry: record.Industry || 'Unknown',
-                    tags: tagsStr,
-                    status: status,
-                    lastPurchaseAt: lastPurchaseDate,
-                    ownerId: ownerDbId,
-                    billingStreet: record.Billing_Street || null,
-                    billingCity: record.Billing_City || null,
-                    billingState: record.Billing_State || null,
-                    billingZip: record.Billing_Code || null,
-                  },
-                  include: {
-                    invoices: { orderBy: { issueDate: 'desc' } },
-                    salesOrders: { orderBy: { orderDate: 'desc' } },
-                    quotes: { orderBy: { createdAt: 'desc' } },
-                    deals: { orderBy: { closingDate: 'desc' } },
-                    notes: { orderBy: { createdAt: 'desc' } },
-                    tasks: { orderBy: { dueDate: 'asc' } },
-                    contacts: true
-                  }
-                })
-                
-                crmDetails = record
-              }
-            }
-          }
-        } catch (err) {
-          console.error("Error auto-fetching missing account from Zoho CRM:", err)
-        }
-      }
-    }
-
     if (!account) {
       return {
         statusCode: 404,
@@ -189,57 +87,30 @@ export const handler: Handler = async (event, context) => {
       }
     }
 
-    // Fetch enrichment from Zoho Books contact (address, contact persons) if not cached
-    let booksContact: any = null
-    if (account && account.zohoId) {
-      try {
-        const accessToken = await getZohoAccessToken()
-        if (accessToken) {
-          const ZOHO_DC = process.env.ZOHO_DC || 'com'
-          const booksRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/contacts/${account.zohoId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
-            headers: { 'Authorization': `Zoho-oauthtoken ${accessToken}` }
-          })
-          if (booksRes.ok) {
-            const booksData = await booksRes.json()
-            booksContact = booksData.contact || null
-
-            // Cache address in DB if missing
-            if (booksContact?.billing_address && !account.billingStreet) {
-              const ba = booksContact.billing_address
-              const sa = booksContact.shipping_address
-              await prisma.account.update({
-                where: { id: account.id },
-                data: {
-                  billingStreet: ba.address || null,
-                  billingCity: ba.city || null,
-                  billingState: ba.state || null,
-                  billingZip: ba.zip || null,
-                  shippingStreet: sa?.address || null,
-                  shippingCity: sa?.city || null,
-                  shippingState: sa?.state || null,
-                  shippingZip: sa?.zip || null,
-                }
-              })
-              account.billingStreet = ba.address || null
-              account.billingCity = ba.city || null
-              account.billingState = ba.state || null
-              account.billingZip = ba.zip || null
-              account.billingCountry = ba.country || null
-              account.shippingStreet = sa?.address || null
-              account.shippingCity = sa?.city || null
-              account.shippingState = sa?.state || null
-              account.shippingZip = sa?.zip || null
-              account.shippingCountry = sa?.country || null
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Error fetching Books contact:", err)
-      }
-    }
-
-    if (account) {
-      account.booksContact = booksContact
+    // Preserve the legacy UI shape from data already cached locally. This
+    // avoids page-load Zoho calls while older components migrate to the
+    // normalized Account and Contact fields.
+    const raw = account.rawData && typeof account.rawData === "object" && !Array.isArray(account.rawData)
+      ? account.rawData as Record<string, any>
+      : {}
+    const primaryContact = account.contacts.find((contact: any) => contact.isPrimary) || account.contacts[0]
+    account.booksContact = {
+      phone: primaryContact?.mobilePhone || primaryContact?.phone || raw.Phone || raw.phone || null,
+      email: primaryContact?.email || raw.Email || raw.email || null,
+      website: raw.Website || raw.website || null,
+      notes: raw.Description || raw.description || null,
+      billing_address: {
+        address: account.billingStreet,
+        city: account.billingCity,
+        state: account.billingState,
+        zip: account.billingZip,
+      },
+      shipping_address: {
+        address: account.shippingStreet,
+        city: account.shippingCity,
+        state: account.shippingState,
+        zip: account.shippingZip,
+      },
     }
 
     return {
@@ -259,3 +130,5 @@ export const handler: Handler = async (event, context) => {
     }
   }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler)

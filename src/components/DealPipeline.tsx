@@ -7,8 +7,7 @@ import {
   FiCheckCircle, FiXCircle, FiChevronRight, FiClock, FiRefreshCw,
   FiExternalLink, FiArrowRight
 } from "react-icons/fi"
-import { ClosingChecklist } from "./ClosingChecklist"
-import { extractProfit } from "@/lib/custom-field-extractor"
+import { ClosingChecklist, type ClosingChecklistState } from "./ClosingChecklist"
 
 
 // â"€â"€â"€ Pipeline Stage Definitions â"€â"€â"€
@@ -34,10 +33,11 @@ interface PipelineDeal {
   stage: string
   rep: string
   balance: number
+  checklist?: Partial<ClosingChecklistState> | null
 }
 
 // â"€â"€â"€ Deal Card â"€â"€â"€
-function DealCard({ deal, onView, onComplete }: { deal: PipelineDeal; onView: (deal: PipelineDeal) => void; onComplete: (dealId: string) => void }) {
+function DealCard({ deal, onView, onComplete, onChecklistChange }: { deal: PipelineDeal; onView: (deal: PipelineDeal) => void; onComplete: (dealId: string) => void; onChecklistChange: (dealId: string, state: ClosingChecklistState) => void }) {
   const isStale = deal.daysInStage > 14
   const isUrgent = deal.daysInStage > 30
 
@@ -86,6 +86,8 @@ function DealCard({ deal, onView, onComplete }: { deal: PipelineDeal; onView: (d
           dealId={deal.id}
           currentStageSlug={deal.stage}
           onComplete={() => onComplete(deal.id)}
+          initialState={deal.checklist}
+          onChange={(state) => onChecklistChange(deal.id, state)}
         />
       </div>
     </div>
@@ -93,8 +95,8 @@ function DealCard({ deal, onView, onComplete }: { deal: PipelineDeal; onView: (d
 }
 
 // â"€â"€â"€ Pipeline Column â"€â"€â"€
-function PipelineColumn({ stage, deals, onViewDeal, onCompleteDeal }: {
-  stage: typeof STAGES[number]; deals: PipelineDeal[]; onViewDeal: (deal: PipelineDeal) => void; onCompleteDeal: (dealId: string) => void
+function PipelineColumn({ stage, deals, onViewDeal, onCompleteDeal, onChecklistChange }: {
+  stage: typeof STAGES[number]; deals: PipelineDeal[]; onViewDeal: (deal: PipelineDeal) => void; onCompleteDeal: (dealId: string) => void; onChecklistChange: (dealId: string, state: ClosingChecklistState) => void
 }) {
   const totalValue = deals.reduce((sum, d) => sum + d.amount, 0)
   const Icon = stage.icon
@@ -122,7 +124,7 @@ function PipelineColumn({ stage, deals, onViewDeal, onCompleteDeal }: {
           <div className="text-center py-6 text-neutral-600 text-xs">No deals</div>
         ) : (
           deals.map(deal => (
-            <DealCard key={deal.id} deal={deal} onView={onViewDeal} onComplete={onCompleteDeal} />
+            <DealCard key={deal.id} deal={deal} onView={onViewDeal} onComplete={onCompleteDeal} onChecklistChange={onChecklistChange} />
           ))
         )}
       </div>
@@ -146,73 +148,15 @@ export function DealPipeline({ onViewInvoice }: { onViewInvoice?: (invoice: any)
 
   async function fetchPipelineData() {
     try {
-      const res = await fetch("/api/zoho-invoices")
+      const res = await fetch("/api/zoho-invoices?view=pipeline")
       const json = await res.json()
-      if (!json.invoices) return
-
-      const now = new Date()
-      const pipelineDeals: PipelineDeal[] = []
-      const repSet = new Set<string>()
-
-      for (const inv of json.invoices) {
-        const rep = inv.salesorder_salesperson_name || inv.salesperson_name || "Unknown"
-        const repUpper = rep.toUpperCase()
-        if (repUpper.includes("PAUL") && (repUpper.includes("GENCUSKI") || repUpper.includes("GENKUSKI"))) continue
-
-        repSet.add(rep)
-
-        const amount = parseFloat(inv.sub_total || inv.total || "0")
-        const profit = extractProfit(inv)
-        const balance = parseFloat(inv.balance || "0")
-
-        const dateStr = inv.salesorder_date || inv.date || ""
-        const invDate = new Date(dateStr)
-        const daysOld = Math.max(0, Math.floor((now.getTime() - invDate.getTime()) / 86400000))
-        const status = (inv.status || "").toLowerCase()
-        const docType = inv.entity_type || ""
-
-        // Determine stage from status and document type
-        let stage = "invoiced"
-        if (docType === "estimate" || status === "draft") {
-          stage = "estimate"
-        } else if (docType === "salesorder" || status === "open" || status === "draft") {
-          if (inv.salesorder_id || docType === "salesorder") stage = "salesorder"
-        }
-        
-        if (status === "overdue" || (inv.due_date && new Date(inv.due_date) < now && balance > 0 && status !== "paid" && status !== "void" && status !== "draft")) {
-          stage = "overdue"
-        } else if (status === "partially_paid") {
-          stage = "partially_paid"
-        } else if (status === "paid") {
-          // Check if recent (within 14 days) -- needs gift
-          if (daysOld <= 14) {
-            stage = "needs_gift"
-          } else {
-            stage = "complete"
-          }
-        } else if (status === "sent") {
-          stage = "invoiced"
-        }
-
-        // Skip void/deleted
-        if (status === "void" || status === "deleted") continue
-
-        pipelineDeals.push({
-          id: inv.invoice_id || inv.salesorder_id || inv.estimate_id || String(Math.random()),
-          customer: inv.customer_name || "Unknown",
-          invoiceNumber: inv.invoice_number || inv.salesorder_number || inv.estimate_number || "--",
-          amount,
-          profit,
-          date: dateStr,
-          daysInStage: daysOld,
-          stage,
-          rep,
-          balance,
-        })
-      }
-
+      if (!Array.isArray(json.deals)) return
+      const pipelineDeals = json.deals.filter((deal: PipelineDeal) => {
+        const rep = deal.rep.toUpperCase()
+        return !(rep.includes("PAUL") && (rep.includes("GENCUSKI") || rep.includes("GENKUSKI")))
+      })
       setDeals(pipelineDeals)
-      setReps(Array.from(repSet).sort())
+      setReps(Array.from(new Set<string>(pipelineDeals.map((deal: PipelineDeal) => deal.rep))).sort())
     } catch (err) {
       console.error("Pipeline fetch error:", err)
     } finally {
@@ -228,6 +172,20 @@ export function DealPipeline({ onViewInvoice }: { onViewInvoice?: (invoice: any)
 
   const handleCompleteDeal = (dealId: string) => {
     setDeals(prev => prev.map(d => d.id === dealId ? { ...d, stage: "complete" } : d))
+  }
+
+  const handleChecklistChange = async (dealId: string, state: ClosingChecklistState) => {
+    setDeals(previous => previous.map(deal => deal.id === dealId ? { ...deal, checklist: state } : deal))
+    try {
+      const response = await fetch(`/api/sales-closing-checklist/${encodeURIComponent(dealId)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(state),
+      })
+      if (!response.ok) throw new Error(`Checklist save failed (${response.status})`)
+    } catch (error) {
+      console.error(error)
+    }
   }
 
   const filteredDeals = repFilter === "All" ? deals : deals.filter(d => d.rep === repFilter)
@@ -310,6 +268,7 @@ export function DealPipeline({ onViewInvoice }: { onViewInvoice?: (invoice: any)
             deals={filteredDeals.filter(d => d.stage === stage.key).sort((a, b) => b.amount - a.amount)}
             onViewDeal={handleViewDeal}
             onCompleteDeal={handleCompleteDeal}
+            onChecklistChange={handleChecklistChange}
           />
         ))}
       </div>

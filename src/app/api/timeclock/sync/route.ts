@@ -1,25 +1,18 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json()
-    const { userId, email, name } = body
-
-    if (!userId && !email) {
-      return NextResponse.json({ success: false, error: "Missing userId or email" }, { status: 400 })
-    }
-
-    let finalUserId = userId
-    if (email) {
-      let dbUser = await prisma.user.findUnique({ where: { email } })
-      if (!dbUser) {
-        dbUser = await prisma.user.create({
-          data: { email, name: name || "Zoho User", role: "AGENT", password: "" }
-        })
-      }
-      finalUserId = dbUser.id
-    }
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.email) return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+    const sessionUser = session.user as typeof session.user & { dbId?: string }
+    const dbUser = sessionUser.dbId
+      ? await prisma.user.findUnique({ where: { id: sessionUser.dbId } })
+      : await prisma.user.findUnique({ where: { email: session.user.email } })
+    if (!dbUser) return NextResponse.json({ error: "Signed-in user is not linked to a local account" }, { status: 403 })
+    const finalUserId = dbUser.id
 
     const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || req.headers.get("cf-connecting-ip") || "Unknown"
 

@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getSystemSettings } from "@/lib/settings"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const { searchParams } = new URL(req.url)
     const monthKey = searchParams.get("monthKey") || ""
     const repId = searchParams.get("repId") || "all"

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 /**
  * GET /api/admin/holidays
@@ -12,6 +13,8 @@ import { prisma } from "@/lib/prisma"
 
 export async function GET() {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const setting = await prisma.systemSetting.findUnique({ where: { key: "company_holidays" } })
     const holidays: string[] = setting ? JSON.parse(setting.value) : []
     return NextResponse.json({ success: true, holidays })
@@ -22,6 +25,8 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const { holidays } = await req.json()
     if (!Array.isArray(holidays)) {
       return NextResponse.json({ success: false, error: "holidays must be an array of YYYY-MM-DD strings" }, { status: 400 })

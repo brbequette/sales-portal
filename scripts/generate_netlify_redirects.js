@@ -33,8 +33,6 @@ funcs.forEach(func => {
     apiPath = `/api/admin/${func.replace('admin-', '')}`;
   } else if (func.startsWith('timeclock-')) {
     apiPath = `/api/timeclock/${func.replace('timeclock-', '')}`;
-  } else if (func.startsWith('tv-')) {
-    apiPath = `/api/tv/${func.replace('tv-', '')}`;
   }
   redirectsToml += `[[redirects]]
   from = "${apiPath}"

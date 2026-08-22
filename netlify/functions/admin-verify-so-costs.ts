@@ -1,9 +1,17 @@
 import { Handler } from "@netlify/functions"
 import { prisma } from "./lib/prisma"
 import { calculateDocumentCosts } from "./lib/cost-calculations"
+import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
 
 export const handler: Handler = async (event) => {
   const cors = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+
+  try {
+    await authenticateFunction(event, { requireAdmin: true })
+  } catch (error) {
+    return authErrorResponse(error, cors)
+  }
+
   const logs: string[] = []
   const log = (msg: string) => {
     console.log(msg)

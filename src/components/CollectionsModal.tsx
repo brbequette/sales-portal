@@ -2,6 +2,7 @@
 
 
 import { useState, useEffect, useCallback, useMemo } from "react"
+import { createPortal } from "react-dom"
 import { FiPhoneCall, FiSearch, FiRefreshCw, FiDownload, FiAlertCircle, FiX, FiUser, FiMail, FiCreditCard, FiTruck, FiExternalLink, FiFileText } from "react-icons/fi"
 import { useZoho } from "@/components/ZohoProvider"
 import { toast } from 'react-hot-toast';
@@ -30,6 +31,7 @@ export type Invoice = {
   dead_cost?: number
   customer_city?: string | null
   customer_state?: string | null
+  customer_contacts?: Array<{ id: string; name: string; phone: string; phone_href?: string; isPrimary?: boolean }>
   account?: {
     ownerId?: string | null
   } | null
@@ -154,6 +156,15 @@ function CallModal({ invoice, onClose, onSaved }: { invoice: Invoice, onClose: (
               <FiPhoneCall className="text-emerald-400" /> Log Call
             </h2>
             <p className="text-xs text-neutral-400 mt-0.5">{invoice.customer_name} -- Inv #{invoice.invoice_number}</p>
+            {!!invoice.customer_contacts?.length && (
+              <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
+                {invoice.customer_contacts.map(contact => (
+                  <a key={contact.id} href={`tel:${contact.phone_href || contact.phone}`} className="text-xs text-emerald-400 hover:text-emerald-300">
+                    {contact.name}: {contact.phone}{contact.isPrimary ? " (PRIMARY)" : ""}
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
           <button onClick={onClose} className="text-neutral-500 hover:text-white p-1 transition-colors"><FiX /></button>
         </div>
@@ -338,23 +349,29 @@ function RunCardModal({ invoice, onClose, onSuccess }: { invoice: Invoice, onClo
               return
             }
 
-            setStatusText("Registering transaction payment details in Zoho Books...")
-            const paymentRes = await fetch("/api/zoho-payment", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                customerId: invoice.customer_id,
-                invoiceId: invoice.id,
-                amount: parseFloat(chargeAmount),
-                authCode: chargeData.authCode
+            if (!chargeData.paymentRecorded) {
+              setStatusText("Retrying transaction payment registration in Zoho Books...")
+              const paymentRes = await fetch("/api/zoho-payment", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  customerId: invoice.customer_id,
+                  invoiceId: invoice.id,
+                  amount: parseFloat(chargeAmount),
+                  authCode: chargeData.authCode,
+                  transId: chargeData.transId,
+                  last4: chargeData.last4,
+                  cardType: chargeData.cardType,
+                  paymentMethod: "Credit Card",
+                })
               })
-            })
 
-            const paymentData = await paymentRes.json()
-            if (!paymentData.success) {
-              setErrorText("Payment warning: Card was charged (Auth Code: " + chargeData.authCode + "), but recording payment in Zoho failed: " + paymentData.error)
-              setLoading(false)
-              return
+              const paymentData = await paymentRes.json()
+              if (!paymentData.success) {
+                setErrorText("Payment warning: Card was charged (Auth Code: " + chargeData.authCode + "), but recording payment in Zoho failed: " + (paymentData.error || chargeData.paymentError))
+                setLoading(false)
+                return
+              }
             }
 
             setStatusText("Logging invoice status updates...")
@@ -701,23 +718,23 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
 
     setSaving(true)
     try {
-      await Promise.all(idsToSave.map(invoiceId => 
-        fetch("/api/log-collection-call", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            invoiceId,
-            outcome,
-            callerName,
-            contactReached,
-            spokeTo,
-            notes: notes ? `${notes} (Logged via Batch Call campaign)` : "Logged via Batch Call campaign",
-            promiseDate,
-            followUpDate,
-            durationMinutes: parseInt(duration) || 0,
-          }),
-        })
-      ))
+      const response = await fetch("/api/log-collection-call", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invoiceIds: idsToSave,
+          outcome,
+          callerName,
+          contactReached,
+          spokeTo,
+          notes: notes ? `${notes} (Logged via Collections Call Campaign)` : "Logged via Collections Call Campaign",
+          promiseDate,
+          followUpDate,
+          durationMinutes: parseInt(duration) || 0,
+        }),
+      })
+      const result = await response.json()
+      if (!response.ok || !result.success) throw new Error(result.error || "Unable to save campaign disposition")
 
       onRefresh()
       if (selectedAccountIndex < accounts.length - 1) {
@@ -821,6 +838,15 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
                       <span className="flex items-center gap-1.5"><FiMail size={13} /> {activeAccount.invoices[0]?.salesperson_email}</span>
                     )}
                   </div>
+                  {!!activeAccount.invoices[0]?.customer_contacts?.length && (
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      {activeAccount.invoices[0].customer_contacts.map(contact => (
+                        <a key={contact.id} href={`tel:${contact.phone_href || contact.phone}`} className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1">
+                          {contact.name}: {contact.phone}{contact.isPrimary ? " (PRIMARY)" : ""}
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="text-right">
                   <span className="text-[9px] uppercase font-bold text-neutral-500 block mb-1">Total Outstanding</span>
@@ -843,7 +869,7 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
 
                   ${activeAccount.oldestInvoice ? `Our oldest pending invoice is #${activeAccount.oldestInvoice.invoice_number}, which was due on ${activeAccount.oldestInvoice.due_date || "--"} and is currently ${activeAccount.oldestInvoice.days_overdue} days overdue.` : ""}
 
-                  Would you like to process a credit card payment for this balance today, or could you provide a promise date for when we can expect a check payment?"`}
+                  Would you like to process a credit card payment for this balance today, or could you provide a promise date for when we can expect a check payment?"`}
                 </div>
               </div>
 
@@ -1044,18 +1070,11 @@ export function CollectionsModal({
 }: CollectionsModalProps) {
   if (!isOpen) return null;
 
-  if (mode === 'call' && invoice) {
-    return <CallModal invoice={invoice} onClose={onClose} onSaved={onSuccess} />
-  }
-  if (mode === 'card' && invoice) {
-    return <RunCardModal invoice={invoice} onClose={onClose} onSuccess={onSuccess} />
-  }
-  if (mode === 'return' && invoice) {
-    return <RequestReturnModal invoice={invoice} onClose={onClose} onSuccess={onSuccess} />
-  }
-  if (mode === 'campaign' && campaignInvoices) {
-    return <CallCampaignModal invoices={campaignInvoices} onClose={onClose} onRefresh={onSuccess} />
-  }
+  let content = null
+  if (mode === 'call' && invoice) content = <CallModal invoice={invoice} onClose={onClose} onSaved={onSuccess} />
+  if (mode === 'card' && invoice) content = <RunCardModal invoice={invoice} onClose={onClose} onSuccess={onSuccess} />
+  if (mode === 'return' && invoice) content = <RequestReturnModal invoice={invoice} onClose={onClose} onSuccess={onSuccess} />
+  if (mode === 'campaign' && campaignInvoices) content = <CallCampaignModal invoices={campaignInvoices} onClose={onClose} onRefresh={onSuccess} />
 
-  return null;
+  return content && typeof document !== "undefined" ? createPortal(content, document.body) : null
 }

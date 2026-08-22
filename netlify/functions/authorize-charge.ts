@@ -1,5 +1,9 @@
 import { Handler } from "@netlify/functions";
 import nodemailer from "nodemailer";
+import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware";
+import { prisma } from "./lib/prisma";
+import { isAdminRole } from "../../src/lib/roles";
+import { handler as recordZohoPayment } from "./zoho-payment";
 
 const API_LOGIN_ID = process.env.AUTHORIZENET_API_LOGIN_ID;
 const TRANSACTION_KEY = process.env.AUTHORIZENET_TRANSACTION_KEY;
@@ -29,6 +33,13 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: cors, body: "" }
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "Method not allowed" }) }
 
+  let sessionUser
+  try {
+    sessionUser = await authenticateFunction(event)
+  } catch (error) {
+    return authErrorResponse(error, cors)
+  }
+
   let body: any = {}
   try {
     body = JSON.parse(event.body || "{}")
@@ -36,9 +47,9 @@ export const handler: Handler = async (event) => {
     return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'Invalid JSON' }) }
   }
 
-  const { opaqueDataDescriptor, opaqueDataValue, amount, invoiceId, invoiceNumber, customerName } = body;
+  const { opaqueDataDescriptor, opaqueDataValue, amount, invoiceId } = body;
 
-  if (!opaqueDataDescriptor || !opaqueDataValue || !amount) {
+  if (!opaqueDataDescriptor || !opaqueDataValue || !amount || !invoiceId) {
     return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'Missing required payment fields' }) }
   }
 
@@ -46,6 +57,33 @@ export const handler: Handler = async (event) => {
   if (isNaN(parsedAmount) || parsedAmount <= 0 || parsedAmount >= 100000) {
     return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'Invalid amount. Must be a positive number less than 100,000.' }) }
   }
+
+  const invoice = await prisma.invoice.findFirst({
+    where: {
+      OR: [
+        { id: invoiceId },
+        { zohoId: invoiceId },
+        { invoiceNumber: invoiceId },
+      ],
+    },
+    include: { account: { select: { ownerId: true, name: true } } },
+  })
+  if (!invoice) {
+    return { statusCode: 404, headers: cors, body: JSON.stringify({ error: 'Invoice not found' }) }
+  }
+
+  const actorId = sessionUser.dbId || sessionUser.userId
+  if (!isAdminRole(sessionUser.role) && (!actorId || invoice.account.ownerId !== actorId)) {
+    return { statusCode: 403, headers: cors, body: JSON.stringify({ error: 'Forbidden: This invoice belongs to another representative' }) }
+  }
+
+  const outstandingBalance = Number(invoice.balance ?? invoice.amount)
+  if (Number.isFinite(outstandingBalance) && parsedAmount > outstandingBalance + 0.005) {
+    return { statusCode: 400, headers: cors, body: JSON.stringify({ error: `Payment exceeds the outstanding balance of $${outstandingBalance.toFixed(2)}` }) }
+  }
+
+  const invoiceNumber = invoice.invoiceNumber || invoice.zohoId
+  const customerName = invoice.account.name
 
   const amountStr = parseFloat(amount).toFixed(2);
 
@@ -55,7 +93,7 @@ export const handler: Handler = async (event) => {
         name: API_LOGIN_ID,
         transactionKey: TRANSACTION_KEY,
       },
-      refId: invoiceId || 'N/A',
+      refId: invoice.zohoId,
       transactionRequest: {
         transactionType: 'authCaptureTransaction',
         amount: amountStr,
@@ -66,8 +104,8 @@ export const handler: Handler = async (event) => {
           },
         },
         order: {
-          invoiceNumber: invoiceNumber || invoiceId || '',
-          description: `Payment for Invoice ${invoiceNumber || invoiceId} - ${customerName || ''}`,
+          invoiceNumber: invoiceNumber || '',
+          description: `Payment for Invoice ${invoiceNumber} - ${customerName}`,
         },
         customerIP: event.headers['client-ip'] || event.headers['x-forwarded-for'] || '',
       },
@@ -97,11 +135,35 @@ export const handler: Handler = async (event) => {
     const errorText = txResult.errors?.[0]?.errorText || data.messages?.message?.[0]?.text || '';
 
     if (resultCode === 'Ok' && responseCode === '1') {
+      let paymentRecorded = false
+      let paymentError = ""
+      try {
+        const paymentResult = await recordZohoPayment({
+          ...event,
+          httpMethod: "POST",
+          body: JSON.stringify({
+            customerId: invoice.accountId,
+            invoiceId: invoice.id,
+            amount: parsedAmount,
+            authCode,
+            transId,
+            last4: txResult.accountNumber?.replace(/X/g, '').trim() || '',
+            cardType: txResult.accountType || '',
+            paymentMethod: "Credit Card",
+          }),
+        } as any, {} as any)
+        const paymentBody = JSON.parse(paymentResult?.body || "{}")
+        paymentRecorded = Boolean(paymentResult && paymentResult.statusCode >= 200 && paymentResult.statusCode < 300 && paymentBody.success)
+        paymentError = paymentRecorded ? "" : (paymentBody.error || "Zoho payment recording failed")
+      } catch (paymentSyncError: unknown) {
+        paymentError = paymentSyncError instanceof Error ? paymentSyncError.message : "Zoho payment recording failed"
+      }
+
       // 2. INJECTED REAL-TIME OUTBOUND NOTIFICATION PIPELINE
-      const targetEmail = 'brbequette@gmail.com';
-      console.log(`🚀 PAYMENT STATUS SUCCESS: Broadcasting instant transaction alert to: ${targetEmail}`);
+      const targetEmail = process.env.PAYMENT_ALERT_EMAIL || process.env.COMPANY_NOTIFICATION_EMAIL;
 
       try {
+        if (!targetEmail) throw new Error('Payment alert recipient is not configured')
         await mailTransport.sendMail({
           from: `"Titan Diamond Gateway" <${process.env.SMTP_USER}>`,
           to: targetEmail,
@@ -140,6 +202,8 @@ export const handler: Handler = async (event) => {
           amount: amountStr,
           last4: txResult.accountNumber?.replace(/X/g, '').trim() || '',
           cardType: txResult.accountType || '',
+          paymentRecorded,
+          paymentError,
         }),
       };
     } else {

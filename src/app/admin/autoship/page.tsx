@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiX } from 'react-icons/fi';
 
 export default function AutoshipBundleManagement() {
@@ -20,6 +20,9 @@ export default function AutoshipBundleManagement() {
   const [searchQuery, setSearchQuery] = useState('');
   const [products, setProducts] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
+  const [bundleSearch, setBundleSearch] = useState('');
+  const [bundleStatus, setBundleStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [bundleSort, setBundleSort] = useState<'name' | 'items' | 'discount' | 'subscriptions'>('name');
 
   useEffect(() => {
     fetchBundles();
@@ -147,6 +150,23 @@ export default function AutoshipBundleManagement() {
   const totalBundles = bundles.length;
   const activeBundles = bundles.filter(b => b.isActive).length;
   const totalSubs = bundles.reduce((acc, b) => acc + (b._count?.subscriptions || 0), 0);
+  const visibleBundles = useMemo(() => {
+    const query = bundleSearch.trim().toLowerCase();
+    return bundles
+      .filter((bundle) => {
+        if (bundleStatus === 'active' && !bundle.isActive) return false;
+        if (bundleStatus === 'inactive' && bundle.isActive) return false;
+        if (!query) return true;
+        const itemNames = Array.isArray(bundle.items) ? bundle.items.map((item: any) => `${item.name || ''} ${item.sku || ''}`).join(' ') : '';
+        return `${bundle.name || ''} ${bundle.description || ''} ${bundle.frequency || ''} ${itemNames}`.toLowerCase().includes(query);
+      })
+      .sort((a, b) => {
+        if (bundleSort === 'items') return (b.items?.length || 0) - (a.items?.length || 0);
+        if (bundleSort === 'discount') return (b.discountPct || 0) - (a.discountPct || 0);
+        if (bundleSort === 'subscriptions') return (b._count?.subscriptions || 0) - (a._count?.subscriptions || 0);
+        return String(a.name || '').localeCompare(String(b.name || ''));
+      });
+  }, [bundles, bundleSearch, bundleStatus, bundleSort]);
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white p-8">
@@ -184,6 +204,20 @@ export default function AutoshipBundleManagement() {
 
         {/* Bundles Table */}
         <div className="glass-panel rounded-2xl border border-neutral-800 bg-neutral-900/50 backdrop-blur-sm overflow-hidden">
+          <div className="flex flex-col gap-3 border-b border-neutral-800 p-4 lg:flex-row lg:items-center">
+            <label className="relative min-w-0 flex-1">
+              <span className="sr-only">Search autoship bundles</span>
+              <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+              <input value={bundleSearch} onChange={(event) => setBundleSearch(event.target.value)} placeholder="Search bundle, frequency, product, or SKU..." className="w-full rounded-lg border border-neutral-800 bg-neutral-950 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-amber-500" />
+            </label>
+            <select aria-label="Filter bundles by status" value={bundleStatus} onChange={(event) => setBundleStatus(event.target.value as typeof bundleStatus)} className="rounded-lg border border-neutral-800 bg-neutral-950 px-3 py-2.5 text-sm">
+              <option value="all">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option>
+            </select>
+            <select aria-label="Sort autoship bundles" value={bundleSort} onChange={(event) => setBundleSort(event.target.value as typeof bundleSort)} className="rounded-lg border border-neutral-800 bg-neutral-950 px-3 py-2.5 text-sm">
+              <option value="name">Name A–Z</option><option value="items">Most items</option><option value="discount">Highest discount</option><option value="subscriptions">Most subscriptions</option>
+            </select>
+            <span className="whitespace-nowrap text-xs font-bold uppercase tracking-wider text-neutral-500">{visibleBundles.length} results</span>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
@@ -200,10 +234,10 @@ export default function AutoshipBundleManagement() {
               <tbody>
                 {loading ? (
                   <tr><td colSpan={7} className="px-6 py-8 text-center text-neutral-400">Loading bundles...</td></tr>
-                ) : bundles.length === 0 ? (
+                ) : visibleBundles.length === 0 ? (
                   <tr><td colSpan={7} className="px-6 py-8 text-center text-neutral-400">No bundles found.</td></tr>
                 ) : (
-                  bundles.map((bundle) => (
+                  visibleBundles.map((bundle) => (
                     <tr key={bundle.id} className="border-b border-neutral-800/50 hover:bg-neutral-800/20 transition-colors">
                       <td className="px-6 py-4">
                         <p className="font-medium">{bundle.name}</p>

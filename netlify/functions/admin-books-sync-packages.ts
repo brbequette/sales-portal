@@ -2,6 +2,7 @@ import { Handler } from '@netlify/functions'
 import { prisma } from './lib/prisma'
 import { getZohoAccessToken, ZOHO_DC, ZOHO_ORGANIZATION_ID } from './lib/zoho-auth'
 import { corsHeaders, handleOptions } from './lib/cors'
+import { authenticateFunction, authErrorResponse } from './lib/auth-middleware'
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 
@@ -53,6 +54,12 @@ async function fetchAllPages(baseUrl: string, token: string, endpoint: string): 
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return handleOptions()
+
+  try {
+    await authenticateFunction(event, { requireAdmin: true })
+  } catch (error) {
+    return authErrorResponse(error, corsHeaders)
+  }
 
   try {
     const token = await getZohoAccessToken()

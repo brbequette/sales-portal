@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from '../../../../../netlify/functions/lib/zoho-auth'
+import { requireAdministrator } from '@/lib/auth-helpers'
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 export async function GET() {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const vendors = await prisma.vendor.findMany({
       orderBy: { contactName: 'asc' }
     })
@@ -17,6 +20,8 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const body = await req.json()
     
     // Create in Zoho

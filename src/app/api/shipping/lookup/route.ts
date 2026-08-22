@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAdministrator } from '@/lib/auth-helpers'
 
 export async function GET(request: Request) {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
+
   const { searchParams } = new URL(request.url)
   const type = searchParams.get('type')
   const q = searchParams.get('q')

@@ -1,3 +1,4 @@
+import { withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 
 import { prisma } from "./lib/prisma"
@@ -169,7 +170,7 @@ function extractLineItem(row: Record<string, string>, headers: string[]): Record
   return hasData && item.itemName ? item : null
 }
 
-export const handler: Handler = async (event) => {
+const authenticatedHandler: Handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: cors, body: "" }
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "POST only" }) }
 
@@ -315,3 +316,5 @@ export const handler: Handler = async (event) => {
     return { statusCode: 500, headers: cors, body: JSON.stringify({ error: err.message }) }
   }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler, { requireAdmin: true })

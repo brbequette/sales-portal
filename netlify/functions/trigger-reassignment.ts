@@ -1,9 +1,10 @@
+import { withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken, ZOHO_DC } from "./lib/zoho-auth"
 
 import { prisma } from "./lib/prisma"
 
-export const handler: Handler = async (event) => {
+const authenticatedHandler: Handler = async (event) => {
   const cors = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
@@ -211,3 +212,5 @@ export const handler: Handler = async (event) => {
     }
   }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler, { requireAdmin: true })

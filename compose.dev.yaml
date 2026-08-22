@@ -1,0 +1,107 @@
+name: tdgpt-dev
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    environment:
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_MAX_QUEUE: "10"
+      OLLAMA_KEEP_ALIVE: "30m"
+    volumes:
+      - ollama_dev_data:/root/.ollama
+    networks: [dev_internal]
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tdgpt_dev
+      POSTGRES_USER: tdgpt_dev
+      POSTGRES_PASSWORD: tdgpt-dev-local-only
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tdgpt_dev -d tdgpt_dev"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+    networks: [dev_internal]
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    working_dir: /app
+    restart: unless-stopped
+    # Keep a runaway development compile from exhausting the shared WSL VM
+    # and taking the production containers offline.
+    mem_limit: 4g
+    env_file:
+      - path: .env.dev
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://tdgpt_dev:tdgpt-dev-local-only@postgres:5432/tdgpt_dev
+      DIRECT_URL: postgresql://tdgpt_dev:tdgpt-dev-local-only@postgres:5432/tdgpt_dev
+      NEXTAUTH_URL: http://localhost:3001
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      NODE_OPTIONS: --max-old-space-size=3072
+      ZOHO_CLIENT_ID: ""
+      ZOHO_CLIENT_SECRET: ""
+      ZOHO_REFRESH_TOKEN: ""
+      ZOHO_WEBHOOK_TOKEN: ""
+      ZOHO_WEBHOOK_SECRET: ""
+      EASYSHIP_API_KEY: ""
+      EASYSHIP_API_URL: ""
+      AI_PROVIDER: auto
+      OLLAMA_BASE_URL: http://ollama:11434/v1
+      OLLAMA_MODEL: qwen3:4b
+      OLLAMA_TIMEOUT_MS: "20000"
+      OPENAI_MODEL: gpt-4o-mini
+      OPENAI_TIMEOUT_MS: "45000"
+      COMPANY_NAME: Titan Diamond USA (Development)
+      COMPANY_DOMAIN: localhost
+      COMPANY_PHONE: (480) 470-2577
+      COMPANY_FROM_EMAIL: dev-noreply@localhost.invalid
+      COMPANY_SHIPPING_EMAIL: dev-shipping@localhost.invalid
+      COMPANY_ADDRESS_LINE1: Development Environment
+      COMPANY_ADDRESS_CITY: Phoenix
+      COMPANY_ADDRESS_STATE: AZ
+      COMPANY_ADDRESS_ZIP: "85001"
+      ZOHO_MAIL_ACCOUNT_ID: dev-disabled
+      ZOHO_VOICE_FROM_NUMBER: "+10000000000"
+      SMTP_SERVER: ""
+      SMTP_PORT: ""
+      SMTP_USER: ""
+      SMTP_PASSWORD: ""
+    command: ["sh", "-lc", "npx prisma migrate deploy && npm run dev -- --webpack --hostname 0.0.0.0"]
+    volumes:
+      - .:/app
+      - dev_node_modules:/app/node_modules
+      - dev_next_cache:/app/.next
+    ports:
+      - "127.0.0.1:3001:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/login').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    networks: [dev_internal]
+
+volumes:
+  ollama_dev_data:
+  postgres_dev_data:
+  dev_node_modules:
+  dev_next_cache:
+
+networks:
+  dev_internal:
+    driver: bridge

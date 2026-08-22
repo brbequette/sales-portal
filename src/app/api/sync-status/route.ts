@@ -6,6 +6,7 @@ import {
   ageMinutes,
   SYNC_TABLES,
 } from '@/lib/sync-config'
+import { requireAdministrator } from '@/lib/auth-helpers'
 
 /**
  * GET /api/sync-status
@@ -15,6 +16,9 @@ import {
  * "last synced X min ago" badges and pulse the Sync Now button.
  */
 export async function GET() {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
+
   try {
     const [config, status] = await Promise.all([getSyncConfig(), getSyncStatus()])
 

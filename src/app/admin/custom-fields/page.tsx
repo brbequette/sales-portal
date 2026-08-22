@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { 
   FiDatabase, 
   FiSearch, 
@@ -39,6 +39,8 @@ export default function AdminCustomFieldsPage() {
   const [editingField, setEditingField] = useState<CustomField | null>(null);
   const [saving, setSaving] = useState<boolean>(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [sortKey, setSortKey] = useState<'entity' | 'label' | 'apiName' | 'internalKey' | 'dataType'>('entity');
 
   const entities = ['ALL', 'INVOICE', 'SALESORDER', 'ESTIMATE', 'ITEM', 'ACCOUNT', 'DEAL'];
 
@@ -127,6 +129,10 @@ export default function AdminCustomFieldsPage() {
   const activeCount = fields.filter(f => f.isActive).length;
   const invoiceCount = fields.filter(f => f.entity === 'INVOICE').length;
   const soCount = fields.filter(f => f.entity === 'SALESORDER').length;
+  const visibleFields = useMemo(() => fields
+    .filter((field) => statusFilter === 'all' || (statusFilter === 'active' ? field.isActive : !field.isActive))
+    .sort((a, b) => String(a[sortKey] || '').localeCompare(String(b[sortKey] || ''))),
+  [fields, statusFilter, sortKey]);
 
   return (
     <div className="page-content">
@@ -230,16 +236,25 @@ export default function AdminCustomFieldsPage() {
             </div>
 
             {/* Search Bar */}
-            <form onSubmit={handleSearchSubmit} className="relative w-full md:w-72">
-              <FiSearch className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search label, API, key..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-blue-500"
-              />
-            </form>
+            <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
+              <form onSubmit={handleSearchSubmit} className="relative w-full md:w-72">
+                <FiSearch className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search label, API, key..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+                />
+              </form>
+              <select aria-label="Filter custom fields by status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-slate-200">
+                <option value="all">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option>
+              </select>
+              <select aria-label="Sort custom fields" value={sortKey} onChange={(event) => setSortKey(event.target.value as typeof sortKey)} className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-slate-200">
+                <option value="entity">Entity</option><option value="label">Label</option><option value="apiName">API name</option><option value="internalKey">Internal key</option><option value="dataType">Data type</option>
+              </select>
+              <span className="self-center whitespace-nowrap text-[10px] font-bold uppercase tracking-wider text-slate-500">{visibleFields.length} results</span>
+            </div>
           </div>
 
           {/* Table Container */}
@@ -266,14 +281,14 @@ export default function AdminCustomFieldsPage() {
                         Loading custom field catalog...
                       </td>
                     </tr>
-                  ) : fields.length === 0 ? (
+                  ) : visibleFields.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="py-12 text-center text-slate-500">
                         No custom fields found matching current filters.
                       </td>
                     </tr>
                   ) : (
-                    fields.map(f => (
+                    visibleFields.map(f => (
                       <tr key={f.id} className="hover:bg-slate-800/40 transition">
                         <td className="py-3 px-4">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${

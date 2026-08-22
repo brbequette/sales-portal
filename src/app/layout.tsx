@@ -4,6 +4,7 @@ import { AppShell } from "@/components/AppShell";
 import Script from "next/script";
 import { TimeclockTracker } from "@/components/TimeclockTracker";
 import { ClientToaster } from "@/components/ClientToaster";
+import { PwaInstaller } from "@/components/PwaInstaller";
 import "./globals.css";
 
 import { Providers } from "@/components/Providers";
@@ -13,8 +14,11 @@ export const metadata: Metadata = {
   description: "Sales, Collections, and Commissions -- all in one place",
   manifest: "/manifest.json",
   icons: {
-    icon: "/icon-192.png",
-    apple: "/apple-touch-icon.png",
+    icon: [
+      { url: "/titan-app-icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/titan-app-icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: "/titan-apple-touch-icon.png",
   },
 };
 
@@ -22,7 +26,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#0d0e10",
+  themeColor: "#05080c",
 };
 
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -38,7 +42,7 @@ export default function RootLayout({
       className={`${GeistSans.variable} ${GeistMono.variable}`}
     >
       <head>
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" href="/titan-apple-touch-icon.png" />
       </head>
       <body className="antialiased">
         <Script src="https://live.zwidgets.com/js-sdk/1.2/ZohoEmbededAppSDK.min.js" strategy="afterInteractive" />
@@ -47,6 +51,7 @@ export default function RootLayout({
             <AppShell>
               <TimeclockTracker />
               <ClientToaster />
+              <PwaInstaller />
               {children}
             </AppShell>
           </Providers>

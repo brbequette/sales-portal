@@ -1,60 +1,53 @@
 import { NextResponse } from 'next/server'
-import { getSystemSettings, DEFAULT_SETTINGS } from '@/lib/settings'
+import { decode, encode } from 'next-auth/jwt'
+import { getSystemSettings } from '@/lib/settings'
 
-async function resolveConfiguredPin(): Promise<string> {
-  try {
-    const settings = await getSystemSettings()
-    return String(settings?.tv_pin || DEFAULT_SETTINGS.tv_pin || '8321').trim()
-  } catch (err) {
-    console.warn('Failed to retrieve system settings for tv_pin, defaulting to 8321:', err)
-    return '8321'
+const TV_COOKIE = 'tdgpt-tv-session'
+const TV_SESSION_SECONDS = 12 * 60 * 60
+const authSecret = () => process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || ''
+
+function readCookie(req: Request, name: string) {
+  const cookieHeader = req.headers.get('cookie') || ''
+  for (const item of cookieHeader.split(';')) {
+    const [key, ...value] = item.trim().split('=')
+    if (key === name) return decodeURIComponent(value.join('='))
   }
+  return ''
+}
+
+export async function GET(req: Request) {
+  const secret = authSecret()
+  const token = readCookie(req, TV_COOKIE)
+  if (!secret || !token) return NextResponse.json({ success: true, valid: false })
+
+  const payload = await decode({ token, secret }).catch(() => null)
+  return NextResponse.json({ success: true, valid: payload?.type === 'tv' })
 }
 
 export async function POST(req: Request) {
   try {
-    let pin = ''
-    try {
-      const body = await req.json()
-      pin = body?.pin !== undefined && body?.pin !== null ? String(body.pin).trim() : ''
-    } catch {
-      pin = ''
+    const { pin } = await req.json()
+    const settings = await getSystemSettings()
+    const isValid = pin === settings.tv_pin
+    const response = NextResponse.json({ success: true, valid: isValid })
+    if (isValid) {
+      const secret = authSecret()
+      if (!secret) throw new Error('TV session secret is not configured')
+      const token = await encode({
+        token: { type: 'tv' },
+        secret,
+        maxAge: TV_SESSION_SECONDS,
+      })
+      response.cookies.set(TV_COOKIE, token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: new URL(req.url).protocol === 'https:',
+        path: '/',
+        maxAge: TV_SESSION_SECONDS,
+      })
     }
-
-    if (!pin) {
-      return NextResponse.json({ success: true, valid: false, message: 'PIN is required' }, { status: 200 })
-    }
-
-    const configuredPin = await resolveConfiguredPin()
-
-    // Match either the configured TV PIN or default system PIN (8321)
-    const isValid = pin === configuredPin || pin === '8321'
-
-    return NextResponse.json({ success: true, valid: isValid })
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Internal Server Error'
-    console.error('TV verify-pin POST error:', error)
-    return NextResponse.json({ success: false, error: message }, { status: 500 })
+    return response
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 }
-
-export async function GET(req: Request) {
-  try {
-    const { searchParams } = new URL(req.url)
-    const pin = (searchParams.get('pin') || '').trim()
-
-    if (!pin) {
-      return NextResponse.json({ success: true, valid: false, message: 'PIN query parameter is required' }, { status: 200 })
-    }
-
-    const configuredPin = await resolveConfiguredPin()
-    const isValid = pin === configuredPin || pin === '8321'
-
-    return NextResponse.json({ success: true, valid: isValid })
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Internal Server Error'
-    console.error('TV verify-pin GET error:', error)
-    return NextResponse.json({ success: false, error: message }, { status: 500 })
-  }
-}
-

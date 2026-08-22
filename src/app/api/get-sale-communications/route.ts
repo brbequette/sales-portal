@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 export async function GET(req: Request) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 })
     const { searchParams } = new URL(req.url)
     const zohoId = searchParams.get('zohoId')
 
@@ -84,6 +88,13 @@ export async function GET(req: Request) {
     let notes: any[] = []
 
     if (accountId) {
+      const owner = await prisma.account.findUnique({ where: { id: accountId }, select: { ownerId: true } })
+      const role = String(session.user.role || '').toLowerCase()
+      const privileged = role.includes('admin') || role.includes('manager')
+      const callerId = String((session.user as { dbId?: string; id?: string }).dbId || (session.user as { id?: string }).id || '')
+      if (!owner || (!privileged && owner.ownerId !== callerId)) {
+        return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+      }
       // Fetch CallLogs, SmsMessages, Notes linked to the account
       calls = await prisma.callLog.findMany({
         where: { accountId },
@@ -102,14 +113,7 @@ export async function GET(req: Request) {
         include: { author: { select: { name: true } } },
         orderBy: { createdAt: 'desc' }
       })
-    } else {
-      // Fallback: search by direct zohoId matches if we couldn't resolve the parent account
-      calls = await prisma.callLog.findMany({
-        where: { salesOrderId: zohoId },
-        include: { author: { select: { name: true } } },
-        orderBy: { createdAt: 'desc' }
-      })
-    }
+    } else return NextResponse.json({ success: true, communications: [] })
 
     // Format Calls
     const formattedCalls = calls.map(c => ({

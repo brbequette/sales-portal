@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from '../../../../../../netlify/functions/lib/zoho-auth'
+import { requireAdministrator } from '@/lib/auth-helpers'
 
 async function fetchWithRetry(url: string, headers: HeadersInit, retries = 3, delay = 1000): Promise<any> {
   for (let i = 0; i < retries; i++) {
@@ -63,6 +64,8 @@ async function fetchAllZohoItems(token: string) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
   try {
     const token = await getZohoAccessToken()
     if (!token) {

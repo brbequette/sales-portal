@@ -1849,7 +1849,7 @@ export default function ShippingPage() {
       )}
 
       {/* Tracking Modal */}
-      {trackingModal && (
+      {trackingModal && createPortal(
         <div className="fixed inset-0 z-[11000] flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setTrackingModal(null)} />
           <div className="relative glass-panel border border-white/10 w-full max-w-md rounded-2xl p-6 shadow-2xl">
@@ -1897,7 +1897,7 @@ export default function ShippingPage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>, document.body
       )}
 
       {/* Package Creation Modal */}

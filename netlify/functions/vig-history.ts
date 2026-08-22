@@ -1,3 +1,4 @@
+import { withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { prisma } from "./lib/prisma"
 import { corsHeaders, handleOptions } from "./lib/cors"
@@ -17,7 +18,7 @@ import { corsHeaders, handleOptions } from "./lib/cors"
  *  repId      string  filter to single rep (optional)
  *  mismatches boolean include mismatch invoice lists (default true, can be slow for large DBs)
  */
-export const handler: Handler = async (event) => {
+const authenticatedHandler: Handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return handleOptions()
   if (event.httpMethod !== "GET") {
     return { statusCode: 405, headers: corsHeaders, body: JSON.stringify({ error: "Method not allowed" }) }
@@ -286,3 +287,5 @@ export const handler: Handler = async (event) => {
     }
   }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler, { requireAdmin: true })

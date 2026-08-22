@@ -3,6 +3,7 @@ import { corsHeaders, handleOptions } from "./lib/cors"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 
 import { prisma } from "./lib/prisma"
+import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
 
 export const handler: Handler = async (event, context) => {
   if (event.httpMethod === "OPTIONS") return handleOptions()
@@ -15,21 +16,23 @@ export const handler: Handler = async (event, context) => {
     }
   }
 
+  let authenticatedUser
+  try {
+    authenticatedUser = await authenticateFunction(event)
+  } catch (error) {
+    return authErrorResponse(error, corsHeaders)
+  }
+
   try {
     const body = JSON.parse(event.body || "{}")
-    const { action, accountId, noteContent, sentiment, reminderDate, userId, userEmail } = body
+    const { action, accountId, noteContent, sentiment, reminderDate } = body
 
-    // Resolve author dynamically
-    let author = null
-    if (userId) {
-      author = await prisma.user.findUnique({ where: { id: userId } })
-    }
-    if (!author && userEmail) {
-      author = await prisma.user.findUnique({ where: { email: userEmail } })
-    }
-    if (!author) {
-      const domain = process.env.COMPANY_DOMAIN || 'titandiamondusa.com';
-      author = await prisma.user.findFirst({ where: { email: { contains: `@${domain.split('.')[0]}` } } })
+    // The author must come from the verified session, never caller input.
+    let author = authenticatedUser.dbId
+      ? await prisma.user.findUnique({ where: { id: authenticatedUser.dbId } })
+      : null
+    if (!author && authenticatedUser.email) {
+      author = await prisma.user.findUnique({ where: { email: authenticatedUser.email } })
     }
     if (!author) {
       return {

@@ -1,10 +1,13 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from "next/server"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: Request) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     // Fetch latest data from various tables
     const [accounts, tasks, invoices, calls, sms] = await Promise.all([
       prisma.account.findMany({

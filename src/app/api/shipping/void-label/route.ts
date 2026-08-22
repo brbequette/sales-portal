@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAdministrator } from '@/lib/auth-helpers';
 
 export async function POST(req: Request) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const { easyshipShipmentId, packageId } = await req.json();
 
     if (!easyshipShipmentId) {

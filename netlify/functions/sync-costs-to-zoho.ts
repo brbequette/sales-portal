@@ -1,4 +1,5 @@
-﻿/**
+import { withFunctionAuth } from "./lib/auth-middleware"
+/**
  * sync-costs-to-zoho.ts
  *
  * Reads all documents marked pendingCostSync=true from the DB and pushes
@@ -196,7 +197,7 @@ async function syncDocType(
 
 // Handler
 
-export const handler: Handler = async (event) => {
+const authenticatedHandler: Handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return handleOptions()
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, headers: corsHeaders, body: JSON.stringify({ error: "Method not allowed" }) }
@@ -241,3 +242,5 @@ export const handler: Handler = async (event) => {
     await prisma.$disconnect()
   }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler, { requireAdmin: true })

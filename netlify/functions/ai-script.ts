@@ -1,26 +1,23 @@
 import type { Context } from "@netlify/functions"
-import OpenAI from "openai"
+import { createAIChatCompletion } from "../../src/lib/ai-client"
 import { scriptTemplates } from "./lib/script-templates"
 import { prisma } from "./lib/prisma"
+import { authenticateRequest } from "./lib/auth-middleware"
+import { isAdminRole } from "../../src/lib/roles"
 
-// Clients are initialized lazily inside the handler so that
-// `next build` does not crash when env vars are absent locally.
-// On Netlify, OPENAI_API_KEY and DATABASE_URL are always present.
-let _openai: OpenAI | null = null
-function getOpenAI() {
-  if (!_openai) _openai = new OpenAI()
-  return _openai
-}
-function getPrisma() {
-  return prisma
-}
-
-export default async (req: Request, context: Context) => {
+const handler = async (req: Request, _context: Context) => {
   if (req.method !== "POST") {
     return Response.json(
       { success: false, message: "Method Not Allowed" },
       { status: 405 }
     )
+  }
+
+  let sessionUser
+  try {
+    sessionUser = await authenticateRequest(req)
+  } catch {
+    return Response.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   try {
@@ -29,7 +26,6 @@ export default async (req: Request, context: Context) => {
       accountId, 
       accountName, 
       industry, 
-      status, 
       quality, 
       tags, 
       lastPurchase, 
@@ -41,7 +37,24 @@ export default async (req: Request, context: Context) => {
       ownerName 
     } = body
 
-    // 1. Fetch CallScripts and CallLogs from DB if accountId is provided
+    // 1. Validate account access before reading account-specific call history.
+    let resolvedAccountId: string | null = null
+    if (accountId) {
+      const account = await prisma.account.findFirst({
+        where: { OR: [{ id: accountId }, { zohoId: accountId }] },
+        select: { id: true, ownerId: true },
+      })
+      if (!account) {
+        return Response.json({ error: "Account not found" }, { status: 404 })
+      }
+      const actorId = sessionUser.dbId || sessionUser.userId
+      if (!isAdminRole(sessionUser.role) && (!actorId || account.ownerId !== actorId)) {
+        return Response.json({ error: "Forbidden: This account belongs to another representative" }, { status: 403 })
+      }
+      resolvedAccountId = account.id
+    }
+
+    // 2. Fetch CallScripts and authorized CallLogs from DB.
     let dbScripts: any[] = []
     let callHistory: any[] = []
     
@@ -50,9 +63,9 @@ export default async (req: Request, context: Context) => {
         where: { isActive: true }
       })
 
-      if (accountId) {
+      if (resolvedAccountId) {
         callHistory = await prisma.callLog.findMany({
-          where: { accountId },
+          where: { accountId: resolvedAccountId },
           orderBy: { createdAt: 'desc' },
           take: 10,
           select: {
@@ -78,7 +91,7 @@ export default async (req: Request, context: Context) => {
       ? callHistory.map(h => `[${new Date(h.createdAt).toLocaleDateString()}] ${h.direction} - ${h.status}: ${h.notes || "No notes"}`).join("\n")
       : "No previous call history available."
 
-    // 2. Determine the best blade to pitch based on industry, tags, or past order items
+    // 3. Determine the best blade to pitch based on industry, tags, or past order items
     const lowerIndustry = (industry || "").toLowerCase()
     const lowerTags = (tags || "").toLowerCase()
     const allTextContext = `${lowerIndustry} ${lowerTags} ${JSON.stringify(invoices || [])}`.toLowerCase()
@@ -171,8 +184,7 @@ Writing Rules:
       contextPrompt += `Context: Account Update / Active Client. Pitch an upgrade or restock of the ${recommendedBlade.name}. Recommend quantities and pricing based on their history. Reference their recent items directly so it feels personalized.\n`
     }
 
-    const response = await getOpenAI().chat.completions.create({
-      model: "gpt-4o",
+    const { response } = await createAIChatCompletion({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: contextPrompt }
@@ -193,3 +205,5 @@ Writing Rules:
     )
   }
 }
+
+export default handler

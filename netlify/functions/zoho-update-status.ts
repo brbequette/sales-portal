@@ -3,6 +3,9 @@ import { getZohoAccessToken as getAccessToken , ZOHO_ORGANIZATION_ID } from "./l
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 import { prisma } from "./lib/prisma"
+import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
+import { assertNoBooksConflictBeforeWrite } from "../../src/lib/sync-engine"
+import { authorizeDocumentAccess } from "./lib/document-access"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 export const handler: Handler = async (event) => {
@@ -15,6 +18,13 @@ export const handler: Handler = async (event) => {
 
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: cors, body: "" }
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "Method not allowed" }) }
+
+  let sessionUser
+  try {
+    sessionUser = await authenticateFunction(event)
+  } catch (error) {
+    return authErrorResponse(error, cors)
+  }
 
   let body: any = {}
   try {
@@ -41,6 +51,12 @@ export const handler: Handler = async (event) => {
     return { statusCode: 400, headers: cors, body: JSON.stringify({ error: `Invalid action '${action}' for type '${type}'` }) }
   }
 
+  const documentKind = type === "SalesOrder" ? "salesOrder" : "quote"
+  const access = await authorizeDocumentAccess(sessionUser, documentKind, { id: documentId })
+  if (!access.authorized) {
+    return { statusCode: 403, headers: cors, body: JSON.stringify({ error: "You can only update documents belonging to your accounts" }) }
+  }
+
   try {
     const token = await getAccessToken()
     const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
@@ -62,6 +78,7 @@ export const handler: Handler = async (event) => {
         if (items?.booksSalesOrderId) {
           booksId = items.booksSalesOrderId
         }
+        await assertNoBooksConflictBeforeWrite("salesorder", dbSalesOrder)
       }
 
       if (action === 'confirm') {
@@ -97,7 +114,7 @@ export const handler: Handler = async (event) => {
         const statusMap: Record<string, string> = { confirm: 'confirmed', shipped: 'shipped' }
         await prisma.salesOrder.update({
           where: { id: dbRecord.id },
-          data: { status: statusMap[action] || action }
+          data: { status: statusMap[action] || action, appModifiedAt: new Date(), lastSyncedAt: new Date() }
         })
       }
     } else if (type === 'Quote') {
@@ -115,6 +132,7 @@ export const handler: Handler = async (event) => {
         if (items?.booksEstimateId) {
           booksId = items.booksEstimateId
         }
+        await assertNoBooksConflictBeforeWrite("quote", dbQuote)
       }
 
       const res = await fetch(`${baseUrl}/estimates/${booksId}/status/${action}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
@@ -130,7 +148,7 @@ export const handler: Handler = async (event) => {
       if (dbRecord) {
         await prisma.quote.update({
           where: { id: dbRecord.id },
-          data: { status: action }
+          data: { status: action, appModifiedAt: new Date(), lastSyncedAt: new Date() }
         })
       }
     }

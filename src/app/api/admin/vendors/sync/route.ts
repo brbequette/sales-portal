@@ -1,13 +1,18 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import fs from 'fs';
-import path from 'path';
 import { parse } from 'csv-parse/sync';
+import { requireAdministrator } from '@/lib/auth-helpers';
 
 export async function POST() {
   try {
-    const basePath = 'C:\\Users\\titan\\Documents';
-    const filePath = basePath + '\\Titan Diamond\\AUTOMATIONS\\exports\\Vendors (2).csv';
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
+    const filePath = process.env.VENDOR_CSV_PATH;
+
+    if (!filePath) {
+      return NextResponse.json({ error: 'VENDOR_CSV_PATH is not configured' }, { status: 503 });
+    }
     
     if (!fs.existsSync(filePath)) {
       return NextResponse.json({ error: 'Vendor CSV file not found' }, { status: 404 });

@@ -2,7 +2,65 @@ import NextAuth, { NextAuthOptions } from "next-auth"
 import ZohoProvider from "next-auth/providers/zoho"
 import CredentialsProvider from "next-auth/providers/credentials"
 import type { Prisma } from "@prisma/client"
+import bcrypt from "bcryptjs"
 import { prisma } from "./prisma"
+
+type LoginAttempt = { failures: number; blockedUntil: number; lastFailure: number }
+
+const LOGIN_WINDOW_MS = 15 * 60 * 1000
+const LOGIN_BLOCK_MS = 15 * 60 * 1000
+const MAX_LOGIN_FAILURES = 8
+const loginAttempts = new Map<string, LoginAttempt>()
+const dummyPasswordHash = bcrypt.hashSync("timing-only-password-that-never-authenticates", 12)
+
+function requestHeader(request: unknown, name: string) {
+  const headers = (request as any)?.headers
+  if (typeof headers?.get === "function") return headers.get(name) || ""
+  return headers?.[name] || headers?.[name.toLowerCase()] || ""
+}
+
+function loginAttemptKeys(input: string, request: unknown, userId?: string) {
+  const forwarded = requestHeader(request, "cf-connecting-ip")
+    || requestHeader(request, "x-forwarded-for")
+    || requestHeader(request, "x-real-ip")
+    || "local"
+  const clientAddress = String(forwarded).split(",")[0].trim().slice(0, 64)
+  return [
+    `input:${input}`,
+    `address:${clientAddress}`,
+    ...(userId ? [`user:${userId}`] : []),
+  ]
+}
+
+function removeExpiredLoginAttempts(now: number) {
+  for (const [key, attempt] of loginAttempts) {
+    if (attempt.blockedUntil <= now && now - attempt.lastFailure > LOGIN_WINDOW_MS) {
+      loginAttempts.delete(key)
+    }
+  }
+}
+
+function isLoginBlocked(keys: string[], now: number) {
+  removeExpiredLoginAttempts(now)
+  return keys.some(key => (loginAttempts.get(key)?.blockedUntil || 0) > now)
+}
+
+function recordLoginFailure(keys: string[], now: number) {
+  for (const key of keys) {
+    const previous = loginAttempts.get(key)
+    const withinWindow = previous && now - previous.lastFailure <= LOGIN_WINDOW_MS
+    const failures = withinWindow ? previous.failures + 1 : 1
+    loginAttempts.set(key, {
+      failures,
+      lastFailure: now,
+      blockedUntil: failures >= MAX_LOGIN_FAILURES ? now + LOGIN_BLOCK_MS : 0,
+    })
+  }
+}
+
+function clearLoginFailures(keys: string[]) {
+  for (const key of keys) loginAttempts.delete(key)
+}
 
 // Must define process.env.NEXTAUTH_URL before NextAuth initializes providers
 const isProd = process.env.NODE_ENV === "production" || process.env.NETLIFY === "true"
@@ -13,7 +71,10 @@ if (!process.env.NEXTAUTH_URL || process.env.NEXTAUTH_URL === "undefined" || pro
 }
 
 const LOGIN_SCOPE = "AaaServer.profile.READ"
-const ZOHO_DC = process.env.ZOHO_DC || "com"
+const cleanEnv = (value: string | undefined) => value?.trim().replace(/^(["'])(.*)\1$/, "$2") || ""
+const ZOHO_DC = cleanEnv(process.env.ZOHO_DC) || "com"
+const ZOHO_LOGIN_CLIENT_ID = cleanEnv(process.env.NEXTAUTH_ZOHO_CLIENT_ID || process.env.ZOHO_CLIENT_ID)
+const ZOHO_LOGIN_CLIENT_SECRET = cleanEnv(process.env.NEXTAUTH_ZOHO_CLIENT_SECRET || process.env.ZOHO_CLIENT_SECRET)
 
 function profileString(profile: Record<string, unknown>, ...keys: string[]) {
   for (const key of keys) {
@@ -33,6 +94,26 @@ async function findUserFlexibly(emailOrInput: string, zohoUserId?: string | null
 
   const cleanInput = (emailOrInput || '').trim().toLowerCase();
   if (!cleanInput) return null;
+
+  // Historical builds created separate Benjamin records for each login email.
+  // Always resolve those aliases to the single Zoho-linked admin/rep identity.
+  const benLoginAliases = new Set([
+    "ben@titandiamond.net",
+    "ben@titandiamondusa.com",
+    "brbequette@gmail.com",
+    "admin@titandiamond.com",
+  ])
+  if (benLoginAliases.has(cleanInput)) {
+    const ben = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { zohoId: "6821836000000565001" },
+          { email: "ben@titandiamond.net" },
+        ],
+      },
+    }).catch(() => null)
+    if (ben) return ben
+  }
 
   // 1. Exact email match
   let user = await prisma.user.findUnique({
@@ -75,8 +156,8 @@ async function findUserFlexibly(emailOrInput: string, zohoUserId?: string | null
 export const authOptions: NextAuthOptions = {
   providers: [
     ZohoProvider({
-      clientId: process.env.NEXTAUTH_ZOHO_CLIENT_ID || process.env.ZOHO_CLIENT_ID || "dummy_zoho_client_id",
-      clientSecret: process.env.NEXTAUTH_ZOHO_CLIENT_SECRET || process.env.ZOHO_CLIENT_SECRET || "dummy_zoho_client_secret",
+      clientId: ZOHO_LOGIN_CLIENT_ID || "dummy_zoho_client_id",
+      clientSecret: ZOHO_LOGIN_CLIENT_SECRET || "dummy_zoho_client_secret",
       authorization: {
         url: `https://accounts.zoho.${ZOHO_DC}/oauth/v2/auth`,
         params: {
@@ -103,16 +184,25 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email / Rep ID", type: "text" },
         password: { label: "Password", type: "password" }
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         if (!credentials?.email || !credentials?.password) return null;
         const input = credentials.email.trim().toLowerCase();
+        const now = Date.now()
+        const preliminaryKeys = loginAttemptKeys(input, request)
+
+        if (isLoginBlocked(preliminaryKeys, now)) return null
 
         const dbUser = await findUserFlexibly(input);
-        if (!dbUser || !dbUser.password) return null;
+        const attemptKeys = loginAttemptKeys(input, request, dbUser?.id)
+        if (isLoginBlocked(attemptKeys, now)) return null
 
-        const bcrypt = require("bcryptjs");
-        const isValid = await bcrypt.compare(credentials.password, dbUser.password);
-        if (!isValid) return null;
+        const isValid = await bcrypt.compare(credentials.password, dbUser?.password || dummyPasswordHash);
+        if (!dbUser || !dbUser.password || !isValid) {
+          recordLoginFailure(attemptKeys, now)
+          return null
+        }
+
+        clearLoginFailures(attemptKeys)
 
         return {
           id: dbUser.zohoId || dbUser.id,

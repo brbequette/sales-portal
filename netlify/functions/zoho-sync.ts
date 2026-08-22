@@ -1,13 +1,21 @@
 import { Handler } from "@netlify/functions"
 
 import { prisma } from "./lib/prisma"
+import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
 
 export const handler: Handler = async (event, context) => {
+  const headers = { "Content-Type": "application/json" }
   if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
       body: JSON.stringify({ success: false, message: "Method Not Allowed" })
     }
+  }
+
+  try {
+    await authenticateFunction(event, { requireAdmin: true })
+  } catch (error) {
+    return authErrorResponse(error, headers)
   }
 
   try {

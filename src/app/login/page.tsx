@@ -5,14 +5,18 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { signIn, useSession } from "next-auth/react"
 import Link from "next/link"
 import Image from "next/image"
-import { FiLock, FiMail, FiArrowRight, FiCheckCircle, FiAlertCircle } from "react-icons/fi"
+import { FiLock, FiMail, FiArrowRight, FiAlertCircle, FiShield, FiUsers, FiZap } from "react-icons/fi"
 import { SparkCanvas } from "@/components/SparkCanvas"
+import { isAdminRole } from "@/lib/roles"
+
+type Portal = "customer" | "employee" | "admin"
 
 function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { data: session, status } = useSession()
-  const [activeTab, setActiveTab] = useState<"customer" | "employee">("customer")
+  const requestedPortal = searchParams.get("portal")
+  const [activeTab, setActiveTab] = useState<Portal>(requestedPortal === "employee" || requestedPortal === "admin" ? requestedPortal : "customer")
 
   // Customer Login State
   const [customerEmailOrPhone, setCustomerEmailOrPhone] = useState("")
@@ -28,10 +32,11 @@ function LoginContent() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (activeTab === "employee" && status === "authenticated") {
-      router.push("/dashboard")
+    if (status === "authenticated") {
+      if (activeTab === "admin" && isAdminRole(session?.user?.role)) router.replace("/admin")
+      if (activeTab === "employee") router.replace(searchParams.get("callbackUrl") || "/dashboard")
     }
-  }, [status, router, activeTab])
+  }, [status, session, router, activeTab, searchParams])
 
   useEffect(() => {
     const authError = searchParams.get("error")
@@ -170,6 +175,28 @@ function LoginContent() {
     }
   }
 
+  const handleZohoLogin = async () => {
+    setLoading(true)
+    setError("")
+    const callbackUrl = activeTab === "admin" ? "/admin" : (searchParams.get("callbackUrl") || "/dashboard")
+    try {
+      const result = await signIn("zoho", { callbackUrl, redirect: false })
+      if (!result?.url || result.error) throw new Error(result?.error || "No sign-in URL returned")
+      window.location.assign(result.url)
+    } catch {
+      setError("Unable to connect to Zoho. Please try again.")
+      setLoading(false)
+    }
+  }
+
+  const selectPortal = (portal: Portal) => {
+    setActiveTab(portal)
+    setError("")
+    const url = new URL(window.location.href)
+    url.searchParams.set("portal", portal)
+    window.history.replaceState({}, "", `${url.pathname}${url.search}`)
+  }
+
   return (
     <div className="min-h-screen bg-neutral-950 text-white flex items-center justify-center p-4 sm:p-6 relative overflow-hidden">
       <SparkCanvas />
@@ -178,29 +205,36 @@ function LoginContent() {
         {/* Header */}
         <div className="text-center mb-6">
           <Link href="/" className="inline-block mb-3">
-            <Image src="/titan-logo.png" alt="Titan Diamond USA" width={96} height={48} className="h-12 w-auto mx-auto" />
+            <Image src="/images/brand/titan-diamond-2026.png" alt="Titan Diamond USA" width={128} height={80} className="h-12 w-auto mx-auto" />
           </Link>
           <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-amber-400 block mb-1">
-            {activeTab === "customer" ? "CUSTOMER PORTAL" : "EMPLOYEE PORTAL"}
+            {activeTab === "customer" ? "CONTRACTOR PORTAL" : activeTab === "employee" ? "EMPLOYEE & REP PORTAL" : "ADMINISTRATIVE PORTAL"}
           </span>
           <h1 className="text-2xl font-black uppercase text-white tracking-tight">LOGIN</h1>
         </div>
 
         {/* Tabs */}
-        <div className="flex bg-neutral-950 rounded-xl p-1 mb-6 border border-white/5 text-xs font-bold">
+        <div className="grid grid-cols-3 bg-neutral-950 rounded-xl p-1 mb-6 border border-white/5 text-[10px] font-bold">
           <button
             type="button"
-            onClick={() => { setActiveTab("employee"); setError(""); }}
+            onClick={() => selectPortal("customer")}
+            className={`py-2.5 rounded-lg transition-all ${activeTab === "customer" ? "bg-amber-500 text-neutral-950 font-black shadow" : "text-neutral-400 hover:text-white"}`}
+          >
+            Contractor
+          </button>
+          <button
+            type="button"
+            onClick={() => selectPortal("employee")}
             className={`flex-1 py-2.5 rounded-lg transition-all ${activeTab === "employee" ? "bg-amber-500 text-neutral-950 font-black shadow" : "text-neutral-400 hover:text-white"}`}
           >
             Employee
           </button>
           <button
             type="button"
-            onClick={() => { setActiveTab("customer"); setError(""); }}
-            className={`flex-1 py-2.5 rounded-lg transition-all ${activeTab === "customer" ? "bg-amber-500 text-neutral-950 font-black shadow" : "text-neutral-400 hover:text-white"}`}
+            onClick={() => selectPortal("admin")}
+            className={`py-2.5 rounded-lg transition-all ${activeTab === "admin" ? "bg-amber-500 text-neutral-950 font-black shadow" : "text-neutral-400 hover:text-white"}`}
           >
-            Customer
+            Admin
           </button>
         </div>
 
@@ -277,7 +311,10 @@ function LoginContent() {
               </div>
             )}
           </div>
-        ) : (
+        ) : activeTab === "employee" ? (
+          <div className="space-y-5">
+          <button type="button" onClick={handleZohoLogin} disabled={loading} className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 text-neutral-950 font-black text-xs uppercase tracking-wider py-4 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"><FiZap />{loading ? "CONNECTING..." : "CONTINUE WITH ZOHO SSO"}</button>
+          <div className="flex items-center gap-3 text-[9px] font-black uppercase tracking-widest text-neutral-600"><span className="h-px flex-1 bg-white/10" />Or staff credentials<span className="h-px flex-1 bg-white/10" /></div>
           <form onSubmit={handleEmployeeLogin} className="space-y-4">
             <div>
               <label className="text-xs font-mono font-bold text-neutral-400 block mb-2">EMPLOYEE EMAIL</label>
@@ -317,6 +354,13 @@ function LoginContent() {
               {loading ? "AUTHENTICATING..." : "LOG IN"} <FiArrowRight size={16} />
             </button>
           </form>
+          </div>
+        ) : (
+          <div className="space-y-5 text-center">
+            <div className="rounded-2xl border border-white/10 bg-black/30 p-5"><FiShield className="mx-auto text-3xl text-amber-400" /><h2 className="mt-3 text-sm font-black uppercase">Approved administrators only</h2><p className="mt-2 text-xs leading-5 text-neutral-400">Use your company Zoho identity. Your Titan role is checked again before access is granted.</p></div>
+            {status === "authenticated" && !isAdminRole(session?.user?.role) && <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">This signed-in account does not have administrator access.</div>}
+            <button type="button" onClick={handleZohoLogin} disabled={loading || status === "loading"} className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 text-neutral-950 font-black text-xs uppercase tracking-wider py-4 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"><FiUsers />{loading ? "CONNECTING..." : "CONTINUE WITH ZOHO SSO"}<FiArrowRight /></button>
+          </div>
         )}
       </div>
     </div>

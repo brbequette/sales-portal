@@ -1,3 +1,4 @@
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { corsHeaders, handleOptions } from "./lib/cors"
 import { prisma } from "./lib/prisma"
@@ -9,7 +10,7 @@ function getZohoAccountId() {
   return id;
 }
 
-export const handler: Handler = async (event) => {
+const authenticatedHandler: Handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return handleOptions()
   
   if (event.httpMethod !== "POST") {
@@ -17,27 +18,52 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const { toAddress, subject, content, accountId, contactId, fromAddress, originalEmailId, acceptedResponse } = JSON.parse(event.body || "{}")
+    const caller = await authenticateFunction(event)
+    const payload = JSON.parse(event.body || "{}")
+    const { toAddress, subject, accountId, contactId, originalEmailId, acceptedResponse } = payload
+    const content = payload.content ?? payload.body
 
     if (!toAddress || !subject || !content) {
       return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "Missing toAddress, subject, or content" }) }
     }
 
-    const defaultFrom = fromAddress || process.env.COMPANY_FROM_EMAIL;
+    const role = String(caller.role || "").toLowerCase()
+    const privileged = role.includes("admin") || role.includes("manager")
+    const callerId = String(caller.dbId || caller.userId || "")
+    let resolvedAccountId = accountId || null
+    let account = accountId
+      ? await prisma.account.findFirst({ where: { OR: [{ id: accountId }, { zohoId: accountId }] }, include: { owner: true } })
+      : null
+
+    if (!account && !privileged) {
+      const contact = await prisma.contact.findFirst({
+        where: { email: { equals: toAddress, mode: "insensitive" }, account: { ownerId: callerId } },
+        include: { account: { include: { owner: true } } },
+      })
+      account = contact?.account || null
+    }
+    if (!privileged && (!account || account.ownerId !== callerId)) {
+      return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ success: false, error: "Forbidden" }) }
+    }
+    if (account) resolvedAccountId = account.id
+
+    const defaultFrom = process.env.COMPANY_FROM_EMAIL || caller.email;
+    if (!defaultFrom) {
+      return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ success: false, error: "Outbound email address is not configured" }) }
+    }
 
     // Replace merge tags (basic implementation)
     let processedContent = content
-    if (accountId) {
-      const account = await prisma.account.findUnique({ where: { id: accountId }, include: { owner: true } })
-      if (account) {
+    if (account) {
         processedContent = processedContent.replace(/{{accountName}}/g, account.name)
         processedContent = processedContent.replace(/{{repName}}/g, account.owner?.name || "")
         processedContent = processedContent.replace(/{{companyName}}/g, process.env.COMPANY_NAME || "")
-      }
     }
 
     if (contactId) {
-      const contact = await prisma.contact.findUnique({ where: { id: contactId } })
+      const contact = await prisma.contact.findFirst({
+        where: { id: contactId, ...(resolvedAccountId ? { accountId: resolvedAccountId } : {}) },
+      })
       if (contact) {
         processedContent = processedContent.replace(/{{contactName}}/g, contact.firstName || "")
       }
@@ -65,8 +91,9 @@ export const handler: Handler = async (event) => {
         direction: "OUTBOUND",
         status: "REPLIED",
         sentAt: new Date(),
-        accountId,
-        contactId
+        accountId: resolvedAccountId,
+        contactId,
+        userId: callerId || null,
       }
     })
 
@@ -98,3 +125,5 @@ export const handler: Handler = async (event) => {
     }
   }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler)

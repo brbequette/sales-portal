@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import { useZoho } from "@/components/ZohoProvider"
 import Link from "next/link"
@@ -15,6 +16,8 @@ import {
 import { PhoneLink } from "@/components/PhoneLink"
 import { PeriodSelector, isInPeriod, type PeriodValue } from "@/components/PeriodSelector"
 import { UpdateBanner } from '@/lib/useStaleCheck'
+import { isAdminRole } from "@/lib/roles"
+import { toast } from "react-hot-toast"
 
 // â"€â"€â"€ Types â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 type TaskType     = "Task" | "Call" | "Email" | "Text" | "Processing"
@@ -302,7 +305,7 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
   const outcomeLines = editDesc.split("\n").filter(l => /^\[.+\]/.test(l.trim()))
   const notesOnly = editDesc.split("\n").filter(l => !/^\[.+\]/.test(l.trim())).join("\n").trim()
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex flex-col bg-[#0a0b0d]">
       {/* Header */}
       <div className={`shrink-0 px-4 pt-safe-top pb-0 ${cfg.bg} border-b border-white/10`} style={{ paddingTop: "max(16px, env(safe-area-inset-top))" }}>
@@ -558,7 +561,7 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
           </div>
         )}
       </div>
-    </div>
+    </div>, document.body
   )
 }
 
@@ -787,7 +790,7 @@ function FilterDrawer({ open, onClose, filters, setFilters }: {
   setFilters: (f: any) => void
 }) {
   if (!open) return null
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-40 flex items-end">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative w-full bg-[#131517] border-t border-white/10 rounded-t-3xl p-5 pb-8 shadow-2xl animate-slide-up">
@@ -848,13 +851,14 @@ function FilterDrawer({ open, onClose, filters, setFilters }: {
           className="w-full mt-5 py-3.5 bg-violet-600 hover:bg-violet-500 text-white font-bold rounded-2xl transition-all"
         >Apply Filters</button>
       </div>
-    </div>
+    </div>, document.body
   )
 }
 
 // ─── MAIN PAGE ──────────────────────────────────────────────────────────────
 export default function TasksPage() {
   const { zohoContext: user } = useZoho()
+  const canRefreshZoho = isAdminRole(user?.role)
 
   const [tasks,          setTasks]          = useState<Task[]>([])
   const [loading,        setLoading]        = useState(true)
@@ -922,14 +926,20 @@ export default function TasksPage() {
   // ─── Update task ────────────────────────────────────────────────────────────
   const handleUpdate = useCallback(async (zohoId: string, data: Partial<Task>) => {
     try {
-      await fetch("/api/update-task", {
+      const response = await fetch("/api/update-task", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ zohoId, ...data, subject: data.title })
       })
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}))
+        throw new Error(result.error || "Task update failed")
+      }
       setTasks(prev => prev.map(t => t.zohoId === zohoId ? { ...t, ...data } : t))
       setSelectedTask(prev => prev?.zohoId === zohoId ? { ...prev, ...data } : prev)
-    } catch {}
+    } catch (error: any) {
+      toast.error(error.message || "Task update failed")
+    }
   }, [])
 
   const handleComplete = useCallback(async (zohoId: string) => {
@@ -1052,12 +1062,12 @@ export default function TasksPage() {
 
           {/* Top Actions */}
           <div className="flex items-center gap-1.5">
-            <button onClick={() => setShowSearch(s => !s)}
+            <button onClick={() => setShowSearch(s => !s)} aria-label="Search tasks" title="Search tasks"
               className={`p-2 rounded-lg border transition-all ${showSearch ? "bg-orange-500 border-orange-500/50 text-white" : "bg-transparent border-transparent hover:bg-white/5 text-neutral-400"}`}
             >
               <FiSearch size={16} />
             </button>
-            <button onClick={() => setShowFilter(true)}
+            <button onClick={() => setShowFilter(true)} aria-label="Filter and sort tasks" title="Filter and sort tasks"
               className={`relative p-2 rounded-lg border transition-all ${activeFilterCount > 0 ? "bg-orange-500/20 border-orange-500/30 text-orange-400" : "bg-transparent border-transparent hover:bg-white/5 text-neutral-400"}`}
             >
               <FiFilter size={16} />
@@ -1065,11 +1075,11 @@ export default function TasksPage() {
                 <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-orange-500 rounded-full" />
               )}
             </button>
-            <button onClick={() => loadTasks(true)} disabled={refreshing}
+            {canRefreshZoho && <button onClick={() => loadTasks(true)} disabled={refreshing} aria-label="Sync tasks from Zoho" title="Sync tasks from Zoho"
               className="p-2 rounded-lg border border-transparent hover:bg-white/5 text-neutral-400 transition-all disabled:opacity-40 hidden sm:block"
             >
               <FiRefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
-            </button>
+            </button>}
             <Link href="/tasks/new"
               className="flex items-center gap-1 bg-orange-600 hover:bg-orange-500 text-white text-sm font-semibold px-3 py-1.5 rounded-lg transition-all ml-1"
             >
@@ -1082,10 +1092,10 @@ export default function TasksPage() {
         {/* Row 2: Toolbar with View Toggle, Categories, and filters */}
         <div className="flex flex-wrap items-center gap-3 w-full mt-3">
            <div className="flex bg-white/5 p-0.5 rounded-lg border border-white/10 shrink-0">
-             <button onClick={() => setMainView("list")}
+             <button onClick={() => setMainView("list")} aria-label="List view" title="List view"
                className={`flex items-center justify-center w-8 h-7 rounded-md transition-colors ${mainView==="list" ? "bg-[#1c1e22] text-white shadow-sm" : "text-neutral-500 hover:text-white"}`}
              ><FiList size={14}/></button>
-             <button onClick={() => setMainView("calendar")}
+             <button onClick={() => setMainView("calendar")} aria-label="Calendar view" title="Calendar view"
                className={`flex items-center justify-center w-8 h-7 rounded-md transition-colors ${mainView==="calendar" ? "bg-[#1c1e22] text-white shadow-sm" : "text-neutral-500 hover:text-white"}`}
              ><FiCalendar size={14}/></button>
            </div>

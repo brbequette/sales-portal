@@ -5,6 +5,7 @@ import { useZoho } from "@/components/ZohoProvider"
 import { usePreferences } from "@/components/PreferencesProvider"
 import { GeofenceMonitor, type MonitorStatus } from "@/lib/geofence-monitor"
 import { useCampaignProgress } from "@/components/CampaignProgressProvider"
+import { fetchSharedJson } from "@/lib/shared-api-fetch"
 
 export function useGlobalTopBarData() {
   const router = useRouter()
@@ -72,38 +73,18 @@ export function useGlobalTopBarData() {
 
   const fetchStripStats = useCallback(async () => {
     try {
-      const res = await fetch("/api/zoho-invoices")
+      const [res, weekly] = await Promise.all([
+        fetch("/api/zoho-invoices?summary=true"),
+        fetchSharedJson<any>("/api/dashboard-weekly-sales"),
+      ])
       const json = await res.json()
-      if (!json.invoices) return
-      const now = new Date()
-      const currentMonth = now.getMonth()
-      const currentYear = now.getFullYear()
-      const dow = now.getDay()
-      const mondayOff = dow === 0 ? -6 : 1 - dow
-      const monday = new Date(now)
-      monday.setDate(now.getDate() + mondayOff)
-      monday.setHours(0,0,0,0)
-      const friday = new Date(monday)
-      friday.setDate(monday.getDate() + 4)
-      friday.setHours(23,59,59,999)
-
-      let ws = 0, ms = 0, mp = 0, mc = 0, pv = 0, ov = 0
-      for (const inv of json.invoices) {
-        const rep = (inv.salesorder_salesperson_name || inv.salesperson_name || "").toUpperCase()
-        if (rep.includes("PAUL") && (rep.includes("GENCUSKI") || rep.includes("GENKUSKI"))) continue
-        const amt = parseFloat(inv.sub_total || inv.total || "0")
-        const profit = parseFloat(inv.cf_profit_unformatted || "0")
-        const comm = parseFloat(inv.cf_commision_amount_unformatted || "0")
-        const d = new Date(inv.salesorder_date || inv.date || "")
-        const status = (inv.status || "").toLowerCase()
-        const balance = parseFloat(inv.balance || "0")
-        if (d >= monday && d <= friday) ws += amt
-        if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
-          ms += amt; mp += profit; mc += comm
-        }
-        if (status !== "paid" && status !== "void" && status !== "draft" && balance > 0) pv += balance
-        if (status === "overdue" || (inv.due_date && new Date(inv.due_date) < now && balance > 0 && status !== "paid" && status !== "void" && status !== "draft")) ov += balance
-      }
+      if (!json.summary) return
+      const ws = Number(weekly.total) || 0
+      const ms = Number(json.summary.mtdSales) || 0
+      const mp = Number(json.summary.mtdProfit) || 0
+      const mc = Number(json.summary.mtdCommission) || 0
+      const pv = Number(json.summary.pipeline) || 0
+      const ov = Number(json.summary.overdue) || 0
       setStripStats({ weeklySales: Math.round(ws), mtdSales: Math.round(ms), mtdProfit: Math.round(mp), mtdCommission: Math.round(mc), pipeline: Math.round(pv), overdue: Math.round(ov) })
     } catch {}
   }, [])

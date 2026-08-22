@@ -510,7 +510,8 @@ export async function calculateDocumentCosts(
 export function buildFieldsToUpdate(
   calc: CostCalculationResult,
   zohoDoc: any,
-  docTypeHint: string = "invoices"
+  docTypeHint: string = "invoices",
+  configuredFieldDefinitions: any[] = []
 ): any[] {
   const {
     deadCostSubjectToVig, deadCostNoVig, deadCostTotal,
@@ -519,9 +520,22 @@ export function buildFieldsToUpdate(
     ccFees, actualShippingCost, shippingCostBreakdown,
   } = calc
 
-  const existingFields: any[] = zohoDoc.custom_fields || []
+  const existingFields: any[] = [...(zohoDoc.custom_fields || [])]
+  for (const definition of configuredFieldDefinitions) {
+    const customfieldId = definition.customfield_id || definition.field_id
+    if (!customfieldId) continue
+    if (existingFields.some((field: any) =>
+      field.customfield_id === customfieldId ||
+      (field.api_name && field.api_name === definition.api_name)
+    )) continue
+    existingFields.push({
+      ...definition,
+      customfield_id: customfieldId,
+      value: definition.value ?? "",
+    })
+  }
   const existingPaidDate = existingFields.find((f: any) =>
-    f.label?.toUpperCase().includes("PAID IN FULL DATE")
+    f.label?.toUpperCase().includes("PAID IN FULL DATE") || f.api_name === "cf_paid_in_full_date"
   )
 
   const fieldMap: Record<string, any> = {
@@ -544,7 +558,23 @@ export function buildFieldsToUpdate(
   }
 
   const apiNameMap: Record<string, any> = {
-    cf_dead_profit_actual: deadProfitActual.toFixed(2),
+    cf_dead_cost_total:             deadCostTotal.toFixed(2),
+    cf_dead_cost_subject_to_vig:    deadCostSubjectToVig.toFixed(2),
+    cf_dead_cost_no_vig:            deadCostNoVig.toFixed(2),
+    cf_salesperson_vig:             vigRate,
+    cf_dead_cost_with_vig:          deadCostPlusVig.toFixed(2),
+    cf_profit:                      profit.toFixed(2),
+    cf_commision_from_profit:       commissionPct,
+    cf_commision_amount:            salesCommission.toFixed(2),
+    cf_dc_breakdown:                lineItemBreakdownStrings.join("\n"),
+    cf_credit_card_processing_fees: ccFees.toFixed(2),
+    cf_actual_shipping_cost:        actualShippingCost.toFixed(2),
+    cf_shipping_cost_breakdown:     shippingCostBreakdown,
+    cf_dead_profit_actual:          deadProfitActual.toFixed(2),
+  }
+
+  if (docTypeHint === "invoices" && isPaid && existingPaidDate && !existingPaidDate.value) {
+    apiNameMap.cf_paid_in_full_date = new Date().toISOString().split("T")[0]
   }
 
   const fieldsToUpdate: any[] = []
@@ -558,9 +588,6 @@ export function buildFieldsToUpdate(
       if (currentVal !== newVal || currentVal === "" || currentVal === "0") {
         fieldsToUpdate.push({ customfield_id: field.customfield_id, value })
       }
-    } else {
-      // Field does not exist on doc — push by label fallback
-      fieldsToUpdate.push({ label, value })
     }
   }
 
@@ -574,9 +601,6 @@ export function buildFieldsToUpdate(
           fieldsToUpdate.push({ customfield_id: field.customfield_id, value })
         }
       }
-    } else {
-      // Field does not exist on doc — push by api_name fallback
-      fieldsToUpdate.push({ api_name: apiName, value })
     }
   }
 

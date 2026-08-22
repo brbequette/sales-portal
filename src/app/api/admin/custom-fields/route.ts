@@ -1,9 +1,12 @@
 import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdministrator } from '@/lib/auth-helpers';
 ;
 
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const { searchParams } = new URL(req.url);
     const entity = searchParams.get('entity');
     const search = searchParams.get('search');
@@ -43,6 +46,8 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const body = await req.json();
     const { id, label, internalKey, dataType, isActive, description } = body;
 

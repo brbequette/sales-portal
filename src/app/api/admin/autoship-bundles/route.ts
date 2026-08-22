@@ -3,9 +3,12 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { isAdminRole } from '@/lib/roles';
+import { requireAdministrator } from '@/lib/auth-helpers';
 
 export async function GET(request: Request) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const session = await getServerSession(authOptions);
     if (!session || !isAdminRole(session.user?.role)) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
@@ -31,6 +34,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const session = await getServerSession(authOptions);
     if (!session || !isAdminRole(session.user?.role)) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
@@ -59,6 +64,8 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const session = await getServerSession(authOptions);
     if (!session || !isAdminRole(session.user?.role)) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
@@ -92,6 +99,8 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const session = await getServerSession(authOptions);
     if (!session || !isAdminRole(session.user?.role)) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });

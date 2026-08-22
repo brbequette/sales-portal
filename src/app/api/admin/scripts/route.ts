@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAdministrator } from '@/lib/auth-helpers'
 
 export async function GET() {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const scripts = await prisma.callScript.findMany({
       orderBy: { createdAt: 'desc' }
     })
@@ -14,6 +17,8 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const body = await req.json()
     const { name, callType, content, isActive } = body
 

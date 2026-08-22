@@ -3,10 +3,13 @@ import { prisma } from '@/lib/prisma'
 // Using default auth for prototype
 import { getZohoAccessToken } from '@/lib/zoho-auth'
 import FormData from 'form-data'
+import { checkAccountOwnership } from '@/lib/auth-helpers'
 
 export async function GET(req: Request, context: { params: Promise<{ accountId: string }> }) {
   try {
     const params = await context.params
+    const access = await checkAccountOwnership(params.accountId)
+    if (!access.authorized) return access.errorResponse || NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     const url = new URL(req.url)
     const includeClosedHistory = url.searchParams.get("includeClosedHistory") === "true"
 
@@ -53,18 +56,21 @@ export async function GET(req: Request, context: { params: Promise<{ accountId: 
 export async function POST(req: Request, context: { params: Promise<{ accountId: string }> }) {
   try {
     const params = await context.params
+    const access = await checkAccountOwnership(params.accountId)
+    if (!access.authorized) return access.errorResponse || NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const body = await req.json()
-    const { text, fromNumber, contactId, userId, userEmail, attachVCard, vcardCustomFields } = body
+    const { text, fromNumber, contactId, attachVCard, vcardCustomFields } = body
 
     if (!text || !fromNumber) {
       return NextResponse.json({ success: false, error: 'Message text and sender number are required' }, { status: 400 })
     }
 
-    let dbUser = null
-    if (userId) dbUser = await prisma.user.findUnique({ where: { id: userId } })
-    if (!dbUser && userEmail) dbUser = await prisma.user.findUnique({ where: { email: userEmail } })
-    if (!dbUser) dbUser = await prisma.user.findFirst()
+    const sessionUser = access.user as { dbId?: string; email?: string } | undefined
+    let dbUser = sessionUser?.dbId
+      ? await prisma.user.findUnique({ where: { id: sessionUser.dbId } })
+      : null
+    if (!dbUser && sessionUser?.email) dbUser = await prisma.user.findUnique({ where: { email: sessionUser.email } })
 
     if (!dbUser) return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
 
@@ -152,7 +158,9 @@ export async function POST(req: Request, context: { params: Promise<{ accountId:
           authorId: dbUser.id,
           fromNumber: fromNumber,
           toNumber: phoneNumber,
-          body: text,
+          // Keep the local record identical to the message Zoho actually sent,
+          // including an appended vCard/contact block when one was requested.
+          body: finalText,
           direction: 'OUTBOUND'
         }
       })

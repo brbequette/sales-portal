@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAdministrator } from '@/lib/auth-helpers'
 
 export async function GET() {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
+
   try {
     const [users, settings] = await Promise.all([
       prisma.user.findMany({
@@ -56,6 +60,9 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
+
   try {
     const body = await req.json()
     const { id, canSendCampaigns, showOnSalesBoard, permissions, role, name, email, phone, title, vcardPhotoUrl, vcardCompany, vcardWebsite, autoAttachVCard, zohoId } = body
@@ -92,6 +99,9 @@ export async function PUT(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
+
   try {
     const body = await req.json()
     const { name, email, role, zohoId } = body

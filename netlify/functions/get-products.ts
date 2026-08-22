@@ -1,10 +1,11 @@
+import { withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 import { prisma } from "./lib/prisma"
 
-export const handler: Handler = async (event, context) => {
+const authenticatedHandler: Handler = async (event, context) => {
   if (event.httpMethod !== "GET") {
     return {
       statusCode: 405,
@@ -115,3 +116,5 @@ export const handler: Handler = async (event, context) => {
     }
   }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler)

@@ -1,8 +1,13 @@
 import { handler } from "../../../../netlify/functions/get-products";
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdministrator } from "@/lib/auth-helpers";
 
 async function executeNetlifyFunction(req: NextRequest) {
   const url = new URL(req.url);
+  if (url.searchParams.get("reseed") === "true") {
+    const auth = await requireAdministrator();
+    if (auth.errorResponse) return auth.errorResponse;
+  }
   const event = {
     path: url.pathname,
     httpMethod: req.method,

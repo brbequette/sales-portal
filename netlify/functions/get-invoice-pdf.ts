@@ -1,9 +1,11 @@
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
 const ORG_ID = ZOHO_ORGANIZATION_ID
 import { getStore } from "@netlify/blobs"
 
 import { prisma } from "./lib/prisma"
+import { isAdminRole } from "../../src/lib/roles"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 // How long a cached PDF is considered valid before re-fetching from Zoho
@@ -23,7 +25,7 @@ function getBlobKey(type: string, booksDocId: string): string {
   return `pdf/${t}/${booksDocId}`
 }
 
-export const handler: Handler = async (event) => {
+const authenticatedHandler: Handler = async (event) => {
   const corsHeaders: Record<string, string> = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type",
@@ -36,6 +38,8 @@ export const handler: Handler = async (event) => {
   }
 
   try {
+    const sessionUser = await authenticateFunction(event)
+    const actorId = sessionUser.dbId || sessionUser.userId
     const { id, type = "Invoice", booksInvoiceId: queryBooksId, download, force } = event.queryStringParameters || {}
 
     let booksDocId = queryBooksId || id
@@ -44,11 +48,15 @@ export const handler: Handler = async (event) => {
     // ── Step 1: Resolve the Zoho Books ID from DB ──
     if (!queryBooksId && id) {
       if (type === "Invoice") {
-        dbDoc = await prisma.invoice.findFirst({ where: { OR: [{ id }, { zohoId: id }] } })
+        dbDoc = await prisma.invoice.findFirst({ where: { OR: [{ id }, { zohoId: id }] }, include: { account: { select: { ownerId: true } } } })
       } else if (type === "SalesOrder") {
-        dbDoc = await prisma.salesOrder.findFirst({ where: { OR: [{ id }, { zohoId: id }] } })
+        dbDoc = await prisma.salesOrder.findFirst({ where: { OR: [{ id }, { zohoId: id }] }, include: { account: { select: { ownerId: true } } } })
       } else if (type === "Quote") {
-        dbDoc = await prisma.quote.findFirst({ where: { OR: [{ id }, { zohoId: id }] } })
+        dbDoc = await prisma.quote.findFirst({ where: { OR: [{ id }, { zohoId: id }] }, include: { account: { select: { ownerId: true } } } })
+      }
+
+      if (!isAdminRole(sessionUser.role) && (!actorId || !dbDoc || dbDoc.account?.ownerId !== actorId)) {
+        return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ success: false, message: "You can only download documents belonging to your accounts" }) }
       }
 
       if (dbDoc) {
@@ -110,6 +118,10 @@ export const handler: Handler = async (event) => {
           }
         }
       }
+    }
+
+    if (!isAdminRole(sessionUser.role) && !dbDoc) {
+      return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ success: false, message: "A local owned document is required" }) }
     }
 
     if (!booksDocId) {
@@ -241,3 +253,5 @@ export const handler: Handler = async (event) => {
     }
   }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler)

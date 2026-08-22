@@ -30,10 +30,13 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files (commit sanitized templates only)
 .env
 .env.local
 .env*
+!.env.example
+!.env.*.example
+!.env.selfhost.example
 
 # vercel
 .vercel
@@ -46,3 +49,31 @@ next-env.d.ts
 
 # Local Netlify folder
 .netlify
+
+# Local AI/editor metadata and scratch work
+.agents/
+.gemini/
+scratch/
+scratch_*
+/'2026-08-14'
+
+# Local exports may contain customer or financial data
+sale_lineage_export.csv
+scripts/backfill/*backup*.json
+/backups/
+
+# Codex-generated previews and local working artifacts
+/.codex-artifact/
+/.codex-tmp/
+/outputs/
+
+# Local source-image/data drops (may contain private or licensed material)
+/All Pics/
+/Sopify data/
+
+# Accidental zero-byte shell artifacts
+/=
+/cf_dead_cost_total
+/cf_profit
+/deadCostTotal
+/deadProfitActual

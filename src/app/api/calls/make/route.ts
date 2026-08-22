@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getZohoAccessToken } from "@/lib/zoho-auth"
+import { checkAccountOwnership } from "@/lib/auth-helpers"
 
 // Resolve the outbound caller-ID number: explicit override  to  env  to  default
 // Zoho number from system settings  to  legacy fallback.
@@ -35,6 +36,10 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const { fromNumber, toNumber, accountId } = body
+
+    if (!accountId) return NextResponse.json({ error: "An account is required to place a call" }, { status: 400 })
+    const access = await checkAccountOwnership(accountId)
+    if (!access.authorized) return access.errorResponse || NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
     const to = normalize(toNumber)
     if (!to) {

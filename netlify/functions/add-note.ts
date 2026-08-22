@@ -1,8 +1,9 @@
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { corsHeaders, handleOptions } from "./lib/cors"
 import { prisma } from "./lib/prisma"
 
-export const handler: Handler = async (event) => {
+const authenticatedHandler: Handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return handleOptions()
 
   if (event.httpMethod !== "POST") {
@@ -14,7 +15,8 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const { accountId, content, userId, userEmail } = JSON.parse(event.body || "{}")
+    const caller = await authenticateFunction(event)
+    const { accountId, content } = JSON.parse(event.body || "{}")
 
     if (!accountId || !content) {
       return {
@@ -24,19 +26,21 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    let author = null
-    if (userId) {
-      author = await prisma.user.findUnique({ where: { id: userId } })
-    }
-    if (!author && userEmail) {
-      author = await prisma.user.findUnique({ where: { email: userEmail } })
-    }
+    const callerId = String(caller.dbId || caller.userId || "")
+    const author = callerId ? await prisma.user.findUnique({ where: { id: callerId } }) : null
     if (!author) {
       return {
         statusCode: 400,
         headers: corsHeaders,
         body: JSON.stringify({ success: false, error: "Unauthorized: User not found" })
       }
+    }
+
+    const account = await prisma.account.findUnique({ where: { id: accountId }, select: { ownerId: true } })
+    const role = String(caller.role || "").toLowerCase()
+    const privileged = role.includes("admin") || role.includes("manager")
+    if (!account || (!privileged && account.ownerId !== callerId)) {
+      return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ success: false, error: "Forbidden" }) }
     }
 
     const note = await prisma.note.create({
@@ -63,3 +67,5 @@ export const handler: Handler = async (event) => {
     }
   }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler)

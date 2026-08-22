@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server"
 import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from "../../../../netlify/functions/lib/zoho-auth"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 
 export async function POST(req: Request) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const { sku } = await req.json()
     if (!sku) return NextResponse.json({ error: "Missing SKU" }, { status: 400 })
 

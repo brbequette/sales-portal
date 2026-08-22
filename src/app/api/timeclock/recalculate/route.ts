@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
@@ -8,6 +9,8 @@ export const maxDuration = 60
 // Only affects entries where clockOut was auto-set (no manualClockOut) and clockOut > lastActivity
 export async function POST(req: Request) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const body = await req.json().catch(() => ({}))
     const dryRun = body.dryRun !== false // Default to dry run
 

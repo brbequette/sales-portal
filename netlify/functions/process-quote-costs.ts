@@ -1,3 +1,4 @@
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
 const ORG_ID = ZOHO_ORGANIZATION_ID
@@ -5,6 +6,7 @@ import { calculateDocumentCosts, buildFieldsToUpdate } from "./lib/cost-calculat
 import { detectConflict, updateQuoteRecord } from "../../src/lib/sync-engine"
 
 import { prisma } from "./lib/prisma"
+import { authorizeCostProcessing, hasPrivilegedCostOptions } from "./lib/document-access"
 const ZOHO_DC = process.env.ZOHO_DC || "com"
 
 // ── Loop Guard ──
@@ -24,7 +26,7 @@ function markProcessed(id: string) {
   }
 }
 
-export const handler: Handler = async (event) => {
+export const internalHandler: Handler = async (event) => {
   const cors = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
@@ -36,11 +38,20 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "Method not allowed" }) }
 
   try {
+    const sessionUser = await authenticateFunction(event)
     const body = JSON.parse(event.body || "{}")
     const { estimateNumber, estimateId, vigRate: manualVigRate, commissionPercent: manualCommPct, noVigOverrides, skipLoopGuard } = body
 
     if (!estimateNumber && !estimateId) {
       return { statusCode: 400, headers: cors, body: JSON.stringify({ success: false, error: "Missing estimateNumber or estimateId" }) }
+    }
+
+    const access = await authorizeCostProcessing(sessionUser, "quote", { id: estimateId, number: estimateNumber })
+    if (!access.authorized) {
+      return { statusCode: 403, headers: cors, body: JSON.stringify({ success: false, error: "You can only process estimates belonging to your accounts" }) }
+    }
+    if (!access.administrator && hasPrivilegedCostOptions(body)) {
+      return { statusCode: 403, headers: cors, body: JSON.stringify({ success: false, error: "Manual cost overrides require an administrator" }) }
     }
 
     const token = await getZohoAccessToken()
@@ -171,3 +182,5 @@ export const handler: Handler = async (event) => {
     return { statusCode: 500, headers: cors, body: JSON.stringify({ success: false, error: err.message }) }
   }
 }
+
+export const handler = withFunctionAuth(internalHandler)

@@ -1,88 +1,58 @@
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
-import { getZohoAccessToken } from "./lib/zoho-auth"
+import { getZohoAccessToken, ZOHO_DC } from "./lib/zoho-auth"
 
 import { prisma } from "./lib/prisma"
-const ZOHO_DC = process.env.ZOHO_DC || 'com';
-
-export const handler: Handler = async (event, context) => {
+import { isAdminRole } from "../../src/lib/roles"
+const authenticatedHandler: Handler = async (event, context) => {
   if (event.httpMethod !== "GET") {
     return { statusCode: 405, body: JSON.stringify({ success: false, message: "Method Not Allowed" }) }
   }
 
   try {
-    const { zohoId, email, refresh, ownerIdFilter, role: passedRole, checkOnly } = event.queryStringParameters || {}
+    const auth = await authenticateFunction(event)
+    const {
+      zohoId: requestedZohoId,
+      email: requestedEmail,
+      refresh,
+      ownerIdFilter,
+      checkOnly,
+    } = event.queryStringParameters || {}
+    const sessionDbUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          auth.dbId ? { id: auth.dbId } : undefined,
+          auth.userId ? { id: auth.userId } : undefined,
+          auth.email ? { email: { equals: auth.email, mode: "insensitive" } } : undefined,
+        ].filter(Boolean) as any,
+      },
+    })
 
-    if (!zohoId && !email) {
-      return { statusCode: 400, body: JSON.stringify({ success: false, message: "Missing zohoId or email parameter" }) }
+    if (!sessionDbUser) {
+      return { statusCode: 403, body: JSON.stringify({ success: false, message: "Signed-in user is not linked to a local user record" }) }
     }
 
-    let user = null
-
-    if (zohoId) {
-      if (zohoId.startsWith('c') && zohoId.length >= 20) {
-        user = await prisma.user.findUnique({ where: { id: zohoId } })
-      } else {
-        user = await prisma.user.findUnique({ where: { zohoId: zohoId } })
-      }
-    }
-    if (!user && email) {
-      user = await prisma.user.findUnique({ where: { email: email } })
-    }
-
-    if (!user) {
-      // Auto-create user so fresh databases don't 404 (mirrors get-accounts behavior)
-      if (email || zohoId) {
-        user = await prisma.user.create({
-          data: {
-            email: email || `${zohoId}@titandiamond.net`,
-            zohoId: zohoId || `auto-${Date.now()}`,
-            name: email ? email.split('@')[0] : 'User',
-            role: passedRole || 'Sales Representative'
-          }
-        })
-      } else {
-        return { statusCode: 404, body: JSON.stringify({ success: false, message: "User not found" }) }
-      }
+    const sessionIsAdmin = isAdminRole(sessionDbUser.role)
+    let user = sessionDbUser
+    if (sessionIsAdmin && (requestedZohoId || (requestedEmail && requestedEmail.toLowerCase() !== sessionDbUser.email.toLowerCase()))) {
+      const requestedUser = await prisma.user.findFirst({
+        where: {
+          OR: [
+            requestedZohoId ? { id: requestedZohoId } : undefined,
+            requestedZohoId ? { zohoId: requestedZohoId } : undefined,
+            requestedEmail ? { email: { equals: requestedEmail, mode: "insensitive" } } : undefined,
+          ].filter(Boolean) as any,
+        },
+      })
+      if (requestedUser) user = requestedUser
     }
 
-    // Auto-heal Ben and Monty's roles/names in the database
-    const lowerEmail = user.email?.toLowerCase() || "";
-    let needsUpdate = false;
-    let updateData: any = {};
-
-    if ((
-      lowerEmail.includes("ben") || 
-      lowerEmail.includes("monty") || 
-      lowerEmail.includes("bequette") || 
-      lowerEmail.includes("morgan")
-    ) && user.role !== "Administrator") {
-      updateData.role = "Administrator";
-      needsUpdate = true;
-    }
-
-    if (lowerEmail === "ben@titandiamond.net" && user.name !== "Benjamin Bequette") {
-      updateData.name = "Benjamin Bequette";
-      needsUpdate = true;
-    }
-
-    if (needsUpdate) {
-      console.log(`Auto-healing role/name for ${user.email}...`);
-      user = await prisma.user.update({
-        where: { id: user.id },
-        data: updateData
-      });
-    }
-
-    const normalizedRole = user.role?.toLowerCase() || "";
-    const isSalesOnly = normalizedRole.includes("sales") && 
-                        !normalizedRole.includes("admin") && 
-                        !normalizedRole.includes("administrator") && 
-                        !normalizedRole.includes("manager") && 
-                        !normalizedRole.includes("collections");
+    const isAdmin = sessionIsAdmin && user.id === sessionDbUser.id
+    const isSalesOnly = !isAdmin
 
     // ── checkOnly mode: returns count + latestUpdatedAt only ──────────────
     if (checkOnly === 'true') {
-      const whereClause = (isSalesOnly && user.zohoId) ? { ownerId: user.zohoId } : {}
+      const whereClause = isSalesOnly ? { ownerId: user.id } : {}
       const [count, latest] = await Promise.all([
         prisma.task.count({ where: whereClause }),
         prisma.task.findFirst({ where: whereClause, orderBy: { updatedAt: 'desc' }, select: { updatedAt: true } })
@@ -92,6 +62,10 @@ export const handler: Handler = async (event, context) => {
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
         body: JSON.stringify({ success: true, checkOnly: true, count, latestUpdatedAt: latest?.updatedAt ?? null })
       }
+    }
+
+    if (refresh === "true" && !isAdmin) {
+      return { statusCode: 403, body: JSON.stringify({ success: false, message: "Only administrators can run a live Zoho task refresh" }) }
     }
 
     if (refresh === "true") {
@@ -308,3 +282,5 @@ export const handler: Handler = async (event, context) => {
     }
   }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler)

@@ -2,9 +2,16 @@ import { Handler } from "@netlify/functions"
 import { bulkSyncPage } from "./lib/bulk-sync"
 import { prisma } from "./lib/prisma"
 import { corsHeaders, handleOptions } from "./lib/cors"
+import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return handleOptions()
+
+  try {
+    await authenticateFunction(event, { requireAdmin: true })
+  } catch (error) {
+    return authErrorResponse(error, corsHeaders)
+  }
 
   try {
     const body = JSON.parse(event.body || "{}")

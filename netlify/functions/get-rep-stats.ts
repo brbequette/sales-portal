@@ -1,3 +1,4 @@
+import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { getSystemSettings } from "./lib/settings"
 import { prisma, Prisma } from "./lib/prisma"
@@ -46,7 +47,7 @@ function getWorkdaysInWeek(date: Date, holidays: any[]): number {
   return getWorkdaysCount(monday, sunday, holidays);
 }
 
-export const handler: Handler = async (event) => {
+const authenticatedHandler: Handler = async (event) => {
   const cors = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
@@ -57,11 +58,27 @@ export const handler: Handler = async (event) => {
     return { statusCode: 204, headers: cors, body: "" }
   }
 
+  let authenticatedUser: Awaited<ReturnType<typeof authenticateFunction>>
+  try {
+    authenticatedUser = await authenticateFunction(event)
+  } catch (error) {
+    return authErrorResponse(error, cors)
+  }
+
   try {
     const params = event.queryStringParameters || {}
     const monthParam = params.month
     const dateParam = params.date
-    const repIdFilter = params.repId || params.user || params.rep || "all"
+    let repIdFilter = params.repId || params.user || "all"
+    const role = String(authenticatedUser.role || "").toLowerCase()
+    const privileged = role.includes("admin") || role.includes("manager")
+    const authenticatedRepId = authenticatedUser.dbId || authenticatedUser.userId
+    if (!privileged && repIdFilter !== "all" && repIdFilter !== authenticatedRepId) {
+      return { statusCode: 403, headers: cors, body: JSON.stringify({ success: false, error: "Forbidden" }) }
+    }
+    // Sales reps may see their own detailed records only. Company-level totals
+    // are exposed by the aggregate dashboard endpoint without leaking peer data.
+    if (!privileged) repIdFilter = authenticatedRepId
     const periodParam = params.period || "this_month"
     const customStartDate = params.startDate
     const customEndDate = params.endDate
@@ -69,9 +86,10 @@ export const handler: Handler = async (event) => {
 
     // ── checkOnly mode: returns count + latestUpdatedAt only ──────────────
     if (checkOnly === 'true') {
+      const whereClause = repIdFilter !== "all" ? { account: { ownerId: repIdFilter } } : {}
       const [count, latest] = await Promise.all([
-        prisma.invoice.count(),
-        prisma.invoice.findFirst({ orderBy: { updatedAt: 'desc' }, select: { updatedAt: true } })
+        prisma.invoice.count({ where: whereClause }),
+        prisma.invoice.findFirst({ where: whereClause, orderBy: { updatedAt: 'desc' }, select: { updatedAt: true } })
       ])
       return {
         statusCode: 200,
@@ -133,6 +151,9 @@ export const handler: Handler = async (event) => {
     //       Also reads new computedProfit/deadProfit columns when available (post-migration).
     const soExcludedStatuses = ['Void','void','VOID','Draft','draft','DRAFT','Cancelled','cancelled','CANCELLED','Invoiced','invoiced','INVOICED','Converted','converted','CONVERTED']
     const soExcludedSql = Prisma.sql`AND s.status NOT IN (${Prisma.join(soExcludedStatuses)})`
+    const repFilterSql = repIdFilter !== 'all'
+      ? Prisma.sql`AND a."ownerId" = ${repIdFilter}`
+      : Prisma.empty
 
     const [
       settings,
@@ -210,12 +231,14 @@ export const handler: Handler = async (event) => {
             'gifts_cost',             i.items->>'gifts_cost',
             'profit',                 i.items->>'profit',
             'commission',             i.items->>'commission',
+            'salesCommission',        i.items->>'salesCommission',
             'cf_commission_amount_unformatted', i.items->>'cf_commission_amount_unformatted'
           ) AS items
         FROM "Invoice" i
-        LEFT JOIN "Account" a ON a.id = i."accountId"
+        JOIN "Account" a ON a.id = i."accountId"
         WHERE i."issueDate" >= ${rangeStart} AND i."issueDate" <= ${rangeEnd}
           AND i.status NOT IN ('Void','void','Draft','draft')
+          ${repFilterSql}
         ORDER BY i."issueDate" DESC
       `).catch(() => []),
 
@@ -248,9 +271,10 @@ export const handler: Handler = async (event) => {
             'cc_fees',         s.items->>'cc_fees'
           ) AS items
         FROM "SalesOrder" s
-        LEFT JOIN "Account" a ON a.id = s."accountId"
+        JOIN "Account" a ON a.id = s."accountId"
         WHERE s."orderDate" >= ${rangeStart} AND s."orderDate" <= ${rangeEnd}
           ${soExcludedSql}
+          ${repFilterSql}
         ORDER BY s."orderDate" DESC
       `).catch(() => []),
 
@@ -409,9 +433,19 @@ export const handler: Handler = async (event) => {
         deadProfit  = parseFloat(inv.computedDeadProfit) || 0
         deadCost    = parseFloat(inv.computedDeadCost)   || 0
         vigRate     = parseFloat(inv.computedVigRate)    || 1.3
-        const upfront = parseFloat(inv.computedUpfront)  || (profit * 0.25)
-        const final   = parseFloat(inv.computedFinal)    || (profit * 0.25)
-        commission  = upfront + final
+        const storedCommission = parseFloat(items.salesCommission)
+        const legacyCommission = parseFloat(items.commission)
+        const computedUpfront = parseFloat(inv.computedUpfront)
+        const plannedCommission = Number.isFinite(storedCommission)
+          ? storedCommission
+          : Number.isFinite(legacyCommission)
+            ? legacyCommission
+            : Number.isFinite(computedUpfront)
+              ? computedUpfront * 2
+              : profit * 0.50
+        commission = (inv.status || '').toLowerCase() === 'paid'
+          ? plannedCommission
+          : plannedCommission * 0.50
         salespersonName = inv.computedSalesperson || items.salesperson || ''
       } else {
         // ── FALLBACK: parse from extracted JSON scalar fields ─────────────────
@@ -450,8 +484,19 @@ export const handler: Handler = async (event) => {
 
         deadProfit = amount - deadCost - additionalCosts - ccFees
         profit     = amount - deadCostPlusVig - additionalCosts - ccFees
-        commission = parseFloat(items.commission || items.cf_commission_amount_unformatted || 'NaN') ||
-          (profit * 0.50)
+        const storedCommission = parseFloat(items.salesCommission)
+        const legacyCommission = parseFloat(items.commission)
+        const customCommission = parseFloat(items.cf_commission_amount_unformatted)
+        const plannedCommission = Number.isFinite(storedCommission)
+          ? storedCommission
+          : Number.isFinite(legacyCommission)
+            ? legacyCommission
+            : Number.isFinite(customCommission)
+              ? customCommission
+              : profit * 0.50
+        commission = (inv.status || '').toLowerCase() === 'paid'
+          ? plannedCommission
+          : plannedCommission * 0.50
       }
 
       // Resolve repId from salesperson name or account owner
@@ -602,35 +647,8 @@ export const handler: Handler = async (event) => {
       return false
     }
 
-    let allCompanyReps = Object.values(repStatsMap).filter((r: any) => r.repId !== unassignedId || r.invoices.length > 0 || r.salesOrders.length > 0)
+    let repsList = Object.values(repStatsMap).filter((r: any) => r.repId !== unassignedId || r.invoices.length > 0 || r.salesOrders.length > 0)
     
-    let companyInvoiceCount = 0
-    let companyInvoiceSubtotal = 0
-    let companyInvoiceWeeklyRevenue = 0
-    let companyInvoiceDeadProfit = 0
-    let companyInvoiceNetProfit = 0
-    let companyInvoiceCommission = 0
-
-    let companySalesOrderCount = 0
-    let companySalesOrderSubtotal = 0
-    let companySalesOrderDeadProfit = 0
-    let companySalesOrderEstCommission = 0
-
-    allCompanyReps.forEach((r: any) => {
-      companyInvoiceCount += r.invoiceCount
-      companyInvoiceSubtotal += r.revenue
-      companyInvoiceWeeklyRevenue += r.weeklyRevenue || 0
-      companyInvoiceDeadProfit += r.deadProfit
-      companyInvoiceNetProfit += r.profit
-      companyInvoiceCommission += r.commissions
-
-      companySalesOrderCount += r.salesOrderCount
-      companySalesOrderSubtotal += r.salesOrderSubtotal
-      companySalesOrderDeadProfit += r.salesOrderDeadProfit
-      companySalesOrderEstCommission += r.salesOrderEstCommission
-    })
-
-    let repsList = allCompanyReps
     if (repIdFilter !== "all") {
       repsList = repsList.filter((r: any) => isRepMatch(r, repIdFilter))
     }
@@ -661,6 +679,10 @@ export const handler: Handler = async (event) => {
       totalSalesOrderEstCommission += r.salesOrderEstCommission
     })
 
+    const visibleReps = privileged
+      ? repsList
+      : repsList.filter((r: any) => r.repId === authenticatedRepId)
+
     return {
       statusCode: 200,
       headers: cors,
@@ -671,20 +693,7 @@ export const handler: Handler = async (event) => {
           start: rangeStart.toISOString(),
           end: rangeEnd.toISOString()
         },
-        reps: repsList,
-        companyReps: allCompanyReps,
-        companyTotals: {
-          invoiceCount: companyInvoiceCount,
-          invoiceSubtotal: companyInvoiceSubtotal,
-          invoiceWeeklyRevenue: companyInvoiceWeeklyRevenue,
-          invoiceDeadProfit: companyInvoiceDeadProfit,
-          invoiceNetProfit: companyInvoiceNetProfit,
-          invoiceCommission: companyInvoiceCommission,
-          salesOrderCount: companySalesOrderCount,
-          salesOrderSubtotal: companySalesOrderSubtotal,
-          salesOrderDeadProfit: companySalesOrderDeadProfit,
-          salesOrderEstCommission: companySalesOrderEstCommission
-        },
+        reps: visibleReps,
         totals: {
           invoiceCount: totalInvoiceCount,
           invoiceSubtotal: totalInvoiceSubtotal,
@@ -709,3 +718,5 @@ export const handler: Handler = async (event) => {
     }
   }
 }
+
+export const handler = authenticatedHandler

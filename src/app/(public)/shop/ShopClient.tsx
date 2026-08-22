@@ -1,355 +1,270 @@
 "use client";
 
-import { useState, useEffect, Suspense } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { PublicProductImage } from '@/components/PublicProductImage';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { FiSearch, FiLock, FiPhone, FiTag, FiBox, FiArrowRight, FiCheckCircle } from 'react-icons/fi';
+import { FiArrowLeft, FiArrowRight, FiAward, FiBox, FiCheckCircle, FiChevronDown, FiDollarSign, FiFilter, FiGift, FiLock, FiPackage, FiSearch, FiSliders, FiTag, FiTrendingUp, FiX } from 'react-icons/fi';
+import imageMapData from '@/lib/image-map.json';
+import type { ProductOffer } from '@/lib/product-offers';
 
-type Product = {
-  id: string;
-  name: string;
-  sku: string;
-  category: string;
-  imageUrl?: string | null;
-  description?: string | null;
-  price?: number;
-  stock?: number;
+type RawProduct = {
+  id: string; name: string; sku: string; category?: string | null; imageUrl?: string | null; description?: string | null;
+  price?: number; stock?: number; giftItem?: boolean; size?: string | null; application?: string | null;
+  vendor?: string | null; productType?: string | null; toolType?: string | null; equipment?: string | null; materials?: unknown; attributes?: unknown;
 };
-
-type ParsedProduct = {
-  id: string;
-  name: string;
-  sku: string;
-  category: string;
-  imageUrl: string;
-  textDescription: string;
-  price?: number;
-  stock?: number;
+type PublicAttributes = { segmentHeight?: string; slotType?: string; offer?: ProductOffer };
+type CatalogProduct = {
+  id: string; name: string; sku: string; category: string; imageUrl: string; description: string; size: string; application: string;
+  productType: string; toolType: string; equipment: string; materials: string[]; applications: string[]; sizes: string[]; technical: PublicAttributes; searchable: string;
 };
+type Filters = { category: string; application: string; material: string; size: string };
+type SortMode = 'featured' | 'name-asc' | 'name-desc' | 'sku-asc';
 
-const CATEGORIES = [
-  "All",
-  "Professional Blades",
-  "Saw Blades",
-  "Core Bits",
-  "Concrete Polisher",
-  "Grinding Products",
-  "Turbo Blades",
-  "Tile Blades",
-  "Tuck Points",
-  "Stone Products",
-  "ZENESIS™",
-  "DIAMONDX™"
-];
+const imageMap = imageMapData as Record<string, { image?: string | null }>;
+const EMPTY_FILTERS: Filters = { category: '', application: '', material: '', size: '' };
+const PAGE_SIZES = [24, 48, 96];
 
-function getCategoryFallbackImage(category: string): string {
-  const cat = (category || '').toLowerCase();
-  if (cat.includes('core')) return '/images/core_bit.png';
-  if (cat.includes('cup') || cat.includes('grind') || cat.includes('tuck') || cat.includes('polish')) return '/images/tuck_point.jpg';
-  if (cat.includes('turbo') || cat.includes('tile')) return '/images/turbo_blade.png';
-  if (cat.includes('rim')) return '/images/continuous_rim_blade.png';
+function values(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(String).map((item) => item.trim()).filter(Boolean);
+  if (typeof value === 'string') return value.split(/[,;|]/).map((item) => item.trim()).filter(Boolean);
+  return [];
+}
+function unique(items: string[]) { return [...new Set(items.map((item) => item.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })); }
+function canonicalApplications(text: string) {
+  const found: string[] = [];
+  const add = (pattern: RegExp, label: string) => pattern.test(text) && found.push(label);
+  add(/REINFORCED|REBAR/i, 'Reinforced concrete'); add(/GREEN CONCRETE|EARLY.?ENTRY/i, 'Green concrete');
+  add(/ASPHALT/i, 'Asphalt'); add(/CONCRETE|AGGREGATE|RIVER ROCK/i, 'Concrete'); add(/MASONRY|BRICK|BLOCK|PAVER/i, 'Masonry');
+  add(/TILE|PORCELAIN|CERAMIC/i, 'Tile & porcelain'); add(/STONE|GRANITE|MARBLE|QUARTZ/i, 'Stone');
+  add(/DUCTILE/i, 'Ductile iron'); add(/METAL|STEEL|FERROUS|IRON/i, 'Metal'); add(/GLASS/i, 'Glass');
+  add(/CORE BIT|CORE DRILL|CORING/i, 'Core drilling'); add(/GRIND|CUP WHEEL|SURFACE PREP|POLISH/i, 'Surface preparation');
+  return unique(found);
+}
+function canonicalMaterials(text: string) {
+  const found: string[] = [];
+  const add = (pattern: RegExp, label: string) => pattern.test(text) && found.push(label);
+  add(/REINFORCED|REBAR/i, 'Reinforced concrete'); add(/GREEN CONCRETE/i, 'Green concrete'); add(/ASPHALT/i, 'Asphalt');
+  add(/CONCRETE|AGGREGATE|RIVER ROCK/i, 'Concrete'); add(/MASONRY|BRICK|BLOCK|PAVER/i, 'Masonry');
+  add(/TILE|PORCELAIN|CERAMIC/i, 'Tile & porcelain'); add(/STONE|GRANITE|MARBLE|QUARTZ/i, 'Stone');
+  add(/DUCTILE/i, 'Ductile iron'); add(/METAL|STEEL|FERROUS|IRON/i, 'Metal'); add(/GLASS/i, 'Glass'); add(/WOOD/i, 'Wood');
+  return unique(found);
+}
+function canonicalSizes(raw: string) {
+  return unique(values(raw).flatMap((value) => {
+    const cleaned = value.trim().replace(/[”″]/g, '"');
+    const match = cleaned.match(/^(\d+(?:\.\d+|\s+\d+\/\d+|-\d+\/\d+|\/\d+)?)/);
+    return match ? [`${match[1].replace('-', ' ')}"`] : [];
+  }));
+}
+function fallbackImage(category: string) {
+  const value = category.toLowerCase();
+  if (value.includes('core')) return '/images/core_bit.png';
+  if (/cup|grind|tuck|polish/.test(value)) return '/images/tuck_point.jpg';
+  if (/turbo|tile/.test(value)) return '/images/turbo_blade.png';
+  if (value.includes('rim')) return '/images/continuous_rim_blade.png';
   return '/images/saw_blade.jpg';
+}
+function parseProduct(item: RawProduct): CatalogProduct {
+  let parsed: Record<string, unknown> = {};
+  let description = item.description || '';
+  try {
+    if (item.description?.trim().startsWith('{')) {
+      parsed = JSON.parse(item.description);
+      description = String(parsed.text || parsed.pertinentInfo || '');
+    }
+  } catch { /* Keep plain description. */ }
+  const attributes = item.attributes && typeof item.attributes === 'object' ? item.attributes as Record<string, unknown> : {};
+  const sku = item.sku.trim();
+  const mapped = imageMap[sku.toUpperCase()]?.image;
+  const stored = item.imageUrl || (typeof parsed.image === 'string' ? parsed.image : '');
+  const category = item.category && item.category !== 'Uncategorized' ? item.category : item.productType || item.toolType || 'Diamond Tooling';
+  const materials = unique([...values(item.materials), ...values(attributes.materials), ...values(attributes.suitableMaterials)]);
+  const size = item.size || String(attributes.size || attributes.sizes || '');
+  const application = item.application || String(attributes.application || attributes.applications || '');
+  const equipment = item.equipment || String(attributes.equipment || '');
+  const imageUrl = mapped || (!stored.includes('placeholder') ? stored : '') || `/product-images/${encodeURIComponent(sku)}.png`;
+  const searchable = [item.name, sku, category, item.productType, item.toolType, size, application, equipment, materials.join(' '), description, 'Titan Diamond USA'].filter(Boolean).join(' ').toLowerCase();
+  const canonicalText = [application, equipment, materials.join(' '), description, item.productType, item.toolType].filter(Boolean).join(' ');
+  const applications = canonicalApplications(canonicalText);
+  const materialFacets = canonicalMaterials(materials.join(' '));
+  const technical = attributes as PublicAttributes;
+  return { id: item.id || sku, name: item.name, sku, category, imageUrl, description, size, application, productType: item.productType || '', toolType: item.toolType || '', equipment, materials: materialFacets.length ? materialFacets : materials, applications, sizes: canonicalSizes(size), technical, searchable };
 }
 
 function ShopContent() {
-  const searchParams = useSearchParams();
-  const initialCat = searchParams.get('category') || "All";
-
-  const [products, setProducts] = useState<ParsedProduct[]>([]);
-  const [search, setSearch] = useState('');
-  const [activeCategory, setActiveCategory] = useState("All");
+  const params = useSearchParams();
+  const [products, setProducts] = useState<CatalogProduct[]>([]);
+  const [query, setQuery] = useState(params.get('q') || '');
+  const [filters, setFilters] = useState<Filters>({ ...EMPTY_FILTERS, category: params.get('category') || '' });
+  const [sort, setSort] = useState<SortMode>('featured');
+  const [pageSize, setPageSize] = useState(24);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [selectedProduct, setSelectedProduct] = useState<ParsedProduct | null>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [selected, setSelected] = useState<CatalogProduct | null>(null);
 
   useEffect(() => {
-    if (initialCat) {
-      const matched = CATEGORIES.find(c => c.toLowerCase() === initialCat.toLowerCase() || c.toLowerCase().includes(initialCat.toLowerCase()));
-      if (matched) setActiveCategory(matched);
-    }
-  }, [initialCat]);
-
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        let skuMap: Record<string, string> = {};
-        try {
-          const mapRes = await fetch('/sku_map.json');
-          if (mapRes.ok) skuMap = await mapRes.json();
-        } catch (e) {
-          console.warn("Could not load sku_map.json", e);
-        }
-
-        const res = await fetch('/api/get-products');
-        if (res.ok) {
-          const data = await res.json();
-          const rawList = Array.isArray(data) ? data : (data.products || []);
-          
-          const parsedList: ParsedProduct[] = rawList.map((item: Product) => {
-            let img = item.imageUrl || '';
-            let textDesc = '';
-
-            if (item.description) {
-              try {
-                if (item.description.startsWith('{')) {
-                  const parsed = JSON.parse(item.description);
-                  if (parsed.image && !parsed.image.includes('placeholder')) {
-                    img = parsed.image;
-                  }
-                  textDesc = parsed.text || parsed.pertinentInfo || '';
-                } else {
-                  textDesc = item.description;
-                }
-              } catch {
-                textDesc = item.description;
-              }
-            }
-
-            const cleanSku = (item.sku || '').trim().toUpperCase();
-            if (skuMap[cleanSku]) {
-              img = `/product-images/${skuMap[cleanSku]}`;
-            } else if (!img || img.includes('placeholder')) {
-              img = `/product-images/${item.sku}.png`;
-            }
-
-            return {
-              id: item.id || item.sku,
-              name: item.name,
-              sku: item.sku,
-              category: item.category || 'General',
-              imageUrl: img,
-              textDescription: textDesc,
-              price: item.price,
-              stock: item.stock
-            };
-          });
-
-          setProducts(parsedList);
-        }
-      } catch (error) {
-        console.error("Failed to fetch products:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProducts();
+    let active = true;
+    fetch('/api/public/products').then(async (response) => {
+      if (!response.ok) throw new Error('Catalog request failed');
+      const payload = await response.json();
+      const rows = (Array.isArray(payload) ? payload : payload.products || []) as RawProduct[];
+      if (active) setProducts(rows.filter((item) => !item.giftItem).map(parseProduct));
+    }).catch((error) => console.error('Failed to fetch catalog:', error)).finally(() => active && setLoading(false));
+    return () => { active = false; };
   }, []);
 
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(search.toLowerCase()) || 
-                          product.sku.toLowerCase().includes(search.toLowerCase());
-    
-    let matchesCategory = activeCategory === "All";
-    if (!matchesCategory) {
-      const catLower = activeCategory.toLowerCase();
-      const prodCatLower = product.category.toLowerCase();
-      matchesCategory = prodCatLower.includes(catLower) || catLower.includes(prodCatLower);
-    }
+  const facets = useMemo(() => ({
+    category: unique(products.map((item) => item.category)),
+    application: unique(products.flatMap((item) => item.applications)),
+    material: unique(products.flatMap((item) => item.materials)),
+    size: unique(products.flatMap((item) => item.sizes)),
+  }), [products]);
 
-    return matchesSearch && matchesCategory;
-  });
+  const results = useMemo(() => {
+    const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    const list = products.filter((item) => {
+      if (terms.some((term) => !item.searchable.includes(term))) return false;
+      if (filters.category && item.category.toLowerCase() !== filters.category.toLowerCase()) return false;
+      if (filters.application && !item.applications.includes(filters.application)) return false;
+      if (filters.material && !item.materials.some((value) => value.toLowerCase() === filters.material.toLowerCase())) return false;
+      if (filters.size && !item.sizes.includes(filters.size)) return false;
+      return true;
+    });
+    return list.sort((a, b) => {
+      if (sort === 'name-asc') return a.name.localeCompare(b.name, undefined, { numeric: true });
+      if (sort === 'name-desc') return b.name.localeCompare(a.name, undefined, { numeric: true });
+      if (sort === 'sku-asc') return a.sku.localeCompare(b.sku, undefined, { numeric: true });
+      const aImage = imageMap[a.sku.toUpperCase()]?.image ? 1 : 0;
+      const bImage = imageMap[b.sku.toUpperCase()]?.image ? 1 : 0;
+      return bImage - aImage || a.name.localeCompare(b.name, undefined, { numeric: true });
+    });
+  }, [products, query, filters, sort]);
+
+  useEffect(() => setPage(1), [query, filters, sort, pageSize]);
+  const totalPages = Math.max(1, Math.ceil(results.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const visible = results.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const activeFilters = Object.entries(filters).filter(([, value]) => value);
+  const clearAll = () => { setQuery(''); setFilters(EMPTY_FILTERS); };
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white relative">
-      {/* Product Detail Quick Modal */}
-      {selectedProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4" onClick={() => setSelectedProduct(null)}>
-          <div className="bg-neutral-900 border border-amber-500/30 rounded-3xl p-6 sm:p-8 max-w-2xl w-full text-left shadow-2xl relative overflow-hidden" onClick={e => e.stopPropagation()}>
-            <button 
-              onClick={() => setSelectedProduct(null)} 
-              className="absolute top-4 right-4 text-neutral-400 hover:text-white text-xl font-bold w-9 h-9 rounded-full bg-neutral-800/80 flex items-center justify-center transition-colors"
-            >
-              ✕
-            </button>
+    <div className="catalog-page relative min-h-screen bg-neutral-950 text-white">
+      {selected && <ProductModal product={selected} onClose={() => setSelected(null)} />}
+      <section className="border-b border-white/10 px-4 pb-12 pt-14 text-center sm:pt-20">
+        <span className="public-kicker"><FiCheckCircle /> Live contractor catalog</span>
+        <h1 className="mt-5 text-4xl font-black uppercase tracking-[-.045em] sm:text-6xl">Find the right tool.<br /><span className="text-orange-400">Fast.</span></h1>
+        <p className="mx-auto mt-5 max-w-2xl text-sm leading-6 text-neutral-400">Search Titan tooling by product, SKU, material, application, size, or equipment. Guest browsing is open; contractor pricing stays protected.</p>
+      </section>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-              <div className="h-64 bg-neutral-950 border border-white/5 rounded-2xl flex items-center justify-center p-4 relative overflow-hidden">
-                <img 
-                  src={selectedProduct.imageUrl} 
-                  alt={selectedProduct.name}
-                  className="max-h-full max-w-full object-contain filter drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)]"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    if (!target.src.includes('/images/')) {
-                      target.src = getCategoryFallbackImage(selectedProduct.category);
-                    }
-                  }}
-                />
-              </div>
+      <div className="mx-auto max-w-[94rem] px-4 py-8 sm:px-6 lg:px-8">
+        <div className="sticky top-0 z-30 mb-6 rounded-b-2xl border border-t-0 border-white/10 bg-neutral-950/90 p-3 shadow-2xl backdrop-blur-2xl sm:p-4">
+          <div className="flex flex-col gap-3 lg:flex-row">
+            <label className="relative flex-1">
+              <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-orange-400" />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, SKU, material, saw, size…" className="h-12 w-full rounded-xl border border-white/10 bg-black/60 pl-11 pr-11 text-sm text-white outline-none transition focus:border-orange-400/60 focus:ring-4 focus:ring-orange-500/10" />
+              {query && <button onClick={() => setQuery('')} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-neutral-500 hover:bg-white/5 hover:text-white"><FiX /></button>}
+            </label>
+            <button onClick={() => setFilterOpen(!filterOpen)} className={`flex h-12 items-center justify-center gap-2 rounded-xl border px-5 text-xs font-black uppercase tracking-wider lg:hidden ${filterOpen || activeFilters.length ? 'border-orange-400/50 bg-orange-500/10 text-orange-300' : 'border-white/10 bg-white/5 text-neutral-300'}`}><FiFilter /> Filters {activeFilters.length > 0 && `(${activeFilters.length})`}</button>
+            <div className="relative min-w-52"><FiSliders className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-orange-400" /><select value={sort} onChange={(event) => setSort(event.target.value as SortMode)} aria-label="Sort products" className="h-12 w-full appearance-none rounded-xl border border-white/10 bg-black/60 pl-11 pr-10 text-xs font-bold text-white outline-none focus:border-orange-400/60"><option value="featured">Featured first</option><option value="name-asc">Name: A–Z</option><option value="name-desc">Name: Z–A</option><option value="sku-asc">SKU: A–Z</option></select><FiChevronDown className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500" /></div>
+          </div>
+        </div>
 
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-full inline-block mb-3">
-                  {selectedProduct.category}
-                </span>
-                <h3 className="text-xl font-black mb-2 text-white leading-tight">{selectedProduct.name}</h3>
-                <div className="text-xs font-mono text-neutral-400 mb-4 flex items-center gap-2">
-                  <FiTag className="text-amber-500" /> SKU: {selectedProduct.sku}
-                </div>
-
-                {selectedProduct.textDescription && (
-                  <p className="text-xs text-neutral-300 mb-6 leading-relaxed bg-neutral-950 p-3 rounded-xl border border-white/5 max-h-36 overflow-y-auto">
-                    {selectedProduct.textDescription}
-                  </p>
-                )}
-                
-                <div className="p-4 bg-neutral-950 border border-amber-500/30 rounded-2xl mb-6">
-                  <div className="text-xs text-amber-400 font-bold mb-1 flex items-center gap-1.5">
-                    <FiLock size={12} /> Contractor Pricing Reserved for Account Holders
-                  </div>
-                  <div className="text-[11px] text-neutral-400">
-                    Sign in to view wholesale pricing tiers, custom blade specs, and direct jobsite fulfillment.
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Link 
-                    href="/login"
-                    className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 text-neutral-950 font-black py-3 px-4 rounded-xl text-center text-xs uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2"
-                  >
-                    <FiLock size={14} /> Sign In to View Pricing
-                  </Link>
-                  <Link 
-                    href="/contact"
-                    className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold py-3 px-4 rounded-xl text-xs transition-colors border border-white/10 text-center"
-                  >
-                    Request Quote
-                  </Link>
-                </div>
-              </div>
+        <div className="grid gap-7 lg:grid-cols-[17rem_minmax(0,1fr)]">
+          <aside className={`${filterOpen ? 'block' : 'hidden'} h-fit rounded-2xl border border-white/10 bg-neutral-900/70 p-5 lg:sticky lg:top-24 lg:block`}>
+            <div className="mb-5 flex items-center justify-between"><h2 className="flex items-center gap-2 text-xs font-black uppercase tracking-widest"><FiFilter className="text-orange-400" /> Refine results</h2>{(activeFilters.length > 0 || query) && <button onClick={clearAll} className="text-[10px] font-bold uppercase text-orange-400 hover:text-orange-300">Clear all</button>}</div>
+            <div className="space-y-4">
+              <Facet label="Category" value={filters.category} options={facets.category} onChange={(value) => setFilters({ ...filters, category: value })} />
+              <Facet label="Application" value={filters.application} options={facets.application} onChange={(value) => setFilters({ ...filters, application: value })} />
+              <Facet label="Material" value={filters.material} options={facets.material} onChange={(value) => setFilters({ ...filters, material: value })} />
+              <Facet label="Size" value={filters.size} options={facets.size} onChange={(value) => setFilters({ ...filters, size: value })} />
             </div>
-          </div>
+            <Link href="/blade-finder" className="mt-6 flex items-center justify-center gap-2 rounded-xl border border-orange-400/30 bg-orange-500/10 px-3 py-3 text-[10px] font-black uppercase tracking-wider text-orange-300"><FiSliders /> Not sure? Use blade finder</Link>
+          </aside>
+
+          <main className="min-w-0">
+            <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+              <div><div className="text-sm font-black text-white">{loading ? 'Loading products…' : `${results.length.toLocaleString()} products found`}</div>{!loading && results.length > 0 && <div className="mt-1 text-[10px] font-mono uppercase tracking-wider text-neutral-500">Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, results.length)} of {results.length.toLocaleString()}</div>}</div>
+              <div className="flex items-center gap-2"><span className="text-[10px] uppercase tracking-wider text-neutral-500">Per page</span>{PAGE_SIZES.map((size) => <button key={size} onClick={() => setPageSize(size)} className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-bold ${pageSize === size ? 'border-orange-400/50 bg-orange-500/10 text-orange-300' : 'border-white/10 text-neutral-500 hover:text-white'}`}>{size}</button>)}</div>
+            </div>
+            {(query || activeFilters.length > 0) && <div className="mb-5 flex flex-wrap gap-2">{query && <FilterChip label={`Search: ${query}`} onClear={() => setQuery('')} />}{activeFilters.map(([key, value]) => <FilterChip key={key} label={`${key}: ${value}`} onClear={() => setFilters({ ...filters, [key]: '' })} />)}</div>}
+
+            {loading ? <LoadingGrid /> : visible.length === 0 ? <EmptyState onReset={clearAll} /> : <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{visible.map((product) => <ProductCard key={product.id} product={product} onSelect={() => setSelected(product)} />)}</div>}
+            {!loading && totalPages > 1 && <Pagination page={currentPage} total={totalPages} onChange={(value) => { setPage(value); window.scrollTo({ top: 420, behavior: 'smooth' }); }} />}
+          </main>
         </div>
-      )}
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {/* Header */}
-        <div className="mb-10 text-center max-w-3xl mx-auto">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <span className="text-xs font-bold uppercase tracking-widest text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3.5 py-1 rounded-full inline-flex items-center gap-1.5">
-              <FiCheckCircle size={14} /> Guest Browse Active • Wholesale Rates Locked
-            </span>
-          </div>
-          <h1 className="text-4xl sm:text-5xl font-black tracking-tight mb-4 bg-gradient-to-r from-white via-neutral-200 to-neutral-400 bg-clip-text text-transparent uppercase">
-            TITAN DIAMOND USA CATALOG
-          </h1>
-          <p className="text-neutral-400 text-sm sm:text-base leading-relaxed">
-            Browse our complete line of industrial diamond blades, core bits, and cup wheels. Sign in with your contractor account to view live wholesale rates.
-          </p>
-        </div>
-
-        {/* Filters and Search */}
-        <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center mb-8 bg-neutral-900/50 p-4 border border-white/5 rounded-2xl">
-          <div className="relative w-full md:w-80">
-            <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
-            <input
-              type="text"
-              placeholder="Search products or SKUs..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-neutral-900 border border-white/10 rounded-xl py-2.5 pl-11 pr-4 text-xs text-white focus:outline-none focus:border-amber-500/50 transition-colors"
-            />
-          </div>
-
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none py-1">
-            {CATEGORIES.map(category => (
-              <button
-                key={category}
-                onClick={() => setActiveCategory(category)}
-                className={`whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-bold transition-all ${
-                  activeCategory === category
-                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-sm'
-                    : 'bg-neutral-900 hover:bg-neutral-800 text-neutral-400 border border-white/5'
-                }`}
-              >
-                {category}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Product Grid */}
-        {loading ? (
-          <div className="flex flex-col justify-center items-center h-64 gap-4">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-amber-500"></div>
-            <span className="text-xs text-neutral-500 font-mono">Loading Titan Diamond Catalog...</span>
-          </div>
-        ) : filteredProducts.length === 0 ? (
-          <div className="text-center py-20 bg-neutral-900/30 rounded-3xl border border-white/5">
-            <FiBox className="mx-auto text-neutral-600 mb-3" size={40} />
-            <h3 className="text-lg font-bold text-white mb-1">No products found</h3>
-            <p className="text-xs text-neutral-500 mb-4">Try adjusting your category filter or search query.</p>
-            <button 
-              onClick={() => { setSearch(''); setActiveCategory('All'); }}
-              className="bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors"
-            >
-              Reset Filters
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredProducts.map(product => (
-              <div 
-                key={product.id}
-                onClick={() => setSelectedProduct(product)}
-                className="bg-neutral-900/80 border border-white/5 rounded-2xl overflow-hidden hover:border-amber-500/40 transition-all hover:-translate-y-1 hover:shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex flex-col cursor-pointer group"
-              >
-                <div className="h-52 bg-gradient-to-b from-neutral-950 to-neutral-900/90 flex items-center justify-center p-6 relative border-b border-white/5 overflow-hidden">
-                  <img 
-                    src={product.imageUrl} 
-                    alt={product.name} 
-                    className="max-h-full max-w-full object-contain filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.7)] group-hover:scale-105 transition-transform duration-300"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      if (!target.src.includes('/images/')) {
-                        target.src = getCategoryFallbackImage(product.category);
-                      }
-                    }}
-                  />
-                  <div className="absolute top-3 left-3">
-                    <span className="text-[9px] font-extrabold uppercase tracking-wider bg-neutral-950/80 backdrop-blur-md text-amber-400 border border-amber-500/30 px-2.5 py-1 rounded-md">
-                      {product.category}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="p-5 flex-1 flex flex-col justify-between">
-                  <div>
-                    <div className="text-[10px] font-mono text-neutral-500 mb-1">SKU: {product.sku}</div>
-                    <h3 className="font-bold text-sm text-white group-hover:text-amber-400 transition-colors line-clamp-2 mb-2">
-                      {product.name}
-                    </h3>
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-white/10 flex items-center gap-2">
-                    <Link
-                      href="/login"
-                      onClick={(e) => e.stopPropagation()}
-                      className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 text-neutral-950 font-black text-xs uppercase tracking-wider py-2.5 px-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5"
-                    >
-                      <FiLock size={12} /> Sign In for Pricing
-                    </Link>
-                    <span className="text-xs font-semibold text-neutral-400 group-hover:text-white transition-colors flex items-center gap-1">
-                      Details <FiArrowRight size={12} />
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
-export default function ShopClient() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-amber-500"></div>
-      </div>
-    }>
-      <ShopContent />
-    </Suspense>
-  );
+function Facet({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
+  return <label className="block"><span className="mb-2 block font-mono text-[9px] font-bold uppercase tracking-[.16em] text-neutral-500">{label}</span><div className="relative"><select value={value} onChange={(event) => onChange(event.target.value)} className="h-11 w-full appearance-none rounded-xl border border-white/10 bg-black/60 px-3 pr-9 text-xs text-neutral-200 outline-none focus:border-orange-400/50"><option value="">All {label.toLowerCase()}s</option>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select><FiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-neutral-600" /></div></label>;
 }
+function FilterChip({ label, onClear }: { label: string; onClear: () => void }) { return <button onClick={onClear} className="inline-flex max-w-full items-center gap-2 rounded-full border border-orange-400/30 bg-orange-500/10 px-3 py-1.5 text-[10px] font-bold capitalize text-orange-200"><span className="truncate">{label}</span><FiX /></button>; }
+function ProductCard({ product, onSelect }: { product: CatalogProduct; onSelect: () => void }) {
+  return <article onClick={onSelect} className="group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-white/10 bg-neutral-900/70 transition hover:-translate-y-1 hover:border-orange-400/40">
+    <div className="relative flex h-56 items-center justify-center overflow-hidden border-b border-white/5 bg-black/55 p-6"><PublicProductImage src={product.imageUrl || fallbackImage(product.category)} alt={product.name} className="transition duration-500 group-hover:scale-105 group-hover:rotate-1" /><span className="absolute left-3 top-3 max-w-[80%] truncate rounded-full border border-orange-400/25 bg-black/75 px-2.5 py-1 font-mono text-[8px] font-bold uppercase tracking-wider text-orange-300 backdrop-blur">{product.category}</span></div>
+    <div className="flex flex-1 flex-col p-5"><div className="font-mono text-[9px] uppercase tracking-wider text-neutral-500">SKU {product.sku}</div><h3 className="mt-1 line-clamp-2 text-sm font-black uppercase leading-5 text-white transition group-hover:text-orange-300">{product.name}</h3>{(product.size || product.application) && <div className="mt-3 flex flex-wrap gap-1.5">{product.size && <span className="rounded-md bg-white/5 px-2 py-1 text-[9px] text-neutral-400">{product.size}</span>}{product.application && <span className="max-w-full truncate rounded-md bg-white/5 px-2 py-1 text-[9px] text-neutral-400">{product.application}</span>}</div>}<div className="mt-auto flex items-center justify-between border-t border-white/10 pt-4 text-[10px] font-black uppercase tracking-wider"><span className="flex items-center gap-1.5 text-orange-400"><FiLock /> Login for pricing</span><span className="flex items-center gap-1 text-neutral-300 group-hover:text-orange-300">See full details <FiArrowRight /></span></div></div>
+  </article>;
+}
+function LoadingGrid() { return <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{Array.from({ length: 12 }, (_, index) => <div key={index} className="h-96 animate-pulse rounded-2xl border border-white/5 bg-white/[.025]" />)}</div>; }
+function EmptyState({ onReset }: { onReset: () => void }) { return <div className="rounded-3xl border border-white/10 bg-neutral-900/50 px-6 py-20 text-center"><FiBox className="mx-auto text-neutral-600" size={42} /><h3 className="mt-4 text-xl font-black uppercase">No exact matches</h3><p className="mt-2 text-xs text-neutral-500">Remove a filter or try a broader product, SKU, material, or application term.</p><button onClick={onReset} className="mt-6 rounded-xl bg-orange-500 px-5 py-3 text-[10px] font-black uppercase tracking-wider text-black">Reset catalog</button></div>; }
+function Pagination({ page, total, onChange }: { page: number; total: number; onChange: (page: number) => void }) {
+  const pages = [...new Set([1, total, ...Array.from({ length: 5 }, (_, index) => Math.max(1, Math.min(total, page - 2 + index)))])].sort((a, b) => a - b);
+  return <nav className="mt-10 flex flex-wrap items-center justify-center gap-2" aria-label="Catalog pages"><button disabled={page === 1} onClick={() => onChange(page - 1)} className="flex h-10 items-center gap-2 rounded-xl border border-white/10 px-3 text-[10px] font-bold uppercase text-neutral-300 disabled:opacity-30"><FiArrowLeft /> Previous</button>{pages.map((value, index) => <span key={value} className="contents">{index > 0 && value - pages[index - 1] > 1 && <span className="text-neutral-600">…</span>}<button onClick={() => onChange(value)} aria-current={page === value ? 'page' : undefined} className={`h-10 min-w-10 rounded-xl border text-xs font-bold ${page === value ? 'border-orange-400 bg-orange-500 text-black' : 'border-white/10 text-neutral-400 hover:text-white'}`}>{value}</button></span>)}<button disabled={page === total} onClick={() => onChange(page + 1)} className="flex h-10 items-center gap-2 rounded-xl border border-white/10 px-3 text-[10px] font-bold uppercase text-neutral-300 disabled:opacity-30">Next <FiArrowRight /></button></nav>;
+}
+function ProductModal({ product, onClose }: { product: CatalogProduct; onClose: () => void }) {
+  const [selectedSpend, setSelectedSpend] = useState(100);
+  if (typeof document === 'undefined') return null;
+  const offer = product.technical.offer;
+  const selectedTier = offer?.tiers.find((tier) => tier.threshold === selectedSpend);
+  const quoteUrl = `/contact?product=${encodeURIComponent(product.name)}&sku=${encodeURIComponent(product.sku)}&volume=${selectedSpend}`;
+  return createPortal(<div className="fixed inset-0 z-[11000] overflow-y-auto bg-black/90 p-2 backdrop-blur-xl sm:p-5" onClick={onClose}>
+    <div role="dialog" aria-modal="true" aria-label={product.name} className="product-detail-shell relative mx-auto my-2 w-full max-w-7xl overflow-hidden rounded-3xl border border-orange-400/25 bg-[#080808] shadow-2xl sm:my-5" onClick={(event) => event.stopPropagation()}>
+      <button onClick={onClose} aria-label="Close product details" className="absolute right-4 top-4 z-30 flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-black/85 text-neutral-300 backdrop-blur hover:border-orange-400/60 hover:text-white"><FiX size={24} /></button>
+      <div className="product-detail-stripe" aria-hidden="true" />
+      <div className="grid lg:grid-cols-[.82fr_1.18fr]">
+        <div className="relative flex min-h-[26rem] items-center justify-center overflow-hidden border-b border-white/10 bg-black/65 p-8 lg:min-h-[42rem] lg:border-b-0 lg:border-r">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(249,115,22,.14),transparent_48%)]" />
+          <PublicProductImage src={product.imageUrl || fallbackImage(product.category)} alt={product.name} className="relative z-10 max-h-[34rem] max-w-full" />
+          <div className="absolute bottom-5 left-5 flex items-center gap-2 font-mono text-[9px] font-bold uppercase tracking-[.16em] text-neutral-500"><FiAward className="text-orange-400" /> Titan contractor tooling</div>
+        </div>
+        <div className="p-6 sm:p-9 lg:p-11">
+          <span className="rounded-full border border-orange-400/25 bg-orange-500/10 px-3 py-1 font-mono text-[9px] font-bold uppercase tracking-wider text-orange-300">{product.category}</span>
+          <h2 className="mt-4 max-w-3xl text-3xl font-black uppercase leading-[.95] tracking-[-.035em] sm:text-5xl">{product.name}</h2>
+          <div className="mt-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-neutral-500"><FiTag /> Titan Diamond USA · SKU {product.sku}</div>
+          {product.description && <p className="mt-6 max-w-3xl text-sm leading-7 text-neutral-300">{product.description}</p>}
+          <h3 className="mt-8 text-[10px] font-black uppercase tracking-[.2em] text-orange-400">Complete product details</h3>
+          <dl className="mt-3 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 text-xs sm:grid-cols-3">
+            <Spec label="Brand" value="Titan Diamond USA" />
+            {product.productType && <Spec label="Product type" value={product.productType} />}
+            {product.toolType && <Spec label="Tool type" value={product.toolType} />}
+            {product.size && <Spec label="Size / diameter" value={product.size} />}
+            {product.application && <Spec label="Application" value={product.application} />}
+            {product.materials.length > 0 && <Spec label="Materials" value={product.materials.join(' · ')} />}
+            {product.equipment && <Spec label="Equipment" value={product.equipment} />}
+            {product.technical.segmentHeight && <Spec label="Segment height" value={product.technical.segmentHeight} />}
+            {product.technical.slotType && <Spec label="Slot type" value={product.technical.slotType} />}
+          </dl>
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row"><Link href="/login" className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 py-4 text-[10px] font-black uppercase tracking-wider text-black"><FiLock /> View contractor pricing</Link><Link href={quoteUrl} className="rounded-xl border border-white/10 bg-white/5 px-6 py-4 text-center text-[10px] font-black uppercase tracking-wider text-white">Request product quote</Link></div>
+        </div>
+      </div>
+
+      <section className="product-offer-zone border-t border-white/10 px-5 py-10 sm:px-9 lg:px-12 lg:py-14" aria-label="Volume and giveaway offers">
+        <div className="relative z-10 flex flex-col justify-between gap-6 lg:flex-row lg:items-end"><div className="max-w-3xl"><span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[.22em] text-orange-300"><FiTrendingUp /> Contractor volume program</span><h3 className="mt-3 text-3xl font-black uppercase leading-none tracking-tight sm:text-5xl">{offer?.headline || 'Build your crew package'}</h3><p className="mt-4 max-w-2xl text-sm leading-6 text-neutral-300">{offer?.subheadline || 'Larger qualifying orders can unlock volume pricing and application-matched jobsite tools.'}</p></div><div className="flex items-center gap-3 rounded-xl border border-blue-400/20 bg-blue-500/10 px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-blue-100"><FiGift size={18} /> Gifts are assigned by product and tier</div></div>
+        <div className="relative z-10 mt-8 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8">{offer?.tiers.map((tier) => <button key={tier.threshold} type="button" onClick={() => setSelectedSpend(tier.threshold)} className={`product-offer-tier ${selectedSpend === tier.threshold ? 'is-selected' : ''} ${tier.active ? 'is-active' : ''}`}><span>Qualifying spend</span><b>${tier.threshold.toLocaleString()}</b><small>{tier.active ? tier.giftName ? 'Gift + package' : tier.discountPercent ? `${tier.discountPercent}% volume rate` : 'Special package' : 'Volume quote'}</small></button>)}</div>
+        <div className="relative z-10 mt-6 grid gap-5 rounded-2xl border border-white/10 bg-black/55 p-5 lg:grid-cols-[1fr_auto] lg:items-center sm:p-7">
+          <div className="flex gap-4"><div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-orange-400/30 bg-orange-500/10 text-orange-400"><FiPackage size={22} /></div><div><p className="text-xs font-black uppercase tracking-wider">${selectedSpend.toLocaleString()} order tier</p>{selectedTier?.active ? <p className="mt-2 text-sm leading-6 text-neutral-300">{selectedTier.discountPercent != null && <><b className="text-white">{selectedTier.discountPercent}% volume discount.</b> </>}{selectedTier.packagePrice != null && <>Configured package price: <b className="text-white">${selectedTier.packagePrice.toLocaleString()}.</b> </>}{selectedTier.giftName && <>Choose the configured giveaway: <b className="text-orange-300">{selectedTier.giftName}</b>. </>}{selectedTier.note}</p> : <p className="mt-2 text-sm leading-6 text-neutral-400">This product can be assigned a package, volume rate, or approved giveaway at this tier. Ask sales to build the best combination for your application.</p>}</div></div>
+          <Link href={quoteUrl} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-600 px-6 text-[10px] font-black uppercase tracking-wider text-white shadow-[0_12px_35px_rgba(234,88,12,.22)]"><FiDollarSign /> Build this package</Link>
+        </div>
+        <div className="relative z-10 mt-5 flex gap-3 text-[11px] leading-5 text-neutral-500"><FiCheckCircle className="mt-0.5 shrink-0 text-orange-400" /><p>Giveaway eligibility, package price, product compatibility, and availability must be confirmed by Titan Diamond USA. A gift is included only when the selected product and qualifying tier have an active assigned offer.</p></div>
+      </section>
+    </div>
+  </div>, document.body);
+}
+function Spec({ label, value }: { label: string; value: string }) { return <div className="min-w-0 bg-black/75 p-3"><dt className="font-mono text-[8px] uppercase tracking-wider text-neutral-600">{label}</dt><dd className="mt-1 overflow-wrap-anywhere text-[10px] leading-4 text-neutral-300">{value}</dd></div>; }
+
+export default function ShopClient() { return <Suspense fallback={<div className="min-h-screen bg-neutral-950" />}><ShopContent /></Suspense>; }

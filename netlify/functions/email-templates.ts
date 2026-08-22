@@ -1,8 +1,9 @@
+import { authenticateFunction, authErrorResponse, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { corsHeaders, handleOptions } from "./lib/cors"
 import { prisma } from "./lib/prisma"
 
-export const handler: Handler = async (event) => {
+const authenticatedHandler: Handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return handleOptions()
   
   if (event.httpMethod === "GET") {
@@ -19,6 +20,11 @@ export const handler: Handler = async (event) => {
   
   if (event.httpMethod === "POST") {
     try {
+      await authenticateFunction(event, { requireAdmin: true })
+    } catch (error) {
+      return authErrorResponse(error, corsHeaders)
+    }
+    try {
       const { name, subject, body, category } = JSON.parse(event.body || "{}")
       if (!name || !subject || !body) {
         return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "Missing required fields" }) }
@@ -34,3 +40,5 @@ export const handler: Handler = async (event) => {
 
   return { statusCode: 405, headers: corsHeaders, body: JSON.stringify({ error: "Method Not Allowed" }) }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler)

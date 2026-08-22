@@ -1,9 +1,10 @@
+import { withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { isAdmin } from "./lib/helpers"
 
 import { prisma } from "./lib/prisma"
 
-export const handler: Handler = async (event, context) => {
+const authenticatedHandler: Handler = async (event, context) => {
   // Support POST, PUT, DELETE
   const method = event.httpMethod;
 
@@ -131,3 +132,5 @@ export const handler: Handler = async (event, context) => {
     }
   }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler)

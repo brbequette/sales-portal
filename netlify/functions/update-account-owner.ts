@@ -1,10 +1,12 @@
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 
 import { prisma } from "./lib/prisma"
+import { isAdministratorRole } from "../../src/lib/roles"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
-export const handler: Handler = async (event) => {
+const authenticatedHandler: Handler = async (event) => {
   const cors = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
@@ -24,6 +26,15 @@ export const handler: Handler = async (event) => {
   }
 
   try {
+    const sessionUser = await authenticateFunction(event)
+    if (!isAdministratorRole(sessionUser.role)) {
+      return {
+        statusCode: 403,
+        headers: cors,
+        body: JSON.stringify({ success: false, message: "Only system administrators can reassign accounts" })
+      }
+    }
+
     const { accountId, newOwnerId } = JSON.parse(event.body || "{}")
 
     if (!accountId || !newOwnerId) {
@@ -211,3 +222,4 @@ export const handler: Handler = async (event) => {
   }
 }
 
+export const handler = withFunctionAuth(authenticatedHandler)

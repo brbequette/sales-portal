@@ -1,12 +1,20 @@
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken } from "./lib/zoho-auth"
+import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
 
 export const handler: Handler = async (event, context) => {
+  const headers = { "Content-Type": "application/json" }
   if (event.httpMethod !== "GET") {
     return {
       statusCode: 405,
       body: "Method Not Allowed"
     }
+  }
+
+  try {
+    await authenticateFunction(event)
+  } catch (error) {
+    return authErrorResponse(error, headers)
   }
 
   try {

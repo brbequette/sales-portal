@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react"
-import { FiX, FiCheck, FiBell, FiSmartphone, FiMail, FiUser, FiDownload, FiCheckSquare } from "react-icons/fi"
+import { FiX, FiCheck, FiBell, FiSmartphone, FiMail, FiUser, FiDownload, FiCheckSquare, FiLock } from "react-icons/fi"
 import { usePreferences } from "./PreferencesProvider"
 import { useZoho } from "./ZohoProvider"
 import { useNotifications } from "./NotificationProvider"
@@ -34,6 +34,10 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
   const [vcardPhotoUrl, setVcardPhotoUrl] = useState("")
   const [autoAttachVCard, setAutoAttachVCard] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [changingPassword, setChangingPassword] = useState(false)
 
   // Fetch current user details when modal opens
   useEffect(() => {
@@ -43,6 +47,9 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
       setSmsEnabled(preferences.reminderMethodSms ?? false)
       setEmailEnabled(preferences.reminderMethodEmail ?? false)
       setDefaultReminderMinutes(preferences.defaultReminderMinutes ?? 30)
+      setCurrentPassword("")
+      setNewPassword("")
+      setConfirmPassword("")
 
       fetch('/api/get-user')
         .then(r => r.json())
@@ -118,6 +125,35 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
   const handleEnablePush = async () => {
     await requestPermission()
     setPushEnabled(true)
+  }
+
+  const handleChangePassword = async () => {
+    if (newPassword !== confirmPassword) {
+      toast.error("New passwords do not match")
+      return
+    }
+
+    setChangingPassword(true)
+    try {
+      const response = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword })
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Password update failed")
+      }
+
+      setCurrentPassword("")
+      setNewPassword("")
+      setConfirmPassword("")
+      toast.success("Password updated successfully")
+    } catch (error: any) {
+      toast.error(error.message || "Password update failed")
+    } finally {
+      setChangingPassword(false)
+    }
   }
 
   return (
@@ -215,7 +251,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                     type="text"
                     value={vcardPhone}
                     onChange={e => setVcardPhone(e.target.value)}
-                    placeholder="(800) 555-0199"
+                    placeholder="(480) 470-2577"
                     className="w-full bg-black/60 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
                   />
                 </div>
@@ -265,6 +301,53 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                   <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${autoAttachVCard ? 'left-5' : 'left-0.5'}`} />
                 </button>
               </div>
+            </div>
+          </div>
+
+          {/* Records per page */}
+          <div className="border-t border-white/10 pt-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <FiLock className="text-orange-400" size={16} />
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider">Password</h3>
+            </div>
+            <p className="text-[10px] text-neutral-500 leading-relaxed">
+              Use at least 12 characters with uppercase, lowercase, number, and symbol characters.
+            </p>
+            <div className="space-y-3">
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={event => setCurrentPassword(event.target.value)}
+                placeholder="Current password"
+                autoComplete="current-password"
+                className="w-full bg-black/60 border border-neutral-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500"
+              />
+              <input
+                type="password"
+                value={newPassword}
+                onChange={event => setNewPassword(event.target.value)}
+                placeholder="New password"
+                autoComplete="new-password"
+                maxLength={128}
+                className="w-full bg-black/60 border border-neutral-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500"
+              />
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={event => setConfirmPassword(event.target.value)}
+                placeholder="Confirm new password"
+                autoComplete="new-password"
+                maxLength={128}
+                className="w-full bg-black/60 border border-neutral-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500"
+              />
+              <button
+                type="button"
+                onClick={handleChangePassword}
+                disabled={changingPassword || !newPassword || !confirmPassword}
+                className="w-full px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-xl text-xs transition-colors disabled:opacity-50"
+              >
+                {changingPassword ? "Updating Password..." : "Change Password"}
+              </button>
             </div>
           </div>
 

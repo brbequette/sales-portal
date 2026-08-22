@@ -1,22 +1,19 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { checkAccountOwnership } from '@/lib/auth-helpers'
 
 export async function POST(req: Request, context: { params: Promise<{ accountId: string }> }) {
   try {
     const params = await context.params
     const { accountId } = params
+    const access = await checkAccountOwnership(accountId)
+    if (!access.authorized) return access.errorResponse || NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-    const body = await req.json().catch(() => ({}))
-    const { userId, userEmail } = body
-
-    let authorId = userId
-    if (!authorId && userEmail) {
-      const user = await prisma.user.findUnique({ where: { email: userEmail } })
+    const sessionUser = access.user as { dbId?: string; email?: string } | undefined
+    let authorId = sessionUser?.dbId
+    if (!authorId && sessionUser?.email) {
+      const user = await prisma.user.findUnique({ where: { email: sessionUser.email } })
       if (user) authorId = user.id
-    }
-    if (!authorId) {
-      const firstAdmin = await prisma.user.findFirst({ where: { role: { contains: "ADMIN", mode: "insensitive" } } })
-      if (firstAdmin) authorId = firstAdmin.id
     }
 
     const now = new Date()

@@ -1,15 +1,20 @@
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 
 import { prisma } from "./lib/prisma"
+import { isAdminRole } from "../../src/lib/roles"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
-export const handler: Handler = async (event, context) => {
+const authenticatedHandler: Handler = async (event, context) => {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: JSON.stringify({ success: false, message: "Method Not Allowed" }) }
   }
 
   try {
+    const sessionUser = await authenticateFunction(event)
+    const actorId = sessionUser.dbId || sessionUser.userId
+    const administrator = isAdminRole(sessionUser.role)
     const body = JSON.parse(event.body || "{}")
     const { 
       subject, description, priority, dueDate, ownerId, whatId, status = "Not Started",
@@ -17,8 +22,13 @@ export const handler: Handler = async (event, context) => {
       reminderAt, reminderMethod
     } = body
 
-    if (!subject || !ownerId) {
-      return { statusCode: 400, body: JSON.stringify({ success: false, message: "Missing required fields (subject, ownerId)" }) }
+    if (!subject) {
+      return { statusCode: 400, body: JSON.stringify({ success: false, message: "Missing required field: subject" }) }
+    }
+
+    const requestedOwnerId = ownerId || actorId
+    if (!requestedOwnerId) {
+      return { statusCode: 403, body: JSON.stringify({ success: false, message: "Signed-in user is not linked to a local user record" }) }
     }
 
     // Capitalize inputs
@@ -28,16 +38,30 @@ export const handler: Handler = async (event, context) => {
     const token = await getZohoAccessToken()
     
     // Resolve user to get zohoId
-    let user = await prisma.user.findUnique({ where: { id: ownerId } })
+    let user = await prisma.user.findUnique({ where: { id: requestedOwnerId } })
     if (!user) {
-      user = await prisma.user.findUnique({ where: { zohoId: ownerId } })
+      user = await prisma.user.findUnique({ where: { zohoId: requestedOwnerId } })
     }
     if (!user) {
-      user = await prisma.user.findUnique({ where: { email: ownerId } })
+      user = await prisma.user.findUnique({ where: { email: requestedOwnerId } })
     }
     
     if (!user || !user.zohoId) {
       return { statusCode: 400, body: JSON.stringify({ success: false, message: "Owner has no valid Zoho ID" }) }
+    }
+    if (!administrator && user.id !== actorId) {
+      return { statusCode: 403, body: JSON.stringify({ success: false, message: "Only administrators can assign tasks to another user" }) }
+    }
+
+    if (!administrator && whatId) {
+      const [linkedAccount, linkedDeal] = await Promise.all([
+        prisma.account.findUnique({ where: { zohoId: whatId }, select: { ownerId: true } }),
+        prisma.deal.findUnique({ where: { zohoId: whatId }, select: { ownerId: true } }),
+      ])
+      const linkedOwnerId = linkedAccount?.ownerId || linkedDeal?.ownerId
+      if (linkedOwnerId && linkedOwnerId !== actorId) {
+        return { statusCode: 403, body: JSON.stringify({ success: false, message: "Linked record belongs to another representative" }) }
+      }
     }
 
     // Prepare payload for Zoho
@@ -144,3 +168,5 @@ export const handler: Handler = async (event, context) => {
     }
   }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler)

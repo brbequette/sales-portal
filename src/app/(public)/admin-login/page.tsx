@@ -27,7 +27,7 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-md rounded-3xl border border-amber-500/40 bg-neutral-900/90 p-8 shadow-[0_0_60px_rgba(245,158,11,0.15)] backdrop-blur-2xl relative z-10">
         <div className="text-center">
           <div className="mx-auto mb-4 flex h-20 items-center justify-center">
-            <img src="/images/logo_dark.png" alt="Titan Diamond USA Admin" className="h-16 w-auto object-contain filter drop-shadow-[0_0_15px_rgba(245,158,11,0.3)]" />
+            <img src="/images/brand/logo-system/titan-wordmark-light.png" alt="Titan Diamond USA Admin" className="h-14 max-w-full w-auto object-contain filter drop-shadow-[0_0_15px_rgba(245,158,11,0.3)]" />
           </div>
           <span className="block text-[10px] font-bold uppercase tracking-[0.28em] text-amber-400">Restricted Access</span>
           <h1 className="mt-2 text-2xl font-black uppercase tracking-tight">Administrative Portal</h1>

@@ -6,58 +6,26 @@ import { useRouter, usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import Link from "next/link"
-import { 
-  FiShield, FiGrid, FiUsers, FiClock, FiDollarSign, 
-  FiTarget, FiAward, FiCalendar, FiMessageSquare, 
-  FiFileText, FiActivity, FiSettings, FiChevronLeft, FiMapPin, FiTruck, FiZap, FiDatabase,
-  FiMenu, FiX, FiBarChart2, FiPackage, FiAlertTriangle, FiTool, FiCloud, FiSliders, FiCreditCard, FiTrendingUp, FiRepeat
+import {
+  FiShield, FiGrid, FiUsers, FiDollarSign, FiMessageSquare,
+  FiSettings, FiChevronLeft, FiTruck, FiMenu, FiX, FiCloud,
+  FiSliders, FiTrendingUp, FiCpu,
 } from "react-icons/fi"
 
 import { ThemeSettingsModal, loadSavedTheme, applyThemeToCss } from "@/components/ThemeSettingsModal"
 import { isAdminRole } from "@/lib/roles"
 
 const adminLinks = [
-  { group: "Overview", items: [
-    { name: "Dashboard", href: "/admin", icon: FiGrid },
-  ]},
-  { group: "Sync & Data", items: [
-    { name: "Books Scripts", href: "/admin/books-scripts", icon: FiCloud },
-    { name: "Invoices", href: "/admin/invoices", icon: FiFileText },
-    { name: "Custom Fields", href: "/admin/custom-fields", icon: FiDatabase },
+  { group: "Control", items: [
+    { name: "Overview", href: "/admin", icon: FiGrid },
+    { name: "Data & Integrations", href: "/admin/data-integrations", icon: FiCloud },
+    { name: "Automation & AI", href: "/admin/automation-ai", icon: FiCpu },
+    { name: "Sales Configuration", href: "/admin/sales-configuration", icon: FiTrendingUp },
+    { name: "Compensation & Payroll", href: "/admin/compensation-center", icon: FiDollarSign },
+    { name: "People & Time", href: "/admin/people-time", icon: FiUsers },
+    { name: "Communications", href: "/admin/communications-center", icon: FiMessageSquare },
+    { name: "Operations", href: "/admin/operations-center", icon: FiTruck },
     { name: "Settings", href: "/admin/settings", icon: FiSettings },
-    { name: "Update Configs", href: "/admin/update-config", icon: FiSettings },
-    { name: "Orphaned Records", href: "/admin/orphaned-records", icon: FiTool },
-  ]},
-  { group: "Compensation", items: [
-    { name: "VIG Management", href: "/admin/vig", icon: FiSliders },
-    { name: "Comp Plans", href: "/admin/compensation", icon: FiTarget },
-    { name: "Payouts", href: "/admin/payouts", icon: FiDollarSign },
-    { name: "Payroll", href: "/admin/payroll", icon: FiCreditCard },
-    { name: "Goals & Bonuses", href: "/admin/goals-bonuses", icon: FiAward },
-    { name: "Rep Stats", href: "/admin/rep-stats", icon: FiBarChart2 },
-  ]},
-  { group: "Sales Tools", items: [
-    { name: "Sales Stages", href: "/admin/sales-stages", icon: FiTrendingUp },
-    { name: "Scripts", href: "/admin/scripts", icon: FiFileText },
-    { name: "Intro Offer Landing", href: "/admin/intro-offer", icon: FiZap },
-    { name: "Update Accounts", href: "/admin/update-accounts", icon: FiTarget },
-    { name: "Lead Discrepancies", href: "/admin/lead-discrepancies", icon: FiAlertTriangle },
-    { name: "Vendors", href: "/admin/vendors", icon: FiTruck },
-    { name: "Autoship Bundles", href: "/admin/autoship", icon: FiRepeat },
-  ]},
-  { group: "Communications", items: [
-    { name: "Campaigns", href: "/admin/campaigns", icon: FiMessageSquare },
-    { name: "Comm Log", href: "/admin/communications", icon: FiActivity },
-    { name: "Notification Templates", href: "/admin/notification-templates", icon: FiMessageSquare },
-  ]},
-  { group: "Operations", items: [
-    { name: "Users", href: "/admin/users", icon: FiUsers },
-    { name: "Timeclock", href: "/admin/timeclock", icon: FiClock },
-    { name: "Geofences", href: "/admin/geofences", icon: FiMapPin },
-    { name: "Holidays", href: "/admin/holidays", icon: FiCalendar },
-    { name: "Shipping Audit", href: "/admin/shipping-audit", icon: FiPackage },
-    { name: "Image Manager", href: "/admin/image-manager", icon: FiActivity },
-    { name: "Sync Conflicts", href: "/admin/sync-conflicts", icon: FiAlertTriangle },
   ]},
 ]
 

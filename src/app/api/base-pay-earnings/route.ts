@@ -1,8 +1,11 @@
 import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const url = new URL(req.url)
     const repId = url.searchParams.get("repId")
     const planId = url.searchParams.get("planId")
@@ -31,6 +34,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const body = await req.json()
     const { repId, planId, type, amount, periodStart, periodEnd, hoursWorked, hourlyRate, description, status } = body
 
@@ -66,6 +71,8 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const body = await req.json()
     const { id, ...updates } = body
 

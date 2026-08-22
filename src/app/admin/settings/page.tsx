@@ -1,11 +1,17 @@
 "use client"
 import { useState, useEffect, useCallback } from "react"
-import { FiSave, FiSettings, FiDollarSign, FiMessageSquare, FiTruck, FiTool, FiRefreshCw, FiMonitor, FiAlertCircle, FiCheckCircle, FiKey, FiExternalLink, FiCopy, FiCheck } from "react-icons/fi"
+import { FiSave, FiSettings, FiDollarSign, FiMessageSquare, FiTruck, FiTool, FiRefreshCw, FiMonitor, FiAlertCircle, FiCheckCircle } from "react-icons/fi"
 import VigManagementBuilder from "@/components/VigManagementBuilder"
 import { ThemeSettingsModal } from "@/components/ThemeSettingsModal"
+import { useSearchParams } from "next/navigation"
 
 export default function AdminSettingsPage() {
-  const [activeTab, setActiveTab] = useState<'financial'|'communications'|'shipping'|'developer'|'sync'>('financial')
+  const searchParams = useSearchParams()
+  const requestedTab = searchParams.get('tab')
+  const initialTab = ['financial', 'communications', 'shipping', 'developer', 'sync'].includes(requestedTab || '')
+    ? requestedTab as 'financial'|'communications'|'shipping'|'developer'|'sync'
+    : 'financial'
+  const [activeTab, setActiveTab] = useState<'financial'|'communications'|'shipping'|'developer'|'sync'>(initialTab)
   const [settings, setSettings] = useState<any>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -105,7 +111,6 @@ export default function AdminSettingsPage() {
   const [testTitle, setTestTitle] = useState("Test Notification")
   const [testBody, setTestBody] = useState("This is a cross-device test notification from the admin panel.")
   const [sendingPush, setSendingPush] = useState(false)
-  const [copiedPinUrl, setCopiedPinUrl] = useState(false)
 
   useEffect(() => {
     fetchSettings()
@@ -724,86 +729,6 @@ export default function AdminSettingsPage() {
                       </div>
                     </div>
                   </div>
-
-                  {/* ── TV Dashboard Display & PIN Settings ─────────────────── */}
-                  <div className="glass-panel border border-white/10 rounded-xl p-6 space-y-6 shadow-xl">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="text-lg font-black text-white flex items-center gap-2">
-                          <FiMonitor className="text-emerald-400" /> TV Dashboard & PIN Security
-                        </h3>
-                        <p className="text-xs text-neutral-400 mt-1 font-medium max-w-xl">
-                          Configure access security and remote display settings for the office TV leaderboard (<code className="text-emerald-300 font-mono">/tv</code>).
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => window.open('/tv', '_blank')}
-                        className="px-4 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg font-bold text-xs transition-all flex items-center gap-2"
-                      >
-                        <FiExternalLink size={14} /> Launch TV Display
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
-                      {/* TV PIN Input */}
-                      <div>
-                        <label className="block text-xs font-black uppercase tracking-wider text-neutral-300 mb-1 flex items-center gap-1.5">
-                          <FiKey className="text-emerald-400" /> 4-Digit TV Access PIN
-                        </label>
-                        <p className="text-xs text-neutral-500 mb-3 font-semibold">
-                          The required 4-digit numeric code to unlock the broadcast dashboard on TV displays. (Default: 8321)
-                        </p>
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="text"
-                            maxLength={4}
-                            pattern="[0-9]*"
-                            value={settings.tv_pin ?? '8321'}
-                            onChange={e => {
-                              const val = e.target.value.replace(/\D/g, '').slice(0, 4)
-                              handleUpdateSetting('tv_pin', val)
-                            }}
-                            placeholder="8321"
-                            className="w-36 bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-emerald-400 font-mono font-black text-xl tracking-widest text-center focus:outline-none focus:border-emerald-500"
-                          />
-                          <span className="text-xs text-neutral-500 font-medium">Click &apos;Save Changes&apos; above to update</span>
-                        </div>
-                      </div>
-
-                      {/* Direct Kiosk Auto-Verify URL */}
-                      <div>
-                        <label className="block text-xs font-black uppercase tracking-wider text-neutral-300 mb-1 flex items-center gap-1.5">
-                          <FiMonitor className="text-blue-400" /> Kiosk / TV Auto-Unlock URL
-                        </label>
-                        <p className="text-xs text-neutral-500 mb-3 font-semibold">
-                          Use this URL for smart TVs, Chromebits, or wall kiosks that need to launch directly without manual PIN entry.
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            readOnly
-                            value={typeof window !== 'undefined' ? `${window.location.origin}/tv?autoverify=true` : '/tv?autoverify=true'}
-                            className="flex-1 bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-neutral-400 font-mono text-xs focus:outline-none truncate"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (typeof window !== 'undefined') {
-                                navigator.clipboard.writeText(`${window.location.origin}/tv?autoverify=true`)
-                                setCopiedPinUrl(true)
-                                setTimeout(() => setCopiedPinUrl(false), 2000)
-                              }
-                            }}
-                            className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0"
-                          >
-                            {copiedPinUrl ? <FiCheck className="text-emerald-400" size={14} /> : <FiCopy size={14} />}
-                            {copiedPinUrl ? 'Copied!' : 'Copy'}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
                 </div>
                )}
 
@@ -946,7 +871,7 @@ export default function AdminSettingsPage() {
 
 function ClawbackSettingsSection() {
   const [clawback, setClawback] = useState({
-    clawback_threshold_days: 365,
+    clawback_threshold_days: 120,
     warning_window_days: 90,
     rep_cost_split_pct: 0.50,
     auto_cascade: false,
@@ -1014,12 +939,12 @@ function ClawbackSettingsSection() {
       </div>
 
       <div className="glass-panel border border-white/10 rounded-xl p-6 space-y-6 shadow-xl">
-        <Field label="Clawback Threshold (Days)" desc="Unpaid invoices older than this are eligible for clawback. Default: 365 (12 months).">
+        <Field label="Write-Off Threshold (Days Overdue)" desc="Days after the invoice due date when it is written off. This global rule applies to every sales rep. Default: 120 days overdue.">
           <div className="flex items-center gap-3">
             <input
               type="number" min={30} max={730}
               value={clawback.clawback_threshold_days}
-              onChange={e => setClawback(p => ({ ...p, clawback_threshold_days: parseInt(e.target.value) || 365 }))}
+              onChange={e => setClawback(p => ({ ...p, clawback_threshold_days: parseInt(e.target.value) || 120 }))}
               className="w-32 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-red-400 font-mono font-bold focus:outline-none focus:border-red-500"
             />
             <span className="text-neutral-500 font-black">days</span>
@@ -1028,7 +953,7 @@ function ClawbackSettingsSection() {
 
         <hr className="border-white/10" />
 
-        <Field label="Warning Window (Days)" desc="How many days before the threshold to start showing clawback warnings. Default: 90 days.">
+        <Field label="At-Risk Warning Window (Days)" desc="How many days before write-off to show risk. At 120/90, invoices become at risk at 30 days overdue.">
           <div className="flex items-center gap-3">
             <input
               type="number" min={14} max={180}

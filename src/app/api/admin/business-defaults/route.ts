@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server'
 import { getBusinessDefaults, clearBusinessDefaultsCache } from '@/lib/business-defaults'
 import { prisma } from '@/lib/prisma'
+import { requireAdministrator } from '@/lib/auth-helpers'
 
 export async function GET() {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
+
   try {
     const defaults = await getBusinessDefaults()
     return NextResponse.json({ success: true, defaults })
@@ -13,9 +17,10 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
+
   try {
-    // Basic auth check would go here if not handled by middleware
-    // We'll proceed with the update
     const body = await request.json()
     
     // Update or create SystemSetting

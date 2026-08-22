@@ -1,8 +1,10 @@
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 
 import { prisma } from "./lib/prisma"
+import { isAdminRole } from "../../src/lib/roles"
 
-export const handler: Handler = async (event) => {
+const authenticatedHandler: Handler = async (event) => {
   const cors = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
@@ -21,6 +23,8 @@ export const handler: Handler = async (event) => {
   }
 
   try {
+    const sessionUser = await authenticateFunction(event)
+    const actorId = sessionUser.dbId || sessionUser.userId
     const body = JSON.parse(event.body || "{}")
     const { accountId, name, industry, timeZone, tags, quality, status, billingStreet, billingCity, billingState, billingZip, bladeSizes, materialsCut, currentSupplier, averageBladeCost, crewCount, bladesPerOrder, improvementPriority } = body
 
@@ -40,6 +44,10 @@ export const handler: Handler = async (event) => {
 
     if (!account) {
       return { statusCode: 404, headers: cors, body: JSON.stringify({ success: false, error: "Account not found" }) }
+    }
+
+    if (!isAdminRole(sessionUser.role) && account.ownerId !== actorId) {
+      return { statusCode: 403, headers: cors, body: JSON.stringify({ success: false, error: "You can only update your own accounts" }) }
     }
 
     const dataToUpdate: any = {}
@@ -81,3 +89,5 @@ export const handler: Handler = async (event) => {
     }
   }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler)

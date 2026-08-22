@@ -3,6 +3,7 @@ import { getZohoAccessToken as getAccessToken , ZOHO_ORGANIZATION_ID } from "./l
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 import { prisma } from "./lib/prisma"
+import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 export const handler: Handler = async (event) => {
@@ -15,6 +16,12 @@ export const handler: Handler = async (event) => {
 
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: cors, body: "" }
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "Method not allowed" }) }
+
+  try {
+    await authenticateFunction(event)
+  } catch (error) {
+    return authErrorResponse(error, cors)
+  }
 
   let body: any = {}
   try {

@@ -8,10 +8,9 @@ import { usePreferences } from "@/components/PreferencesProvider"
 import { usePagination, Pagination } from "@/components/Pagination"
 import {
   FiBarChart2, FiTrendingUp, FiDollarSign, FiUsers, FiAward,
-  FiChevronDown, FiChevronUp, FiX, FiTarget, FiCalendar
+  FiChevronDown, FiChevronUp, FiX, FiTarget, FiCalendar, FiSearch, FiRefreshCw
 } from "react-icons/fi"
 import { sessionGet, sessionSet, TTL } from "@/lib/dataCache"
-import { UpdateBanner } from '@/lib/useStaleCheck'
 
 interface RepPeriodStats {
   revenue: number
@@ -90,26 +89,14 @@ export default function StatsPage() {
   const [companyAverages, setCompanyAverages] = useState<CompanyData | null>(null)
   const [historicalVigRates, setHistoricalVigRates] = useState<any[]>([])
   const [selectedPeriod, setSelectedPeriod] = useState<"daily" | "weekly" | "monthly" | "annually">("monthly")
-  // Map 'annually' → 'monthly' since the API returns YTD totals in the monthly slot
-  const repPeriodKey = (selectedPeriod === 'annually' ? 'monthly' : selectedPeriod) as 'daily' | 'weekly' | 'monthly'
+  const repPeriodKey = selectedPeriod
   const [selectedRep, setSelectedRep] = useState<Rep | null>(null)
   const [sortField, setSortField] = useState<SortField>("revenue")
   const [sortAsc, setSortAsc] = useState(false)
   const [trackerPeriod, setTrackerPeriod] = useState<"week" | "month">("month")
   const [selectedDataDate, setSelectedDataDate] = useState<string>("")
-  const [updateAvailable, setUpdateAvailable] = useState(false)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
-
-  const checkForUpdates = async (sig: string, url: string) => {
-    try {
-      const separator = url.includes('?') ? '&' : '?'
-      const res = await fetch(`${url}${separator}checkOnly=true`)
-      const data = await res.json()
-      if (!data.checkOnly) return
-      const remoteSig = `${data.count}|${data.latestUpdatedAt ?? ''}`
-      if (remoteSig !== sig) setUpdateAvailable(true)
-    } catch {}
-  }
+  const [repSearch, setRepSearch] = useState("")
 
   useEffect(() => {
     if (!isInitialized) return
@@ -119,7 +106,7 @@ export default function StatsPage() {
     }
 
     const fetchStats = async (force = false) => {
-      const cacheKey = `rep-stats-${selectedDataDate}-${preferences.showHiddenReps ? '1' : '0'}`
+      const cacheKey = `rep-stats-${selectedPeriod}-${selectedDataDate || 'current'}-${preferences.showHiddenReps ? '1' : '0'}`
       if (!force) {
         const cached = sessionGet<any>(cacheKey, TTL.TEN_MIN)
         if (cached) { setReps(cached.reps); setCompanyTotals(cached.totals); setCompanyAverages(cached.averages); setHistoricalVigRates(cached.vigRates); return }
@@ -128,29 +115,35 @@ export default function StatsPage() {
       if (reps.length === 0) setLoading(true)
       else setRefreshing(true)
       try {
-        const hiddenParam = preferences.showHiddenReps ? "?includeHidden=true" : ""
-        let dateParam = ""
+        const query = new URLSearchParams()
+        if (preferences.showHiddenReps) query.set("includeHidden", "true")
+        let dateParam = selectedPeriod === "daily"
+          ? "period=today"
+          : selectedPeriod === "weekly"
+            ? "period=this_week"
+            : selectedPeriod === "annually"
+              ? "period=this_year"
+              : "period=this_month"
         if (selectedPeriod === "annually") {
           const currentYear = new Date().getFullYear().toString()
           dateParam = (!selectedDataDate || selectedDataDate === currentYear) ? `period=this_year` : `period=last_year`
+        } else if (selectedPeriod === "weekly" && selectedDataDate) {
+          const start = new Date(`${selectedDataDate}T12:00:00`)
+          const end = new Date(start); end.setDate(start.getDate() + 6)
+          dateParam = `startDate=${selectedDataDate}&endDate=${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getDate()).padStart(2, "0")}`
         } else if (selectedDataDate) {
           dateParam = selectedDataDate.length === 7 ? `month=${selectedDataDate}` : `date=${selectedDataDate}`
         }
-        const prefix = hiddenParam ? "&" : "?"
-        const urlParams = dateParam ? `${prefix}${dateParam}` : ""
-        const res = await fetch(`/api/get-rep-stats${hiddenParam}${urlParams}`)
+        for (const [key, value] of new URLSearchParams(dateParam)) query.set(key, value)
+        const res = await fetch(`/api/get-rep-stats?${query.toString()}`)
         const data = await res.json()
         if (data.success) {
-          // Normalize: get-rep-stats returns flat revenue/profit/commissions fields.
-          // The page expects sub-period objects (rep.monthly, rep.weekly, etc.).
-          // Synthesize them here so all downstream rep[repPeriodKey] reads work.
+          // The endpoint returns one explicitly requested date range. Store the
+          // returned values only under that range so period changes cannot reuse
+          // monthly numbers as daily, weekly, or annual performance.
           const normalizedReps = (data.reps || []).map((r: any) => ({
             ...r,
-            // The API filters by the requested period, so flat values ARE the period values.
-            daily:    { revenue: r.revenue || 0, profit: r.profit || 0, dealsWon: r.invoiceCount || 0, target: 0, vigRate: undefined },
-            weekly:   { revenue: r.revenue || 0, profit: r.profit || 0, dealsWon: r.invoiceCount || 0, target: 0, vigRate: undefined },
-            monthly:  { revenue: r.revenue || 0, profit: r.profit || 0, dealsWon: r.invoiceCount || 0, target: 0, vigRate: undefined },
-            annually: { revenue: r.revenue || 0, profit: r.profit || 0, dealsWon: r.invoiceCount || 0, target: 0, vigRate: undefined },
+            [selectedPeriod]: { revenue: r.revenue || 0, profit: r.profit || 0, dealsWon: r.invoiceCount || 0, target: 0, vigRate: undefined },
           }))
           setReps(normalizedReps)
           const totals = data.totals || {}
@@ -158,9 +151,6 @@ export default function StatsPage() {
           setCompanyAverages(data.companyAverages || totals)
           setHistoricalVigRates(data.historicalVigRates || [])
           sessionSet(cacheKey, { reps: normalizedReps, totals, averages: data.companyAverages || totals, vigRates: data.historicalVigRates || [] })
-          const sig = `${normalizedReps.length}|${normalizedReps[0]?.repId ?? ''}`
-          setUpdateAvailable(false)
-          setTimeout(() => checkForUpdates(sig, '/api/get-rep-stats'), 2000)
         } else {
           setApiError(data.error || "Failed to load stats")
         }
@@ -171,7 +161,7 @@ export default function StatsPage() {
         setRefreshing(false)
       }
     }
-    fetchStats()
+    fetchStats(refreshTrigger > 0)
   }, [isInitialized, currentUser, router, selectedDataDate, selectedPeriod, refreshTrigger])
 
   const pastWeeks = useMemo(() => {
@@ -205,7 +195,8 @@ export default function StatsPage() {
   }, [])
 
   const sortedReps = useMemo(() => {
-    return [...reps].sort((a, b) => {
+    const query = repSearch.trim().toLowerCase()
+    return reps.filter((rep) => !query || [rep.repName, rep.email, rep.role].some((value) => String(value || "").toLowerCase().includes(query))).sort((a, b) => {
       const ra = a as any
       const rb = b as any
       let av = 0
@@ -222,7 +213,7 @@ export default function StatsPage() {
       }
       return sortAsc ? av - bv : bv - av
     })
-  }, [reps, sortField, sortAsc, selectedPeriod])
+  }, [reps, sortField, sortAsc, selectedPeriod, repSearch])
 
   const pagination = usePagination(sortedReps)
 
@@ -300,8 +291,6 @@ export default function StatsPage() {
 
   return (
     <div className="page-content">
-      <UpdateBanner show={updateAvailable} onUpdate={() => { setUpdateAvailable(false); setRefreshTrigger(n => n + 1) }} accentColor="sky" label="Stats updated" />
-
       {/* ─── Header ─────────────────────────────────── */}
       {refreshing && <div className="h-0.5 bg-sky-500/60 animate-pulse w-full absolute top-0 left-0 rounded" />}
       <div className="page-header">
@@ -316,6 +305,14 @@ export default function StatsPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setRefreshTrigger(value => value + 1)}
+            disabled={refreshing}
+            className="td-btn td-btn-ghost td-btn-sm"
+          >
+            <FiRefreshCw className={refreshing ? "animate-spin" : ""} /> Refresh
+          </button>
           {/* Date Picker */}
           <select
             className="td-select"
@@ -420,10 +417,15 @@ export default function StatsPage() {
 
         {/* Leaderboard Table */}
         <div className="modern-card overflow-hidden">
-          <div className="px-4 py-3 border-b border-white/8 flex items-center gap-2">
+          <div className="px-4 py-3 border-b border-white/8 flex flex-col gap-3 sm:flex-row sm:items-center">
             <FiAward size={15} className="text-sky-400" />
             <h2 className="text-xs font-bold text-white uppercase tracking-wider">Leaderboard ({selectedPeriod})</h2>
-            <span className="ml-auto text-[10px] text-neutral-500">{reps.length} reps</span>
+            <label className="relative w-full sm:ml-auto sm:w-72">
+              <span className="sr-only">Search representatives</span>
+              <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+              <input value={repSearch} onChange={(event) => setRepSearch(event.target.value)} placeholder="Search representative, email, or role..." className="w-full rounded-lg border border-white/10 bg-black/30 py-2 pl-9 pr-3 text-xs text-white outline-none focus:border-sky-500" />
+            </label>
+            <span className="whitespace-nowrap text-[10px] text-neutral-500">{sortedReps.length} reps</span>
           </div>
 
           {/* Desktop Table */}
@@ -479,7 +481,7 @@ export default function StatsPage() {
                             {rep.repName?.charAt(0) || "?"}
                           </div>
                           <div className="min-w-0">
-                            <p className="text-xs font-bold text-white truncate">{rep.repName}</p>
+                            <p className="text-xs font-bold text-white truncate uppercase">{rep.repName}</p>
                             <p className="text-[10px] text-neutral-500 truncate">{rep.email}</p>
                           </div>
                         </div>
@@ -527,8 +529,8 @@ export default function StatsPage() {
               const isSelected = selectedRep?.repId === rep.repId
               const periodStats = rep[repPeriodKey] || { revenue: 0, profit: 0, dealsWon: 0, target: 0 }
               const progressPct = periodStats.target > 0 ? (periodStats.profit / periodStats.target) * 100 : 0
-              const metGoal = (rep.monthly?.profit ?? 0) >= (rep.monthly?.target ?? 1)
-              const vigRate = metGoal ? 1.3 : 1.5
+              const metGoal = periodStats.target > 0 && periodStats.profit >= periodStats.target
+              const vigRate = periodStats.vigRate ?? (metGoal ? 1.3 : 1.5)
 
               return (
                 <div
@@ -548,12 +550,12 @@ export default function StatsPage() {
                         <span className="text-neutral-600 text-xs font-bold w-6 text-center shrink-0">{rank}</span>
                       )}
                       <div className="min-w-0">
-                        <p className="text-sm font-bold text-white truncate">{rep.repName}</p>
+                        <p className="text-sm font-bold text-white truncate uppercase">{rep.repName}</p>
                         <p className="text-[10px] text-neutral-500 truncate">{rep.email}</p>
                       </div>
                     </div>
                     <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold border ${
-                      vigRate === 1.3
+                      vigRate <= 1.3
                         ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/30"
                         : "bg-red-950/40 text-red-400 border-red-500/30"
                     }`}>
@@ -604,7 +606,7 @@ export default function StatsPage() {
                   <p className="text-[10px] text-neutral-500">{selectedRep.email} · Margin: {formatPercent(selectedRep.margin / 100)}</p>
                 </div>
               </div>
-              <button onClick={() => setSelectedRep(null)} className="text-neutral-500 hover:text-white p-1.5 rounded-full bg-neutral-800 transition-colors">
+              <button aria-label="Close representative details" onClick={() => setSelectedRep(null)} className="text-neutral-500 hover:text-white p-1.5 rounded-full bg-neutral-800 transition-colors">
                 <FiX size={14} />
               </button>
             </div>
@@ -675,9 +677,9 @@ export default function StatsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {reps.map(rep => (
+                  {sortedReps.map(rep => (
                     <tr key={rep.repId} className="hover:bg-white/[0.03] transition-colors">
-                      <td className="td-td font-semibold text-white">{rep.repName}</td>
+                      <td className="td-td font-semibold text-white uppercase">{rep.repName}</td>
                       {historicalVigRates.map(h => {
                         const repData = h.reps[rep.repId]
                         const vig = repData ? repData.vigRate : 1.5

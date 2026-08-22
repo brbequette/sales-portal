@@ -1,15 +1,19 @@
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 import { prisma } from "./lib/prisma"
+import { isAdminRole } from "../../src/lib/roles"
 
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
-export const handler: Handler = async (event, context) => {
+const authenticatedHandler: Handler = async (event, context) => {
   if (event.httpMethod !== "DELETE") {
     return { statusCode: 405, body: JSON.stringify({ success: false, message: "Method Not Allowed" }) }
   }
 
   try {
+    const sessionUser = await authenticateFunction(event)
+    const actorId = sessionUser.dbId || sessionUser.userId
     const body = JSON.parse(event.body || "{}")
     const { taskId, zohoId } = body
 
@@ -28,6 +32,9 @@ export const handler: Handler = async (event, context) => {
 
     if (!task) {
       return { statusCode: 404, body: JSON.stringify({ success: false, message: "Task not found" }) }
+    }
+    if (!isAdminRole(sessionUser.role) && (!actorId || task.ownerId !== actorId)) {
+      return { statusCode: 403, body: JSON.stringify({ success: false, message: "Forbidden: You do not own this task" }) }
     }
 
     // Delete from Zoho CRM
@@ -64,3 +71,5 @@ export const handler: Handler = async (event, context) => {
     }
   }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler)

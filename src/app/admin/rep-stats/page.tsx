@@ -71,6 +71,8 @@ export default function AdminRepStatsPage() {
   const [activeTab, setActiveTab] = useState<"invoices" | "salesOrders">("invoices")
   const [modalActiveTab, setModalActiveTab] = useState<"invoices" | "salesOrders">("invoices")
   const [searchQuery, setSearchQuery] = useState("")
+  const [repSearch, setRepSearch] = useState("")
+  const [repSort, setRepSort] = useState<"name" | "invoiceRevenue" | "invoiceProfit" | "invoiceCommission" | "salesOrderRevenue">("name")
   const [tileModalInfo, setTileModalInfo] = useState<{ title: string; type: "invoices" | "salesOrders"; docs: any[] } | null>(null)
 
   const fetchStats = async () => {
@@ -141,6 +143,22 @@ export default function AdminRepStatsPage() {
     }
     return list
   }, [reps, searchQuery])
+
+  const visibleReps = useMemo(() => {
+    const query = repSearch.trim().toLowerCase()
+    return reps
+      .filter((rep) => !query || String(rep.repName || "").toLowerCase().includes(query))
+      .sort((a, b) => {
+        if (repSort === "invoiceRevenue") return (b.revenue || 0) - (a.revenue || 0)
+        if (repSort === "invoiceProfit") return (b.deadProfit || 0) - (a.deadProfit || 0)
+        if (repSort === "invoiceCommission") return (b.commissions || 0) - (a.commissions || 0)
+        if (repSort === "salesOrderRevenue") {
+          const total = (rep: any) => (rep.salesOrders || []).reduce((sum: number, order: any) => sum + (order.subtotal || 0), 0)
+          return total(b) - total(a)
+        }
+        return String(a.repName || "").localeCompare(String(b.repName || ""))
+      })
+  }, [reps, repSearch, repSort])
 
   const toggleExpandRep = (repId: string) => {
     setExpandedRepId(prev => prev === repId ? null : repId)
@@ -344,10 +362,21 @@ export default function AdminRepStatsPage() {
 
       {/* Rep Summary Cards Table (Strictly Separate Invoices & Sales Orders) */}
       <div className="bg-neutral-900/60 border border-white/10 rounded-2xl p-5 space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <h3 className="text-sm font-bold text-white flex items-center gap-2">
             <FiUsers className="text-orange-500" /> Representative Financial Breakdown (Click Row to Expand)
           </h3>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <label className="relative">
+              <span className="sr-only">Search representatives</span>
+              <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+              <input value={repSearch} onChange={(event) => setRepSearch(event.target.value)} placeholder="Search representative..." className="rounded-lg border border-white/10 bg-black/30 py-2 pl-9 pr-3 text-xs text-white outline-none focus:border-orange-500" />
+            </label>
+            <select aria-label="Sort representative financial breakdown" value={repSort} onChange={(event) => setRepSort(event.target.value as typeof repSort)} className="rounded-lg border border-white/10 bg-neutral-950 px-3 py-2 text-xs text-white">
+              <option value="name">Name A–Z</option><option value="invoiceRevenue">Invoice revenue</option><option value="invoiceProfit">Invoice dead profit</option><option value="invoiceCommission">Invoice commission</option><option value="salesOrderRevenue">Sales-order revenue</option>
+            </select>
+            <span className="self-center whitespace-nowrap text-[10px] font-bold uppercase tracking-wider text-neutral-500">{visibleReps.length} reps</span>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -366,7 +395,7 @@ export default function AdminRepStatsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {reps.map(r => {
+              {visibleReps.map(r => {
                 const soSubtotal = r.salesOrders?.reduce((s: number, o: any) => s + (o.subtotal || 0), 0) || 0
                 const soDeadProfit = r.salesOrders?.reduce((s: number, o: any) => s + (o.deadProfit || 0), 0) || 0
                 const soEstComm = r.salesOrders?.reduce((s: number, o: any) => s + (o.estCommission || 0), 0) || 0
@@ -496,6 +525,9 @@ export default function AdminRepStatsPage() {
                   </React.Fragment>
                 )
               })}
+              {!loading && visibleReps.length === 0 && (
+                <tr><td colSpan={9} className="p-8 text-center text-neutral-500">No representatives match the current search.</td></tr>
+              )}
             </tbody>
           </table>
         </div>

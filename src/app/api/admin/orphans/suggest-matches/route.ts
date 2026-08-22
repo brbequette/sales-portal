@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 export function computePOMatchScore(po: any, invoice: any) {
   let score = 0
@@ -80,6 +81,8 @@ export function computePOMatchScore(po: any, invoice: any) {
 }
 
 export async function GET(req: Request) {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
   try {
     const { searchParams } = new URL(req.url)
     const poId = searchParams.get("poId")

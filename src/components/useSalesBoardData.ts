@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { WidgetConfig, DEFAULT_WIDGET_LAYOUT } from "./SalesBoardCustomizer"
+import { clearSharedJson, fetchSharedJson } from "@/lib/shared-api-fetch"
 
 export const SCREENS = ["WEEKLY_GRID", "REPS_KPI", "MTD_STATS", "YTD_STATS", "OVERDUE_INVOICES"] as const
 export type ScreenType = typeof SCREENS[number]
@@ -22,9 +23,29 @@ const REP_GRADIENTS = [
 const ROTATION_TIME = 15000
 const TICK_INTERVAL = 100
 
+const REP_FIRST_NAME_ALIASES: Record<string, string> = { ben: "benjamin", benjamin: "benjamin" }
+
+export const canonicalRepDisplayName = (name: string) => {
+  const normalized = String(name || "").trim().replace(/\s+/g, " ")
+  if (/^ben(?:jamin)?\s+bequette$/i.test(normalized)) return "Benjamin"
+  return normalized
+}
+
+const repNamesMatch = (left: string, right: string) => {
+  const parts = (value: string) => String(value || "").toLowerCase().trim().split(/\s+/).filter(Boolean)
+  const a = parts(left)
+  const b = parts(right)
+  if (!a.length || !b.length) return false
+  if (a.join(" ") === b.join(" ")) return true
+  return (REP_FIRST_NAME_ALIASES[a[0]] || a[0]) === (REP_FIRST_NAME_ALIASES[b[0]] || b[0])
+    && a.at(-1) === b.at(-1)
+}
+
 export interface SalesBoardDataReturn {
   data: any
   loading: boolean
+  lastUpdated: Date | null
+  refreshError: boolean
   currentScreen: ScreenType
   isFullscreen: boolean
   isPaused: boolean
@@ -53,11 +74,14 @@ export interface SalesBoardDataReturn {
 export function useSalesBoardData(): SalesBoardDataReturn {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [refreshError, setRefreshError] = useState(false)
   const [currentScreen, setCurrentScreen] = useState<ScreenType>("WEEKLY_GRID")
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [progress, setProgress] = useState(0)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
+  const costRepairSignatureRef = useRef("")
 
   // Layout Customizer state
   const [isCustomizerOpen, setIsCustomizerOpen] = useState(false)
@@ -101,7 +125,7 @@ export function useSalesBoardData(): SalesBoardDataReturn {
   useEffect(() => {
     const handleMetricEvent = (e: any) => {
       const key = e.detail?.key
-      if (!data) return
+      if (!data || !data.rawInvoices) return
 
       let title = "KPI Calculation Breakdown"
       let formula = "Sum of matching documents"
@@ -110,64 +134,39 @@ export function useSalesBoardData(): SalesBoardDataReturn {
       const now = new Date()
       const currentMonth = now.getMonth()
       const currentYear = now.getFullYear()
-      const docList = data.rawDocuments || data.rawInvoices || []
 
       if (key === "weeklyGoal") {
         title = "Weekly Subtotal Derivation"
-        formula = "Sum of 48h active estimates, uninvoiced sales orders, and invoices of all statuses issued in current week"
-        docs = docList.filter((doc: any) => {
-          const saleDate = doc.date ? doc.date.split('T')[0] : ''
-          return (data.weekDays || []).includes(saleDate)
+        formula = "Sum of invoice subtotals issued between Monday and Friday of current week"
+        docs = data.rawInvoices.filter((inv: any) => {
+          const d = new Date(inv.date || inv.issueDate)
+          return !isNaN(d.getTime()) && (now.getTime() - d.getTime()) <= 7 * 24 * 60 * 60 * 1000
         })
       } else if (key === "totalRevenue") {
         title = "MTD Total Revenue Derivation"
-        formula = "Sum of active 48h estimates, uninvoiced sales orders, and invoices of all statuses created in current month"
-        docs = docList.filter((inv: any) => {
+        formula = "Sum of all active invoice subtotals created in current month"
+        docs = data.rawInvoices.filter((inv: any) => {
           const d = new Date(inv.date || inv.issueDate)
           return d.getMonth() === currentMonth && d.getFullYear() === currentYear
         })
-      } else if (key === "estimates") {
-        title = "48h Active Estimates Derivation"
-        formula = "Estimates <= 48 hours old that have not been converted to a sales order"
-        docs = (data.rawQuotes || []).filter((q: any) => {
-          const qDate = new Date(q.date)
-          const ageHours = (now.getTime() - qDate.getTime()) / (1000 * 3600)
-          return ageHours >= 0 && ageHours <= 48 && !q.isConvertedToSO
-        })
-      } else if (key === "salesOrders") {
-        title = "Uninvoiced Sales Orders Derivation"
-        formula = "Sales orders not yet linked to or accounted for by an invoice"
-        docs = (data.rawSalesOrders || []).filter((so: any) => !so.isLinkedToInvoice)
-      } else if (key === "invoices") {
-        title = "Invoices Derivation (All Statuses)"
-        formula = "All invoices across all statuses (Paid, Open, Overdue, Draft, Void, etc.)"
-        docs = data.rawInvoices || []
       } else if (key === "monthlyProfit") {
         title = "Monthly Net Profit & Commission Derivation"
-        formula = "Sum of (Subtotal - DeadCostPlusVIG - CCFees - AdditionalCosts) for current month documents"
-        docs = docList.filter((inv: any) => {
+        formula = "Sum of (Subtotal - DeadCostPlusVIG - CCFees - AdditionalCosts) for current month invoices"
+        docs = data.rawInvoices.filter((inv: any) => {
           const d = new Date(inv.date || inv.issueDate)
           return d.getMonth() === currentMonth && d.getFullYear() === currentYear
         })
       } else if (key === "activePipeline") {
-        title = "Active Pipeline Derivation"
-        formula = "48h unconverted estimates, uninvoiced sales orders, and open invoice balances"
-        docs = [
-          ...(data.rawQuotes || []).filter((q: any) => {
-            const qDate = new Date(q.date)
-            const ageHours = (now.getTime() - qDate.getTime()) / (1000 * 3600)
-            return ageHours >= 0 && ageHours <= 48 && !q.isConvertedToSO
-          }),
-          ...(data.rawSalesOrders || []).filter((so: any) => !so.isLinkedToInvoice),
-          ...(data.rawInvoices || []).filter((inv: any) => {
-            const status = (inv.status || "").toLowerCase()
-            return status !== "paid" && status !== "void" && parseFloat(inv.balance || 0) > 0
-          })
-        ]
+        title = "Active Pipeline & Overdue Derivation"
+        formula = "Sum of unpaid balances on non-draft, non-void invoices"
+        docs = data.rawInvoices.filter((inv: any) => {
+          const status = (inv.status || "").toLowerCase()
+          return status !== "paid" && status !== "void" && status !== "draft" && parseFloat(inv.balance || 0) > 0
+        })
       } else {
         title = "Sales Performance Document Derivation"
-        formula = "All matching period estimates, sales orders, and invoices"
-        docs = docList
+        formula = "All matching period invoices"
+        docs = data.rawInvoices || []
       }
 
       setKpiModalTitle(title)
@@ -236,13 +235,11 @@ export function useSalesBoardData(): SalesBoardDataReturn {
         const today = new Date()
         const currentYear = today.getFullYear()
         const currentMonth = today.getMonth()
+        const yearStartStr = `${currentYear}-01-01`
 
         const lastMonthDate = new Date(currentYear, currentMonth - 1, 1)
         const yyyyLM = lastMonthDate.getFullYear()
         const mmLM = String(lastMonthDate.getMonth() + 1).padStart(2, '0')
-        const startDateStr = `${yyyyLM}-${mmLM}-01`
-
-        const threeDaysAgoStr = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
         
         const fetchSafe = async (url: string) => {
           try {
@@ -255,13 +252,14 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           }
         }
 
-        const [usersPayloadRaw, invoicesPayloadRaw, salesOrdersPayloadRaw, quotesPayloadRaw, configPayloadRaw, overduePayloadRaw] = await Promise.all([
-          fetchSafe("/api/admin/users"),
-          fetchSafe(`/api/get-documents?pageSize=8000&type=Invoice&loadAll=true&startDate=${startDateStr}`),
-          fetchSafe(`/api/get-documents?pageSize=8000&type=SalesOrder&loadAll=true&startDate=${startDateStr}`),
-          fetchSafe(`/api/get-documents?pageSize=8000&type=Quote&loadAll=true&startDate=${startDateStr}`),
-          fetchSafe("/api/get-config"),
-          fetchSafe(`/api/get-documents?pageSize=8000&type=Invoice&loadAll=true&status=overdue`)
+        const [usersPayloadRaw, invoicesPayloadRaw, salesOrdersPayloadRaw, quotesPayloadRaw, configPayloadRaw, overduePayloadRaw, weeklyPayloadRaw] = await Promise.all([
+          fetchSafe("/api/tv/users"),
+          fetchSafe(`/api/get-documents?pageSize=8000&type=Invoice&loadAll=true&startDate=${yearStartStr}`),
+          fetchSafe(`/api/get-documents?pageSize=8000&type=SalesOrder&loadAll=true&startDate=${yearStartStr}`),
+          Promise.resolve({ documents: [] }),
+          fetchSafe("/api/tv/config"),
+          fetchSafe(`/api/get-documents?pageSize=8000&type=Invoice&loadAll=true&status=overdue`),
+          fetchSharedJson<any>("/api/dashboard-weekly-sales").catch(() => null)
         ])
 
         const usersPayload = usersPayloadRaw || { users: [] }
@@ -270,6 +268,37 @@ export function useSalesBoardData(): SalesBoardDataReturn {
         const quotesPayload = quotesPayloadRaw || { documents: [] }
         const configPayload = configPayloadRaw || { holidays: [] }
         const overduePayload = overduePayloadRaw || { documents: [] }
+        const weeklyPayload = weeklyPayloadRaw || { documents: [] }
+
+        if (!usersPayloadRaw || !invoicesPayloadRaw || !weeklyPayloadRaw) {
+          throw new Error("Required TV dashboard data was unavailable")
+        }
+
+        const missingCostInvoiceIds: string[] = Array.isArray(weeklyPayload.missingCostInvoiceIds)
+          ? weeklyPayload.missingCostInvoiceIds.map(String).filter(Boolean).slice(0, 5)
+          : []
+        const missingCostSalesOrderIds: string[] = Array.isArray(weeklyPayload.missingCostSalesOrderIds)
+          ? weeklyPayload.missingCostSalesOrderIds.map(String).filter(Boolean).slice(0, 5)
+          : []
+        const repairSignature = [...missingCostInvoiceIds.map(id => `i:${id}`), ...missingCostSalesOrderIds.map(id => `s:${id}`)].sort().join(",")
+        if (repairSignature && costRepairSignatureRef.current !== repairSignature) {
+          costRepairSignatureRef.current = repairSignature
+          fetch("/api/tv/process-missing-costs", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ invoiceIds: missingCostInvoiceIds, salesOrderIds: missingCostSalesOrderIds }),
+          }).then(async response => {
+            const result = response.ok ? await response.json().catch(() => null) : null
+            if (result?.processed > 0) {
+              clearSharedJson("/api/dashboard-weekly-sales")
+              window.setTimeout(fetchData, 1500)
+            }
+          }).catch(() => {
+            costRepairSignatureRef.current = ""
+          })
+        } else if (!repairSignature) {
+          costRepairSignatureRef.current = ""
+        }
 
         const combinedDocuments = [
           ...(invoicesPayload.documents || []),
@@ -359,7 +388,8 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           
           return {
             id: u.id,
-            name: u.name || u.email,
+            name: canonicalRepDisplayName(u.name || u.email),
+            sourceName: u.name || u.email,
             role: u.role || "Sales Representative",
             expectedVig: 1.5,
             weeklyTarget: weeklyTarget,
@@ -383,85 +413,14 @@ export function useSalesBoardData(): SalesBoardDataReturn {
         dynamicReps.forEach((r: any) => {
           repsMap[r.id] = { 
             ...r, 
-            subtotals: {
-              estimates: 0,
-              estimatesCount: 0,
-              salesOrders: 0,
-              salesOrdersCount: 0,
-              invoices: 0,
-              invoicesCount: 0,
-              invoicesByStatus: {
-                paid: 0,
-                open: 0,
-                overdue: 0,
-                draft: 0,
-                void: 0,
-                other: 0
-              },
-              total: 0
-            },
-            weekly: { 
-              sales: [0,0,0,0,0], 
-              profit: [0,0,0,0,0], 
-              deadCostNoVig: 0, 
-              deadCostSubjectToVig: 0, 
-              totalSales: 0, 
-              totalProfit: 0, 
-              dealsClosed: 0, 
-              commission: 0, 
-              estimatesSubtotal: 0,
-              estimatesCount: 0,
-              salesOrdersSubtotal: 0,
-              salesOrdersCount: 0,
-              invoicesSubtotal: 0,
-              invoicesCount: 0,
-              invoices: [] 
-            },
-            mtd: { 
-              sales: 0, 
-              profit: 0, 
-              deadCostNoVig: 0, 
-              deadCostSubjectToVig: 0, 
-              commission: 0, 
-              dealsClosed: 0, 
-              estimatesSubtotal: 0,
-              estimatesCount: 0,
-              salesOrdersSubtotal: 0,
-              salesOrdersCount: 0,
-              invoicesSubtotal: 0,
-              invoicesCount: 0,
-              invoices: [] 
-            },
+            weekly: { sales: [0,0,0,0,0], profit: [0,0,0,0,0], deadCostNoVig: 0, deadCostSubjectToVig: 0, totalSales: 0, totalProfit: 0, dealsClosed: 0, commission: 0, invoices: [] },
+            mtd: { sales: 0, profit: 0, deadCostNoVig: 0, deadCostSubjectToVig: 0, commission: 0, dealsClosed: 0, invoices: [] },
             lastMonthPace: { sales: 0, profit: 0, dealsClosed: 0 },
             lastMonthFinal: { sales: 0, profit: 0, dealsClosed: 0 },
-            ytd: { 
-              sales: 0, 
-              profit: 0, 
-              deadCostNoVig: 0, 
-              deadCostSubjectToVig: 0, 
-              commission: 0, 
-              dealsClosed: 0, 
-              estimatesSubtotal: 0,
-              estimatesCount: 0,
-              salesOrdersSubtotal: 0,
-              salesOrdersCount: 0,
-              invoicesSubtotal: 0,
-              invoicesCount: 0,
-              invoices: [] 
-            },
+            ytd: { sales: 0, profit: 0, deadCostNoVig: 0, deadCostSubjectToVig: 0, commission: 0, dealsClosed: 0, invoices: [] },
             activePipeline: { estimateCount: 0, estimateAmount: 0, salesOrderCount: 0, salesOrderAmount: 0 }
           }
         })
-
-        let teamSubtotals = {
-          estimates: 0,
-          estimatesCount: 0,
-          salesOrders: 0,
-          salesOrdersCount: 0,
-          invoices: 0,
-          invoicesCount: 0,
-          total: 0
-        }
 
         let teamWeekly = { 
           sales: 0, 
@@ -469,9 +428,6 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           deadCostNoVig: 0,
           deadCostSubjectToVig: 0,
           commission: 0, 
-          estimatesSubtotal: 0,
-          salesOrdersSubtotal: 0,
-          invoicesSubtotal: 0,
           target: dynamicReps.reduce((sum: number, r: any) => sum + r.weeklyTarget, 0) 
         }
 
@@ -483,8 +439,10 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           const spNameNormalized = normalizeRepName(nameStr)
           if (!spNameNormalized) return null
           return Object.values(repsMap).find(r => {
-            const repNameNormalized = normalizeRepName(r.name)
-            return repNameNormalized.includes(spNameNormalized) || spNameNormalized.includes(repNameNormalized)
+            const repNameNormalized = normalizeRepName(r.sourceName || r.name)
+            return repNameNormalized.includes(spNameNormalized)
+              || spNameNormalized.includes(repNameNormalized)
+              || repNamesMatch(repNameNormalized, spNameNormalized)
           })
         }
 
@@ -524,8 +482,12 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           const repGradient = matchedRep ? matchedRep.gradient : 'from-slate-700 to-slate-900'
 
           const saleDate = doc.date ? doc.date.split('T')[0] : (doc.issueDate ? doc.issueDate.split('T')[0] : '')
-          const dueDateObj = doc.dueDate ? new Date(doc.dueDate) : (doc.date ? new Date(doc.date) : today)
-          const daysOverdue = Math.max(1, Math.floor((today.getTime() - dueDateObj.getTime()) / (1000 * 3600 * 24)))
+          if (!doc.dueDate) continue
+          const dueDateKey = String(doc.dueDate).split('T')[0]
+          const dueDateObj = new Date(`${dueDateKey}T12:00:00`)
+          const todayAtNoon = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12)
+          const daysOverdue = Math.floor((todayAtNoon.getTime() - dueDateObj.getTime()) / (1000 * 3600 * 24))
+          if (daysOverdue <= 0) continue
 
           totalOverdueBalance += balance
           totalOverdueCount += 1
@@ -561,28 +523,7 @@ export function useSalesBoardData(): SalesBoardDataReturn {
             dueDate: doc.dueDate ? doc.dueDate.split('T')[0] : saleDate
           })
         }
-        // Pre-build index of Invoices to link with Sales Orders and avoid double counting
-        const processedInvoiceIds = new Set<string>()
-        const processedInvoiceNumbers = new Set<string>()
-        const invoicedSOIds = new Set<string>()
-        const invoicedSONumbers = new Set<string>()
-
-        // Pass 1: Identify all Invoices (and their linked Sales Orders)
-        ;(invoicesPayload.documents || []).forEach((inv: any) => {
-          if (!inv) return
-          if (inv.id) processedInvoiceIds.add(String(inv.id).toLowerCase())
-          if (inv.zohoId) processedInvoiceIds.add(String(inv.zohoId).toLowerCase())
-          if (inv.invoiceNumber) processedInvoiceNumbers.add(String(inv.invoiceNumber).toLowerCase().trim())
-          if (inv.invoiceNumberFull) processedInvoiceNumbers.add(String(inv.invoiceNumberFull).toLowerCase().trim())
-          
-          const linkedSOId = inv.linkedSalesOrderId || inv.salesOrderId
-          const linkedSONum = inv.linkedSalesOrderNumber || inv.salesOrderNumber
-          if (linkedSOId) invoicedSOIds.add(String(linkedSOId).toLowerCase())
-          if (linkedSONum) invoicedSONumbers.add(String(linkedSONum).toLowerCase().trim())
-        })
-
         const rawDocs = combinedDocuments
-        const countedDocs: any[] = []
 
         rawDocs.forEach((doc: any) => {
           let spName = (doc.salesperson || "").toUpperCase()
@@ -600,334 +541,213 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           }
           if (!matchedRep && !spName) return // truly unattributable — skip
 
-          const amount = Number(doc.amount || 0)
-          const profit = Number(doc.profit || 0)
-          const deadCostNoVig = Number(doc.deadCostNoVig || 0)
-          const deadCostSubjectToVig = Number(doc.deadCostSubjectToVig || 0)
-
           // --- 1. ESTIMATES / QUOTES (48 Hours active on board or until SO) ---
           if (docType === 'Quote') {
             const quoteDate = new Date(doc.date)
             const ageHours = (today.getTime() - quoteDate.getTime()) / (1000 * 3600)
             const isConvertedToSO = doc.isConvertedToSO || false
-            
-            // Estimates only last for 48 hours. If unconverted and <= 48h, count as active estimate subtotal.
-            // If converted after 48h (or anytime), the converted SO or Invoice will represent its subtotal.
-            if (!isConvertedToSO && ageHours >= 0 && ageHours <= 48) {
-              if (matchedRep) {
-                matchedRep.activePipeline.estimateCount += 1
-                matchedRep.activePipeline.estimateAmount += amount
-                matchedRep.subtotals.estimates += amount
-                matchedRep.subtotals.estimatesCount += 1
-                matchedRep.subtotals.total += amount
-              }
-              teamSubtotals.estimates += amount
-              teamSubtotals.estimatesCount += 1
-              teamSubtotals.total += amount
-
-              const saleDate = doc.date ? doc.date.split('T')[0] : ''
-              if (saleDate) {
-                countedDocs.push(doc)
-                const inCurrentWeek = weekDays.includes(saleDate)
-                const isMTD = quoteDate >= firstDayOfMonth && quoteDate <= lastDayOfMonth
-                const isYTD = quoteDate.getFullYear() === currentYear
-
-                if (matchedRep) {
-                  if (inCurrentWeek) {
-                    matchedRep.weekly.estimatesSubtotal += amount
-                    matchedRep.weekly.estimatesCount += 1
-                    matchedRep.weekly.invoices.push({
-                      id: doc.id,
-                      zohoId: doc.zohoId,
-                      date: saleDate,
-                      customer: doc.accountName,
-                      amount,
-                      profit,
-                      deadCostNoVig,
-                      deadCostSubjectToVig,
-                      commission: 0,
-                      invoiceNumber: doc.invoiceNumber,
-                      type: 'Quote',
-                      status: doc.status || 'Draft'
-                    })
-                    teamWeekly.estimatesSubtotal += amount
-                  }
-                  if (isMTD) {
-                    matchedRep.mtd.estimatesSubtotal += amount
-                    matchedRep.mtd.estimatesCount += 1
-                    matchedRep.mtd.invoices.push({
-                      id: doc.id,
-                      zohoId: doc.zohoId,
-                      date: saleDate,
-                      customer: doc.accountName,
-                      amount,
-                      profit,
-                      deadCostNoVig,
-                      deadCostSubjectToVig,
-                      commission: 0,
-                      invoiceNumber: doc.invoiceNumber,
-                      type: 'Quote',
-                      status: doc.status || 'Draft'
-                    })
-                  }
-                  if (isYTD) {
-                    matchedRep.ytd.estimatesSubtotal += amount
-                    matchedRep.ytd.estimatesCount += 1
-                    matchedRep.ytd.invoices.push({
-                      id: doc.id,
-                      zohoId: doc.zohoId,
-                      date: saleDate,
-                      customer: doc.accountName,
-                      amount,
-                      profit,
-                      deadCostNoVig,
-                      deadCostSubjectToVig,
-                      commission: 0,
-                      invoiceNumber: doc.invoiceNumber,
-                      type: 'Quote',
-                      status: doc.status || 'Draft'
-                    })
-                  }
-                }
-              }
+            if (ageHours <= 48 && !isConvertedToSO && matchedRep) {
+              matchedRep.activePipeline.estimateCount += 1
+              matchedRep.activePipeline.estimateAmount += parseFloat(doc.amount || 0)
             }
             return
           }
 
-          // --- 2. SALES ORDERS for Active Pipeline (Uninvoiced SOs) ---
-          let isAlreadyAccountedByInvoice = false
+          // --- 2. SALES ORDERS (Active on board until Invoiced/Closed) ---
           if (docType === 'SalesOrder') {
-            const soStatus = (doc.status || '').toLowerCase().trim()
-            const isClosedOrVoid = soStatus === 'closed' || soStatus === 'void' || soStatus === 'cancelled'
-            const isLinkedToInv = doc.isLinkedToInvoice || !!(doc.linkedInvoiceId || doc.linkedInvoiceNumber) || soStatus === 'invoiced'
-            
-            const soId = String(doc.zohoId || doc.id || '').toLowerCase()
-            const soNum = String(doc.salesOrderNumber || doc.invoiceNumber || '').toLowerCase().trim()
-            const linkedInvId = String(doc.linkedInvoiceId || '').toLowerCase()
-            const linkedInvNum = String(doc.linkedInvoiceNumber || '').toLowerCase().trim()
-
-            if (soId && invoicedSOIds.has(soId)) isAlreadyAccountedByInvoice = true
-            if (soNum && invoicedSONumbers.has(soNum)) isAlreadyAccountedByInvoice = true
-            if (linkedInvId && processedInvoiceIds.has(linkedInvId)) isAlreadyAccountedByInvoice = true
-            if (linkedInvNum && processedInvoiceNumbers.has(linkedInvNum)) isAlreadyAccountedByInvoice = true
-            if (isLinkedToInv) isAlreadyAccountedByInvoice = true
-
-            // Only count open, uninvoiced Sales Orders in Active Pipeline badge and SO subtotals
-            if (!isAlreadyAccountedByInvoice && !isClosedOrVoid) {
-              if (matchedRep) {
-                matchedRep.activePipeline.salesOrderCount += 1
-                matchedRep.activePipeline.salesOrderAmount += amount
-                matchedRep.subtotals.salesOrders += amount
-                matchedRep.subtotals.salesOrdersCount += 1
-                matchedRep.subtotals.total += amount
-              }
-              teamSubtotals.salesOrders += amount
-              teamSubtotals.salesOrdersCount += 1
-              teamSubtotals.total += amount
+            const isInvoicedOrClosed = doc.isInvoicedOrClosed || false
+            if (isInvoicedOrClosed) return // Skip converted/closed/voided Sales Orders to avoid double-counting
+            if (matchedRep) {
+              matchedRep.activePipeline.salesOrderCount += 1
+              matchedRep.activePipeline.salesOrderAmount += parseFloat(doc.amount || 0)
             }
           }
 
-          // --- 3. INVOICES (Subtotals for invoices of all statuses) ---
+          // Booked MTD/YTD performance is invoice-only. Uninvoiced sales
+          // orders remain visible in activePipeline and are never called sales.
           if (docType === 'Invoice') {
-            const st = (doc.status || 'draft').toLowerCase().trim()
-            let statusCategory = 'other'
-            if (st === 'paid') statusCategory = 'paid'
-            else if (st === 'open' || st === 'sent' || st === 'unpaid') statusCategory = 'open'
-            else if (st === 'overdue') statusCategory = 'overdue'
-            else if (st === 'draft') statusCategory = 'draft'
-            else if (st === 'void' || st === 'voided' || st === 'cancelled') statusCategory = 'void'
+            const saleDate = doc.date ? doc.date.split('T')[0] : ''
+            if (!saleDate) return
+
+            // Date-only strings parse as UTC and can shift to the prior day in
+            // Arizona. Local noon preserves the intended business date.
+            const invDateObj = new Date(`${saleDate}T12:00:00`)
+            const amount = Number(doc.amount || 0)
+            const profit = Number(doc.profit || 0)
+            const deadCostNoVig = Number(doc.deadCostNoVig || 0)
+            const deadCostSubjectToVig = Number(doc.deadCostSubjectToVig || 0)
+
+            const isPaid = doc.isPaid || false
+            const isSameDayPaid = doc.isSameDayPaid || false
+            // Use structured commission data if available, otherwise fall back to raw number
+            const commObj = typeof doc.commission === 'object' && doc.commission !== null ? doc.commission : null
+            const fullComm = commObj ? (commObj.total || 0) + (commObj.future || 0) : Number(doc.commission || 0)
+
+            const isSinglePayment = matchedRep?.payoutStructure === 'single_payment'
+            let commissionEarned = 0
+            if (commObj) {
+              // Prefer API-computed values: total = already earned, future = pending
+              commissionEarned = commObj.total || 0
+            } else if (isSinglePayment) {
+              commissionEarned = (isPaid || isSameDayPaid) ? fullComm : 0
+            } else {
+              commissionEarned = fullComm * 0.5
+              if (isPaid || isSameDayPaid) {
+                commissionEarned = fullComm
+              }
+            }
+
+            const balance = Number(doc.balance !== undefined ? doc.balance : 0)
+
+            const inCurrentWeek = weekDays.includes(saleDate)
+            const isMTD = invDateObj >= firstDayOfMonth && invDateObj <= lastDayOfMonth
+            const isLastMonth = invDateObj >= firstDayOfLastMonth && invDateObj <= lastDayOfLastMonth
+            const isYTD = invDateObj.getFullYear() === currentYear
 
             if (matchedRep) {
-              matchedRep.subtotals.invoices += amount
-              matchedRep.subtotals.invoicesCount += 1
-              matchedRep.subtotals.total += amount
-              if ((matchedRep.subtotals.invoicesByStatus as any)[statusCategory] !== undefined) {
-                (matchedRep.subtotals.invoicesByStatus as any)[statusCategory] += amount
-              }
-            }
-            teamSubtotals.invoices += amount
-            teamSubtotals.invoicesCount += 1
-            teamSubtotals.total += amount
-          }
+              if (isLastMonth) {
+                matchedRep.lastMonthFinal.sales += amount
+                matchedRep.lastMonthFinal.profit += profit
+                matchedRep.lastMonthFinal.dealsClosed += 1
 
-          // Deduplication: if Sales Order is already invoiced, invoice handles financial grid
-          if (docType === 'SalesOrder' && isAlreadyAccountedByInvoice) {
-            return
-          }
-
-          const saleDate = doc.date ? doc.date.split('T')[0] : ''
-          if (!saleDate) return
-
-          countedDocs.push(doc)
-
-          const invDateObj = new Date(saleDate)
-
-          const isPaid = doc.isPaid || false
-          const isSameDayPaid = doc.isSameDayPaid || false
-          // Use structured commission data if available, otherwise fall back to raw number
-          const commObj = typeof doc.commission === 'object' && doc.commission !== null ? doc.commission : null
-          const fullComm = commObj ? (commObj.total || 0) + (commObj.future || 0) : Number(doc.commission || 0)
-
-          const isSinglePayment = matchedRep?.payoutStructure === 'single_payment'
-          let commissionEarned = 0
-          if (commObj) {
-            commissionEarned = commObj.total || 0
-          } else if (isSinglePayment) {
-            commissionEarned = (isPaid || isSameDayPaid) ? fullComm : 0
-          } else {
-            commissionEarned = fullComm * 0.5
-            if (isPaid || isSameDayPaid) {
-              commissionEarned = fullComm
-            }
-          }
-
-          const inCurrentWeek = weekDays.includes(saleDate)
-          const isMTD = invDateObj >= firstDayOfMonth && invDateObj <= lastDayOfMonth
-          const isLastMonth = invDateObj >= firstDayOfLastMonth && invDateObj <= lastDayOfLastMonth
-          const isYTD = invDateObj.getFullYear() === currentYear
-
-          if (matchedRep) {
-            // 1. Current Week (Monday - Friday)
-            if (inCurrentWeek) {
-              const dayIdx = weekDays.indexOf(saleDate)
-              if (dayIdx >= 0 && dayIdx < 5) {
-                matchedRep.weekly.sales[dayIdx] += amount
-                matchedRep.weekly.profit[dayIdx] += profit
-              }
-              matchedRep.weekly.totalSales += amount
-              matchedRep.weekly.totalProfit += profit
-              matchedRep.weekly.deadCostNoVig += deadCostNoVig
-              matchedRep.weekly.deadCostSubjectToVig += deadCostSubjectToVig
-              matchedRep.weekly.commission += commissionEarned
-              matchedRep.weekly.dealsClosed += 1
-
-              if (docType === 'SalesOrder') {
-                matchedRep.weekly.salesOrdersSubtotal += amount
-                matchedRep.weekly.salesOrdersCount += 1
-                teamWeekly.salesOrdersSubtotal += amount
-              } else if (docType === 'Invoice') {
-                matchedRep.weekly.invoicesSubtotal += amount
-                matchedRep.weekly.invoicesCount += 1
-                teamWeekly.invoicesSubtotal += amount
+                if (saleDate <= lastMonthCutoffDateStr) {
+                  matchedRep.lastMonthPace.sales += amount
+                  matchedRep.lastMonthPace.profit += profit
+                  matchedRep.lastMonthPace.dealsClosed += 1
+                }
               }
 
-              matchedRep.weekly.invoices.push({ 
-                id: doc.id, 
-                zohoId: doc.zohoId,
-                date: saleDate, 
-                customer: doc.accountName, 
-                amount, 
-                profit, 
-                deadCostNoVig,
-                deadCostSubjectToVig,
-                commission: commissionEarned, 
-                invoiceNumber: doc.invoiceNumber,
-                type: docType,
-                status: doc.status || 'Draft'
-              })
+              if (isMTD) {
+                teamWeekly.sales += amount
+                teamWeekly.profit += profit
+                teamWeekly.deadCostNoVig += deadCostNoVig
+                teamWeekly.deadCostSubjectToVig += deadCostSubjectToVig
+                teamWeekly.commission += commissionEarned
 
-              teamWeekly.sales += amount
-              teamWeekly.profit += profit
-              teamWeekly.deadCostNoVig += deadCostNoVig
-              teamWeekly.deadCostSubjectToVig += deadCostSubjectToVig
-              teamWeekly.commission += commissionEarned
-            }
-
-            // 2. Last Month Final & Pace
-            if (isLastMonth) {
-              matchedRep.lastMonthFinal.sales += amount
-              matchedRep.lastMonthFinal.profit += profit
-              matchedRep.lastMonthFinal.dealsClosed += 1
-
-              if (saleDate <= lastMonthCutoffDateStr) {
-                matchedRep.lastMonthPace.sales += amount
-                matchedRep.lastMonthPace.profit += profit
-                matchedRep.lastMonthPace.dealsClosed += 1
+                matchedRep.mtd.sales += amount
+                matchedRep.mtd.profit += profit
+                matchedRep.mtd.deadCostNoVig += deadCostNoVig
+                matchedRep.mtd.deadCostSubjectToVig += deadCostSubjectToVig
+                matchedRep.mtd.commission += commissionEarned
+                matchedRep.mtd.dealsClosed += 1
+                matchedRep.mtd.invoices.push({ 
+                  id: doc.id, 
+                  zohoId: doc.zohoId,
+                  date: saleDate, 
+                  customer: doc.accountName, 
+                  amount, 
+                  profit, 
+                  deadCostNoVig,
+                  deadCostSubjectToVig,
+                  commission: commissionEarned, 
+                  invoiceNumber: doc.invoiceNumber 
+                })
               }
-            }
-
-            // 3. Month To Date (MTD)
-            if (isMTD) {
-              matchedRep.mtd.sales += amount
-              matchedRep.mtd.profit += profit
-              matchedRep.mtd.deadCostNoVig += deadCostNoVig
-              matchedRep.mtd.deadCostSubjectToVig += deadCostSubjectToVig
-              matchedRep.mtd.commission += commissionEarned
-              matchedRep.mtd.dealsClosed += 1
-
-              if (docType === 'SalesOrder') {
-                matchedRep.mtd.salesOrdersSubtotal += amount
-                matchedRep.mtd.salesOrdersCount += 1
-              } else if (docType === 'Invoice') {
-                matchedRep.mtd.invoicesSubtotal += amount
-                matchedRep.mtd.invoicesCount += 1
+              if (isYTD) {
+                matchedRep.ytd.sales += amount
+                matchedRep.ytd.profit += profit
+                matchedRep.ytd.deadCostNoVig += deadCostNoVig
+                matchedRep.ytd.deadCostSubjectToVig += deadCostSubjectToVig
+                matchedRep.ytd.commission += commissionEarned
+                matchedRep.ytd.dealsClosed += 1
+                matchedRep.ytd.invoices.push({ 
+                  id: doc.id, 
+                  zohoId: doc.zohoId,
+                  date: saleDate, 
+                  customer: doc.accountName, 
+                  amount, 
+                  profit, 
+                  deadCostNoVig,
+                  deadCostSubjectToVig,
+                  commission: commissionEarned, 
+                  invoiceNumber: doc.invoiceNumber 
+                })
               }
-
-              matchedRep.mtd.invoices.push({ 
-                id: doc.id, 
-                zohoId: doc.zohoId,
-                date: saleDate, 
-                customer: doc.accountName, 
-                amount, 
-                profit, 
-                deadCostNoVig,
-                deadCostSubjectToVig,
-                commission: commissionEarned, 
-                invoiceNumber: doc.invoiceNumber,
-                type: docType,
-                status: doc.status || 'Draft'
-              })
-            }
-
-            // 4. Year To Date (YTD)
-            if (isYTD) {
-              matchedRep.ytd.sales += amount
-              matchedRep.ytd.profit += profit
-              matchedRep.ytd.deadCostNoVig += deadCostNoVig
-              matchedRep.ytd.deadCostSubjectToVig += deadCostSubjectToVig
-              matchedRep.ytd.commission += commissionEarned
-              matchedRep.ytd.dealsClosed += 1
-
-              if (docType === 'SalesOrder') {
-                matchedRep.ytd.salesOrdersSubtotal += amount
-                matchedRep.ytd.salesOrdersCount += 1
-              } else if (docType === 'Invoice') {
-                matchedRep.ytd.invoicesSubtotal += amount
-                matchedRep.ytd.invoicesCount += 1
-              }
-
-              matchedRep.ytd.invoices.push({ 
-                id: doc.id, 
-                zohoId: doc.zohoId,
-                date: saleDate, 
-                customer: doc.accountName, 
-                amount, 
-                profit, 
-                deadCostNoVig,
-                deadCostSubjectToVig,
-                commission: commissionEarned, 
-                invoiceNumber: doc.invoiceNumber,
-                type: docType,
-                status: doc.status || 'Draft'
-              })
             }
           }
+        })
+
+        // Weekly sales use the lifecycle-aware server result: invoices plus
+        // only estimates/SOs that have not been converted downstream.
+        teamWeekly.sales = 0
+        teamWeekly.profit = 0
+        teamWeekly.deadCostNoVig = 0
+        teamWeekly.deadCostSubjectToVig = 0
+        teamWeekly.commission = 0
+        for (const rep of Object.values(repsMap) as any[]) {
+          rep.weekly.sales = [0, 0, 0, 0, 0]
+          rep.weekly.profit = [0, 0, 0, 0, 0]
+          rep.weekly.totalSales = 0
+          rep.weekly.totalProfit = 0
+          rep.weekly.deadCostNoVig = 0
+          rep.weekly.deadCostSubjectToVig = 0
+          rep.weekly.commission = 0
+          rep.weekly.dealsClosed = 0
+          rep.weekly.invoices = []
+        }
+
+        const rawDocById = new Map(rawDocs.map((doc: any) => [doc.id, doc]))
+        for (const doc of (weeklyPayload.documents || [])) {
+          const rawDoc: any = rawDocById.get(doc.id) || {}
+          const amount = Number(doc.subtotal || 0)
+          const profit = Number(doc.profit || rawDoc.profit || 0)
+          const deadCostNoVig = Number(rawDoc.deadCostNoVig || 0)
+          const deadCostSubjectToVig = Number(rawDoc.deadCostSubjectToVig || 0)
+          const commission = typeof rawDoc.commission === "object"
+            ? Number(rawDoc.commission?.total || 0)
+            : Number(rawDoc.commission || 0)
+          teamWeekly.sales += amount
+          teamWeekly.profit += profit
+          teamWeekly.deadCostNoVig += deadCostNoVig
+          teamWeekly.deadCostSubjectToVig += deadCostSubjectToVig
+          teamWeekly.commission += commission
+
+          const matchedRep = getMatchedRep(doc.salesperson || "")
+          if (!matchedRep) continue
+          if (doc.type === "estimate") {
+            matchedRep.activePipeline.estimateCount += 1
+            matchedRep.activePipeline.estimateAmount += amount
+          }
+          const dateKey = String(doc.date || "").split("T")[0]
+          const dayIndex = weekDays.indexOf(dateKey)
+          if (dayIndex >= 0) {
+            matchedRep.weekly.sales[dayIndex] += amount
+            matchedRep.weekly.profit[dayIndex] += profit
+          }
+          matchedRep.weekly.totalSales += amount
+          matchedRep.weekly.totalProfit += profit
+          matchedRep.weekly.deadCostNoVig += deadCostNoVig
+          matchedRep.weekly.deadCostSubjectToVig += deadCostSubjectToVig
+          matchedRep.weekly.commission += commission
+          matchedRep.weekly.dealsClosed += 1
+          matchedRep.weekly.invoices.push(doc)
+        }
+
+        const weeklyBreakdown = (weeklyPayload.documents || []).reduce((result: any, doc: any) => {
+          const type = doc.type === "salesorder" || doc.type === "estimate" ? doc.type : "invoice"
+          result[type].subtotal += Number(doc.subtotal || 0)
+          result[type].deadCost += Number(doc.deadCost || 0)
+          result[type].profit += Number(doc.profit || 0)
+          result[type].count += 1
+          return result
+        }, {
+          invoice: { subtotal: 0, deadCost: 0, profit: 0, count: 0 },
+          salesorder: { subtotal: 0, deadCost: 0, profit: 0, count: 0 },
+          estimate: { subtotal: 0, deadCost: 0, profit: 0, count: 0 },
         })
 
         const computedBoardData = {
           reps: Object.values(repsMap),
           teamWeekly,
-          teamSubtotals,
           currentWorkdayIndex,
           repOverdueMap,
           totalOverdueBalance,
           totalOverdueCount,
           maxSystemOverdueDays,
           rawInvoices: rawDocs.filter((d: any) => d.type === 'Invoice'),
-          rawSalesOrders: rawDocs.filter((d: any) => d.type === 'SalesOrder'),
-          rawQuotes: rawDocs.filter((d: any) => d.type === 'Quote'),
-          rawDocuments: countedDocs,
-          weekDays
+          weekDays,
+          weeklyBreakdown,
+          missingCostCount: missingCostInvoiceIds.length + missingCostSalesOrderIds.length,
         }
 
         try {
@@ -939,9 +759,12 @@ export function useSalesBoardData(): SalesBoardDataReturn {
         }
 
         setData(computedBoardData)
+        setLastUpdated(new Date())
+        setRefreshError(false)
 
       } catch (err) {
         console.error("Sales Board Error:", err)
+        setRefreshError(true)
       } finally {
         setLoading(false)
       }
@@ -967,20 +790,19 @@ export function useSalesBoardData(): SalesBoardDataReturn {
   // Auto-rotate screens
   useEffect(() => {
     if (isPaused) return
-    let tickCount = progress
     const interval = setInterval(() => {
-      tickCount += (TICK_INTERVAL / ROTATION_TIME) * 100
-      if (tickCount >= 100) {
-         tickCount = 0
-         setCurrentScreen(prev => {
-            const idx = SCREENS.indexOf(prev)
-            return SCREENS[(idx + 1) % SCREENS.length]
-         })
-      }
-      setProgress(tickCount)
+      setProgress(previous => {
+        const next = previous + (TICK_INTERVAL / ROTATION_TIME) * 100
+        if (next < 100) return next
+        setCurrentScreen(screen => {
+          const idx = SCREENS.indexOf(screen)
+          return SCREENS[(idx + 1) % SCREENS.length]
+        })
+        return 0
+      })
     }, TICK_INTERVAL)
     return () => clearInterval(interval)
-  }, [isPaused, progress])
+  }, [isPaused])
 
   const nextScreen = useCallback(() => {
     setCurrentScreen(prev => {
@@ -1012,6 +834,8 @@ export function useSalesBoardData(): SalesBoardDataReturn {
   return {
     data,
     loading,
+    lastUpdated,
+    refreshError,
     currentScreen,
     isFullscreen,
     isPaused,

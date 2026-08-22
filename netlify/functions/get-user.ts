@@ -1,8 +1,9 @@
+import { withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 
 import { prisma } from "./lib/prisma"
 
-export const handler: Handler = async (event) => {
+const authenticatedHandler: Handler = async (event) => {
   let email = event.queryStringParameters?.email
   if (!email) {
     return {
@@ -44,8 +45,8 @@ export const handler: Handler = async (event) => {
       needsUpdate = true;
     }
 
-    if (lowerEmail === "ben@titandiamond.net" && user.name !== "Benjamin Bequette") {
-      updateData.name = "Benjamin Bequette";
+    if (lowerEmail === "ben@titandiamond.net" && user.name !== "BENJAMIN BEQUETTE") {
+      updateData.name = "BENJAMIN BEQUETTE";
       needsUpdate = true;
     }
 
@@ -84,3 +85,5 @@ export const handler: Handler = async (event) => {
     }
   }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler)

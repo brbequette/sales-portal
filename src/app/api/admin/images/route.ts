@@ -4,20 +4,15 @@ import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from "../../../../.
 import fs from "fs"
 import path from "path"
 import { execSync } from "child_process"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
-const BASE_ALL_PICS_DIR = "C:\\Users\\titan\\Documents\\Titan Diamond\\All Pics"
-const ALL_PICS_DIR = fs.existsSync(BASE_ALL_PICS_DIR)
-  ? BASE_ALL_PICS_DIR
-  : "/tmp/all-pics-storage"
+const ALL_PICS_DIR = process.env.ALL_PICS_DIR || "/tmp/all-pics-storage"
 
 const PROCESSED_DIR = path.join(ALL_PICS_DIR, "processed")
 
-const BASE_PUBLIC_DIR = "C:\\Users\\titan\\Documents\\Titan Diamond\\AUTOMATIONS\\sales-portal\\public\\product-images"
-const PUBLIC_PRODUCT_IMAGES_DIR = fs.existsSync(BASE_PUBLIC_DIR)
-  ? BASE_PUBLIC_DIR
-  : "/tmp/product-images"
+const PUBLIC_PRODUCT_IMAGES_DIR = process.env.PRODUCT_IMAGES_DIR || "/tmp/product-images"
 
-const AUTOMATIONS_DIR = "C:\\Users\\titan\\Documents\\Titan Diamond\\AUTOMATIONS"
+const AUTOMATIONS_DIR = process.env.AUTOMATIONS_DIR || "/opt/tdgpt-automations"
 const IS_LOCAL = fs.existsSync(AUTOMATIONS_DIR)
 
 // Detail variant suffixes for hydration
@@ -52,6 +47,8 @@ function getDirStats(dirPath: string) {
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
   try {
     if (!fs.existsSync(ALL_PICS_DIR)) {
       fs.mkdirSync(ALL_PICS_DIR, { recursive: true })
@@ -397,6 +394,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
   try {
     const body = await req.json()
     const { action } = body

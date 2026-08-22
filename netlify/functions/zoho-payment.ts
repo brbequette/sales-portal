@@ -5,6 +5,8 @@ const ORG_ID = ZOHO_ORGANIZATION_ID
 import { prisma } from "./lib/prisma"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 import { getSystemSettings } from "./lib/settings"
+import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
+import { isAdminRole } from "../../src/lib/roles"
 
 export const handler: Handler = async (event) => {
   const cors = {
@@ -17,6 +19,13 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: cors, body: "" }
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "Method not allowed" }) }
 
+  let sessionUser
+  try {
+    sessionUser = await authenticateFunction(event)
+  } catch (error) {
+    return authErrorResponse(error, cors)
+  }
+
   let body: any = {}
   try {
     body = JSON.parse(event.body || "{}")
@@ -26,7 +35,7 @@ export const handler: Handler = async (event) => {
 
   const { customerId, invoiceId, amount, authCode, paymentMethod, paymentDate, transId, last4, cardType } = body
 
-  if (!customerId || !invoiceId || !amount) {
+  if (!invoiceId || !amount) {
     return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "Missing required fields" }) }
   }
 
@@ -37,7 +46,7 @@ export const handler: Handler = async (event) => {
     let booksInvoiceId = invoiceId
     let booksCustomerId = customerId
 
-    // Try finding in database to resolve booksInvoiceId
+    // Resolve the invoice and its account locally before any external write.
     const dbInvoice = await prisma.invoice.findFirst({
       where: {
         OR: [
@@ -47,26 +56,35 @@ export const handler: Handler = async (event) => {
       }
     })
 
-    if (dbInvoice) {
-      const items = dbInvoice.items as any
-      if (items?.booksInvoiceId) {
-        booksInvoiceId = items.booksInvoiceId
-      }
+    if (!dbInvoice) {
+      return { statusCode: 404, headers: cors, body: JSON.stringify({ error: "Invoice not found" }) }
     }
 
-    // Try finding in database to resolve booksCustomerId
-    const dbAccount = await prisma.account.findFirst({
-      where: {
-        OR: [
-          { id: customerId },
-          { zohoId: customerId }
-        ]
-      }
-    })
-
-    if (dbAccount) {
-      booksCustomerId = dbAccount.zohoId
+    const dbAccount = await prisma.account.findUnique({ where: { id: dbInvoice.accountId } })
+    if (!dbAccount) {
+      return { statusCode: 404, headers: cors, body: JSON.stringify({ error: "Invoice account not found" }) }
     }
+
+    const actorId = sessionUser.dbId || sessionUser.userId
+    if (!isAdminRole(sessionUser.role) && (!actorId || dbAccount.ownerId !== actorId)) {
+      return { statusCode: 403, headers: cors, body: JSON.stringify({ error: "Forbidden: This invoice belongs to another representative" }) }
+    }
+
+    const paymentAmount = Number(amount)
+    const outstandingBalance = Number(dbInvoice.balance ?? dbInvoice.amount)
+    if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+      return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "Payment amount must be positive" }) }
+    }
+    if (Number.isFinite(outstandingBalance) && paymentAmount > outstandingBalance + 0.005) {
+      return { statusCode: 400, headers: cors, body: JSON.stringify({ error: `Payment exceeds the outstanding balance of $${outstandingBalance.toFixed(2)}` }) }
+    }
+
+    const items = dbInvoice.items as any
+    if (items?.booksInvoiceId) {
+      booksInvoiceId = items.booksInvoiceId
+    }
+
+    booksCustomerId = dbAccount.zohoId
 
     const token = await getAccessToken()
     const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
@@ -198,7 +216,7 @@ export const handler: Handler = async (event) => {
               where: { id: dbInvoice.id },
               data: {
                 status: updatedInv.status,
-                amount: parseFloat(updatedInv.balance || 0),
+                balance: parseFloat(updatedInv.balance || 0),
                 items: {
                   ...currentItems,
                   balance: parseFloat(updatedInv.balance || 0),

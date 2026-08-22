@@ -17,7 +17,7 @@ interface InvoiceRecord {
   isSameDayPaid?: boolean
   issueDate: string | null
   paymentDate: string | null
-  commission: { total: number; upfront: number; final: number }
+  commission: { total: number; upfront: number; final: number; future?: number }
   accountName: string
 }
 
@@ -144,7 +144,7 @@ export function PayPeriodStatementModal({ rep, onClose, initialWeekStart }: PayP
   }, [rep.payouts, periodStart, periodEnd])
 
   // Totals for this pay period
-  const totalSameDay = sameDayInvoices.reduce((sum, inv) => sum + (inv.commission.total || (inv.profit * 0.5)), 0)
+  const totalSameDay = sameDayInvoices.reduce((sum, inv) => sum + (inv.commission.total ?? 0), 0)
   const totalUpfront = upfrontInvoices.reduce((sum, inv) => sum + inv.commission.upfront, 0)
   const totalFinal = finalInvoices.reduce((sum, inv) => sum + inv.commission.final, 0)
   const totalPeriodEarned = totalSameDay + totalUpfront + totalFinal
@@ -164,7 +164,7 @@ export function PayPeriodStatementModal({ rep, onClose, initialWeekStart }: PayP
   }, [rep.invoices, periodStart, periodEnd, isSinglePay])
 
   const salesCreatedTotal = salesCreatedThisWeek.reduce((sum, inv) => {
-    return sum + ((inv as any).commission?.future || inv.commission?.total || (inv.profit * 0.5) || 0)
+    return sum + (inv.commission?.future ?? inv.commission?.total ?? 0)
   }, 0)
 
   // All-time pending commissions (all unpaid invoices)
@@ -173,7 +173,7 @@ export function PayPeriodStatementModal({ rep, onClose, initialWeekStart }: PayP
   }, [rep.invoices])
 
   const allPendingTotal = allPendingCommissions.reduce((sum, inv) => {
-    return sum + ((inv as any).commission?.future || inv.commission?.total || (inv.profit * 0.5) || 0)
+    return sum + (inv.commission?.future ?? inv.commission?.total ?? 0)
   }, 0)
 
   // YTD Metrics
@@ -454,7 +454,7 @@ export function PayPeriodStatementModal({ rep, onClose, initialWeekStart }: PayP
                         <td className="py-2.5 px-4 text-right">{fmt(inv.amount)}</td>
                         <td className="py-2.5 px-4 text-right text-sky-300 print:text-black">{fmt(inv.profit)}</td>
                         <td className="py-2.5 px-4 text-right font-black text-violet-300 print:text-black">
-                          {fmt((inv as any).commission?.future || inv.commission?.total || (inv.profit * 0.5) || 0)}
+                          {fmt(inv.commission?.future ?? inv.commission?.total ?? 0)}
                         </td>
                       </tr>
                     ))}

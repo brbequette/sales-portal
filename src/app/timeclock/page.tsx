@@ -1,8 +1,9 @@
 "use client"
 
 import React, { useState, useEffect, useMemo } from "react"
+import { createPortal } from "react-dom"
 import { useZoho } from "@/components/ZohoProvider"
-import { FiClock, FiAlertCircle, FiCheckCircle, FiXCircle, FiMapPin, FiAlertTriangle, FiLock, FiPlay, FiSquare, FiRefreshCw } from "react-icons/fi"
+import { FiClock, FiAlertCircle, FiCheckCircle, FiXCircle, FiMapPin, FiAlertTriangle, FiLock, FiPlay, FiSquare, FiRefreshCw, FiSearch } from "react-icons/fi"
 import { calculateHours, formatHours } from "@/lib/timeclock-utils"
 import { toast } from 'react-hot-toast'
 
@@ -21,6 +22,14 @@ interface TimeEntry {
   active?: boolean
 }
 
+const getPhoenixDate = () => {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Phoenix', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(new Date())
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find(part => part.type === type)?.value || ''
+  return `${value('year')}-${value('month')}-${value('day')}`
+}
+
 export default function UserTimeclockPage() {
   const { zohoContext: currentUser } = useZoho()
   const [entries, setEntries] = useState<TimeEntry[]>([])
@@ -35,11 +44,14 @@ export default function UserTimeclockPage() {
   const [newClockOut, setNewClockOut] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const [historySearch, setHistorySearch] = useState("")
+  const [historyFilter, setHistoryFilter] = useState<"all" | "active" | "pending" | "edited" | "location-issue">("all")
+  const [historySort, setHistorySort] = useState<"newest" | "oldest" | "hours-desc" | "hours-asc">("newest")
 
   const fetchEntries = async () => {
     if (!currentUser?.id && !currentUser?.email) return
     try {
-      const res = await fetch(`/api/timeclock/get-entries?userId=${currentUser.id || ''}&email=${encodeURIComponent(currentUser.email || '')}`, { cache: 'no-store' })
+      const res = await fetch('/api/timeclock/get-entries', { cache: 'no-store' })
       const data = await res.json()
       if (data.success) {
         setEntries(data.entries || [])
@@ -57,7 +69,8 @@ export default function UserTimeclockPage() {
 
   // Determine current active shift (today's shift without a clockOut)
   const activeEntry = useMemo(() => {
-    return entries.find(e => !e.clockOut && !e.manualClockOut) || null
+    const today = getPhoenixDate()
+    return entries.find(e => e.date === today && !e.clockOut && !e.manualClockOut) || null
   }, [entries])
 
   // Live timer for active shift
@@ -241,10 +254,33 @@ export default function UserTimeclockPage() {
     return total.toFixed(2)
   }
 
+  const visibleEntries = useMemo(() => {
+    const query = historySearch.trim().toLowerCase()
+    return entries
+      .filter((entry) => {
+        const pending = entry.changeRequests?.some((request) => request.status === "PENDING")
+        const edited = Boolean(entry.manualClockIn || entry.manualClockOut)
+        const isActiveToday = entry.date === getPhoenixDate() && !(entry.clockOut || entry.manualClockOut)
+        if (historyFilter === "active" && !isActiveToday) return false
+        if (historyFilter === "pending" && !pending) return false
+        if (historyFilter === "edited" && !edited) return false
+        if (historyFilter === "location-issue" && !["OUT_OF_RANGE", "DENIED", "UNAVAILABLE"].includes(String(entry.locationStatus || "").toUpperCase())) return false
+        if (!query) return true
+        return [entry.date, entry.clockInLocation, entry.locationStatus]
+          .some((value) => String(value || "").toLowerCase().includes(query))
+      })
+      .sort((a, b) => {
+        if (historySort === "hours-desc") return calculateHours(b) - calculateHours(a)
+        if (historySort === "hours-asc") return calculateHours(a) - calculateHours(b)
+        const difference = new Date(a.date).getTime() - new Date(b.date).getTime()
+        return historySort === "oldest" ? difference : -difference
+      })
+  }, [entries, historySearch, historyFilter, historySort])
+
   const groupedEntries = useMemo(() => {
     const groups: Record<string, { weekStart: Date, weekEnd: Date, totalHours: number, entries: TimeEntry[] }> = {}
     
-    entries.forEach(entry => {
+    visibleEntries.forEach(entry => {
       const [y, m, d] = entry.date.split("-").map(Number)
       const entryDate = new Date(y, m - 1, d)
       
@@ -277,7 +313,7 @@ export default function UserTimeclockPage() {
     })
 
     return sortedGroups
-  }, [entries])
+  }, [visibleEntries])
 
   return (
     <div className="page-content">
@@ -372,9 +408,21 @@ export default function UserTimeclockPage() {
 
         {/* Timesheet Table */}
         <div className="modern-card overflow-hidden">
-          <div className="px-4 py-3 border-b border-white/8 flex items-center gap-2">
+          <div className="px-4 py-3 border-b border-white/8 flex flex-col gap-3 lg:flex-row lg:items-center">
             <FiClock size={14} className="text-neutral-500" />
             <h2 className="text-xs font-bold text-white uppercase tracking-wider">Timesheet History</h2>
+            <label className="relative min-w-0 flex-1 lg:ml-auto lg:max-w-sm">
+              <span className="sr-only">Search timesheet history</span>
+              <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+              <input value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} placeholder="Search date, location, or status..." className="w-full rounded-lg border border-white/10 bg-black/30 py-2 pl-9 pr-3 text-xs text-white outline-none focus:border-emerald-500" />
+            </label>
+            <select aria-label="Filter timesheet history" value={historyFilter} onChange={(event) => setHistoryFilter(event.target.value as typeof historyFilter)} className="rounded-lg border border-white/10 bg-neutral-950 px-3 py-2 text-xs text-white">
+              <option value="all">All entries</option><option value="active">Active shift</option><option value="pending">Pending request</option><option value="edited">Edited</option><option value="location-issue">Location issue</option>
+            </select>
+            <select aria-label="Sort timesheet history" value={historySort} onChange={(event) => setHistorySort(event.target.value as typeof historySort)} className="rounded-lg border border-white/10 bg-neutral-950 px-3 py-2 text-xs text-white">
+              <option value="newest">Newest</option><option value="oldest">Oldest</option><option value="hours-desc">Most hours</option><option value="hours-asc">Fewest hours</option>
+            </select>
+            <span className="whitespace-nowrap text-[10px] font-bold uppercase tracking-wider text-neutral-500">{visibleEntries.length} entries</span>
           </div>
           <div className="overflow-x-auto">
             <table className="td-table">
@@ -391,7 +439,7 @@ export default function UserTimeclockPage() {
               <tbody>
                 {loading ? (
                   <tr><td colSpan={6} className="py-8 text-center text-sm text-neutral-500">Loading your timesheet...</td></tr>
-                ) : entries.length === 0 ? (
+                ) : visibleEntries.length === 0 ? (
                   <tr><td colSpan={6} className="py-8 text-center text-sm text-neutral-500">No timeclock data found.</td></tr>
                 ) : (
                   groupedEntries.map(group => (
@@ -408,7 +456,8 @@ export default function UserTimeclockPage() {
                       {group.entries.map(entry => {
                         const effectiveIn = entry.manualClockIn || entry.clockIn
                         const effectiveOut = entry.manualClockOut || entry.clockOut
-                        const isCurrentActive = !effectiveOut
+                        const isCurrentActive = entry.date === getPhoenixDate() && !effectiveOut
+                        const isMissingClockOut = entry.date !== getPhoenixDate() && !effectiveOut
                         const pendingRequest = entry.changeRequests?.find(r => r.status === "PENDING")
                         const rejectedRequest = entry.changeRequests?.find(r => r.status === "REJECTED")
 
@@ -424,6 +473,8 @@ export default function UserTimeclockPage() {
                               <td className="td-td hidden md:table-cell">
                                 {isCurrentActive ? (
                                   <span className="text-xs bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-full font-bold">Active Now</span>
+                                ) : isMissingClockOut ? (
+                                  <span className="text-xs bg-amber-500/15 text-amber-400 px-2 py-0.5 rounded-full font-bold">Missing Clock Out</span>
                                 ) : (
                                   <>
                                     {formatTime(effectiveOut)}
@@ -499,7 +550,7 @@ export default function UserTimeclockPage() {
       </div>
 
       {/* Change Request Modal */}
-      {showChangeModal && (
+      {showChangeModal && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowChangeModal(false)} />
           <div className="relative w-full max-w-md glass-panel border border-white/10 rounded-2xl flex flex-col shadow-2xl text-white z-[9999] p-6 max-h-[90vh] overflow-y-auto">
@@ -562,7 +613,7 @@ export default function UserTimeclockPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>, document.body
       )}
     </div>
   )

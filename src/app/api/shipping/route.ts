@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
 import { getZohoAccessToken, ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
+import { requireAdministrator } from "@/lib/auth-helpers"
+import { getAuthenticatedDbUser } from "@/lib/session-user"
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 
 // GET -- Fetch all sales orders with their packages for the shipping center
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    const role = (session?.user as any)?.role || "Sales Representative"
-    const userName = session?.user?.name || ""
-    const isAdmin = role.toLowerCase().includes("admin") || role.toLowerCase().includes("manager")
+    const actor = await getAuthenticatedDbUser()
+    if (!actor) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+    }
+    const isAdmin = actor.isAdmin
 
     const url = new URL(req.url)
     const status = url.searchParams.get("status") || "all"
@@ -29,6 +30,7 @@ export async function GET(req: NextRequest) {
     let salesOrders = await prisma.salesOrder.findMany({
       where: {
         status: { notIn: ["Void", "Draft", "Cancelled", "Closed"] },
+        ...(!isAdmin ? { account: { ownerId: actor.user.id } } : {}),
       },
       take: 1000,
       include: { 
@@ -50,18 +52,22 @@ export async function GET(req: NextRequest) {
       orderBy: { orderDate: "desc" },
     })
 
-    // RBAC: If not admin, restrict to rep's own orders
-    if (!isAdmin && userName) {
-      const lowerName = userName.toLowerCase()
-      salesOrders = salesOrders.filter(so => {
-        const items = (so.items as any) || {}
-        const sp = (items.salesperson || items.salesperson_name || items.salespersonName || "").toLowerCase()
-        return sp.includes(lowerName) || lowerName.includes(sp)
+    const visibleSalesOrderIds = salesOrders.map(order => order.zohoId).filter((id): id is string => Boolean(id))
+    const visibleSalesOrderNumbers = salesOrders
+      .map(order => {
+        const items = (order.items as any) || {}
+        return items.salesOrderNumber || items.salesorder_number || items.sales_order_number || null
       })
-    }
+      .filter((number): number is string => Boolean(number))
 
-    // Fetch all packages
+    const fulfillmentScope = [
+      ...(visibleSalesOrderIds.length ? [{ salesOrderId: { in: visibleSalesOrderIds } }] : []),
+      ...(visibleSalesOrderNumbers.length ? [{ salesOrderNumber: { in: visibleSalesOrderNumbers } }] : []),
+    ]
+
+    // Only load fulfillment records belonging to orders visible to this user.
     const packages = await prisma.package.findMany({
+      where: fulfillmentScope.length ? { OR: fulfillmentScope } : { id: { in: [] } },
       take: 1000,
       orderBy: { date: "desc" },
     })
@@ -70,6 +76,12 @@ export async function GET(req: NextRequest) {
     const allPurchaseOrders = await prisma.purchaseOrder.findMany({
       where: {
         status: { notIn: ['cancelled', 'void'] },
+        ...(fulfillmentScope.length ? {
+          OR: [
+            ...fulfillmentScope,
+            ...(visibleSalesOrderNumbers.length ? [{ referenceNumber: { in: visibleSalesOrderNumbers } }] : []),
+          ],
+        } : { id: { in: [] } }),
       },
       take: 2000,
       orderBy: { date: "desc" },
@@ -215,7 +227,7 @@ export async function GET(req: NextRequest) {
       }
 
       // Line items
-      const lineItems = items.line_items || items.lineItems || []
+      const lineItems = items.line_items || items.lineItems || items._zohoRaw?.line_items || []
       const dcBreakdown = items.itemsDcBreakdown || []
       
       let lineItemCount = 0
@@ -410,6 +422,9 @@ export async function GET(req: NextRequest) {
 // PUT -- Update package tracking or status
 export async function PUT(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
+
     const body = await req.json()
     const { action, packageId, carrier, trackingNumber, status, salesOrderId } = body
 

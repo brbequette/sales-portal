@@ -3,10 +3,18 @@ import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
+import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
 
 export const handler: Handler = async (event, context) => {
+  const headers = { "Content-Type": "application/json" }
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: JSON.stringify({ success: false, message: "Method Not Allowed" }) }
+  }
+
+  try {
+    await authenticateFunction(event)
+  } catch (error) {
+    return authErrorResponse(error, headers)
   }
 
   try {

@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { getAuthenticatedDbUser } from "@/lib/session-user"
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
+    const auth = await getAuthenticatedDbUser()
+    if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -18,8 +17,14 @@ export async function POST(req: Request) {
 
     // Find any existing lead for this company to copy matchStatus, claimedById, address, etc.
     const existingLead = await prisma.lead.findFirst({
-      where: { company: { equals: company, mode: "insensitive" } },
+      where: {
+        company: { equals: company, mode: "insensitive" },
+        ...(!auth.isAdmin ? { OR: [{ ownerId: auth.user.id }, { claimedById: auth.user.id }] } : {}),
+      },
     })
+    if (!existingLead && !auth.isAdmin) {
+      return NextResponse.json({ error: "No owned lead found for this company" }, { status: 403 })
+    }
 
     const newLead = await prisma.lead.create({
       data: {
@@ -31,8 +36,8 @@ export async function POST(req: Request) {
         mobile: phone?.trim() || null,
         email: email?.trim() || null,
         title: title?.trim() || null,
-        ownerId: existingLead?.ownerId || session.user.id,
-        claimedById: session.user.id,
+        ownerId: existingLead?.ownerId || auth.user.id,
+        claimedById: auth.user.id,
         claimedAt: new Date(),
         matchStatus: existingLead?.matchStatus || "CONFIRMED",
         street: existingLead?.street || null,

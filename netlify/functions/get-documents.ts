@@ -1,7 +1,9 @@
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from '@netlify/functions'
 import { prisma } from "./lib/prisma"
+import { isAdminRole } from "../../src/lib/roles"
 
-export const handler: Handler = async (event, context) => {
+const authenticatedHandler: Handler = async (event, context) => {
   // CORS Headers
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -15,6 +17,8 @@ export const handler: Handler = async (event, context) => {
   }
 
   try {
+    const sessionUser = await authenticateFunction(event)
+    const actorId = sessionUser.dbId || sessionUser.userId
     const { 
       page = '1', 
       pageSize = '50', 
@@ -34,7 +38,12 @@ export const handler: Handler = async (event, context) => {
 
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
 
-    const ownerFilterStr = ownerIds ? ownerIds.split(',') : []
+    const ownerFilterStr = isAdminRole(sessionUser.role)
+      ? (ownerIds ? ownerIds.split(',').filter(Boolean) : [])
+      : (actorId ? [actorId] : [])
+    if (!isAdminRole(sessionUser.role) && ownerFilterStr.length === 0) {
+      return { statusCode: 403, headers, body: JSON.stringify({ success: false, error: "Signed-in user is not linked to a local account" }) }
+    }
     const accountWhere: any = ownerFilterStr.length > 0 ? { ownerId: { in: ownerFilterStr } } : {}
 
     const invoiceWhere: any = Object.keys(accountWhere).length > 0 ? { account: accountWhere } : {}
@@ -155,20 +164,24 @@ export const handler: Handler = async (event, context) => {
           profit = subTotal - deadCostTotal - additionalCosts - ccFees
         } else {
           let deadCostTotal = parseFloat(items.deadCostTotal ?? items.dead_cost_total ?? items.cf_dead_cost_total ?? extractField(items, 'cf_dead_cost_total') ?? 0)
-          if ((isNaN(deadCostTotal) || deadCostTotal === 0) && subTotal > 0) {
-            deadCostTotal = subTotal * 0.50
-          }
+          if (isNaN(deadCostTotal)) deadCostTotal = 0
           const additionalCosts = parseFloat(items.additionalCosts ?? items.additional_costs ?? items.cf_additional_costs_to_order ?? extractField(items, 'cf_additional_costs_to_order') ?? 0)
           const ccFees = parseFloat(items.ccFees ?? items.cc_fees ?? items.cf_credit_card_processing_fees ?? extractField(items, 'cf_credit_card_processing_fees') ?? 0)
           const giftCost = parseFloat(items.giftCost ?? items.gifts_cost ?? items.gifts ?? extractField(items, 'cf_gifts') ?? 0)
-          profit = subTotal - deadCostTotal - additionalCosts - ccFees - giftCost
+          const hasStoredFinancials = [
+            'deadCostTotal', 'dead_cost_total', 'cf_dead_cost_total', 'deadProfitActual',
+            'profit', 'netProfit', 'net_profit',
+          ].some(key => items[key] !== undefined && items[key] !== null)
+          profit = hasStoredFinancials
+            ? parseFloat(items.profit ?? items.netProfit ?? items.net_profit ?? items.deadProfitActual ?? (subTotal - deadCostTotal - additionalCosts - ccFees - giftCost)) || 0
+            : 0
         }
         
         deadCostNoVig = parseFloat(items.deadCostNoVig ?? items.cf_dead_cost_no_vig ?? extractField(items, 'cf_dead_cost_no_vig') ?? 0)
         deadCostSubjectToVig = parseFloat(items.deadCostSubjectToVig ?? items.cf_dead_cost_subject_to_vig ?? extractField(items, 'cf_dead_cost_subject_to_vig') ?? 0)
         const rawComm = items.commission ?? items.cf_commision_amount ?? items.salesCommission ?? null
         const parsedComm = rawComm !== null ? parseFloat(rawComm) : extractField(items, 'cf_commision_amount')
-        commission = parsedComm || (profit * 0.5) || 0
+        commission = Number.isFinite(parsedComm) ? parsedComm : 0
       } else if (Array.isArray(items)) {
         profit = items.reduce((sum: number, it: any) => {
           const sub = parseFloat(it.sub_total ?? it.subTotal ?? it.amount ?? 0)
@@ -180,25 +193,14 @@ export const handler: Handler = async (event, context) => {
       const statusLower = (raw.status || "").toLowerCase()
       const isPaid = statusLower === "paid" || items?.paymentDate != null
       const isSameDayPaid = items?.isSameDayPaid || false
-      const isConvertedToSO = statusLower === 'converted' || statusLower === 'invoiced' || statusLower === 'accepted' || !!items?.salesorder_id || !!items?.salesorder_number || !!items?.salesOrderId || !!items?.salesOrderNumber || !!raw.salesorder_id || !!raw.salesorder_number || false
+      const isConvertedToSO = statusLower === 'converted' || items?.salesorder_id || items?.salesorder_number || raw.salesorder_id || raw.salesorder_number || false
       const soStatus = statusLower.trim()
-      const isInvoicedOrClosed = soStatus === 'invoiced' || soStatus === 'closed' || soStatus === 'void' || !!items?.invoice_id || !!items?.invoice_number || !!raw.invoice_id || !!raw.invoice_number || false
-      const isLinkedToInvoice = t === 'SalesOrder' ? !!(items?.invoice_id || items?.invoiceId || items?.invoice_number || items?.invoiceNumber || raw.invoice_id || raw.invoice_number || soStatus === 'invoiced') : false
+      const isInvoicedOrClosed = soStatus === 'invoiced' || soStatus === 'closed' || soStatus === 'void' || items?.invoice_id || items?.invoice_number || raw.invoice_id || raw.invoice_number || false
       const dueDate = raw.dueDate?.toISOString() || items?.due_date || null
       const balance = parseFloat(items?.balance ?? raw.balance ?? 0)
 
-      const rawQuoteDate = t === 'Quote' ? (items?.date || items?.estimateDate || items?.quote_date || items?.estimate_date) : null
-      const dateStr = rawQuoteDate ? String(rawQuoteDate) : (raw.issueDate?.toISOString() || raw.orderDate?.toISOString() || raw.createdAt?.toISOString() || new Date().toISOString())
+      const dateStr = raw.issueDate?.toISOString() || raw.orderDate?.toISOString() || raw.createdAt?.toISOString() || new Date().toISOString()
       const statusStr = raw.status || "Draft"
-
-      const salesOrderNum = items?.salesOrderNumber || items?.salesorder_number || (t === 'SalesOrder' ? (items?.invoiceNumber || items?.invoice_number || items?.estimateNumber || (raw.zohoId || raw.id).slice(-6)) : null)
-      const salesOrderId = t === 'SalesOrder' ? (raw.zohoId || raw.id) : (items?.salesorder_id || items?.salesOrderId || items?.booksSalesOrderId || null)
-      const invoiceId = t === 'Invoice' ? (raw.zohoId || raw.id) : (items?.invoice_id || items?.invoiceId || null)
-      const invoiceNum = items?.invoiceNumber || items?.invoice_number || (t === 'Invoice' ? (raw.zohoId || raw.id).slice(-6) : null)
-      const linkedInvoiceId = items?.invoice_id || items?.invoiceId || raw.invoice_id || null
-      const linkedInvoiceNumber = items?.invoice_number || items?.invoiceNumber || raw.invoice_number || null
-      const linkedSalesOrderId = items?.salesorder_id || items?.salesOrderId || items?.booksSalesOrderId || raw.salesorder_id || null
-      const linkedSalesOrderNumber = items?.salesorder_number || items?.salesOrderNumber || items?.reference_number || raw.salesorder_number || null
       
       return {
         id: raw.id,
@@ -216,19 +218,10 @@ export const handler: Handler = async (event, context) => {
         commission,
         salesperson: items?.salesperson || items?.salesperson_name || null,
         invoiceNumber: items?.invoiceNumber || items?.invoice_number || items?.estimateNumber || items?.estimate_number || items?.salesOrderNumber || items?.salesorder_number || items?.quoteNumber || (raw.zohoId || raw.id).slice(-6),
-        salesOrderNumber: salesOrderNum,
-        salesOrderId,
-        invoiceId,
-        invoiceNumberFull: invoiceNum,
-        linkedInvoiceId,
-        linkedInvoiceNumber,
-        linkedSalesOrderId,
-        linkedSalesOrderNumber,
         isPaid,
         isSameDayPaid,
         isConvertedToSO,
         isInvoicedOrClosed,
-        isLinkedToInvoice,
         dueDate,
         balance
       }
@@ -302,3 +295,5 @@ export const handler: Handler = async (event, context) => {
     }
   }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler)

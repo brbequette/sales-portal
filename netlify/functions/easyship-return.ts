@@ -1,9 +1,12 @@
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
 const ORG_ID = ZOHO_ORGANIZATION_ID
 import { getSystemSettings } from "./lib/settings"
 
 import { prisma } from "./lib/prisma"
+import { isAdminRole } from "../../src/lib/roles"
+import { getOriginFromDB } from "../../src/lib/easyship"
 const EASYSHIP_API_KEY = process.env.EASYSHIP_API_KEY;
 const _esRawUrl = (process.env.EASYSHIP_API_URL || 'https://enterprise-api.easyship.com').replace(/\/+$/, '');
 const EASYSHIP_BASE = _esRawUrl.match(/\/\d{4}-\d{2}$/) ? _esRawUrl : `${_esRawUrl}/2024-09`;
@@ -18,7 +21,7 @@ function getCountryCode(country: string | null | undefined): string {
   return c.length === 2 ? c : "US";
 }
 
-export const handler: Handler = async (event) => {
+const authenticatedHandler: Handler = async (event) => {
   const cors = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
@@ -28,6 +31,9 @@ export const handler: Handler = async (event) => {
 
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: cors, body: "" }
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "Method not allowed" }) }
+
+  const sessionUser = await authenticateFunction(event)
+  const actorId = sessionUser.dbId || sessionUser.userId
 
   const settings = await getSystemSettings(prisma)
 
@@ -48,8 +54,8 @@ export const handler: Handler = async (event) => {
 
   const { invoiceId, reason } = body
 
-  if (!invoiceId) {
-    return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'Missing invoiceId' }) }
+  if (!invoiceId || !String(reason || "").trim()) {
+    return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'Invoice and return reason are required' }) }
   }
 
   try {
@@ -62,14 +68,20 @@ export const handler: Handler = async (event) => {
           { id: invoiceId },
           { zohoId: invoiceId }
         ]
-      }
+      },
+      include: { account: { select: { ownerId: true } } },
     })
 
-    if (dbInvoice) {
-      const items = dbInvoice.items as any
-      if (items?.booksInvoiceId) {
-        booksInvoiceId = items.booksInvoiceId
-      }
+    if (!dbInvoice) {
+      return { statusCode: 404, headers: cors, body: JSON.stringify({ error: "Invoice not found" }) }
+    }
+    if (!isAdminRole(sessionUser.role) && (!actorId || dbInvoice.account.ownerId !== actorId)) {
+      return { statusCode: 403, headers: cors, body: JSON.stringify({ error: "Forbidden: This invoice belongs to another representative" }) }
+    }
+
+    const storedItems = dbInvoice.items as any
+    if (storedItems?.booksInvoiceId) {
+      booksInvoiceId = storedItems.booksInvoiceId
     }
 
     // 1. Fetch invoice details from Zoho Books
@@ -98,17 +110,26 @@ export const handler: Handler = async (event) => {
     const shipping = invoice.shipping_address || {}
     const billing = invoice.billing_address || {}
 
-    const origin = {
-      line_1: shipping.address || billing.address || "123 Customer St",
+    const customerReturnAddress = {
+      line_1: shipping.address || billing.address || "",
       line_2: shipping.street2 || billing.street2 || "",
-      city: shipping.city || billing.city || "New York",
-      state: shipping.state || billing.state || "NY",
-      postal_code: shipping.zip || billing.zip || "10001",
+      city: shipping.city || billing.city || "",
+      state: shipping.state || billing.state || "",
+      postal_code: shipping.zip || billing.zip || "",
       country_alpha2: getCountryCode(shipping.country || billing.country || "US"),
       contact_name: invoice.customer_name || "Customer",
       company_name: invoice.customer_name || "Customer Company",
-      phone: shipping.phone || billing.phone || invoice.phone || "555-555-5555",
-      email: invoice.email || "customer@example.com"
+      contact_phone: shipping.phone || billing.phone || invoice.phone || "",
+      contact_email: invoice.email || ""
+    }
+
+    if (!customerReturnAddress.line_1 || !customerReturnAddress.city || !customerReturnAddress.state || !customerReturnAddress.postal_code || !customerReturnAddress.contact_phone) {
+      return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "Customer shipping address and phone must be completed before generating a return label" }) }
+    }
+
+    const companyReturnAddress = await getOriginFromDB()
+    if (!companyReturnAddress.line_1 || !companyReturnAddress.city || !companyReturnAddress.state || !companyReturnAddress.postal_code) {
+      return { statusCode: 503, headers: cors, body: JSON.stringify({ error: "Company return address is not configured" }) }
     }
 
     // 2. Map line items
@@ -138,19 +159,8 @@ export const handler: Handler = async (event) => {
 
     // 3. Create Shipment on EasyShip
     const shipmentPayload = {
-      origin_address: origin,
-      destination_address: {
-        line_1: "608 5th Ave",
-        line_2: "Suite 501",
-        city: "New York",
-        state: "NY",
-        postal_code: "10020",
-        country_alpha2: "US",
-        contact_name: "Returns Department",
-        company_name: "Titan Diamond",
-        phone: "212-555-0199",
-        email: "returns@titandiamond.com"
-      },
+      origin_address: customerReturnAddress,
+      destination_address: companyReturnAddress,
       incoterms: "DDP",
       insurance: { is_insured: false },
       courier_selection: { apply_cost_metrics: ["cheapest"] },
@@ -259,3 +269,5 @@ export const handler: Handler = async (event) => {
     }
   }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler)

@@ -3,11 +3,15 @@ import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 import { prisma } from "./lib/prisma"
-import { handler as processQuoteCosts } from "./process-quote-costs"
-import { handler as processSalesOrderCosts } from "./process-salesorder-costs"
+import { syncStoredLineItems } from "../../src/lib/sync-engine"
+import { internalHandler as processQuoteCosts } from "./process-quote-costs"
+import { internalHandler as processSalesOrderCosts } from "./process-salesorder-costs"
+import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
+import { isAdminRole } from "../../src/lib/roles"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 export const handler: Handler = async (event, context) => {
+  const headers = { "Content-Type": "application/json" }
   if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
@@ -15,9 +19,18 @@ export const handler: Handler = async (event, context) => {
     }
   }
 
+  let authenticatedUser
+  try {
+    authenticatedUser = await authenticateFunction(event)
+  } catch (error) {
+    return authErrorResponse(error, headers)
+  }
+
   try {
     const body = JSON.parse(event.body || "{}")
-    const { accountId, type, amount, items, lineItems, discountTotal, userId, userEmail, processingNotes, assigneeId, dealId } = body
+    const { accountId, type, amount, items, lineItems, discountTotal, processingNotes, assigneeId, dealId } = body
+    const userId = authenticatedUser.dbId
+    const userEmail = authenticatedUser.email
 
     if (!accountId || !type || amount === undefined) {
       return {
@@ -47,6 +60,14 @@ export const handler: Handler = async (event, context) => {
 
     if (!account) {
       throw new Error("Account not found")
+    }
+
+    const administrator = isAdminRole(authenticatedUser.role)
+    if (!administrator && (!userId || account.ownerId !== userId)) {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({ success: false, message: "Forbidden: This account belongs to another representative" })
+      }
     }
 
     const dbAccountId = account.id
@@ -180,7 +201,10 @@ export const handler: Handler = async (event, context) => {
           items: itemsPayload,
           status: "Draft",
           validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-          dealId: dealId || undefined
+          dealId: dealId || undefined,
+          lastSyncedAt: new Date(),
+          appModifiedAt: new Date(),
+          lastZohoModifiedTime: zohoDoc?.last_modified_time ? new Date(zohoDoc.last_modified_time) : new Date(),
         }
       })
     } else if (type === "SalesOrder") {
@@ -202,9 +226,16 @@ export const handler: Handler = async (event, context) => {
           amount,
           items: itemsPayload,
           status: "Pending",
-          dealId: dealId || undefined
+          dealId: dealId || undefined,
+          lastSyncedAt: new Date(),
+          appModifiedAt: new Date(),
+          lastZohoModifiedTime: zohoDoc?.last_modified_time ? new Date(zohoDoc.last_modified_time) : new Date(),
         }
       })
+    }
+
+    if (transaction) {
+      await syncStoredLineItems(type === "Quote" ? "quote" : "salesOrder", transaction.id, responseLineItems)
     }
 
     // ── Auto-process costs & sync back to Books ──
@@ -230,6 +261,9 @@ export const handler: Handler = async (event, context) => {
         let assigneeUser = null
         if (assigneeId) {
           assigneeUser = await prisma.user.findUnique({ where: { id: assigneeId } })
+        }
+        if (!administrator && assigneeUser?.id !== userId) {
+          assigneeUser = author
         }
         if (!assigneeUser) {
           assigneeUser = await prisma.user.findUnique({ where: { id: account.ownerId } })

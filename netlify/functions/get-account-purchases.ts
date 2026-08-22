@@ -1,11 +1,8 @@
+import { withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
-import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
-
-const ORG_ID = ZOHO_ORGANIZATION_ID
 import { prisma } from "./lib/prisma"
-const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
-export const handler: Handler = async (event) => {
+const authenticatedHandler: Handler = async (event) => {
   const cors = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
@@ -28,9 +25,9 @@ export const handler: Handler = async (event) => {
     }
 
     // 1. Get the account
-    const account = await prisma.account.findUnique({
-      where: { zohoId: accountId },
-      include: { invoices: true }
+    const account = await prisma.account.findFirst({
+      where: { OR: [{ id: accountId }, { zohoId: accountId }] },
+      select: { id: true, name: true },
     })
 
     if (!account) {
@@ -41,65 +38,14 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    // 2. Identify invoices that need line items cached
-    const invoicesToSync = account.invoices.filter(inv => {
-      const items = inv.items as any
-      return !items?.line_items || !Array.isArray(items.line_items) || items.line_items.length === 0
-    })
-
-    if (invoicesToSync.length > 0) {
-      try {
-        console.log(`Syncing line items for ${invoicesToSync.length} invoices of account ${account.name}...`)
-        const token = await getZohoAccessToken()
-        const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
-
-        // Fetch invoice details from Zoho Books and update DB
-        // Limit concurrency to 5 at a time
-        const chunk = <T>(arr: T[], size: number): T[][] =>
-          Array.from({ length: Math.ceil(arr.length / size) }, (v, i) =>
-            arr.slice(i * size, i * size + size)
-          )
-
-        const chunks = chunk(invoicesToSync, 5)
-        for (const batch of chunks) {
-          await Promise.all(batch.map(async (inv) => {
-            const items = inv.items as any
-            const booksInvoiceId = items?.booksInvoiceId
-            if (!booksInvoiceId) return
-
-            try {
-              const zohoRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
-                headers: { Authorization: `Zoho-oauthtoken ${token}` },
-              })
-              if (zohoRes.ok) {
-                const zohoData = await zohoRes.json()
-                if (zohoData.code === 0 && zohoData.invoice) {
-                  const zohoInvoice = zohoData.invoice
-                  const currentItems = {
-                    ...items,
-                    line_items: zohoInvoice.line_items || [],
-                    custom_fields: zohoInvoice.custom_fields || items?.custom_fields,
-                    balance: zohoInvoice.balance ?? items?.balance,
-                  }
-                  await prisma.invoice.update({
-                    where: { id: inv.id },
-                    data: { items: currentItems }
-                  })
-                }
-              }
-            } catch (err: any) {
-              console.warn(`Failed to sync invoice details for ${inv.zohoId}:`, err.message)
-            }
-          }))
-        }
-      } catch (syncErr: any) {
-        console.warn("Failed to complete line items sync from Zoho:", syncErr.message)
-      }
-    }
-
-    // 3. Fetch all invoices again from database to compile line items
+    // Reads must remain local-first. Background/webhook sync is responsible for
+    // keeping line_items current; opening an account never calls Zoho.
     const updatedInvoices = await prisma.invoice.findMany({
-      where: { accountId: account.id }
+      where: {
+        accountId: account.id,
+        status: { notIn: ["void", "voided", "draft", "cancelled", "canceled"], mode: "insensitive" },
+      },
+      select: { items: true, issueDate: true },
     })
 
     const purchaseSummaryMap = new Map<string, {
@@ -162,3 +108,5 @@ export const handler: Handler = async (event) => {
     }
   }
 }
+
+export const handler = withFunctionAuth(authenticatedHandler)

@@ -13,6 +13,7 @@ import { Handler } from "@netlify/functions"
 import { prisma } from "./lib/prisma"
 import { getZohoAccessToken , ZOHO_ORGANIZATION_ID, ZOHO_DC } from "./lib/zoho-auth"
 import { corsHeaders, handleOptions } from "./lib/cors"
+import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 
@@ -228,6 +229,12 @@ async function runSync() {
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return handleOptions()
+
+  try {
+    await authenticateFunction(event, { requireAdmin: true })
+  } catch (error) {
+    return authErrorResponse(error, corsHeaders)
+  }
 
   // Mark as running immediately (so the UI can start polling)
   await setStatus("last_package_sync_status", "running")

@@ -1,10 +1,44 @@
+self.addEventListener('install', function(event) {
+  event.waitUntil(
+    caches.open('titan-shell-v1').then(function(cache) {
+      return cache.addAll([
+        '/offline.html',
+        '/manifest.json',
+        '/titan-app-icon-192.png',
+        '/titan-app-icon-512.png'
+      ])
+    }).then(function() { return self.skipWaiting() })
+  )
+})
+
+self.addEventListener('activate', function(event) {
+  event.waitUntil(
+    caches.keys().then(function(keys) {
+      return Promise.all(keys.filter(function(key) {
+        return key.startsWith('titan-shell-') && key !== 'titan-shell-v1'
+      }).map(function(key) { return caches.delete(key) }))
+    }).then(function() { return self.clients.claim() })
+  )
+})
+
+// Never cache authenticated pages or API responses. Navigation gets a network
+// attempt and only falls back to the branded offline page if the network is down.
+self.addEventListener('fetch', function(event) {
+  if (event.request.method !== 'GET' || event.request.mode !== 'navigate') return
+  event.respondWith(
+    fetch(event.request).catch(function() {
+      return caches.match('/offline.html')
+    })
+  )
+})
+
 self.addEventListener('push', function(event) {
   if (event.data) {
     const data = event.data.json()
     const options = {
       body: data.body,
-      icon: data.icon || '/icon-192.png',
-      badge: '/icon-192.png',
+      icon: data.icon || '/titan-app-icon-192.png',
+      badge: '/titan-app-icon-192.png',
       vibrate: [100, 50, 100],
       data: {
         dateOfArrival: Date.now(),
@@ -12,7 +46,7 @@ self.addEventListener('push', function(event) {
         url: data.url
       },
       actions: [
-        {action: 'explore', title: 'View Details', icon: '/icon-192.png'}
+        {action: 'explore', title: 'View Details', icon: '/titan-app-icon-192.png'}
       ]
     }
     event.waitUntil(

@@ -9,8 +9,23 @@
 // by checking if we're in a server context without a request.
 const isBuildPhase = process.env.NEXT_PHASE === 'phase-production-build'
 
+const publicCompanyEnvironment: Record<string, string | undefined> = {
+  COMPANY_NAME: process.env.COMPANY_NAME,
+  COMPANY_DOMAIN: process.env.COMPANY_DOMAIN,
+  COMPANY_PHONE: process.env.COMPANY_PHONE,
+  COMPANY_FROM_EMAIL: process.env.COMPANY_FROM_EMAIL,
+  COMPANY_SHIPPING_EMAIL: process.env.COMPANY_SHIPPING_EMAIL,
+  COMPANY_ADDRESS_LINE1: process.env.COMPANY_ADDRESS_LINE1,
+  COMPANY_ADDRESS_CITY: process.env.COMPANY_ADDRESS_CITY,
+  COMPANY_ADDRESS_STATE: process.env.COMPANY_ADDRESS_STATE,
+  COMPANY_ADDRESS_ZIP: process.env.COMPANY_ADDRESS_ZIP,
+  COMPANY_ADDRESS_COUNTRY: process.env.COMPANY_ADDRESS_COUNTRY,
+  ZOHO_MAIL_ACCOUNT_ID: process.env.ZOHO_MAIL_ACCOUNT_ID,
+  ZOHO_VOICE_FROM_NUMBER: process.env.ZOHO_VOICE_FROM_NUMBER,
+}
+
 function env(name: string): string {
-  const val = process.env[name]
+  const val = publicCompanyEnvironment[name] ?? process.env[name]
   if (!val) {
     if (isBuildPhase) return ''
     // At runtime, warn but don't crash — some pages import config but

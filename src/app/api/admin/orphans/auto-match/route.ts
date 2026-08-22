@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { computePOMatchScore } from "../suggest-matches/route"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 export async function POST() {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const unassociatedPOs = await prisma.purchaseOrder.findMany({
       where: {
         invoiceId: null,

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { createAIChatCompletion, getOpenAIApiKey } from '@/lib/ai-client';
+import { requireAdministrator } from '@/lib/auth-helpers';
 
 export const maxDuration = 60;
 
@@ -7,7 +9,7 @@ export const maxDuration = 60;
 let openai: OpenAI | null = null;
 function getOpenAIClient() {
   if (!openai) {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = getOpenAIApiKey();
     if (!apiKey) throw new Error('OPENAI_API_KEY is not configured');
     openai = new OpenAI({ apiKey });
   }
@@ -16,6 +18,8 @@ function getOpenAIClient() {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdministrator()
+    if (auth.errorResponse) return auth.errorResponse
     const body = await req.json();
     const {
       title,
@@ -29,7 +33,7 @@ export async function POST(req: NextRequest) {
       mode
     } = body;
 
-    const client = getOpenAIClient();
+    const imageClient = getOpenAIClient();
 
     // 1. Generate text for the flyer (tagline + body copy)
     const textPrompt = `
@@ -54,8 +58,7 @@ export async function POST(req: NextRequest) {
       }
     `;
 
-    const textResponse = await client.chat.completions.create({
-      model: "gpt-4o",
+    const { response: textResponse, provider: textProvider, model: textModel } = await createAIChatCompletion({
       messages: [{ role: "user", content: textPrompt }],
       response_format: { type: "json_object" }
     });
@@ -80,7 +83,7 @@ export async function POST(req: NextRequest) {
       imagePrompt += `\nCRITICAL: DO NOT INCLUDE ANY TEXT, WORDS, OR LETTERS IN THE IMAGE. The artwork must leave space for text to be overlaid later.`;
     }
 
-    const imageResponse = await client.images.generate({
+    const imageResponse = await imageClient.images.generate({
       model: "dall-e-3",
       prompt: imagePrompt.trim(),
       n: 1,
@@ -96,6 +99,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      textAI: { provider: textProvider, model: textModel },
       imageUrl,
       tagline,
       bodyCopy,

@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { getToken, encode } from 'next-auth/jwt';
+import { getToken, encode, decode } from 'next-auth/jwt';
 import { isAdminRole } from '@/lib/roles';
 
 // Public routes that don't require authentication
 const PUBLIC_ROUTES = [
   '/',
   '/shop',
-  '/catalog',
   '/about',
   '/contact',
   '/resources',
@@ -36,9 +35,12 @@ const SKIP_PATTERNS = [
   '/_next/',
   '/favicon',
   '/icon-',
+  '/titan-app-icon-',
   '/apple-touch-icon',
+  '/titan-apple-touch-icon',
   '/manifest.json',
   '/sw.js',
+  '/offline.html',
   '/tv',
   '/print/',
   '/vcard/',
@@ -50,8 +52,18 @@ const PUBLIC_API_PATTERNS = [
   '/api/webhooks/',  // Webhook endpoints (use their own token auth)
   '/api/public/',    // Explicitly public endpoints
   '/api/customer/',  // Customer portal endpoints (use their own JWT auth)
-  '/api/debug/',     // Debug endpoints (uses isDebugMode check)
+  '/api/tv/verify-pin', // TV display authenticates with its own PIN gate
+  '/api/tv/process-missing-costs', // Validates TV/admin session and strict document limits internally
+  '/api/internal/books-sync', // Private worker endpoint; validates its own shared secret
 ];
+
+const TV_READ_API_PATHS = new Set([
+  '/api/tv/users',
+  '/api/tv/config',
+  '/api/get-documents',
+  '/api/get-config',
+  '/api/dashboard-weekly-sales',
+]);
 
 // API routes that require admin role
 const ADMIN_API_PATTERNS = [
@@ -87,19 +99,25 @@ if (!AUTH_SECRET) {
 export async function proxy(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
   
-  // Allow local development E2E bypass
+  // Allow an explicitly enabled E2E bypass only in non-production builds.
+  // Localhost alone is not a security boundary: browsers and reverse proxies
+  // can still send attacker-controlled requests to a local service.
   const host = req.headers.get('host') || '';
   const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
+  const isE2eBypassEnabled = process.env.NODE_ENV !== 'production'
+    && process.env.AUTH_E2E_BYPASS_ENABLED === 'true';
   const hasBypassHeader = req.headers.get('x-bypass-auth') === 'true';
   const hasBypassCookie = req.cookies.get('next-auth.session-token')?.value.startsWith('test-token-manager-bypass') || false;
-  const isBypassRequest = isLocal && (hasBypassHeader || hasBypassCookie || req.nextUrl.searchParams.get('bypass') === 'true');
+  const isBypassRequest = isE2eBypassEnabled
+    && isLocal
+    && (hasBypassHeader || hasBypassCookie || req.nextUrl.searchParams.get('bypass') === 'true');
 
   if (isBypassRequest) {
     const res = NextResponse.next();
     if (AUTH_SECRET) {
       const tokenVal = await encode({
         token: {
-          name: "Benjamin Bequette",
+          name: "BENJAMIN BEQUETTE",
           email: "ben@titandiamond.net",
           id: "6821836000000565001",
           dbId: "cmppahv5m0000lsi0s00jywp3",
@@ -131,6 +149,16 @@ export async function proxy(req: NextRequest) {
     // Public APIs pass through
     if (isPublicApi(pathname)) {
       return NextResponse.next();
+    }
+
+    // A successful TV PIN grants read-only access only to the data needed by
+    // the public Salesboard. It is never treated as an employee/admin session.
+    if (req.method === 'GET' && TV_READ_API_PATHS.has(pathname) && AUTH_SECRET) {
+      const tvToken = req.cookies.get('tdgpt-tv-session')?.value;
+      if (tvToken) {
+        const tvPayload = await decode({ token: tvToken, secret: AUTH_SECRET }).catch(() => null);
+        if (tvPayload?.type === 'tv') return NextResponse.next();
+      }
     }
 
     // All other API routes require a session

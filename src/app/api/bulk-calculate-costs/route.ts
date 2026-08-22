@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
 const ORG_ID = ZOHO_ORGANIZATION_ID
 import { calculateDocumentCosts, buildFieldsToUpdate } from "../../../../netlify/functions/lib/cost-calculations"
+import { requireAdministrator } from "@/lib/auth-helpers"
 
 /**
  * bulk-calculate-costs — Inline Next.js route (no Netlify proxy)
@@ -200,6 +201,9 @@ async function processDocType(docType: DocType, token: string, opts: ProcessOpti
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
+
   let body: any = {}
   try { body = await req.json() } catch { /* use defaults */ }
 
@@ -227,8 +231,11 @@ export async function POST(req: NextRequest) {
   const startTime = Date.now()
 
   try {
-    const token = await getZohoAccessToken()
-    if (!token) throw new Error("Failed to get Zoho access token")
+    // A dry run only evaluates which local records would be recalculated; it
+    // exits before any Zoho request. This keeps development verification fully
+    // isolated even though dev intentionally has no production Zoho secrets.
+    const token = opts.dryRun ? "" : await getZohoAccessToken()
+    if (!opts.dryRun && !token) throw new Error("Failed to get Zoho access token")
 
     for (const docType of docTypes) {
       await processDocType(docType, token, opts, stats)
@@ -245,7 +252,13 @@ export async function POST(req: NextRequest) {
       try {
         const syncRes = await fetch(`${req.nextUrl.origin}/api/sync-costs-to-zoho`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          // The sync endpoint is independently admin-protected. Forward the
+          // already-validated same-origin session so automatic sync does not
+          // silently fail with 401 after a successful calculation run.
+          headers: {
+            "Content-Type": "application/json",
+            cookie: req.headers.get("cookie") || "",
+          },
           body: JSON.stringify({ docTypes }),
         })
         syncResult = await syncRes.json()
@@ -277,6 +290,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
+
   try {
     const lockSetting = await prisma.systemSetting.findUnique({ where: { key: LOCK_KEY } })
     let isRunning = false
