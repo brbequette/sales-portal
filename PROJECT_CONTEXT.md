@@ -545,3 +545,21 @@ live state before destructive changes or external writes.
   continue to include image-less items for catalog cleanup.
 - Homepage and Signature Series SKU/variant lists include only image-backed
   variants, preventing image-less product configurations from being advertised.
+- Before release, production was backed up to
+  `backups/netlify-20260823-170153.dump` (33.77 MB). No database rows or
+  migrations were changed. Production commit
+  `9feed3acb5780abb4d951ad768b110ff916cb609` published as Netlify deploy
+  `6a8b8a281eecab000895b15a` on 2026-08-24 00:06 UTC.
+- Live verification returned 456 public products, zero missing or placeholder
+  image URLs, and 24/24 initially visible product canvases successfully rendered
+  at 900x900. The prior public feed exposed 4,108 records.
+
+## 2026-08-23 Zoho SSO navigation repair
+
+- The unified employee/admin login must let NextAuth perform the Zoho OAuth
+  redirect exactly once. NextAuth v4 does not support `redirect: false` for
+  OAuth providers; combining it with a manual `window.location.assign` caused
+  the visible reload/bounce before leaving the login page.
+- Employee and administrator Zoho sign-in now use the standard single redirect
+  and accept only relative, same-site callback paths. Production provider
+  discovery confirms both sign-in and callback URLs use `www.tdusales.com`.

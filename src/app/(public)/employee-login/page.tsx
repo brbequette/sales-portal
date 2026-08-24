@@ -7,6 +7,11 @@ import { signIn } from 'next-auth/react';
 import { FiLock, FiMail, FiArrowRight, FiAlertCircle, FiZap } from 'react-icons/fi';
 import { SparkCanvas } from '@/components/SparkCanvas';
 
+function safeCallbackPath(value: string | null) {
+  if (!value || !value.startsWith('/') || value.startsWith('//')) return '/dashboard';
+  return value;
+}
+
 function EmployeeLoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -54,22 +59,8 @@ function EmployeeLoginForm() {
     setError('');
 
     try {
-      const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
-      const result = await Promise.race([
-        signIn('zoho', { callbackUrl, redirect: false }),
-        new Promise<never>((_, reject) =>
-          window.setTimeout(() => reject(new Error('Zoho sign-in timed out')), 15000)
-        ),
-      ]);
-
-      if (result?.error) {
-        throw new Error(result.error);
-      }
-      if (!result?.url) {
-        throw new Error('Zoho did not return a sign-in URL');
-      }
-
-      window.location.assign(result.url);
+      const callbackUrl = safeCallbackPath(searchParams.get('callbackUrl'));
+      await signIn('zoho', { callbackUrl });
     } catch (error) {
       console.error('Zoho SSO start failed:', error);
       setError('Unable to connect to Zoho. Please try again or use your staff password.');
