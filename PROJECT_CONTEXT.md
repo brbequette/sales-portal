@@ -806,3 +806,11 @@ live state before destructive changes or external writes.
 - Production campaign `cmt7lst8c0001rutvnm7gnh2v` (Free Gun Safe) completed 2,113 recipients and locally recorded 1,900 successes / 243 failures from `+14325381379`, but Zoho Voice Logs did not show the campaign sends. The prior sender treated any HTTP 2xx response without exact lowercase `error` fields—including empty or non-confirming responses—as success, so those 1,900 records are not reliable proof of provider acceptance or delivery.
 - All outbound SMS paths now use `netlify/functions/lib/zoho-sms-response.ts`. A send counts as accepted only when Zoho returns an explicit positive status/code or provider message ID; empty, malformed, ambiguous, HTTP-error, and explicit failure responses remain failures with a provider-facing reason.
 - Do not automatically resend the affected campaign. Confirm actual Zoho delivery/log evidence first to avoid duplicate customer messages. Historical local message/log rows are preserved for audit and should be labeled unverified in a follow-up reconciliation rather than deleted.
+
+## 2026-08-24 homepage Signature Series correction
+
+- The public homepage previously rendered two consecutive Signature Blade showcases: the real-data 12-family carousel followed by a redundant static four-family teaser. The duplicate teaser was removed so the front page has one authoritative Signature section.
+- Homepage Signature products now require `giftItem = false` and `showOnWeb = true`. Family inclusion uses real visible product rows while the verified tracked family artwork supplies the presentation image, so an empty legacy product image column does not hide Maximus or Gladiator.
+- The Featured Signature link now opens `/signature-series` instead of the generic shop.
+- Desktop cards use a consistent three-column grid without the prior uneven spans and gaps; tablet remains two columns and mobile retains horizontal snap scrolling.
+- All 12 family artwork files returned HTTP 200 from production before the change. The full Next.js 16.2.6 production build, TypeScript validation, and all 316 generated pages pass after the correction.
