@@ -17,15 +17,15 @@ export const metadata: Metadata = {
 };
 
 type ProductAttributes = Record<string, unknown>;
-type ProductRow = { sku: string; name: string; description: string | null; category: string; size: string | null; application: string | null; equipment: string | null; materials: unknown; attributes: unknown };
+type ProductRow = { sku: string; name: string; description: string | null; category: string; size: string | null; application: string | null; equipment: string | null; materials: unknown; attributes: unknown; imageUrl: string | null };
 type SignatureBlade = { family: string; name: string; image: string; description: string; category: string; applications: string[]; materials: string[]; sizes: string[]; equipment: string[]; skus: string[]; variantCount: number };
 const imageMap = imageMapData as Record<string, { image?: string | null }>;
 const SIGNATURE_FAMILIES = ['THE DRAGON', 'THE ZEUS', 'THE MEDUSA', 'THE BARBARIAN', 'THE DARK KNIGHT', 'THE BATTLE AXE', 'THE HOUND OF HADES', 'THE HYDRA', 'THE KING', 'THE MAXIMUS', 'THE GLADIATOR', 'THE DEMO DEMON'] as const;
 const FALLBACK_IMAGES: Record<string, string> = {
-  'THE DRAGON': '/product-images/dragon-formatted.png', 'THE ZEUS': '/product-images/zeus-formatted.png', 'THE MEDUSA': '/product-images/medusa-formatted.png',
-  'THE BARBARIAN': '/product-images/barbarian-formatted.png', 'THE DARK KNIGHT': '/product-images/dark knight-formatted.png', 'THE BATTLE AXE': '/product-images/battle axe-formatted.png',
-  'THE HOUND OF HADES': '/product-images/hounds of hades-formatted.png', 'THE HYDRA': '/product-images/hydra-formatted.png', 'THE KING': '/product-images/king-formatted.png',
-  'THE MAXIMUS': '/product-images/maximus-formatted.png', 'THE GLADIATOR': '/product-images/gladiator-formatted.png', 'THE DEMO DEMON': '/product-images/demo demon-formatted.png',
+  'THE DRAGON': '/product-images/cutouts-v2/dragon-formatted.png', 'THE ZEUS': '/product-images/cutouts-v2/zeus-formatted.png', 'THE MEDUSA': '/product-images/cutouts-v2/medusa-formatted.png',
+  'THE BARBARIAN': '/product-images/cutouts-v2/barbarian-formatted.png', 'THE DARK KNIGHT': '/product-images/cutouts-v2/dark knight-formatted.png', 'THE BATTLE AXE': '/product-images/cutouts-v2/battle axe-formatted.png',
+  'THE HOUND OF HADES': '/product-images/cutouts-v2/hounds of hades-formatted.png', 'THE HYDRA': '/product-images/cutouts-v2/hydra-formatted.png', 'THE KING': '/product-images/cutouts-v2/king-formatted.png',
+  'THE MAXIMUS': '/product-images/cutouts-v2/maximus-formatted.png', 'THE GLADIATOR': '/product-images/cutouts-v2/gladiator-formatted.png', 'THE DEMO DEMON': '/product-images/cutouts-v2/demo demon-formatted.png',
 };
 
 function asStrings(value: unknown): string[] {
@@ -49,20 +49,24 @@ async function getSignatureBlades(): Promise<SignatureBlade[]> {
   // Prisma client predates the catalog-attribute migration.
   const products = await prisma.$queryRaw<ProductRow[]>(Prisma.sql`
     SELECT sku, name, description, category, size,
-      application, equipment, materials, attributes
+      application, equipment, materials, attributes, "imageUrl"
     FROM "Product"
     WHERE "giftItem" = false
     ORDER BY name ASC, sku ASC
   `);
   return SIGNATURE_FAMILIES.flatMap((family) => {
-    const variants = products.filter((product) => familyFor(product.name) === family && !/\s-\sWHS$/i.test(product.name));
+    const variants = products.filter((product) => {
+      if (familyFor(product.name) !== family || /\s-\sWHS$/i.test(product.name)) return false;
+      const details = descriptionDetails(product.description);
+      return Boolean(imageMap[product.sku.trim().toUpperCase()]?.image || product.imageUrl || details.image);
+    });
     if (!variants.length) return [];
     const primary = variants.find((product) => imageMap[product.sku.trim().toUpperCase()]?.image) ?? variants[0];
     const parsed = variants.map((product) => ({ product, details: descriptionDetails(product.description) }));
     const attributes = variants.map((product) => product.attributes && typeof product.attributes === 'object' ? product.attributes as ProductAttributes : {});
     return [{
       family, name: family,
-      image: imageMap[primary.sku.trim().toUpperCase()]?.image || parsed.find(({ details }) => details.image)?.details.image || FALLBACK_IMAGES[family],
+      image: imageMap[primary.sku.trim().toUpperCase()]?.image || primary.imageUrl || parsed.find(({ details }) => details.image)?.details.image || FALLBACK_IMAGES[family],
       description: parsed.find(({ details }) => details.text)?.details.text ?? 'Commercial-grade diamond blade engineered for demanding professional cutting.',
       category: primary.category === 'Uncategorized' ? 'Signature Series Blade' : primary.category,
       applications: publicControlledValues([...variants.flatMap((product) => asStrings(product.application)), ...attributes.flatMap((item) => asStrings(item.applications ?? item.application))], 'application'),
@@ -107,7 +111,7 @@ export default async function SignatureSeriesPage() {
                 <div className="signature-spec"><dt>Sizes</dt><dd>{blade.sizes.join(' / ') || 'See current variants'}</dd></div><div className="signature-spec"><dt>Variants</dt><dd>{blade.variantCount} active {blade.variantCount === 1 ? 'configuration' : 'configurations'}</dd></div>
                 <div className="signature-spec"><dt>Brand</dt><dd>Titan Diamond USA</dd></div><div className="signature-spec"><dt>SKUs</dt><dd className="font-mono">{blade.skus.join(' · ')}</dd></div>
               </dl>
-              {(blade.applications.length > 0 || blade.materials.length > 0 || blade.equipment.length > 0) && <div className="mt-5 space-y-3 text-[11px] text-neutral-300">{blade.applications.length > 0 && <Detail label="Applications" values={blade.applications} />}{blade.materials.length > 0 && <Detail label="Materials" values={blade.materials} />}{blade.equipment.length > 0 && <Detail label="Equipment" values={blade.equipment} />}</div>}
+              {(blade.applications.length > 0 || blade.materials.length > 0 || blade.equipment.length > 0) && <div className="mt-5 space-y-3 text-[11px] text-neutral-300">{(blade.applications.length > 0 || blade.materials.length > 0) && <Detail label="Cuts / applications" values={[...new Set([...blade.applications, ...blade.materials])]} />}{blade.equipment.length > 0 && <Detail label="Equipment" values={blade.equipment} />}</div>}
               <div className="mt-auto flex gap-3 border-t border-white/10 pt-6"><Link href="/login" className="signature-primary flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-[10px] font-black uppercase tracking-wider"><FiLock /> Contractor pricing</Link><Link href={`/contact?product=${encodeURIComponent(blade.name)}`} className="flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 text-neutral-300 transition hover:border-orange-400/50 hover:text-white" aria-label={`Request a quote for ${blade.name}`}><FiArrowRight /></Link></div>
             </div>
           </article>

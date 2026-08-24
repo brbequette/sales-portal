@@ -135,6 +135,16 @@ live state before destructive changes or external writes.
 
 ## Product catalog, attributes, and images
 
+- Product cutouts are now rebuilt from untouched masters with
+  `scripts/rebuild_product_cutouts_from_masters.py`; it does not recursively
+  process the older cutout directory. Approved outputs live in
+  `public/product-images/cutouts-v2/` as transparent 1200×1200 PNGs, with the
+  subject occupying roughly 91–94% of the canvas. The 2026-08-22 pass approved
+  358 unique masters and quarantined 23 non-uniform sources in `skipped.json`
+  rather than publishing damaged edges. The public image map points to v2 only
+  when a successful output exists, while skipped products retain their prior
+  safe image. All 12 Signature families use the v2 master-derived artwork.
+
 - A product-attribute migration exists at
   `prisma/migrations/20260821120000_product_catalog_attributes/` and was applied
   to local Docker production.
@@ -230,6 +240,22 @@ live state before destructive changes or external writes.
   clipping.
 
 ## Public storefront refresh (August 2026)
+
+- Public hero artwork now has a coordinated 15-scene field series under
+  `public/images/hero/field-series/`. Every scene uses the homepage hero as its
+  lighting/grade reference and the real 14-inch patriotic `THE TITAN` blade as
+  its product reference on a realistically proportioned STIHL TS 420-style
+  handheld saw. Routes use unique jobsites and actions while retaining dark
+  copy space, restrained sparks, authentic PPE, subtle American flags, and the
+  existing reduced-motion overlays. The reproducible API workflow is
+  `scripts/generate-public-hero-series.ps1`; never store its API key in source.
+- Product application and material presentation is consolidated into the
+  controlled `publicUseCases` taxonomy in
+  `src/lib/public-product-normalization.ts`. Public and internal catalog filters
+  expose one `Cuts / Application` selector instead of redundant application and
+  material selectors. Public detail cards and Signature cards also show the
+  combined field. Raw `Product.application`, `Product.materials`, and imported
+  source attributes remain stored unchanged for integrations and auditing.
 
 - The public site now uses a shared dark industrial visual system with restrained
   ember motion, atmospheric grid/aurora layers, and reduced-motion support.
@@ -471,3 +497,113 @@ live state before destructive changes or external writes.
 - The requested all-time invoice cost and commission recalculation remains
   intentionally paused. No invoice cost-processing, commission-recalculation,
   or Zoho cost-sync endpoint was called during the identity repair.
+
+## 2026-08-22 master-derived cutout Netlify release
+
+- A verified Netlify database recovery backup was created before release at
+  `backups/netlify-20260822-033731.dump` (33.77 MB). No migration, catalog data
+  mutation, cost sync, or commission process was run.
+- Scoped production commit `55160b1594ea383867ff3de693bfaa053bde2734`
+  added the 358 approved master-derived transparent product cutouts, the guarded
+  rebuild tool, updated image map, direct Signature paths, and larger storefront
+  product presentation. Unrelated local `deno.lock` was excluded.
+- Netlify deploy `6a897d317646130008917059` published successfully at
+  2026-08-22 10:46 UTC with plugin status `success`. Live HTTP checks returned
+  200 for `/`, `/shop`, `/signature-series`, `/api/public/products`, and
+  `/login`. The CDN Dragon asset was verified as 1200×1200 RGBA with genuine
+  transparent and opaque pixels, and desktop/mobile visual checks confirmed
+  the blade fills its presentation area without a background.
+
+## 2026-08-22 field-work hero and unified use-case release
+
+- A verified production database backup was created before deployment at
+  `backups/netlify-20260822-044854.dump` (33.77 MB). No database record,
+  migration, cost, commission, or Zoho data was changed.
+- Production commit `2d2c8c4508bcaa1c8ad18e711c045ad672e89da3` added 15 unique
+  2048x1152 cinematic field-work hero scenes and assigned them across the public
+  routes. The reproducible generator is `scripts/generate-public-hero-series.ps1`.
+- Public product application and material presentation now resolves through one
+  controlled `Cuts / Application` taxonomy. The API retains backward-compatible
+  fields and does not rewrite the underlying raw application, material, or vendor
+  data. Manufacturer remains stored but is not exposed as a public facet.
+- Follow-up production commit `6bf342409fbd68fa277351b63f1c1f09ddbe1bfa`
+  removed the last client-side legacy aliases (`Metal`, `Stone`, and `Masonry`)
+  so only their controlled equivalents are presented.
+- Netlify deploy `6a8990271f55de00089ff3fb` published successfully at
+  2026-08-22 12:06 UTC. Live checks returned HTTP 200 for the public pages,
+  generated hero assets, and product API. The production API returned 4,108
+  products with `useCases`; live visual inspection confirmed the unified facet,
+  controlled labels, product load, hero layering, and absence of legacy aliases.
+
+## 2026-08-23 image-backed public catalog rule
+
+- Public storefront feeds must return only products with a resolved, non-placeholder
+  product image. Resolution prefers the maintained SKU image map, then a stored
+  product image URL, then a valid image embedded in the legacy description.
+- The storefront must not invent generic category or guessed SKU image paths for
+  products lacking artwork. Internal/admin product records remain unchanged and
+  continue to include image-less items for catalog cleanup.
+- Homepage and Signature Series SKU/variant lists include only image-backed
+  variants, preventing image-less product configurations from being advertised.
+
+## 2026-08-23 Pioneer price-guide SKU image attachment
+
+- The embedded product images in `Pioneer Titan Diamond PRICE GUIDE 2023 (2).xlsx`
+  were reconciled to exact normalized Product SKUs. The duplicate `ORIGINAL QUOTE`
+  reference tab and ambiguous candidates were excluded.
+- A verified Netlify production database backup was created before mutation at
+  `backups/netlify-20260823-172135.dump` (33.77 MB).
+- 282 Product records were updated with SKU-matched `imageUrl` values referencing
+  69 unique prepared assets; the guarded post-write audit verified all 282 values
+  with zero mismatches. All 282 records previously had an empty `imageUrl`. The
+  initial background-removal treatments and the white-canvas `studio-v3` set were
+  rejected after checkerboard review. Database paths and the SKU image map now
+  target `transparent-v4`: 69 AI-segmented, undistorted 1200×1200 RGBA PNGs with
+  genuine transparent backgrounds. Five difficult reflective/white-on-white
+  sources were rerun through the higher-fidelity BiRefNet model before approval.
+  Experimental `cutouts`, `cutouts-v2`, and `studio-v3` are not approved for use.
+- Prepared masters/cutouts live under
+  `public/product-images/pioneer-price-guide/transparent-v4/`, and the same 282 SKU mappings were
+  added to `src/lib/image-map.json`. These files are local and require a scoped
+  application release before the new relative URLs are available on the Netlify
+  storefront. Do not treat the database write alone as a completed asset deploy.
+- Before release, production was backed up to
+  `backups/netlify-20260823-170153.dump` (33.77 MB). No database rows or
+  migrations were changed. Production commit
+  `9feed3acb5780abb4d951ad768b110ff916cb609` published as Netlify deploy
+  `6a8b8a281eecab000895b15a` on 2026-08-24 00:06 UTC.
+- Live verification returned 456 public products, zero missing or placeholder
+  image URLs, and 24/24 initially visible product canvases successfully rendered
+  at 900x900. The prior public feed exposed 4,108 records.
+
+## 2026-08-23 Zoho SSO navigation repair
+
+- The unified employee/admin login must let NextAuth perform the Zoho OAuth
+  redirect exactly once. NextAuth v4 does not support `redirect: false` for
+  OAuth providers; combining it with a manual `window.location.assign` caused
+  the visible reload/bounce before leaving the login page.
+- Employee and administrator Zoho sign-in now use the standard single redirect
+  and accept only relative, same-site callback paths. Production provider
+  discovery confirms both sign-in and callback URLs use `www.tdusales.com`.
+- Production backup `backups/netlify-20260823-171445.dump` (33.77 MB) was
+  created before release. Commit `39e22c75f36c193b26cb899ddf9ae08d2be1a229`
+  published as Netlify deploy `6a8b8d2e5d15680008ae6d80` at 2026-08-24
+  00:18 UTC with no migrations. A live employee-login button test handed off
+  directly to `accounts.zoho.com` once with the callback fixed to
+  `https://www.tdusales.com/api/auth/callback/zoho`.
+
+## 2026-08-23 PRODUCT DATA workbook comparison and image attachment
+
+- `PRODUCT DATA.xlsx` was treated as source data only. It contains 1,664 product rows, 1,646 unique normalized SKUs, 1,617 image placements, and 196 unique embedded image assets.
+- Exact case-insensitive SKU comparison (with `TDU-` prefix normalization) against the authoritative local Docker production database found 1,541 matched rows and 123 workbook rows without a database match. Four normalized SKUs are duplicated in the workbook.
+- All 196 unique assets were extracted to `public/product-images/product-data/masters/` and processed into true-alpha PNGs under `public/product-images/product-data/transparent-v1/`. Automated alpha verification passed 196/196 files.
+- Existing product artwork was preserved. Of 1,521 matched rows carrying workbook artwork, only SKU `SHM0406` lacked a usable database image. After backup `backups/tdgpt-20260823-180155.dump`, its guarded `Product.imageUrl` update was applied as `/product-images/product-data/transparent-v1/shm-69ea4ac9f1.png`; the live asset returned HTTP 200 after the app container restart.
+- `src/lib/image-map.json` now includes the same `SHM0406` mapping. The reviewed comparison workbook is at `outputs/01a03115-8fc6-77c2-9899-b7cfb56f2014/Product Data Database Comparison.xlsx`. No price or cost conflicts were written to production.
+
+## 2026-08-23 PRODUCT DATA circular blade reconstruction v4
+
+- The initial `transparent-v1` PRODUCT DATA cutouts were rejected after circularity QA showed that background removal had deleted real blade segments and left surviving metal semi-transparent.
+- The approved replacement set is `public/product-images/product-data/circular-v4/` (196 PNGs). Round-blade geometry is inferred from original-image evidence, restoration is limited to the outer blade annulus, every restored source pixel is made opaque, and known composites/ring diagrams are explicit pass-through exclusions. Intentional gullets, slots, and arbor holes remain transparent.
+- Full validation found 196/196 nonblank RGBA files with genuine transparent pixels. The largest repairs were reviewed old-versus-new on checkerboards; the known damaged `SMXMP` blade now has a complete circular segment envelope.
+- A fresh self-hosted production backup was created at `backups/tdgpt-20260823-192718.dump`. Only SKU `SHM0406` was switched from the rejected v1 path to `/product-images/product-data/circular-v4/shm-69ea4ac9f1.png` using an exact guarded update. The live asset returned HTTP 200 (`image/png`, 765,304 bytes) after the app-container restart.
+- `src/lib/image-map.json` uses the same `SHM0406` circular-v4 path. The rejected `transparent-v1`, experimental `circular-v2`, and `circular-v3` directories must not be used for new mappings.

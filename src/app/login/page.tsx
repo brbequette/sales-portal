@@ -11,6 +11,11 @@ import { isAdminRole } from "@/lib/roles"
 
 type Portal = "customer" | "employee" | "admin"
 
+function safeCallbackPath(value: string | null, fallback = "/dashboard") {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return fallback
+  return value
+}
+
 function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -178,11 +183,11 @@ function LoginContent() {
   const handleZohoLogin = async () => {
     setLoading(true)
     setError("")
-    const callbackUrl = activeTab === "admin" ? "/admin" : (searchParams.get("callbackUrl") || "/dashboard")
+    const callbackUrl = activeTab === "admin" ? "/admin" : safeCallbackPath(searchParams.get("callbackUrl"))
     try {
-      const result = await signIn("zoho", { callbackUrl, redirect: false })
-      if (!result?.url || result.error) throw new Error(result?.error || "No sign-in URL returned")
-      window.location.assign(result.url)
+      // OAuth providers always redirect in NextAuth v4. Asking for a return
+      // value and manually assigning it creates a second navigation/reload.
+      await signIn("zoho", { callbackUrl })
     } catch {
       setError("Unable to connect to Zoho. Please try again.")
       setLoading(false)
