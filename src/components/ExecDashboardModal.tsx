@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useRef } from "react"
 import { createPortal } from "react-dom"
-import { FiX, FiEye, FiSliders, FiTrendingUp } from "react-icons/fi"
-import { DashboardView } from "@/components/DashboardView"
+import { FiX, FiEye, FiTrendingUp } from "react-icons/fi"
+import { ExecutiveRepStats } from "@/components/ExecutiveRepStats"
 import { usePreferences } from "@/components/PreferencesProvider"
 
 interface ExecDashboardModalProps {
@@ -14,7 +14,6 @@ interface ExecDashboardModalProps {
 
 export function ExecDashboardModal({ isOpen, onClose, allDbUsers }: ExecDashboardModalProps) {
   const { preferences, updatePreferences } = usePreferences()
-  const [customizeTrigger, setCustomizeTrigger] = useState(0)
   const [mounted, setMounted] = useState(false)
   const overlayRef = useRef<HTMLDivElement>(null)
 
@@ -59,14 +58,6 @@ export function ExecDashboardModal({ isOpen, onClose, allDbUsers }: ExecDashboar
         </div>
 
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setCustomizeTrigger(p => p + 1)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.045] hover:bg-white/[0.07] border border-white/10 rounded-lg text-sm font-bold text-neutral-300 transition-colors"
-          >
-            <FiSliders size={13} />
-            <span className="hidden sm:inline">Customize</span>
-          </button>
-
           {allDbUsers.length > 0 && (
             <div className="flex items-center gap-2 bg-white/[0.04] border border-white/10 rounded-lg px-3 py-1.5">
               <FiEye size={13} className="text-neutral-500 shrink-0" />
@@ -108,11 +99,9 @@ export function ExecDashboardModal({ isOpen, onClose, allDbUsers }: ExecDashboar
 
       {/* Modal Body */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
-        <DashboardView
+        <ExecutiveRepStats
           repName={preferences.impersonatedUser?.name || null}
-          isAdmin={true}
           repEmail={preferences.impersonatedUser?.email || null}
-          triggerCustomize={customizeTrigger}
         />
       </div>
     </div>,

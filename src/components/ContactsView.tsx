@@ -81,16 +81,12 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
         formattedContent = `[Contact Note: ${fullName}] ${newNoteText.trim()}`
       }
 
-      const response = await fetch('/api/zoho-voice', {
+      const response = await fetch('/api/add-note', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'SEND_SMS', // Using SMS action to write a communication log note
           accountId,
-          userId: currentUser?.id,
-          userEmail: currentUser?.email,
-          noteContent: formattedContent,
-          sentiment: 'Neutral'
+          content: formattedContent
         })
       })
 

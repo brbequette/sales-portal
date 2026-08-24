@@ -166,7 +166,10 @@ export const handler: Handler = async (event, context) => {
           let resultJson: any = {}
           try { resultJson = JSON.parse(resultText) } catch (e) { console.warn('Failed to parse Zoho Voice SMS response:', e) }
 
-          if (smsRes.ok && resultJson.status !== 'error' && resultJson.code !== 'error') {
+          const providerStatus = String(resultJson.status || '').toLowerCase()
+          const providerCode = String(resultJson.code || '').toLowerCase()
+          const providerRejected = providerStatus === 'error' || providerStatus === 'failed' || providerCode === 'error' || providerCode === 'failed'
+          if (smsRes.ok && resultText.trim().length > 0 && !providerRejected) {
             apiSuccess = true
           } else {
             console.error(`Zoho Voice SMS send failed:`, resultText)
@@ -198,50 +201,17 @@ export const handler: Handler = async (event, context) => {
     }
 
     if (action === 'SEND_EMAIL' || action === 'SEND_WHATSAPP') {
-      const channelTag: Record<string, string> = {
-        SEND_EMAIL: '[EMAIL]',
-        SEND_WHATSAPP: '[WHATSAPP]',
-      }
-      const tag = channelTag[action]
-
-      const account = await resolveAccount(accountId)
-      if (!account) {
-        return {
-          statusCode: 404,
-          headers: corsHeaders,
-          body: JSON.stringify({ success: false, message: "Account not found" })
-        }
-      }
-
-      const note = await prisma.note.create({
-        data: {
-          accountId: account.id,
-          authorId: author.id,
-          content: `${tag} ${noteContent || ''}`.trim(),
-          sentiment: sentiment || 'Neutral',
-        }
-      })
-
       return {
-        statusCode: 200,
+        statusCode: 501,
         headers: corsHeaders,
-        body: JSON.stringify({ success: true, note })
+        body: JSON.stringify({ success: false, message: `${action === 'SEND_EMAIL' ? 'Email' : 'WhatsApp'} provider sending is not configured` })
       }
     }
-
     if (action === 'INITIATE_CALL') {
-      const account = await resolveAccount(accountId)
-      if (account) {
-        // Record call initiation event in account lastCalledAt timestamp
-        await prisma.account.update({
-          where: { id: account.id },
-          data: { lastCalledAt: new Date() }
-        })
-      }
       return {
-        statusCode: 200,
+        statusCode: 409,
         headers: corsHeaders,
-        body: JSON.stringify({ success: true, message: 'Call initiated' })
+        body: JSON.stringify({ success: false, message: 'Calls must be initiated by Zoho Voice WebSDK, ZDialer, or the native device dialer' })
       }
     }
 

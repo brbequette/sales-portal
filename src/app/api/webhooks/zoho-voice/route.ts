@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { hasValidWebhookToken } from '@/lib/webhook-auth'
+import { indexCallAndCreateSafeFollowUp } from '@/lib/communication-automation'
 
 export async function POST(req: Request) {
   try {
@@ -125,6 +126,8 @@ export async function POST(req: Request) {
         aiSummary
       }
     })
+
+    await indexCallAndCreateSafeFollowUp(callLog)
 
     return NextResponse.json({ success: true, message: 'Call logged' })
   } catch (error: any) {

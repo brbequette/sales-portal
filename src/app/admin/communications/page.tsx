@@ -61,6 +61,7 @@ export default function CommunicationsDashboard() {
       const numData = await numRes.json()
 
       if (numData.success) {
+        localStorage.removeItem('lc:zoho-numbers')
         toast.success('Numbers saved successfully!')
       } else {
         toast.error('Error saving numbers: ' + numData.error)

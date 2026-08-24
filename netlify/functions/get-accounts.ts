@@ -250,7 +250,7 @@ const authenticatedHandler: Handler = async (event, context) => {
             console.log(`Found ${zohoAccounts.length} live accounts from Zoho for user ${syncUser.email}`);
               
               // Deduplicate incoming Zoho accounts by name
-              const localAccountsBefore = await prisma.account.findMany({ take: 500, 
+              const localAccountsBefore = await prisma.account.findMany({
                 where: { ownerId: syncUser.id },
                 select: { id: true, zohoId: true, name: true, zohoModifiedTime: true }
               });
@@ -355,7 +355,7 @@ const authenticatedHandler: Handler = async (event, context) => {
               }
 
               // Cache the newly synced account IDs in a local Map
-              const localAccountsAfter = await prisma.account.findMany({ take: 500, 
+              const localAccountsAfter = await prisma.account.findMany({
                 where: { ownerId: syncUser.id },
                 select: { id: true, zohoId: true, name: true }
               });

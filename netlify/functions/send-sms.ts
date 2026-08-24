@@ -144,7 +144,11 @@ const authenticatedHandler: Handler = async (event) => {
     let resultJson: any = {}
     try { resultJson = JSON.parse(resultText) } catch (e) {}
 
-    if (smsRes.ok && resultJson.status !== 'error' && resultJson.code !== 'error') {
+    const providerStatus = String(resultJson.status || '').toLowerCase()
+    const providerCode = String(resultJson.code || '').toLowerCase()
+    const providerRejected = providerStatus === 'error' || providerStatus === 'failed' || providerCode === 'error' || providerCode === 'failed'
+
+    if (smsRes.ok && resultText.trim().length > 0 && !providerRejected) {
       const smsMessage = await prisma.smsMessage.create({
         data: {
           accountId: account.id,
@@ -159,7 +163,7 @@ const authenticatedHandler: Handler = async (event) => {
       return {
         statusCode: 200,
         headers: corsHeaders,
-        body: JSON.stringify({ success: true, smsMessage })
+        body: JSON.stringify({ success: true, smsMessage, providerAccepted: true })
       }
     } else {
       console.error(`Zoho Voice SMS send error:`, resultText)

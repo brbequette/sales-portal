@@ -45,8 +45,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, callLog: updatedLog })
     } else {
       // Create new Call Log
-      if (!accountId || !fromNumber || !toNumber || !direction || !status) {
-        return NextResponse.json({ error: "Missing required fields for new log" }, { status: 400 })
+      if (!accountId || !fromNumber || !toNumber || !direction || !status || !zohoCallId) {
+        return NextResponse.json({ error: "New call logs require complete fields and a real provider call ID" }, { status: 400 })
       }
 
       const newLog = await prisma.callLog.create({
@@ -59,12 +59,12 @@ export async function POST(req: NextRequest) {
           duration: duration || 0,
           status,
           notes: notes || "",
-          zohoCallId: zohoCallId || `zv_log_${Date.now()}`
+          zohoCallId
         }
       })
       
       // Also update the Account's lastCalledAt timestamp if it's an outbound completed call
-      if (direction === "OUTBOUND") {
+      if (direction === "OUTBOUND" && status === "COMPLETED") {
         await prisma.account.update({
           where: { id: accountId },
           data: { lastCalledAt: new Date() }

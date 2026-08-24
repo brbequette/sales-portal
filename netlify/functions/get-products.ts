@@ -59,7 +59,8 @@ const authenticatedHandler: Handler = async (event, context) => {
             category: item.category_name || "Uncategorized",
             stock: item.available_stock || item.stock_on_hand || 0,
             subjectToVig: isSubjectToSalesMarkup,
-            giftItem: isGift
+            giftItem: isGift,
+            ...(isGift ? { showOnWeb: false } : {})
           },
           create: {
             sku: sku,
@@ -69,7 +70,8 @@ const authenticatedHandler: Handler = async (event, context) => {
             category: item.category_name || "Uncategorized",
             stock: item.available_stock || item.stock_on_hand || 0,
             subjectToVig: isSubjectToSalesMarkup,
-            giftItem: isGift
+            giftItem: isGift,
+            showOnWeb: !isGift
           }
         })
       })

@@ -1,10 +1,11 @@
-import { withFunctionAuth } from "./lib/auth-middleware"
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { corsHeaders, handleOptions } from "./lib/cors"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 import FormData from "form-data"
 
 import { prisma } from "./lib/prisma"
+import { isAdministratorRole } from "../../src/lib/roles"
 const CHUNK_SIZE = 2
 
 const authenticatedHandler: Handler = async (event) => {
@@ -12,12 +13,47 @@ const authenticatedHandler: Handler = async (event) => {
   if (event.httpMethod !== "GET") return { statusCode: 405, headers: corsHeaders, body: JSON.stringify({ success: false }) }
 
   try {
+    const session = await authenticateFunction(event as any)
+    const author = await prisma.user.findFirst({
+      where: {
+        OR: [
+          session.dbId ? { id: session.dbId } : undefined,
+          session.userId ? { id: session.userId } : undefined,
+          session.email ? { email: { equals: session.email, mode: "insensitive" } } : undefined,
+        ].filter(Boolean) as any,
+      },
+      select: { id: true },
+    })
+    if (!author) return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ success: false, message: "Campaign owner not found" }) }
+
+    const administrator = isAdministratorRole(session.role)
+
+    if (event.queryStringParameters?.recoverLatest === "true") {
+      const activeJob = await prisma.campaignJob.findFirst({
+        where: { status: "RUNNING", ...(administrator ? {} : { authorId: author.id }) },
+        orderBy: { updatedAt: "desc" },
+        include: { author: { select: { name: true } } },
+      })
+      if (!activeJob) return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, active: false }) }
+      return {
+        statusCode: 200,
+        headers: corsHeaders,
+        body: JSON.stringify({ success: true, active: true, jobId: activeJob.id, blastId: activeJob.blastId, status: activeJob.status, progress: activeJob.currentIndex, total: activeJob.total, sentCount: activeJob.sentCount, failedCount: activeJob.failedCount, name: activeJob.campaignName, channel: activeJob.channel, authorName: activeJob.author.name, canAdvance: activeJob.authorId === author.id }),
+      }
+    }
     const jobId = event.queryStringParameters?.jobId
     if (!jobId) return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: "Missing jobId" }) }
 
-    const job = await prisma.campaignJob.findUnique({ where: { id: jobId } })
+    const job = await prisma.campaignJob.findFirst({ where: { id: jobId, ...(administrator ? {} : { authorId: author.id }) }, include: { author: { select: { name: true } } } })
     if (!job) return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, message: "Job not found" }) }
 
+    if (job.authorId !== author.id || event.queryStringParameters?.observeOnly === "true") {
+      return {
+        statusCode: 200,
+        headers: corsHeaders,
+        body: JSON.stringify({ success: true, status: job.status, blastId: job.blastId, progress: job.currentIndex, total: job.total, sentCount: job.sentCount, failedCount: job.failedCount, name: job.campaignName, authorName: job.author.name, canAdvance: job.authorId === author.id, error: job.errorMessage }),
+      }
+    }
     // If already done/cancelled/error — just return the state
     if (job.status !== "RUNNING") {
       return {
@@ -41,8 +77,8 @@ const authenticatedHandler: Handler = async (event) => {
     const accountIds = job.accountIds as string[]
     const chunkIds = accountIds.slice(job.currentIndex, job.currentIndex + CHUNK_SIZE)
     const accounts = await prisma.account.findMany({ where: { id: { in: chunkIds } }, include: { contacts: true } })
-    const author = await prisma.user.findUnique({ where: { id: job.authorId } })
-    if (!author) return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: "Author not found" }) }
+    const campaignAuthor = await prisma.user.findUnique({ where: { id: job.authorId } })
+    if (!campaignAuthor) return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: "Author not found" }) }
 
     const blast = job.blastId ? await prisma.campaignBlast.findUnique({ where: { id: job.blastId } }) : null
     if (!blast) return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: "Campaign blast not found" }) }
@@ -135,9 +171,9 @@ const authenticatedHandler: Handler = async (event) => {
             try { resultJson = JSON.parse(resultText) } catch {}
             if (smsRes.ok && resultJson.status !== "error" && resultJson.code !== "error") {
               successfulCount++
-              notesToCreate.push({ accountId: account.id, authorId: author.id, content: baseContent + `\n\n(Sent to ${phoneNumber})`, sentiment: "Neutral", isAutoGenerated: false })
+              notesToCreate.push({ accountId: account.id, authorId: campaignAuthor.id, content: baseContent + `\n\n(Sent to ${phoneNumber})`, sentiment: "Neutral", isAutoGenerated: false })
               logsToCreate.push({ campaignBlastId: blast.id, accountId: account.id, status: "SUCCESS", zohoNumberUsed: fromNumber })
-              smsMessagesToCreate.push({ accountId: account.id, authorId: author.id, fromNumber, toNumber: phoneNumber, body: text || "Titan Diamond Update", direction: "OUTBOUND", campaignBlastId: blast.id })
+              smsMessagesToCreate.push({ accountId: account.id, authorId: campaignAuthor.id, fromNumber, toNumber: phoneNumber, body: text || "Titan Diamond Update", direction: "OUTBOUND", campaignBlastId: blast.id })
             } else {
               failedCount++
               logsToCreate.push({ campaignBlastId: blast.id, accountId: account.id, status: "FAILED", errorMessage: resultJson.message || "Zoho API Error", zohoNumberUsed: fromNumber })
@@ -151,7 +187,7 @@ const authenticatedHandler: Handler = async (event) => {
     } else {
       for (const account of accounts) {
         successfulCount++
-        notesToCreate.push({ accountId: account.id, authorId: author.id, content: baseContent, sentiment: "Neutral", isAutoGenerated: false })
+        notesToCreate.push({ accountId: account.id, authorId: campaignAuthor.id, content: baseContent, sentiment: "Neutral", isAutoGenerated: false })
         logsToCreate.push({ campaignBlastId: blast.id, accountId: account.id, status: "SUCCESS", zohoNumberUsed: "Mock Sender" })
       }
     }

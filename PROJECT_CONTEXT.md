@@ -331,6 +331,16 @@ live state before destructive changes or external writes.
   home, catalog, Signature, applications, core drilling, surface prep, blade
   finder, comparator, resources, RPM, unit conversion, knowledge test, about,
   careers, and contact each receive a distinct source image, crop, or treatment.
+
+## 2026-08-24 intro-offer rebuild and real-order semantics
+
+- `/intro-offer` now presents the live catalog offer for SKU `IF30PV1412E-PP` (`THE PATRIOT PRO`) at the authoritative $99.99 pack price: buy one 14-inch blade and receive the second blade free, with free freight.
+- The landing page was rebuilt with the official Titan brand system, real product imagery, responsive offer summary, accessible delivery form, commercial-invoice review, and representative-assisted completion.
+- Fabricated countdowns, synthetic live-order activity, unsupported savings/performance claims, and external stock-video dependencies were removed.
+- Intro-offer pricing and pack limits are server-owned in `src/lib/intro-offer.ts`; the API ignores client-supplied pricing and recomputes the total.
+- The public request endpoint validates contact and shipping details and persists a high-priority sales task containing the exact SKU, quantity, total, delivery address, and requested fulfillment method.
+- Intro-offer requests now return `PENDING_CONFIRMATION`. They never report a card as charged or commercial credit as approved; no card data is collected on the page.
+- TypeScript, targeted ESLint, and the full Next.js 16.2.6 production build with all 315 generated pages pass before deployment.
 - `/login` is the canonical authentication entry with Contractor, Employee, and
   Admin modes. Contractor access retains OTP verification, employees can use
   Zoho SSO or staff credentials, and administrators use Zoho SSO plus role
@@ -607,3 +617,186 @@ live state before destructive changes or external writes.
 - Full validation found 196/196 nonblank RGBA files with genuine transparent pixels. The largest repairs were reviewed old-versus-new on checkerboards; the known damaged `SMXMP` blade now has a complete circular segment envelope.
 - A fresh self-hosted production backup was created at `backups/tdgpt-20260823-192718.dump`. Only SKU `SHM0406` was switched from the rejected v1 path to `/product-images/product-data/circular-v4/shm-69ea4ac9f1.png` using an exact guarded update. The live asset returned HTTP 200 (`image/png`, 765,304 bytes) after the app-container restart.
 - `src/lib/image-map.json` uses the same `SHM0406` circular-v4 path. The rejected `transparent-v1`, experimental `circular-v2`, and `circular-v3` directories must not be used for new mappings.
+
+## 2026-08-24 communications automation foundation
+
+- The sales communications automation plan from the Codex task `Plan sales communication automation` is the active design direction. Implementation remains development-only; no migration was applied and no production communication or deployment occurred.
+- Migration `20260824120000_communications_automation_foundation` adds an append-only `CommunicationEvent` index for unified account timelines, reviewable `SalesCommitment` records, and `AutomationRecommendation` proposals with simulation, approval, rejection, and audit fields.
+- Existing call, SMS, email, task, and campaign records remain authoritative. The new timeline is an index rather than a replacement, preventing destructive data consolidation.
+- AI-discovered automations default to `DRAFT_ONLY`; no proposed rule may send a message, change authoritative customer data, or become automatic without an explicit review workflow.
+- Prisma schema validation passes. Follow-up work must add authenticated timeline/recommendation APIs, idempotent missed-call and voicemail processors, structured transcript extraction, the approval inbox UI, and development migration/testing before any production decision.
+
+## 2026-08-24 communications foundation production release
+
+- The full current working tree passed the Next.js 16.2.6 production build, TypeScript validation, all 311 static pages, Prisma validation, and route generation after an explicit authentication return-type fix in the automation recommendation API.
+- Mandatory backup `backups/tdgpt-20260824-052415.dump` (40.27 MB) was created before deployment. Migration `20260824120000_communications_automation_foundation` was applied successfully as the eighth self-hosted production migration.
+- The guarded self-host deployment rebuilt both Docker images, restarted the application and Books sync worker, and passed health checks at `http://localhost:3000/login` (HTTP 200). Unauthenticated checks correctly returned HTTP 401 for the new timeline and automation recommendation APIs.
+- The Docker build context was 4.85 GB and caused a very slow release. Narrowing the Docker context and existing dynamic admin-image filesystem traces remains a performance follow-up; the warnings did not prevent compilation or runtime health.
+
+## 2026-08-24 communications automation workflow increment
+
+- `src/lib/communication-automation.ts` now idempotently indexes Zoho Voice call records into the unified timeline. Missed inbound calls and voicemails create one high-priority callback task due in ten minutes plus a `DRAFT_ONLY` automation recommendation; no customer message is sent automatically.
+- The Zoho Voice webhook calls the safe follow-up processor after its existing call-log upsert. Structured call analysis now extracts transcript-grounded outcomes, decision-maker status, products, equipment, applications, competitors, objections, buying intent, recommended channel/timing, commitments, and proposed account updates.
+- AI findings are stored as timeline metadata. Commitments are created with `PROPOSED` status and account updates remain proposals; neither silently changes authoritative account data.
+- Administrator route `/api/admin/communications/index-events` can idempotently index recent calls, SMS/MMS, and account-linked email records. `/admin/automation-opportunities` provides the human review inbox for approving drafts, pausing, or rejecting with a reason.
+- `/sales/todays-calls` and `/api/sales/todays-calls` provide an ownership-filtered priority queue based on overdue tasks, promised next actions, call inactivity, reactivation timing, recent communication intelligence, and missing phone data.
+- The full Next.js production build and TypeScript validation pass with 315 static pages. Existing broad admin-image filesystem trace warnings remain nonblocking.
+
+## 2026-08-24 communications workflow production release
+
+- Mandatory backup `backups/tdgpt-20260824-061251.dump` (40.28 MB) was created before deploying the call-indexing, missed-call workflow, structured call intelligence, automation inbox, and Today's Calls workspace. All eight migrations remained current; no additional database migration was needed.
+- The guarded production workflow rebuilt both images, restarted the app and Books sync worker, and passed health checks. Live `/login` returned HTTP 200; the two protected pages redirected unauthenticated visitors (HTTP 307), and the Today's Calls API returned HTTP 401 without a session.
+- The release sends no automatic customer messages. Missed-call SMS remains a draft action, AI commitments remain `PROPOSED`, and approved automation recommendations remain `DRAFT_ONLY` until a separate audited rule compiler is implemented.
+- Existing historical communication events are not automatically bulk-indexed during deployment. An authenticated administrator must invoke `/api/admin/communications/index-events` in reviewed batches; new Zoho Voice webhook events index automatically.
+
+## 2026-08-24 Zoho Voice provider correction
+
+- Desktop phone links now try the installed ZDialer integration first and the official Zoho Voice browser WebSDK second. A call is reported as started only after one of those providers accepts it; otherwise the number is copied with an explicit fallback message.
+- `/api/calls/make` no longer fabricates a manual call ID or claim that the server placed a call. It returns provider capability and normalized call configuration with `placed: false`.
+- The optional browser key is `NEXT_PUBLIC_ZOHO_VOICE_WEBSDK_API_KEY`. The production domain must also be allowlisted in Zoho Voice. This public WebSDK key is distinct from OAuth credentials and must not replace them.
+- Without the WebSDK key or ZDialer browser integration, desktop calls intentionally fall back to copy-to-dial; mobile continues to use the native `tel:` handler. This limitation must not be represented as a verified provider call.
+
+## 2026-08-24 Zoho Voice provider production release
+
+- Mandatory backup `backups/tdgpt-20260824-064941.dump` (40.28 MB) was created before deployment. Both Docker images rebuilt successfully, all eight migrations remained current, and the application plus Books sync worker restarted successfully.
+- Live health checks passed: `/login` returned HTTP 200 and protected Today's Calls and automation recommendation APIs returned HTTP 401 without a session. The app and PostgreSQL containers report healthy.
+- `NEXT_PUBLIC_ZOHO_VOICE_WEBSDK_API_KEY` is not currently configured in production. Therefore production desktop dialing currently requires the ZDialer browser integration and otherwise falls back to copying the number; native mobile `tel:` dialing remains available.
+- No automatic customer message sends were enabled by this release.
+
+## 2026-08-24 communications real-data integrity correction
+
+- Communication UI and server paths must represent only confirmed provider/database facts. No synthetic IDs, optimistic outbound messages, simulated channel success, or click-only call timestamps are permitted.
+- The primary SMS UI now calls `/api/send-sms` and adds an outbound message only after Zoho returns a non-empty, non-failure response and the server persists a real `SmsMessage` row. The UI uses that row's actual ID, body, and timestamp.
+- Zoho SMS response checks normalize error/failed statuses and codes. Failed or empty provider responses do not create successful outbound message records.
+- Contact notes now use `/api/add-note`; they no longer reuse the SMS action. Unconfigured email and WhatsApp actions return HTTP 501 and create no communication note. Legacy `INITIATE_CALL` returns a conflict and no longer mutates `lastCalledAt`.
+- Historical indexing remains source-only and idempotent: it references existing `CallLog`, `SmsMessage`, and account-linked `Email` IDs. It does not seed or invent communication activity.
+- The full Next.js 16.2.6 production build, TypeScript validation, and all 315 generated pages pass before deployment.
+
+## 2026-08-24 communications real-data production release
+
+- Mandatory backup `backups/tdgpt-20260824-075750.dump` (40.28 MB) was created before deployment.
+- The guarded release rebuilt both images, confirmed all eight migrations were current, restarted the app and Books sync worker, and passed the live `/login` health check.
+- No provider test communication was sent. Verification was intentionally non-sending; the release prevents false success and synthetic activity but does not by itself prove external delivery without an authorized test recipient.
+- Production communication records now require persisted source rows and, for new outbound SMS, an accepted non-failure Zoho response.
+
+## 2026-08-24 final communications mock-path removal
+
+- Non-SMS campaign sends and test sends now return HTTP 501 before creating blasts, notes, campaign success logs, or synthetic activity. The prior mock-success branches were removed.
+- Campaign SMS test responses use normalized Zoho failure detection and require a non-empty provider response before reporting success.
+- New `/api/calls/log` records require a real provider `zohoCallId`; the API no longer generates `zv_log_<timestamp>` identifiers. `lastCalledAt` updates only for completed outbound calls.
+- Account Dialer no longer posts a click-only call log. Power Dialer now starts only through ZDialer or the official Zoho Voice WebSDK and pauses with an error if neither provider accepts the call.
+- Full Next.js 16.2.6 production build, TypeScript validation, and all 315 generated pages pass.
+
+## 2026-08-24 final mock-removal production release
+
+- Mandatory backup `backups/tdgpt-20260824-092519.dump` (40.28 MB) was created before deployment.
+- Both production images rebuilt, all eight migrations remained current, the app and Books sync worker restarted, and `/login` passed live health verification.
+- Deployment verification sent no communication and created no campaign, call, SMS, email, or WhatsApp activity.
+- Real external delivery remains unverified until an explicitly authorized test recipient is supplied; the system must not infer delivery from a local success state.
+
+## 2026-08-24 Zoho Mail and real-event indexing completion
+
+- Production has configured `ZOHO_MAIL_ACCOUNT_ID`, `COMPANY_FROM_EMAIL`, and Zoho OAuth refresh credentials. Existing `EmailInbox` uses the real `/api/emails` Zoho Mail send path.
+- Outbound email persistence now requires Zoho to return a real provider message ID. The prior `sent_<timestamp>` fallback was removed; a missing message ID produces an error and no outbound `Email` row.
+- `/admin/automation-opportunities` now exposes an administrator-only `Index real records` action. It indexes up to 1,000 existing calls, SMS/MMS messages, and account-linked emails per run using their source database IDs and idempotent upserts.
+- The indexing action reports exact source counts and never sends a communication or seeds synthetic activity.
+- Full Next.js 16.2.6 production build, TypeScript validation, and all 315 generated pages pass.
+
+## 2026-08-24 Zoho Mail and indexing production release
+
+- Mandatory backup `backups/tdgpt-20260824-095118.dump` (40.28 MB) was created before deployment.
+- Both images rebuilt, all eight migrations remained current, the application and Books sync worker restarted, and the live `/login` health check passed.
+- Production now includes strict Zoho Mail provider message-ID persistence and the administrator-controlled real-record indexing action.
+- Deployment verification sent no communication and did not execute historical indexing automatically.
+- `NEXT_PUBLIC_ZOHO_VOICE_WEBSDK_API_KEY` remains unconfigured; desktop browser calling still requires ZDialer unless that public WebSDK key and domain allowlist are supplied.
+
+## 2026-08-24 executive dashboard real-data repair
+
+- The executive modal no longer depends on the generic dashboard payload whose empty state prevented the real rep-stat board from rendering.
+- `ExecutiveRepStats` loads Today, This Week, MTD, and YTD concurrently from the existing authenticated `/api/get-rep-stats` service; it introduces no synthetic totals and does not duplicate accounting calculations.
+- The view shows billed subtotal, dead profit, net profit after VIG, commissions, invoice counts, average invoices, margins, YTD uninvoiced sales-order pipeline, estimated pipeline commission, and a per-rep period leaderboard.
+- Company and individual-rep scopes continue to use the executive modal's existing View As selector.
+- Invoice totals retain existing business rules: void/draft documents are excluded, denormalized computed fields are preferred, legacy records use established fallbacks, and paid/upfront commission treatment is preserved.
+- Full Next.js 16.2.6 production build, TypeScript validation, component lint, and all 315 generated pages pass before deployment.
+
+## 2026-08-24 executive dashboard production release
+
+- Mandatory backup `backups/tdgpt-20260824-101537.dump` (40.28 MB) was created before deployment.
+- Both production images rebuilt, all eight migrations remained current, and the app plus Books sync worker restarted successfully.
+- The live `/login` health check passed at `http://localhost:3000/login`.
+- Production now serves the real-data executive period scorecard and rep leaderboard.
+
+## 2026-08-24 product web-visibility controls
+
+- `Product.showOnWeb` is the persistent public-catalog visibility flag and defaults to true for ordinary products.
+- Migration `20260824170000_product_web_visibility` sets every existing gift product to `showOnWeb = false`; gift rows and accounting history are preserved, not deleted.
+- The public products API requires both `giftItem = false` and `showOnWeb = true`.
+- Administrators can toggle Show on web directly on every internal catalog row and in both product editors. Marking a product as a gift forces web visibility off.
+- Zoho product reseeds preserve manually hidden ordinary products and force synchronized gift products off the web.
+- Prisma validation, TypeScript validation, the full Next.js 16.2.6 production build, and all 315 generated pages pass before deployment.
+
+## 2026-08-24 product web-visibility production release
+
+- Mandatory backup `backups/tdgpt-20260824-110524.dump` (40.28 MB) was created before deployment.
+- Migration `20260824170000_product_web_visibility` applied successfully as the ninth production migration.
+- Both images rebuilt, the app and Books sync worker restarted, and the live `/login` health check passed.
+- Read-only production verification returned zero rows where both `giftItem` and `showOnWeb` are true.
+
+## 2026-08-24 sender-number refresh repair
+
+- Production stores three configured Zoho sender-number records; the missing campaign option was caused by a 24-hour browser cache, not failed persistence.
+- Campaign and message sender selectors now fetch the authenticated `zoho_phone_numbers` setting with `cache: no-store`; the campaign composer also refreshes numbers whenever it opens.
+- The number-management response now emits `Cache-Control: no-store, max-age=0`, and saving numbers removes the legacy browser cache entry.
+- Verification is non-sending: no SMS, MMS, campaign, or provider test was executed.
+- TypeScript and the full Next.js 16.2.6 production build with all 315 generated pages pass before deployment.
+
+## 2026-08-24 sender-number refresh production release
+
+- Mandatory backup `backups/tdgpt-20260824-112444.dump` (40.28 MB) was created before deployment.
+- Both images rebuilt, all nine migrations remained current, the app and Books sync worker restarted, and `/login` passed its live health check.
+- The saved admin form showed four sender numbers while the authoritative setting retained only three; this confirmed a prior persistence loss in addition to the stale browser cache.
+- The confirmed fourth form record was restored directly to `zoho_phone_numbers` after the guarded backup, preserving the other entries and the selected default. Read-only verification now returns four records.
+- Campaign/message sender selectors no longer use the 24-hour cache and the campaign composer refreshes the database-backed list whenever opened.
+- No SMS, MMS, campaign, or provider test was sent.
+
+## 2026-08-24 account duplicate visibility correction
+
+- Production contains 7,935 accounts with unique Zoho IDs; 2,542 are excess rows sharing an exact case-insensitive account name, and 2,779 are excess when punctuation is normalized. These are source CRM records, not duplicate SQL join rows.
+- The duplicates became visible when the sales screen began loading the full account set instead of a smaller leading slice.
+- The sales account screen now groups exact same-name records after applying the active rep scope. It preserves a real source record as the canonical action target while combining contacts, products, sales, profit, unpaid, overdue, and recent-activity totals from every grouped record.
+- No account, invoice, contact, message, task, or commission data was deleted or merged.
+- The Zoho account sync no longer limits its existing-name comparison and post-sync account map to 500 records, preventing later records from bypassing the intended duplicate-name guard.
+- TypeScript and the full Next.js 16.2.6 production build with all 315 generated pages pass before deployment.
+- Existing source duplicates remain available in PostgreSQL and Zoho for a future audited CRM merge; the current correction is intentionally non-destructive.
+
+## 2026-08-24 cross-page selection and campaign recovery
+
+- The My Sales Pipeline header checkbox selects or clears every account in the current filtered result set across all client-side pages, rather than only the visible 50-row page.
+- Campaign progress now recovers the signed-in author’s latest persisted `RUNNING` job when browser local storage lacks the job ID, restoring the global progress pill after reload and resuming from the saved `currentIndex`.
+- Campaign status lookup and processing are owner-scoped; an authenticated user cannot recover or advance another author’s job by ID.
+- The campaign composer now checks the manager’s returned success flag and does not show a false “started” toast when job creation is rejected.
+- Production job `Free Gun Safe` was read-only verified as stalled at 118/2,113 recipients (102 sent, 16 failed), not restarted or duplicated during diagnosis. Recovery resumes at the persisted index after the author reloads the updated app.
+- TypeScript and the full Next.js 16.2.6 production build with all 315 generated pages pass before deployment.
+- No campaign message was sent by diagnostic or deployment verification.
+
+## 2026-08-24 select-all and campaign recovery production release
+
+- Mandatory backup `backups/tdgpt-20260824-122702.dump` (40.49 MB) was created before deployment. Both images rebuilt, all nine migrations remained current, services restarted, and the live login health check passed.
+- Deployment diagnostics sent no campaign message. The persisted `Free Gun Safe` job remains recoverable from its saved checkpoint when its author reloads the updated application.
+
+## 2026-08-24 administrator campaign visibility and intro-offer readiness
+
+- Strict administrators can recover and observe the latest company-wide `RUNNING` campaign, including its author, totals, sent/failed counts, and persisted progress after a reload.
+- Campaign advancement remains single-owner: observer requests set `observeOnly=true`, so additional administrator browsers cannot race the author session and send duplicate recipient chunks.
+- The intro-offer page uses repository-tracked product and official-brand images under `public/images`; neither `.gitignore` nor `.dockerignore` excludes these assets, and the production build traces them as static public files.
+- The live self-hosted app currently has Zoho and Easyship configuration but no `AUTHORIZENET_API_LOGIN_ID`, `AUTHORIZENET_TRANSACTION_KEY`, or `AUTHORIZENET_PUBLIC_CLIENT_KEY`. Real card capture must remain disabled until all three production gateway values are supplied; the page must not claim that an order is paid meanwhile.
+- TypeScript validation and the full Next.js 16.2.6 production build with all 315 generated pages pass before deployment.
+
+## 2026-08-24 customer self-service account center
+
+- The independent `/customer-portal` shell now includes a desktop and mobile `My Account` destination alongside dashboard, orders, blades, autoship, and tracking.
+- Customer JWT account scope remains separate from employee/administrator NextAuth and internal application navigation.
+- The account endpoint now returns the authenticated account's contacts and accepts a strictly account-scoped editable profile/address payload.
+- Customer edits update the matching Zoho CRM Account and primary Contact first, then commit the same values locally in a Prisma transaction; a rejected Zoho update does not create a divergent local edit.
+- Editable fields are limited to company name, primary contact name/email/phones, billing address, and shipping address. Sales quality, ownership, financials, commissions, and other internal fields are never exposed for editing.
+- Existing customer order, invoice, autoship, purchased-blade, package, and tracking APIs remain account-filtered by the verified customer JWT.

@@ -79,6 +79,10 @@ model User {
   advances             Advance[]
   reimbursements       Reimbursement[]
   scheduledMessages    ScheduledMessage[]
+  communicationEvents  CommunicationEvent[]
+  salesCommitments     SalesCommitment[]
+  proposedAutomations  AutomationRecommendation[] @relation("AutomationProposer")
+  reviewedAutomations  AutomationRecommendation[] @relation("AutomationReviewer")
   leads                Lead[]
   claimedLeads         Lead[]                @relation("ClaimedLeads")
   clawbackTransactions ClawbackTransaction[]
@@ -132,6 +136,9 @@ model Account {
   smsMessages           SmsMessage[]
   callLogs              CallLog[]
   scheduledMessages     ScheduledMessage[]
+  communicationEvents   CommunicationEvent[]
+  salesCommitments      SalesCommitment[]
+  automationRecommendations AutomationRecommendation[]
   autoshipSubscriptions AutoshipSubscription[]
   zohoModifiedTime      DateTime?
   rawData               Json?
@@ -164,6 +171,8 @@ model Contact {
   account          Account      @relation(fields: [accountId], references: [id])
   smsMessages      SmsMessage[]
   callLogs         CallLog[]
+  communicationEvents CommunicationEvent[]
+  salesCommitments SalesCommitment[]
 
   @@index([accountId, isPrimary])
 }
@@ -283,6 +292,7 @@ model Product {
   stock        Int     @default(0)
   subjectToVig Boolean @default(true)
   giftItem     Boolean @default(false)
+  showOnWeb    Boolean @default(true)
 
   // Custom Classifications
   size         String?
@@ -721,6 +731,80 @@ model CallLog {
   @@index([authorId])
   @@index([createdAt])
   @@index([accountId, createdAt])
+}
+
+model CommunicationEvent {
+  id          String   @id @default(cuid())
+  accountId   String
+  contactId   String?
+  actorId     String?
+  channel     String
+  direction   String?
+  eventType   String
+  sourceType  String
+  sourceId    String
+  subject     String?
+  summary     String?
+  occurredAt  DateTime
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  account     Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  contact     Contact? @relation(fields: [contactId], references: [id])
+  actor       User?    @relation(fields: [actorId], references: [id])
+
+  @@unique([sourceType, sourceId, eventType])
+  @@index([accountId, occurredAt])
+  @@index([contactId, occurredAt])
+  @@index([channel, occurredAt])
+}
+
+model SalesCommitment {
+  id          String    @id @default(cuid())
+  accountId   String
+  contactId   String?
+  ownerId     String
+  sourceType  String
+  sourceId    String
+  description String
+  dueAt       DateTime?
+  status      String    @default("PROPOSED")
+  confidence  Float?
+  approvedAt  DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  account     Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  contact     Contact?  @relation(fields: [contactId], references: [id])
+  owner       User      @relation(fields: [ownerId], references: [id])
+
+  @@index([ownerId, status, dueAt])
+  @@index([accountId, createdAt])
+}
+
+model AutomationRecommendation {
+  id              String    @id @default(cuid())
+  accountId       String?
+  proposedById    String?
+  title           String
+  rationale       String
+  triggerType     String
+  conditions      Json
+  actions         Json
+  evidence        Json?
+  simulation      Json?
+  mode            String    @default("DRAFT_ONLY")
+  status          String    @default("PROPOSED")
+  reviewedById    String?
+  reviewedAt      DateTime?
+  rejectionReason String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  account         Account?  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  proposedBy      User?     @relation("AutomationProposer", fields: [proposedById], references: [id])
+  reviewedBy      User?     @relation("AutomationReviewer", fields: [reviewedById], references: [id])
+
+  @@index([status, createdAt])
+  @@index([accountId, status])
 }
 
 model PushSubscription {

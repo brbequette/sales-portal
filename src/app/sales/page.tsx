@@ -26,7 +26,7 @@ import { CallTaskSidebar } from "@/components/CallTaskSidebar"
 import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiPhone, FiMail, FiMessageSquare, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiAlertCircle, FiBox, FiLayers, FiEye, FiTarget, FiImage, FiUserPlus } from "react-icons/fi"
 import { toast } from 'react-hot-toast';
 import { useCampaignProgress } from "@/components/CampaignProgressProvider"
-import { sessionGet, sessionSet, localGet, localSet, TTL } from "@/lib/dataCache"
+import { sessionGet, sessionSet, TTL } from "@/lib/dataCache"
 import { UpdateBanner } from "@/lib/useStaleCheck"
 import { isAdminRole, isAdministratorRole } from "@/lib/roles"
 
@@ -138,6 +138,62 @@ function isDoNotCallAccount(account: any): boolean {
   if (status.includes("DO NOT CALL") || status.includes("DNC") || status.includes("DNR")) return true
 
   return false
+}
+
+function collapseDuplicateAccounts(source: any[]) {
+  const groups = new Map<string, any[]>()
+  for (const account of source) {
+    const key = String(account.name || account.zohoId || account.id).trim().toLocaleLowerCase()
+    const group = groups.get(key)
+    if (group) group.push(account)
+    else groups.set(key, [account])
+  }
+
+  return Array.from(groups.values()).map((group) => {
+    if (group.length === 1) return group[0]
+    const canonical = [...group].sort((a, b) => {
+      const score = (item: any) =>
+        Number(item.totalSales || 0) +
+        Number(item.totalProfit || 0) +
+        ((item.contacts || []).length * 100) +
+        ((item.unpaidCount || 0) * 100)
+      return score(b) - score(a)
+    })[0]
+    const uniqueBy = (items: any[], key: (item: any) => string) =>
+      Array.from(new Map(items.map((item) => [key(item), item])).values())
+    const contacts = uniqueBy(
+      group.flatMap((item) => item.contacts || []),
+      (item) => String(item.zohoId || item.id || `${item.email || ''}:${item.phone || item.mobilePhone || ''}`),
+    )
+    const boughtProducts = uniqueBy(
+      group.flatMap((item) => item.boughtProducts || []),
+      (item) => `${item.sku || ''}:${item.name || ''}`.toLocaleLowerCase(),
+    )
+    const latestDate = (field: string) => group
+      .map((item) => item[field])
+      .filter(Boolean)
+      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || null
+
+    return {
+      ...canonical,
+      duplicateCount: group.length,
+      sourceAccountIds: group.map((item) => item.id),
+      sourceZohoIds: group.map((item) => item.zohoId),
+      ownerConflict: new Set(group.map((item) => item.ownerId || item.owner?.id).filter(Boolean)).size > 1,
+      contacts,
+      boughtProducts,
+      purchasedProductNames: boughtProducts.map((item) => item.name).filter(Boolean),
+      unpaidInvoiceSummary: group.flatMap((item) => item.unpaidInvoiceSummary || []),
+      totalSales: group.reduce((sum, item) => sum + Number(item.totalSales || 0), 0),
+      totalProfit: group.reduce((sum, item) => sum + Number(item.totalProfit || 0), 0),
+      overdueBalance: group.reduce((sum, item) => sum + Number(item.overdueBalance || 0), 0),
+      overdueCount: group.reduce((sum, item) => sum + Number(item.overdueCount || 0), 0),
+      unpaidBalance: group.reduce((sum, item) => sum + Number(item.unpaidBalance || 0), 0),
+      unpaidCount: group.reduce((sum, item) => sum + Number(item.unpaidCount || 0), 0),
+      lastPurchaseAt: latestDate('lastPurchaseAt'),
+      lastCalledAt: latestDate('lastCalledAt'),
+    }
+  })
 }
 
 export function getExclusivityDetails(account: any, nowMs: number) {
@@ -435,8 +491,6 @@ export default function SalesPage() {
   }
 
   const fetchZohoNumbers = async () => {
-    const cached = localGet<{ numbers: any[]; defaultNumber: string }>('zoho-numbers', TTL.ONE_DAY)
-    if (cached) { setZohoNumbers(cached.numbers); setSelectedZohoNumber(cached.defaultNumber); return }
     try {
       const res = await fetch("/api/manage-zoho-numbers")
       const d = await res.json()
@@ -445,7 +499,6 @@ export default function SalesPage() {
         const def = d.numbers.find((n: any) => n.isDefault)
         const defaultNumber = def ? def.number : (d.numbers[0]?.number || "")
         setSelectedZohoNumber(defaultNumber)
-        localSet('zoho-numbers', { numbers: d.numbers, defaultNumber })
       }
     } catch (e) {}
   }
@@ -606,7 +659,7 @@ export default function SalesPage() {
     )
   }
 
-  const filteredByOwnerActive = accounts.filter(a => matchesOwnerFilter(a, ownerFilter))
+  const filteredByOwnerActive = collapseDuplicateAccounts(accounts.filter(a => matchesOwnerFilter(a, ownerFilter)))
 
   const filteredAccounts = filteredByOwnerActive.filter(account => {
     const isDNC = isDoNotCallAccount(account)
@@ -874,7 +927,7 @@ export default function SalesPage() {
         scheduledTime,
         useAccountTimezone
       } as any)
-      
+      if (!res.success) throw new Error(res.error || "Failed to start campaign")
       setShowCampaignModal(false)
       if (isScheduled) {
         toast.success("Campaign blast scheduled successfully!")
@@ -1357,14 +1410,16 @@ export default function SalesPage() {
                             <div className="flex flex-wrap items-center gap-2">
                               <input 
                                 type="checkbox"
-                                checked={accountsPagination.paginatedItems.length > 0 && accountsPagination.paginatedItems.every(a => selectedAccountIds.includes(a.id))}
+                                checked={activeAccountsList.length > 0 && activeAccountsList.every(a => selectedAccountIds.includes(a.id))}
+                                aria-label={`Select all ${activeAccountsList.length} filtered accounts across every page`}
+                                title={`Select all ${activeAccountsList.length} filtered accounts across every page`}
                                 onChange={() => {
-                                  const pageIds = accountsPagination.paginatedItems.map(a => a.id)
-                                  const allPageSelected = pageIds.length > 0 && pageIds.every(id => selectedAccountIds.includes(id))
-                                  if (allPageSelected) {
-                                    setSelectedAccountIds(prev => prev.filter(id => !pageIds.includes(id)))
+                                  const allFilteredIds = activeAccountsList.map(a => a.id)
+                                  const allFilteredSelected = allFilteredIds.length > 0 && allFilteredIds.every(id => selectedAccountIds.includes(id))
+                                  if (allFilteredSelected) {
+                                    setSelectedAccountIds(prev => prev.filter(id => !allFilteredIds.includes(id)))
                                   } else {
-                                    setSelectedAccountIds(prev => [...new Set([...prev, ...pageIds])])
+                                    setSelectedAccountIds(prev => [...new Set([...prev, ...allFilteredIds])])
                                   }
                                 }}
                                 className="w-4 h-4 rounded border-[var(--border)] text-emerald-600 focus:ring-emerald-500 bg-neutral-800 cursor-pointer shrink-0"
@@ -1461,7 +1516,7 @@ export default function SalesPage() {
 
                                   <div className="flex items-center gap-2 flex-wrap">
                                     <button 
-                                      onClick={() => setShowCampaignModal(true)}
+                                      onClick={() => { fetchZohoNumbers(); setShowCampaignModal(true) }}
                                       className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-all flex items-center gap-1.5 text-xs cursor-pointer shadow-md"
                                     >
                                       <FiMail size={14} />

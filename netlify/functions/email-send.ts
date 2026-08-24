@@ -80,9 +80,14 @@ const authenticatedHandler: Handler = async (event) => {
        throw new Error(res.status.description || "Failed to send email")
     }
 
+    const providerMessageId = String(res.data?.messageId || '').trim()
+    if (!providerMessageId) {
+      throw new Error('Zoho Mail accepted no provider message ID; email was not recorded as sent')
+    }
+
     const emailRecord = await prisma.email.create({
       data: {
-        zohoMailId: res.data?.messageId || `sent_${Date.now()}`,
+        zohoMailId: providerMessageId,
         zohoAccountId: getZohoAccountId(),
         subject,
         body: processedContent,

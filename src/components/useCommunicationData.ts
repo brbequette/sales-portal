@@ -285,54 +285,41 @@ export function useCommunicationData({
 
   const sendSMS = useCallback(async () => {
     if (!smsText.trim()) return
-    const newMsg: Message = {
-      id: String(Date.now()),
-      sender: "rep",
-      text: smsText.trim(),
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    }
-    setChatMessages(prev => [...prev, newMsg])
-    setSmsText("")
+    const message = smsText.trim()
+    setIsSaving(true)
     try {
-      await fetch("/api/zoho-voice", {
+      const response = await fetch("/api/send-sms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "SEND_SMS",
-          accountId,
-          userId: currentUser?.id,
-          userEmail: currentUser?.email,
-          noteContent: newMsg.text,
-          sentiment: "Neutral",
-          fromNumber: selectedOutboundNumber,
-        }),
+        body: JSON.stringify({ accountId, message }),
       })
-    } catch (err) { console.error("SMS sync error:", err) }
-  }, [smsText, accountId, currentUser?.id, currentUser?.email, selectedOutboundNumber])
+      const data = await response.json()
+      if (!response.ok || !data.success || !data.providerAccepted || !data.smsMessage?.id) {
+        throw new Error(data.error || "Zoho Voice did not confirm the message")
+      }
+      const confirmed: Message = {
+        id: data.smsMessage.id,
+        sender: "rep",
+        text: data.smsMessage.body,
+        timestamp: new Date(data.smsMessage.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      }
+      setChatMessages(prev => [...prev, confirmed])
+      setSmsText("")
+      notify("SMS accepted by Zoho Voice.", "success")
+    } catch (err) {
+      notify(err instanceof Error ? err.message : "SMS was not sent.", "error")
+    } finally {
+      setIsSaving(false)
+    }
+  }, [smsText, accountId, notify])
 
   const sendEmailLog = useCallback(async () => {
-    setIsSaving(true)
-    try {
-      const res = await fetch("/api/zoho-voice", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "SEND_EMAIL", accountId, userId: currentUser?.id, userEmail: currentUser?.email, noteContent: emailText, sentiment: "Neutral" }),
-      })
-      if (res.ok) { setEmailText(""); notify("Email logged!", "success") }
-    } catch { notify("Failed to send email.", "error") } finally { setIsSaving(false) }
-  }, [accountId, currentUser?.id, currentUser?.email, emailText, notify])
+    notify("Email sending is not configured. Nothing was sent or logged.", "error")
+  }, [notify])
 
   const sendWhatsAppLog = useCallback(async () => {
-    setIsSaving(true)
-    try {
-      const res = await fetch("/api/zoho-voice", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "SEND_WHATSAPP", accountId, userId: currentUser?.id, userEmail: currentUser?.email, noteContent: whatsappText, sentiment: "Neutral" }),
-      })
-      if (res.ok) { setWhatsappText(""); notify("WhatsApp message logged!", "success") }
-    } catch { notify("Failed.", "error") } finally { setIsSaving(false) }
-  }, [accountId, currentUser?.id, currentUser?.email, whatsappText, notify])
+    notify("WhatsApp sending is not configured. Nothing was sent or logged.", "error")
+  }, [notify])
 
   const handleGenerateAi = useCallback(async () => {
     if (!aiPrompt) return

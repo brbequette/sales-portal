@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { FiLogOut, FiMenu, FiX, FiHome, FiShoppingBag, FiBox, FiRefreshCw, FiTruck } from "react-icons/fi"
+import { FiLogOut, FiMenu, FiX, FiHome, FiShoppingBag, FiBox, FiRefreshCw, FiTruck, FiUser } from "react-icons/fi"
 import * as jose from "jose"
 
 export default function CustomerPortalLayout({ children }: { children: React.ReactNode }) {
@@ -43,6 +43,7 @@ export default function CustomerPortalLayout({ children }: { children: React.Rea
 
   const tabs = [
     { name: "Dashboard", href: "/customer-portal", icon: FiHome },
+    { name: "My Account", href: "/customer-portal/account", icon: FiUser },
     { name: "Orders", href: "/customer-portal/orders", icon: FiShoppingBag },
     { name: "My Blades", href: "/customer-portal/blades", icon: FiBox },
     { name: "Autoship", href: "/customer-portal/autoship", icon: FiRefreshCw },
