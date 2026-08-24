@@ -3,6 +3,7 @@ import { Handler } from "@netlify/functions"
 import FormData from "form-data"
 import { corsHeaders, handleOptions } from "./lib/cors"
 import { getZohoAccessToken } from "./lib/zoho-auth"
+import { evaluateZohoSmsResponse } from "./lib/zoho-sms-response"
 
 import { prisma } from "./lib/prisma"
 
@@ -285,7 +286,8 @@ const authenticatedHandler: Handler = async (event, context) => {
           try { resultJson = JSON.parse(resultText) } catch (e) { console.warn('Failed to parse SMS API response:', e) }
 
           // Zoho APIs often return 200 OK even for errors, so we must check the body
-          if (smsRes.ok && resultJson.status !== 'error' && resultJson.code !== 'error') {
+          const providerResult = evaluateZohoSmsResponse(smsRes, resultText)
+          if (providerResult.accepted) {
              successfulCount++
              notesToCreate.push({
                accountId: account.id,
@@ -316,7 +318,7 @@ const authenticatedHandler: Handler = async (event, context) => {
                campaignBlastId: blast!.id,
                accountId: account.id,
                status: 'FAILED',
-               errorMessage: resultJson.message || 'Zoho API Error',
+               errorMessage: providerResult.errorMessage,
                zohoNumberUsed: fromNumber
              })
           }

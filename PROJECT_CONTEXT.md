@@ -800,3 +800,9 @@ live state before destructive changes or external writes.
 - Customer edits update the matching Zoho CRM Account and primary Contact first, then commit the same values locally in a Prisma transaction; a rejected Zoho update does not create a divergent local edit.
 - Editable fields are limited to company name, primary contact name/email/phones, billing address, and shipping address. Sales quality, ownership, financials, commissions, and other internal fields are never exposed for editing.
 - Existing customer order, invoice, autoship, purchased-blade, package, and tracking APIs remain account-filtered by the verified customer JWT.
+
+## Zoho Voice campaign acknowledgement incident (2026-08-24)
+
+- Production campaign `cmt7lst8c0001rutvnm7gnh2v` (Free Gun Safe) completed 2,113 recipients and locally recorded 1,900 successes / 243 failures from `+14325381379`, but Zoho Voice Logs did not show the campaign sends. The prior sender treated any HTTP 2xx response without exact lowercase `error` fields—including empty or non-confirming responses—as success, so those 1,900 records are not reliable proof of provider acceptance or delivery.
+- All outbound SMS paths now use `netlify/functions/lib/zoho-sms-response.ts`. A send counts as accepted only when Zoho returns an explicit positive status/code or provider message ID; empty, malformed, ambiguous, HTTP-error, and explicit failure responses remain failures with a provider-facing reason.
+- Do not automatically resend the affected campaign. Confirm actual Zoho delivery/log evidence first to avoid duplicate customer messages. Historical local message/log rows are preserved for audit and should be labeled unverified in a follow-up reconciliation rather than deleted.

@@ -1,6 +1,7 @@
 import { Handler } from "@netlify/functions"
 import { corsHeaders, handleOptions } from "./lib/cors"
 import { getZohoAccessToken } from "./lib/zoho-auth"
+import { evaluateZohoSmsResponse } from "./lib/zoho-sms-response"
 
 import { prisma } from "./lib/prisma"
 import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
@@ -166,14 +167,12 @@ export const handler: Handler = async (event, context) => {
           let resultJson: any = {}
           try { resultJson = JSON.parse(resultText) } catch (e) { console.warn('Failed to parse Zoho Voice SMS response:', e) }
 
-          const providerStatus = String(resultJson.status || '').toLowerCase()
-          const providerCode = String(resultJson.code || '').toLowerCase()
-          const providerRejected = providerStatus === 'error' || providerStatus === 'failed' || providerCode === 'error' || providerCode === 'failed'
-          if (smsRes.ok && resultText.trim().length > 0 && !providerRejected) {
+          const providerResult = evaluateZohoSmsResponse(smsRes, resultText)
+          if (providerResult.accepted) {
             apiSuccess = true
           } else {
             console.error(`Zoho Voice SMS send failed:`, resultText)
-            apiMessage = `Zoho Voice API error: ${resultJson.message || resultText}`
+            apiMessage = providerResult.errorMessage
           }
         } else {
           apiMessage = "Could not retrieve Zoho access token"
