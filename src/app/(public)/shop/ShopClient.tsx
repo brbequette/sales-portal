@@ -40,14 +40,6 @@ function canonicalSizes(raw: string) {
     return match ? [`${match[1].replace('-', ' ')}"`] : [];
   }));
 }
-function fallbackImage(category: string) {
-  const value = category.toLowerCase();
-  if (value.includes('core')) return '/images/core_bit.png';
-  if (/cup|grind|tuck|polish/.test(value)) return '/images/tuck_point.jpg';
-  if (/turbo|tile/.test(value)) return '/images/turbo_blade.png';
-  if (value.includes('rim')) return '/images/continuous_rim_blade.png';
-  return '/images/saw_blade.jpg';
-}
 function parseProduct(item: RawProduct): CatalogProduct {
   let parsed: Record<string, unknown> = {};
   let description = item.description || '';
@@ -66,7 +58,7 @@ function parseProduct(item: RawProduct): CatalogProduct {
   const size = item.size || String(attributes.size || attributes.sizes || '');
   const application = item.application || String(attributes.application || attributes.applications || '');
   const equipment = item.equipment || String(attributes.equipment || '');
-  const imageUrl = mapped || (!stored.includes('placeholder') ? stored : '') || `/product-images/${encodeURIComponent(sku)}.png`;
+  const imageUrl = mapped || (!/placeholder|no[-_ ]?image|image[-_ ]?not[-_ ]?available/i.test(stored) ? stored : '');
   const searchable = [item.name, sku, category, item.productType, item.toolType, size, application, equipment, materials.join(' '), description, 'Titan Diamond USA'].filter(Boolean).join(' ').toLowerCase();
   const canonicalText = [application, equipment, materials.join(' '), description, item.productType, item.toolType].filter(Boolean).join(' ');
   const useCases = publicUseCases([...values(item.useCases), canonicalText]);
@@ -92,7 +84,7 @@ function ShopContent() {
       if (!response.ok) throw new Error('Catalog request failed');
       const payload = await response.json();
       const rows = (Array.isArray(payload) ? payload : payload.products || []) as RawProduct[];
-      if (active) setProducts(rows.filter((item) => !item.giftItem).map(parseProduct));
+      if (active) setProducts(rows.filter((item) => !item.giftItem && Boolean(item.imageUrl)).map(parseProduct).filter((item) => Boolean(item.imageUrl)));
     }).catch((error) => console.error('Failed to fetch catalog:', error)).finally(() => active && setLoading(false));
     return () => { active = false; };
   }, []);
@@ -184,7 +176,7 @@ function Facet({ label, value, options, onChange }: { label: string; value: stri
 function FilterChip({ label, onClear }: { label: string; onClear: () => void }) { return <button onClick={onClear} className="inline-flex max-w-full items-center gap-2 rounded-full border border-orange-400/30 bg-orange-500/10 px-3 py-1.5 text-[10px] font-bold capitalize text-orange-200"><span className="truncate">{label}</span><FiX /></button>; }
 function ProductCard({ product, onSelect }: { product: CatalogProduct; onSelect: () => void }) {
   return <article onClick={onSelect} className="group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-white/10 bg-neutral-900/70 transition hover:-translate-y-1 hover:border-orange-400/40">
-    <div className="relative flex h-56 items-center justify-center overflow-hidden border-b border-white/5 bg-black/55 p-6"><PublicProductImage src={product.imageUrl || fallbackImage(product.category)} alt={product.name} className="transition duration-500 group-hover:scale-105 group-hover:rotate-1" /><span className="absolute left-3 top-3 max-w-[80%] truncate rounded-full border border-orange-400/25 bg-black/75 px-2.5 py-1 font-mono text-[8px] font-bold uppercase tracking-wider text-orange-300 backdrop-blur">{product.category}</span></div>
+    <div className="relative flex h-56 items-center justify-center overflow-hidden border-b border-white/5 bg-black/55 p-6"><PublicProductImage src={product.imageUrl} alt={product.name} className="transition duration-500 group-hover:scale-105 group-hover:rotate-1" /><span className="absolute left-3 top-3 max-w-[80%] truncate rounded-full border border-orange-400/25 bg-black/75 px-2.5 py-1 font-mono text-[8px] font-bold uppercase tracking-wider text-orange-300 backdrop-blur">{product.category}</span></div>
     <div className="flex flex-1 flex-col p-5"><div className="font-mono text-[9px] uppercase tracking-wider text-neutral-500">SKU {product.sku}</div><h3 className="mt-1 line-clamp-2 text-sm font-black uppercase leading-5 text-white transition group-hover:text-orange-300">{product.name}</h3>{(product.size || product.application) && <div className="mt-3 flex flex-wrap gap-1.5">{product.size && <span className="rounded-md bg-white/5 px-2 py-1 text-[9px] text-neutral-400">{product.size}</span>}{product.application && <span className="max-w-full truncate rounded-md bg-white/5 px-2 py-1 text-[9px] text-neutral-400">{product.application}</span>}</div>}<div className="mt-auto flex items-center justify-between border-t border-white/10 pt-4 text-[10px] font-black uppercase tracking-wider"><span className="flex items-center gap-1.5 text-orange-400"><FiLock /> Login for pricing</span><span className="flex items-center gap-1 text-neutral-300 group-hover:text-orange-300">See full details <FiArrowRight /></span></div></div>
   </article>;
 }
@@ -207,7 +199,7 @@ function ProductModal({ product, onClose }: { product: CatalogProduct; onClose: 
       <div className="grid lg:grid-cols-[.82fr_1.18fr]">
         <div className="relative flex min-h-[26rem] items-center justify-center overflow-hidden border-b border-white/10 bg-black/65 p-8 lg:min-h-[42rem] lg:border-b-0 lg:border-r">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(249,115,22,.14),transparent_48%)]" />
-          <PublicProductImage src={product.imageUrl || fallbackImage(product.category)} alt={product.name} className="relative z-10 max-h-[34rem] max-w-full" />
+          <PublicProductImage src={product.imageUrl} alt={product.name} className="relative z-10 max-h-[34rem] max-w-full" />
           <div className="absolute bottom-5 left-5 flex items-center gap-2 font-mono text-[9px] font-bold uppercase tracking-[.16em] text-neutral-500"><FiAward className="text-orange-400" /> Titan contractor tooling</div>
         </div>
         <div className="p-6 sm:p-9 lg:p-11">

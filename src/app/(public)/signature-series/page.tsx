@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 };
 
 type ProductAttributes = Record<string, unknown>;
-type ProductRow = { sku: string; name: string; description: string | null; category: string; size: string | null; application: string | null; equipment: string | null; materials: unknown; attributes: unknown };
+type ProductRow = { sku: string; name: string; description: string | null; category: string; size: string | null; application: string | null; equipment: string | null; materials: unknown; attributes: unknown; imageUrl: string | null };
 type SignatureBlade = { family: string; name: string; image: string; description: string; category: string; applications: string[]; materials: string[]; sizes: string[]; equipment: string[]; skus: string[]; variantCount: number };
 const imageMap = imageMapData as Record<string, { image?: string | null }>;
 const SIGNATURE_FAMILIES = ['THE DRAGON', 'THE ZEUS', 'THE MEDUSA', 'THE BARBARIAN', 'THE DARK KNIGHT', 'THE BATTLE AXE', 'THE HOUND OF HADES', 'THE HYDRA', 'THE KING', 'THE MAXIMUS', 'THE GLADIATOR', 'THE DEMO DEMON'] as const;
@@ -49,20 +49,24 @@ async function getSignatureBlades(): Promise<SignatureBlade[]> {
   // Prisma client predates the catalog-attribute migration.
   const products = await prisma.$queryRaw<ProductRow[]>(Prisma.sql`
     SELECT sku, name, description, category, size,
-      application, equipment, materials, attributes
+      application, equipment, materials, attributes, "imageUrl"
     FROM "Product"
     WHERE "giftItem" = false
     ORDER BY name ASC, sku ASC
   `);
   return SIGNATURE_FAMILIES.flatMap((family) => {
-    const variants = products.filter((product) => familyFor(product.name) === family && !/\s-\sWHS$/i.test(product.name));
+    const variants = products.filter((product) => {
+      if (familyFor(product.name) !== family || /\s-\sWHS$/i.test(product.name)) return false;
+      const details = descriptionDetails(product.description);
+      return Boolean(imageMap[product.sku.trim().toUpperCase()]?.image || product.imageUrl || details.image);
+    });
     if (!variants.length) return [];
     const primary = variants.find((product) => imageMap[product.sku.trim().toUpperCase()]?.image) ?? variants[0];
     const parsed = variants.map((product) => ({ product, details: descriptionDetails(product.description) }));
     const attributes = variants.map((product) => product.attributes && typeof product.attributes === 'object' ? product.attributes as ProductAttributes : {});
     return [{
       family, name: family,
-      image: imageMap[primary.sku.trim().toUpperCase()]?.image || parsed.find(({ details }) => details.image)?.details.image || FALLBACK_IMAGES[family],
+      image: imageMap[primary.sku.trim().toUpperCase()]?.image || primary.imageUrl || parsed.find(({ details }) => details.image)?.details.image || FALLBACK_IMAGES[family],
       description: parsed.find(({ details }) => details.text)?.details.text ?? 'Commercial-grade diamond blade engineered for demanding professional cutting.',
       category: primary.category === 'Uncategorized' ? 'Signature Series Blade' : primary.category,
       applications: publicControlledValues([...variants.flatMap((product) => asStrings(product.application)), ...attributes.flatMap((item) => asStrings(item.applications ?? item.application))], 'application'),

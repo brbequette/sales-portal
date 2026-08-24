@@ -3,8 +3,10 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { normalizeProductOffer } from '@/lib/product-offers';
 import { publicStrings, publicUseCases } from '@/lib/public-product-normalization';
+import imageMapData from '@/lib/image-map.json';
 
 export const dynamic = 'force-dynamic';
+const imageMap = imageMapData as Record<string, { image?: string | null }>;
 
 type ProductRow = {
   id: string; sku: string; name: string; description: string | null; category: string;
@@ -23,6 +25,17 @@ function publicDetails(raw: string | null) {
       image: typeof parsed.image === 'string' && !parsed.image.includes('placeholder') ? parsed.image : '',
     };
   } catch { return { description: raw, active: true, image: '' }; }
+}
+
+function usableImage(value: string | null | undefined) {
+  const image = value?.trim() || '';
+  return image && !/placeholder|no[-_ ]?image|image[-_ ]?not[-_ ]?available/i.test(image) ? image : '';
+}
+
+function publicImage(product: ProductRow, descriptionImage: string) {
+  return usableImage(imageMap[product.sku.trim().toUpperCase()]?.image)
+    || usableImage(product.imageUrl)
+    || usableImage(descriptionImage);
 }
 
 function matches(text: string, pattern: RegExp) { return pattern.test(text); }
@@ -89,6 +102,8 @@ export async function GET() {
     products: products.flatMap((product) => {
       const details = publicDetails(product.description);
       if (!details.active) return [];
+      const imageUrl = publicImage(product, details.image);
+      if (!imageUrl) return [];
       const derived = derivedDetails(product, details.description);
       const attributes = attributeRecord(product.attributes);
       const diameter = normalizeDiameter(attributeValue(attributes, 'Blade Diameter'));
@@ -108,7 +123,7 @@ export async function GET() {
         name: product.name,
         category: product.category,
         description: details.description,
-        imageUrl: product.imageUrl || details.image,
+        imageUrl,
         productType: product.productType || derived.productType,
         size: diameter || product.size || derived.sizes.join(' | '),
         application: useCases.join(' | '),

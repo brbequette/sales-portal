@@ -513,3 +513,35 @@ live state before destructive changes or external writes.
   `/login`. The CDN Dragon asset was verified as 1200×1200 RGBA with genuine
   transparent and opaque pixels, and desktop/mobile visual checks confirmed
   the blade fills its presentation area without a background.
+
+## 2026-08-22 field-work hero and unified use-case release
+
+- A verified production database backup was created before deployment at
+  `backups/netlify-20260822-044854.dump` (33.77 MB). No database record,
+  migration, cost, commission, or Zoho data was changed.
+- Production commit `2d2c8c4508bcaa1c8ad18e711c045ad672e89da3` added 15 unique
+  2048x1152 cinematic field-work hero scenes and assigned them across the public
+  routes. The reproducible generator is `scripts/generate-public-hero-series.ps1`.
+- Public product application and material presentation now resolves through one
+  controlled `Cuts / Application` taxonomy. The API retains backward-compatible
+  fields and does not rewrite the underlying raw application, material, or vendor
+  data. Manufacturer remains stored but is not exposed as a public facet.
+- Follow-up production commit `6bf342409fbd68fa277351b63f1c1f09ddbe1bfa`
+  removed the last client-side legacy aliases (`Metal`, `Stone`, and `Masonry`)
+  so only their controlled equivalents are presented.
+- Netlify deploy `6a8990271f55de00089ff3fb` published successfully at
+  2026-08-22 12:06 UTC. Live checks returned HTTP 200 for the public pages,
+  generated hero assets, and product API. The production API returned 4,108
+  products with `useCases`; live visual inspection confirmed the unified facet,
+  controlled labels, product load, hero layering, and absence of legacy aliases.
+
+## 2026-08-23 image-backed public catalog rule
+
+- Public storefront feeds must return only products with a resolved, non-placeholder
+  product image. Resolution prefers the maintained SKU image map, then a stored
+  product image URL, then a valid image embedded in the legacy description.
+- The storefront must not invent generic category or guessed SKU image paths for
+  products lacking artwork. Internal/admin product records remain unchanged and
+  continue to include image-less items for catalog cleanup.
+- Homepage and Signature Series SKU/variant lists include only image-backed
+  variants, preventing image-less product configurations from being advertised.
