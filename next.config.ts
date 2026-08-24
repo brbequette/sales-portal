@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  experimental: {
+    proxyClientMaxBodySize: '50mb',
+  },
   // These values are intentionally public company identity/contact metadata.
   // Explicit keys let Next inline them in client components; dynamic
   // process.env[name] access is not transformed in browser bundles.

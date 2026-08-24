@@ -1,8 +1,6 @@
 import { handler } from "../../../../netlify/functions/import-books-csv";
 import { NextRequest, NextResponse } from "next/server";
 
-// Allow large CSV uploads (50MB) - App Router segment config
-export const bodySizeLimit = '50mb';
 export const maxDuration = 60;
 
 async function executeNetlifyFunction(req: NextRequest) {

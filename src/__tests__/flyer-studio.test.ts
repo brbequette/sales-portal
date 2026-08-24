@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { extractJsonLdProducts, extractMeta } from "@/app/api/admin/flyer-studio/scrape/route"
+import { extractJsonLdProducts, extractMeta } from "@/lib/flyer-scrape"
 import { FLYER_CAMPAIGN_TYPES, FLYER_CATALOGS } from "@/lib/flyer-studio-config"
 import { calculatePromotionFinancials } from "@/lib/promotion-financials"
 
