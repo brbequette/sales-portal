@@ -467,11 +467,11 @@ export async function calculateDocumentCosts(
   const shippingCostBreakdown = shipping.breakdown
 
   // ─── 5. Profit ──────────────────────────────────────────────────────────────
-  // Every actual freight/label cost is a real deduction before margin and commission.
-  const totalDeductions  = deadCostPlusVig + ccFees + additionalCosts + actualShippingCost
+  // Actual freight/label cost is tracked for invoice and shipping reporting only; it does not reduce profit or commission.
+  const totalDeductions  = deadCostPlusVig + ccFees + additionalCosts
   const profit           = subTotal - totalDeductions
   const marginPercent    = subTotal > 0 ? (profit / subTotal) * 100 : 0
-  const deadProfitActual = subTotal - deadCostTotal - ccFees - actualShippingCost
+  const deadProfitActual = subTotal - deadCostTotal - ccFees
 
   // ─── 6. Commission ──────────────────────────────────────────────────────────
   const commissionPct   = resolveCommissionPct(doc, settings, manualCommPct)
