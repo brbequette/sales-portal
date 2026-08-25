@@ -16,6 +16,10 @@ function safeCallbackPath(value: string | null, fallback = "/dashboard") {
   return value
 }
 
+function ssoCompletionPath(callbackPath: string) {
+  return `/auth/complete?callbackUrl=${encodeURIComponent(callbackPath)}`
+}
+
 function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -187,7 +191,7 @@ function LoginContent() {
     try {
       // OAuth providers always redirect in NextAuth v4. Asking for a return
       // value and manually assigning it creates a second navigation/reload.
-      await signIn("zoho", { callbackUrl })
+      await signIn("zoho", { callbackUrl: ssoCompletionPath(callbackUrl) })
     } catch {
       setError("Unable to connect to Zoho. Please try again.")
       setLoading(false)

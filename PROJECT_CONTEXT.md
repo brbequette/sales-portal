@@ -832,3 +832,12 @@ live state before destructive changes or external writes.
 - Netlify production now builds `brbequette/sales-portal` branch `codex/production-portal-updates`. Production deploy `6a8df0f602d8fe78a266b586` published the same commit to `https://www.tdusales.com`.
 - Live verification returned HTTP 200 for `/`, `/login`, `/intro-offer`, `/signature-series`, `/api/public/products`, both intro-offer blade images, the horizontal light logo, and representative Dragon and Gladiator Signature artwork.
 - Local Docker production remains healthy and the database rollback table is intentionally retained until the web-visibility release has completed its operational observation period.
+## 2026-08-25 Zoho SSO post-callback stabilization
+
+- The self-host Zoho authorization request correctly generates `http://192.168.0.108:3000/api/auth/callback/zoho`; the registered callback origin was not the cause of the reload requirement.
+- The failure occurred after provider return: NextAuth redirected immediately into the protected dashboard while the installed service worker also intercepted authentication navigation.
+- Employee and unified Zoho login now return through public `/auth/complete`, which confirms the newly issued NextAuth session before performing a hard same-origin navigation to the validated relative destination.
+- The service worker no longer intercepts `/api/auth/*` or `/auth/complete` navigations. Callback destinations remain restricted to relative, same-site paths.
+- TypeScript validation and the full Next.js 16.2.6 production build with all 317 generated pages pass. Existing lint findings in the two legacy login pages predate this repair; the new completion page and proxy changes pass targeted lint.
+- Guarded self-host deployment created backups `backups/tdgpt-20260825-131402.dump` and `backups/tdgpt-20260825-131444.dump` (34.25 MB each), rebuilt both images, confirmed all nine migrations current, restarted the app and Books sync worker, and passed the live login health check.
+- Post-deploy verification returned HTTP 200 for `/auth/complete` and `/sw.js`; the live provider request retains the registered Zoho callback and stores `/auth/complete?callbackUrl=%2Fdashboard` as the NextAuth destination.
