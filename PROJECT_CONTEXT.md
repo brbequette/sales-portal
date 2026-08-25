@@ -822,3 +822,13 @@ live state before destructive changes or external writes.
 - A new Netlify Linux branch preview built commit `6f17ff34` successfully as deploy `6a8d4cfbacc501000856cbee`. `/signature-series` and tested Signature blade assets return HTTP 200.
 - The preview homepage returns HTTP 500 because Netlify's separate PostgreSQL database lacks migration `20260824170000_product_web_visibility`; server logs report PostgreSQL `42703` for missing `Product.showOnWeb`.
 - Do not bypass `showOnWeb`, promote this preview, or silently migrate the Netlify production database. A controlled Netlify database backup/snapshot and migration plus an explicit production-branch decision are required before promotion.
+
+## 2026-08-25 Netlify production reconciliation completion
+
+- The user explicitly approved the Netlify application-database migration and production-branch switch.
+- Netlify's managed database snapshot `snap-autumn-wildflower-aj4lqgpl` was created first, but inspection showed that connector contained only Netlify migration metadata and not the application's `Product` table. No application schema change was attempted against that unrelated database.
+- Before altering the actual protected application database, a guarded one-time cloud build created rollback table `ProductWebVisibilityBackup_20260825`, copied every product ID and prior gift flag, added `Product.showOnWeb BOOLEAN NOT NULL DEFAULT true` only when absent, and hid all gift products. Verification required a non-empty backup and zero rows where both `giftItem` and `showOnWeb` were true.
+- The one-time migration hook and script were removed after success. Clean Netlify preview deploy `6a8def7585b0e00009ae92f3` built commit `4912c13daf78faed2466a72b6ad7e58c83f81f82` and passed homepage, Signature Series, public product API, and image checks.
+- Netlify production now builds `brbequette/sales-portal` branch `codex/production-portal-updates`. Production deploy `6a8df0f602d8fe78a266b586` published the same commit to `https://www.tdusales.com`.
+- Live verification returned HTTP 200 for `/`, `/login`, `/intro-offer`, `/signature-series`, `/api/public/products`, both intro-offer blade images, the horizontal light logo, and representative Dragon and Gladiator Signature artwork.
+- Local Docker production remains healthy and the database rollback table is intentionally retained until the web-visibility release has completed its operational observation period.
