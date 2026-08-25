@@ -814,3 +814,11 @@ live state before destructive changes or external writes.
 - The Featured Signature link now opens `/signature-series` instead of the generic shop.
 - Desktop cards use a consistent three-column grid without the prior uneven spans and gaps; tablet remains two columns and mobile retains horizontal snap scrolling.
 - All 12 family artwork files returned HTTP 200 from production before the change. The full Next.js 16.2.6 production build, TypeScript validation, and all 316 generated pages pass after the correction.
+
+## 2026-08-25 Netlify preview reconciliation
+
+- Local Docker production remains healthy at `http://localhost:3000/`, and GitHub branch `codex/production-portal-updates` is clean at commit `6f17ff34`.
+- Netlify production is still configured to build `brbequette/sales-portal` branch `main`; it has not been switched or overwritten.
+- A new Netlify Linux branch preview built commit `6f17ff34` successfully as deploy `6a8d4cfbacc501000856cbee`. `/signature-series` and tested Signature blade assets return HTTP 200.
+- The preview homepage returns HTTP 500 because Netlify's separate PostgreSQL database lacks migration `20260824170000_product_web_visibility`; server logs report PostgreSQL `42703` for missing `Product.showOnWeb`.
+- Do not bypass `showOnWeb`, promote this preview, or silently migrate the Netlify production database. A controlled Netlify database backup/snapshot and migration plus an explicit production-branch decision are required before promotion.
