@@ -20,12 +20,12 @@ function Metric({ label, value, note, color="text-white" }:{ label:string; value
   return <div className="min-w-0 rounded-xl border border-white/10 bg-black/30 p-3"><p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">{label}</p><p className={`mt-1 truncate text-lg font-black ${color}`}>{value}</p>{note&&<p className="mt-0.5 truncate text-[10px] text-neutral-500">{note}</p>}</div>
 }
 
-export function ExecutiveRepStats({ repName, repEmail }:{ repName?:string|null; repEmail?:string|null }) {
+export function ExecutiveRepStats({ repId, repName, repEmail }:{ repId?:string|null; repName?:string|null; repEmail?:string|null }) {
   const [snapshots,setSnapshots] = useState<Partial<Record<PeriodKey,Snapshot>>>({})
   const [loading,setLoading] = useState(true)
   const [error,setError] = useState("")
   const [updatedAt,setUpdatedAt] = useState<Date|null>(null)
-  const scope = repEmail || repName || "all"
+  const scope = repId || repEmail || repName || "all"
 
   const load = useCallback(async () => {
     setLoading(true); setError("")

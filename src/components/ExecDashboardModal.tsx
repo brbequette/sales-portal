@@ -100,6 +100,7 @@ export function ExecDashboardModal({ isOpen, onClose, allDbUsers }: ExecDashboar
       {/* Modal Body */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
         <ExecutiveRepStats
+          repId={preferences.impersonatedUser?.id || null}
           repName={preferences.impersonatedUser?.name || null}
           repEmail={preferences.impersonatedUser?.email || null}
         />
