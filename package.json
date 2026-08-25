@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "build:netlify": "prisma generate && node scripts/migrate-netlify-product-visibility.cjs && next build --webpack",
+    "build:netlify": "prisma generate && next build --webpack",
     "start": "next start",
     "lint": "eslint"
   },
