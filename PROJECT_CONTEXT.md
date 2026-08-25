@@ -849,3 +849,9 @@ live state before destructive changes or external writes.
 - Actual shipping is an operational/invoice reporting value only: it is explicitly excluded from dead profit, net profit, margin, and commission calculations. Cost processing still persists the complete shipping total, breakdown, and source rollup metadata to both first-class columns and document JSON.
 - Four focused shipping aggregation tests, TypeScript validation, and the full Next.js 16.2.6 build with all 317 pages pass.
 - Development branch `codex/dev-shipping-cost-rollup` is running on port 3001. Docker is configured for a LAN-capable bind and `DEV_APP_URL`; Windows LAN forwarding for `192.168.0.108:3001` is configured separately from unchanged production port 3000. The branch remains local and unpushed.
+## 2026-08-25 production local-AI recovery
+
+- Titan AI failures were caused by the CPU-only `qwen3:4b` model exceeding the prior 20-second Ollama deadline while processing the tool schema; logs showed the request canceled during prompt evaluation rather than a database or HTTP outage.
+- Production now uses the locally stored, tool-capable `llama3.2:3b` model with `OLLAMA_TIMEOUT_MS=180000` in `.env.selfhost`. A representative real-data prompt returned an explicit `query_company_summary` tool call in 33.4 seconds.
+- The smaller `qwen3:1.7b` candidate was rejected after testing because it returned empty/non-tool responses and could not be trusted for financial questions.
+- Production was restarted using the required `.env.selfhost` configuration. All nine migrations remain current; PostgreSQL and the app are healthy, and `/login` returns HTTP 200. No database records were changed by the recovery.
