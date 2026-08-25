@@ -841,3 +841,11 @@ live state before destructive changes or external writes.
 - TypeScript validation and the full Next.js 16.2.6 production build with all 317 generated pages pass. Existing lint findings in the two legacy login pages predate this repair; the new completion page and proxy changes pass targeted lint.
 - Guarded self-host deployment created backups `backups/tdgpt-20260825-131402.dump` and `backups/tdgpt-20260825-131444.dump` (34.25 MB each), rebuilt both images, confirmed all nine migrations current, restarted the app and Books sync worker, and passed the live login health check.
 - Post-deploy verification returned HTTP 200 for `/auth/complete` and `/sw.js`; the live provider request retains the registered Zoho callback and stores `/auth/complete?callbackUrl=%2Fdashboard` as the NextAuth destination.
+## 2026-08-25 development-only complete shipping cost rollup
+
+- This change is explicitly limited to development and has not been deployed to self-host production, Netlify, or either production-linked GitHub branch.
+- Actual shipping now aggregates distinct package/Easyship label charges and manual freight allocations, deduplicating matching tracking numbers and preserving any unexplained legacy amount as an itemized unallocated remainder.
+- Invoice package lookup uses the linked sales-order ID/number rather than the invoice ID. Label purchases immediately refresh the linked sales-order and invoice `actualShippingCost` and `shippingCostBreakdown` fields and mark those documents for full cost recalculation.
+- Shipping is included in total deductions before dead profit, net profit, margin, and commission are calculated. Cost processing persists the shipping total, breakdown, and source rollup metadata to both first-class columns and document JSON.
+- Four focused shipping aggregation tests, TypeScript validation, and the full Next.js 16.2.6 build with all 317 pages pass.
+- Development branch `codex/dev-shipping-cost-rollup` is running at `http://localhost:3001`; both dev and unchanged production login health checks return HTTP 200. The branch remains local and unpushed.

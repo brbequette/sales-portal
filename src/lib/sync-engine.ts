@@ -366,6 +366,8 @@ export async function updateInvoiceRecord(opts: {
                               ? JSON.parse(JSON.stringify(conflictResult.fields))
                               : undefined,
       pendingZohoFetch:     false,
+      actualShippingCost:   finiteNumber(calcItems.actualShippingCost),
+      shippingCostBreakdown:String(calcItems.shippingCostBreakdown || "").trim() || null,
       computedProfit:       finiteNumber(calcItems.profit),
       computedDeadProfit:   finiteNumber(calcItems.deadProfitActual),
       computedDeadCost:     finiteNumber(calcItems.deadCostTotal),
@@ -411,6 +413,11 @@ export async function updateSalesOrderRecord(opts: {
   })
   const currentItems = (existing?.items as Record<string, unknown>) ?? {}
 
+  const finiteNumber = (value: unknown): number | null => {
+    const parsed = typeof value === "number" ? value : Number.parseFloat(String(value ?? ""))
+    return Number.isFinite(parsed) ? parsed : null
+  }
+
   const mergedItems = {
     ...currentItems,
     status:           zohoDoc.status,
@@ -439,6 +446,8 @@ export async function updateSalesOrderRecord(opts: {
                               ? JSON.parse(JSON.stringify(conflictResult.fields))
                               : undefined,
       pendingZohoFetch:     false,
+      actualShippingCost:   finiteNumber(calcItems.actualShippingCost),
+      shippingCostBreakdown:String(calcItems.shippingCostBreakdown || '').trim() || null,
       items:                JSON.parse(JSON.stringify(mergedItems)),
     },
   })
