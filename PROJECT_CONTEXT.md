@@ -861,3 +861,8 @@ live state before destructive changes or external writes.
 - The client now sends the canonical user ID. The API resolves ID/email/name requests to the canonical user and scopes candidate documents by either account ownership or exact stored salesperson attribution before applying its final rep matcher. This preserves salesperson-attributed invoices when account ownership differs.
 - Read-only production verification found Ross Haisler has 220 qualifying 2026 salesperson-attributed invoices totaling $362,584.51 in subtotal; no data repair or document mutation was required.
 - Guarded production deployment created backup `backups/tdgpt-20260825-150407.dump` (34.25 MB), built all 317 pages, confirmed all nine migrations current, restarted the app and Books sync worker, and passed the live `/login` health check.
+## 2026-08-25 Netlify all-fixes production release
+
+- Netlify site `titan-sales-portal` for `https://www.tdusales.com` is connected to `brbequette/sales-portal`, not the workspace's `brbequette/TDGPT` origin. Commit `12cc79691e6d9a76495cb50f1be9421dc9ff2f97` was fast-forwarded to the connected `codex/production-portal-updates` branch after explicit user confirmation.
+- Netlify production deploy `6a8e15c85af9fd0008c1d1e6` completed in `ready` state with no reported error.
+- Live verification returned HTTP 200 for `/`, `/login`, `/intro-offer`, `/signature-series`, `/api/public/products`, and representative tracked PNG assets. No new image files were pending in the released commit range; existing repository-tracked images remain available to Netlify.
