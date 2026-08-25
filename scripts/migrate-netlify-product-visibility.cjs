@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+const { PrismaClient } = require('@prisma/client')
 
 const prisma = new PrismaClient()
 
@@ -24,20 +24,18 @@ async function main() {
     `)
   })
 
-  const [{ visible_gifts: visibleGifts, backup_rows: backupRows }] = await prisma.$queryRawUnsafe<
-    Array<{ visible_gifts: bigint; backup_rows: bigint }>
-  >(`
+  const [result] = await prisma.$queryRawUnsafe(`
     SELECT
       COUNT(*) FILTER (WHERE "giftItem" = true AND "showOnWeb" = true) AS visible_gifts,
       (SELECT COUNT(*) FROM "ProductWebVisibilityBackup_20260825") AS backup_rows
     FROM "Product"
   `)
 
-  if (visibleGifts !== 0n || backupRows === 0n) {
-    throw new Error(`Visibility migration verification failed: visible gifts=${visibleGifts}, backup rows=${backupRows}`)
+  if (result.visible_gifts !== 0n || result.backup_rows === 0n) {
+    throw new Error(`Visibility migration verification failed: visible gifts=${result.visible_gifts}, backup rows=${result.backup_rows}`)
   }
 
-  console.log(`Product visibility migration verified; rollback rows: ${backupRows}`)
+  console.log(`Product visibility migration verified; rollback rows: ${result.backup_rows}`)
 }
 
 main()
