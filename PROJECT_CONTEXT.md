@@ -855,3 +855,9 @@ live state before destructive changes or external writes.
 - Production now uses the locally stored, tool-capable `llama3.2:3b` model with `OLLAMA_TIMEOUT_MS=180000` in `.env.selfhost`. A representative real-data prompt returned an explicit `query_company_summary` tool call in 33.4 seconds.
 - The smaller `qwen3:1.7b` candidate was rejected after testing because it returned empty/non-tool responses and could not be trusted for financial questions.
 - Production was restarted using the required `.env.selfhost` configuration. All nine migrations remain current; PostgreSQL and the app are healthy, and `/login` returns HTTP 200. No database records were changed by the recovery.
+## 2026-08-25 executive rep-scope production correction
+
+- The executive dashboard previously preferred the impersonated user's email as `repId`; `get-rep-stats` then compared that email to `Account.ownerId`, which stores the canonical local user ID. This prematurely returned zero rows for Ross Haisler and other selected users even when production data existed.
+- The client now sends the canonical user ID. The API resolves ID/email/name requests to the canonical user and scopes candidate documents by either account ownership or exact stored salesperson attribution before applying its final rep matcher. This preserves salesperson-attributed invoices when account ownership differs.
+- Read-only production verification found Ross Haisler has 220 qualifying 2026 salesperson-attributed invoices totaling $362,584.51 in subtotal; no data repair or document mutation was required.
+- Guarded production deployment created backup `backups/tdgpt-20260825-150407.dump` (34.25 MB), built all 317 pages, confirmed all nine migrations current, restarted the app and Books sync worker, and passed the live `/login` health check.
