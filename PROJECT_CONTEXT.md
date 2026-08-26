@@ -876,3 +876,6 @@ live state before destructive changes or external writes.
 - Active rep totals: Ross Haisler 18 invoices / $36,571.63 subtotal; Montgomery Morgan 15 / $32,663.04; Benjamin Bequette 1 / $499.98.
 - Canonical sync persistence now updates invoice issue/due dates from Zoho and carries dead cost, dead profit, and the correctly named VIG rate through `updateInvoiceRecord`, preventing subsequent detail refreshes from undoing the repair.
 - TypeScript validation and the full Next.js 16.2.6 production build with all 317 generated pages pass. Existing broad image-tracing warnings are unchanged.
+- Guarded self-host releases created deployment backups `backups/tdgpt-20260825-191352.dump` and `backups/tdgpt-20260825-193136.dump`; both deployments passed all nine migrations, app/worker startup, and localhost/LAN health checks.
+- A forced live refresh of invoice 10970 verified the deployed path preserves Zoho issue/due dates, dead cost $78.94, dead profit $121.05, net profit $97.37, and VIG 1.3 with no conflict or pending flags.
+- GitHub commit `6e54b2db264a80c0ae83ed45390526cca397af2a` is published to both project repositories. Netlify production deploy `6a8e53c95203d200084e531c` reached `ready` and `https://www.tdusales.com/login` returned HTTP 200.
