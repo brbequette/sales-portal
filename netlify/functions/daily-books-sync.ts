@@ -14,6 +14,8 @@ import {
 } from "../../src/lib/sync-engine"
 import {
   extractProfit,
+  extractDeadProfit,
+  extractDeadCostTotal,
   extractCommissionAmount,
   extractVigRate,
   extractActualShippingCost,
@@ -402,9 +404,12 @@ async function syncFullDocument(
 
     const calcItems: Record<string, unknown> = {
       profit:              extractProfit(doc)           || currentItems.profit           || 0,
+      deadProfitActual:    extractDeadProfit(doc, Number(doc.sub_total)) ?? currentItems.deadProfitActual ?? 0,
+      deadCostTotal:       extractDeadCostTotal(doc)    ?? currentItems.deadCostTotal    ?? 0,
       commission:          extractCommissionAmount(doc) || currentItems.commission       || 0,
       commissionPercent:   parseFloat((cfh.cf_commision_from_profit_unformatted as string) ?? (currentItems.commissionPercent as string) ?? "50") || 50,
-      vig:                 extractVigRate(doc)          || currentItems.vig              || 1.3,
+      vigRate:             extractVigRate(doc)          || currentItems.vigRate          || currentItems.vig || 1.3,
+      vig:                 extractVigRate(doc)          || currentItems.vig              || currentItems.vigRate || 1.3,
       actualShippingCost:  extractActualShippingCost(doc)  || currentItems.actualShippingCost || 0,
       shippingCostBreakdown: extractShippingCostBreakdown(doc) || currentItems.shippingCostBreakdown || null,
       // Document numbers and Zoho IDs

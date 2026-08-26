@@ -357,6 +357,8 @@ export async function updateInvoiceRecord(opts: {
     data: {
       status:               (zohoDoc.status as string) ?? undefined,
       amount:               parseFloat((zohoDoc.sub_total as string) ?? "0") || 0,
+      issueDate:            zohoDoc.date ? new Date(`${String(zohoDoc.date)}T12:00:00.000Z`) : undefined,
+      dueDate:              zohoDoc.due_date ? new Date(`${String(zohoDoc.due_date)}T12:00:00.000Z`) : null,
       zohoModifiedTime:     zohoModTime,
       lastZohoModifiedTime: zohoModTime,
       lastSyncedAt:         now,
