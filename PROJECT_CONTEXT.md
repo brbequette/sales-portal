@@ -971,4 +971,4 @@ live state before destructive changes or external writes.
 
 - Brian's company-wide authorization was working inside `get-collections`, but the Next.js route adapter forcibly injected Brian's own user ID as `repId`; the manager-aware endpoint then treated that as an explicit rep filter and returned his zero owned-account invoices.
 - `/api/get-collections` no longer forces representative scope at the adapter. The endpoint remains authenticated and is solely responsible for applying admin, exact Collections Manager, or ordinary owner scope.
-- The browser cache namespace advanced to `collections-v5` so Brian's previously cached empty authorized response is bypassed immediately. TypeScript validation passes.
+- The browser cache namespace advanced to `collections-v5` so Brian's previously cached empty authorized response is bypassed immediately. TypeScript validation passes. Netlify production deploy `6a91f9c665fa6500084ec297` published commit `c0c6a8de53afb148e4aae2fc0b807e3ab0a99972` in `ready` state, and public `/collections` returned HTTP 200.
