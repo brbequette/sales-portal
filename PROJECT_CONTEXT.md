@@ -926,3 +926,10 @@ live state before destructive changes or external writes.
 - The company Collections Manager is assigned through the `collections_manager_id` system setting; this does not change the user's general sales role.
 - The Collections endpoint recognizes the assignment and grants the selected manager the company-wide overdue-invoice queue while ordinary sales representatives remain restricted to accounts they own.
 - Brian Basiliere's public assignment was verified against his local user ID. No invoice, account, user, payment, or collections data was changed.
+## 2026-08-28 order processing workstation and calendar-date correction
+
+- The admin-only Order Processing screen is an order workstation: selecting a queue item keeps the order open and shows its line items, SKUs, quantities, rates, totals, customer contact, billing and shipping addresses, reference number, blockers, financial snapshot, linked packages/invoices, and the valid fulfillment/billing actions in one view.
+- Processing still begins only with sales orders; estimates and Collections work remain outside this screen.
+- Zoho document dates are treated as calendar dates in the workstation rather than UTC instants, preventing Arizona formatting from displaying the previous day.
+- The linked-document invoice date tool now uses inclusive UTC calendar-day boundaries, so rows stored at midnight or noon remain inside the selected range. Applied invoice dates continue to use noon UTC and do not alter Zoho source-document dates.
+- TypeScript, focused lint, and the full Next.js production build with all 318 pages pass. Deployment is pending.
