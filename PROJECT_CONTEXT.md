@@ -879,3 +879,19 @@ live state before destructive changes or external writes.
 - Guarded self-host releases created deployment backups `backups/tdgpt-20260825-191352.dump` and `backups/tdgpt-20260825-193136.dump`; both deployments passed all nine migrations, app/worker startup, and localhost/LAN health checks.
 - A forced live refresh of invoice 10970 verified the deployed path preserves Zoho issue/due dates, dead cost $78.94, dead profit $121.05, net profit $97.37, and VIG 1.3 with no conflict or pending flags.
 - GitHub commit `6e54b2db264a80c0ae83ed45390526cca397af2a` is published to both project repositories. Netlify production deploy `6a8e53c95203d200084e531c` reached `ready` and `https://www.tdusales.com/login` returned HTTP 200.
+
+## 2026-08-28 document status sync and order processing workspace
+
+- Estimate webhook and daily Books synchronization no longer discard draft, sent, accepted, or declined estimates; all estimate statuses now update the local Quote row, while existing conflict detection remains in force.
+- The Sales Documents status filter is populated from the actual statuses stored for invoices, estimates, and sales orders instead of a hard-coded cross-document list.
+- New authenticated `/processing` workspace groups operational work by stage and supports inline estimate approval, sales-order confirmation, draft-invoice sending, payment recording, and shipment completion with tracking.
+- The processing workspace uses the existing document ownership/admin authorization, conflict guard, Zoho Books payment/status endpoints, and local post-action status updates. It is linked from the primary application navigation.
+- TypeScript validation and the full Next.js 16.2.6 production build pass with 318 generated pages. Existing broad image-tracing build warnings are unchanged.
+- This work is source-only and has not been deployed to local production or Netlify. No Zoho status, payment, shipment, or production data was changed during verification.
+
+## 2026-08-28 processing workspace production release
+
+- Mandatory backup `backups/tdgpt-20260828-110030.dump` (34.26 MB) was created before deployment.
+- The self-host production images rebuilt successfully, all nine migrations remained current, the app and Books sync worker restarted, and `/login` passed the guarded health check.
+- Live self-host verification returned HTTP 200 for `/processing`; the production build includes the generated processing route.
+- No payment, approval, invoice-send, or shipment action was executed during deployment verification.

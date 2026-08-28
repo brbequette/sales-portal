@@ -10,7 +10,7 @@ import {
   FiHome, FiPhoneCall, FiDollarSign, FiTool, FiTrendingUp,
   FiX, FiFileText, FiLogOut, FiSettings, FiBookOpen,
   FiMessageSquare, FiArrowLeft, FiCheckSquare, FiClock, FiGrid,
-  FiTruck, FiAward,
+  FiTruck, FiAward, FiLayers,
 } from "react-icons/fi"
 import { GlobalTopBar } from "@/components/GlobalTopBar"
 import { UserSettingsModal } from "@/components/UserSettingsModal"
@@ -43,6 +43,7 @@ const ALL_TRACKABLE: (NavItem & { defaultScore: number })[] = [
   { href: "/sales",       icon: FiTrendingUp,    label: "Sales",       color: "text-emerald-400", defaultScore: 90  },
   { href: "/tasks",       icon: FiCheckSquare,   label: "Tasks",       color: "text-violet-400",  defaultScore: 80  },
   { href: "/docs",        icon: FiFileText,      label: "Docs",        color: "text-sky-400",     defaultScore: 70  },
+  { href: "/processing",  icon: FiLayers,        label: "Process",     color: "text-orange-400",  defaultScore: 75  },
   { href: "/messages",    icon: FiMessageSquare, label: "Messages",    color: "text-cyan-400",    defaultScore: 60  },
   { href: "/collections", icon: FiPhoneCall,     label: "Collections", color: "text-rose-400",    defaultScore: 50  },
   { href: "/commissions", icon: FiDollarSign,    label: "Commissions", color: "text-green-400",   defaultScore: 40  },
@@ -78,6 +79,7 @@ const navGroups: NavGroup[] = [
       { href: "/sales",       icon: FiTrendingUp,    label: "Sales Pipeline", color: "text-emerald-400" },
       { href: "/tasks",       icon: FiCheckSquare,   label: "Task Hub",       color: "text-violet-400"  },
       { href: "/docs",        icon: FiFileText,      label: "Documents",      color: "text-sky-400"     },
+      { href: "/processing",  icon: FiLayers,        label: "Order Processing",color: "text-orange-400"  },
     ]
   },
   {
@@ -117,7 +119,7 @@ const groupAccent: Record<string, string> = {
 const MAIN_PAGES = [
   "/dashboard", "/login", "/sales", "/shipping", "/messages", "/collections",
   "/commissions", "/stats", "/tools", "/training", "/catalog",
-  "/timeclock", "/tasks", "/intro-offer", "/docs",
+  "/timeclock", "/tasks", "/intro-offer", "/docs", "/processing",
 ]
 
 // ─── SidebarLink ─────────────────────────────────────────────────────────────

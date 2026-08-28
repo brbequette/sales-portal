@@ -191,6 +191,9 @@ export async function GET(request: Request) {
           rep: String(record.computedSalesperson || items.salesorder_salesperson_name || items.salesperson_name || items.salesperson || 'UNKNOWN').toUpperCase(),
           balance,
           checklist,
+          documentType: type,
+          documentStatus: record.status,
+          salesOrderZohoId: record.salesOrderZohoId || items.salesorder_id || null,
         };
       };
 

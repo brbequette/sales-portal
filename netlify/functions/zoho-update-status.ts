@@ -38,11 +38,12 @@ export const handler: Handler = async (event) => {
     return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "Missing documentId, type, or action" }) }
   }
 
-  if (!['SalesOrder', 'Quote'].includes(type)) {
-    return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "Invalid type. Must be SalesOrder or Quote" }) }
+  if (!['Invoice', 'SalesOrder', 'Quote'].includes(type)) {
+    return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "Invalid document type" }) }
   }
 
   const validActions: Record<string, string[]> = {
+    Invoice: ['sent'],
     SalesOrder: ['confirm', 'shipped'],
     Quote: ['accepted', 'declined']
   }
@@ -51,7 +52,7 @@ export const handler: Handler = async (event) => {
     return { statusCode: 400, headers: cors, body: JSON.stringify({ error: `Invalid action '${action}' for type '${type}'` }) }
   }
 
-  const documentKind = type === "SalesOrder" ? "salesOrder" : "quote"
+  const documentKind = type === "Invoice" ? "invoice" : type === "SalesOrder" ? "salesOrder" : "quote"
   const access = await authorizeDocumentAccess(sessionUser, documentKind, { id: documentId })
   if (!access.authorized) {
     return { statusCode: 403, headers: cors, body: JSON.stringify({ error: "You can only update documents belonging to your accounts" }) }
@@ -63,7 +64,18 @@ export const handler: Handler = async (event) => {
     let booksId = documentId
     let dbRecord: any = null
 
-    if (type === 'SalesOrder') {
+    if (type === 'Invoice') {
+      const dbInvoice = await prisma.invoice.findFirst({ where: { OR: [{ id: documentId }, { zohoId: documentId }] } })
+      if (!dbInvoice) throw new Error('Invoice not found')
+      await assertNoBooksConflictBeforeWrite('invoice', dbInvoice)
+      booksId = dbInvoice.zohoId
+      const res = await fetch(`${baseUrl}/invoices/${booksId}/status/sent?organization_id=${ORG_ID}`, {
+        method: 'POST', headers: { Authorization: `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' }
+      })
+      const data: any = await res.json()
+      if (data.code !== 0) throw new Error(`Zoho error: ${data.message || 'Failed to mark invoice sent'}`)
+      await prisma.invoice.update({ where: { id: dbInvoice.id }, data: { status: 'sent', appModifiedAt: new Date(), lastSyncedAt: new Date() } })
+    } else if (type === 'SalesOrder') {
       const dbSalesOrder = await prisma.salesOrder.findFirst({
         where: {
           OR: [

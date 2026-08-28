@@ -392,15 +392,6 @@ export const handler: Handler = async (event) => {
       return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, conflict: true, message: `${type} ${booksId} flagged for manual conflict review` }) }
     }
 
-    // For Quote/Estimate webhooks: only process estimates that have been converted to an invoice
-    if (type === "Quote") {
-      const estStatus = (doc.status || "").toLowerCase()
-      if (estStatus !== "invoiced") {
-        console.log(`Estimate ${booksId} status="${doc.status}" — not invoiced, skipping webhook sync`)
-        return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, message: `Estimate not invoiced (status: ${doc.status}) — skipped` }) }
-      }
-    }
-
     // ── Build updated items from webhook payload ──────────────────────────────
     const currentItems = (dbDoc.items as any) || {}
     const cfh = doc.custom_field_hash || {}

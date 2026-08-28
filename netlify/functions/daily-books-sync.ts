@@ -241,13 +241,11 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
       }
     } catch (e) { syncIncomplete = true; console.error("SalesOrder sweep error:", e) }
 
-    // Estimates. Full-year refreshes include every status; the lightweight
-    // recurring delta retains the narrower invoiced-only behavior.
+    // Every estimate status matters operationally, so recurring syncs include all statuses.
     try {
       let page = 1, hasMore = true
       while (hasMore) {
-        const estimateStatus = fullYear ? "" : "&status=invoiced"
-        const url = `${baseUrl}/estimates?organization_id=${ORG_ID}${estimateStatus}${fullYearQuery}&page=${page}&per_page=200&sort_column=date&sort_order=D`
+        const url = `${baseUrl}/estimates?organization_id=${ORG_ID}${fullYearQuery}&page=${page}&per_page=200&sort_column=date&sort_order=D`
         const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } })
         if (!res.ok) { syncIncomplete = true; console.error(`Estimates page ${page} failed: ${res.status}`); break }
         const data: any = await res.json()
@@ -255,7 +253,6 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
         console.log(`Estimate page ${page}: ${estimates.length}`)
 
         for (const est of estimates) {
-          if (!fullYear && (est.status || "").toLowerCase() !== "invoiced") continue
           let dbDoc = await prisma.quote.findFirst({
             where: { zohoId: est.estimate_id },
             select: { id: true, zohoId: true, status: true, items: true, lastSyncedAt: true, appModifiedAt: true, lastZohoModifiedTime: true }
