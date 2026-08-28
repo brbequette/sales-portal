@@ -967,3 +967,8 @@ live state before destructive changes or external writes.
 - Brian's public Collections page error `c.forEach is not a function` was caused by the client writing a structured cache object but reading it as an invoice array.
 - The cache reader now validates and supports both legacy arrays and structured cache payloads, restores the manager-scope flag only from a valid object, and uses the `collections-v4` namespace so existing malformed session data is bypassed immediately.
 - TypeScript validation passes. Netlify production deploy `6a91f49a418757000837b8dd` published commit `75e574c78e2a67a91e723e03e3150c04326d4b9f` in `ready` state, and public `/collections` returned HTTP 200. No Collections or customer data was changed.
+## 2026-08-28 Collections route forced-scope correction
+
+- Brian's company-wide authorization was working inside `get-collections`, but the Next.js route adapter forcibly injected Brian's own user ID as `repId`; the manager-aware endpoint then treated that as an explicit rep filter and returned his zero owned-account invoices.
+- `/api/get-collections` no longer forces representative scope at the adapter. The endpoint remains authenticated and is solely responsible for applying admin, exact Collections Manager, or ordinary owner scope.
+- The browser cache namespace advanced to `collections-v5` so Brian's previously cached empty authorized response is bypassed immediately. TypeScript validation passes.

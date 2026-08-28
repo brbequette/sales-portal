@@ -51,7 +51,7 @@ export default function CollectionsPage() {
 
   const fetchCollections = useCallback(async (force = false) => {
     if (!currentUser?.id && !currentUser?.email) return
-    const cacheKey = `collections-v4-${currentUser?.id || currentUser?.email || "anonymous"}`
+    const cacheKey = `collections-v5-${currentUser?.id || currentUser?.email || "anonymous"}`
     const cached = !force && currentUser
       ? sessionGet<{ invoices: Invoice[]; canViewCompanyCollections: boolean } | Invoice[]>(cacheKey, TTL.TEN_MIN)
       : null
