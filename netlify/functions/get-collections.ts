@@ -66,7 +66,7 @@ const authenticatedHandler: Handler = async (event) => {
       return {
         statusCode: 200,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({ success: true, checkOnly: true, count, latestUpdatedAt: latest?.updatedAt ?? null })
+        body: JSON.stringify({ success: true, checkOnly: true, count, latestUpdatedAt: latest?.updatedAt ?? null, canViewCompanyCollections })
       }
     }
 
@@ -261,6 +261,7 @@ const authenticatedHandler: Handler = async (event) => {
         totalProfit,
         uniqueAccounts,
         tab,
+        canViewCompanyCollections,
       }),
     }
   } catch (err: any) {
