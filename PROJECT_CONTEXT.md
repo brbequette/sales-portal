@@ -908,3 +908,9 @@ live state before destructive changes or external writes.
 - Mandatory release backups include `backups/tdgpt-20260828-113315.dump`, `backups/tdgpt-20260828-113432.dump`, `backups/tdgpt-20260828-114047.dump`, and final pre-release backup `backups/tdgpt-20260828-114114.dump` (34.27 MB). Two guarded attempts stopped before deployment due build-context/WSL readiness checks; no backup guard was bypassed.
 - The successful image build found all nine migrations current. A transient Docker container-removal race during restart was resolved by rerunning the standard start script; the app and Books sync worker are healthy and live `/login` and `/processing` checks return HTTP 200.
 - No estimate approval, conversion, shipment, invoice send, payment, or closeout action was executed during release verification.
+## 2026-08-28 TV daily rep subtotal and dead-profit cards
+
+- Every Monday-Friday cell for every displayed representative now shows two explicit values in the same box: SUBTOTAL and DEAD PROFIT.
+- The values continue to come from the authoritative weekly dashboard payload, which uses stored computed dead profit and the existing custom-field extractor fallback; no financial formula changed.
+- Pending cost processing is displayed as a separate warning and no longer replaces or hides the dead-profit value.
+- Focused lint passes with only the existing logo image warning, and TypeScript validation passes. This change is source-only until deployed.
