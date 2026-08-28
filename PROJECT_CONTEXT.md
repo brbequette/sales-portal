@@ -896,3 +896,15 @@ live state before destructive changes or external writes.
 - Live self-host verification returned HTTP 200 for `/processing`; the production build includes the generated processing route.
 - No payment, approval, invoice-send, or shipment action was executed during deployment verification.- GitHub commit `c873e133a735d071e09e8dbb7d6d27e6b8ee3585` was pushed to `brbequette/TDGPT` and `brbequette/sales-portal`, including both production branches.
 - Netlify production deploy `6a91cfc2e0dbec0008b3c110` reached `ready` for the same commit. Live `/login`, `/processing`, and `/docs` checks returned HTTP 200.
+
+## 2026-08-28 processing center operations-workbench correction
+
+- Replaced the initial processing list with an order-centric operations workbench: stage lanes and a prioritized queue remain visible on the left while the selected order stays open in a persistent command center on the right.
+- The command center follows the authoritative lifecycle from accepted estimate through sales-order confirmation, package preparation, tracked shipment, draft invoice, invoice send, external payment recording, and the three-part closeout checklist. Linked packages, invoices, payments, blockers, ownership, balances, profit, and next required action are shown together.
+- Queue staging uses actual linked lifecycle/status data and elevates sync conflicts or incomplete cost processing into an exception lane. Payment copy explicitly records externally received funds; it does not imply that the portal charges a card.
+- Document conversion now enforces the same account-owner/admin authorization and Zoho sync-conflict guard used by other document writes. Shipment completion requires tracking and updates linked Zoho/local package tracking, carrier, and shipped status as well as the sales order.
+- Docker builds now exclude verified local-only AI/work folders so deployment context does not include unrelated model caches.
+- TypeScript validation, focused processing-page lint, and the full Next.js 16.2.6 production build pass with all 318 generated pages. Existing broad image-tracing warnings are unchanged.
+- Mandatory release backups include `backups/tdgpt-20260828-113315.dump`, `backups/tdgpt-20260828-113432.dump`, `backups/tdgpt-20260828-114047.dump`, and final pre-release backup `backups/tdgpt-20260828-114114.dump` (34.27 MB). Two guarded attempts stopped before deployment due build-context/WSL readiness checks; no backup guard was bypassed.
+- The successful image build found all nine migrations current. A transient Docker container-removal race during restart was resolved by rerunning the standard start script; the app and Books sync worker are healthy and live `/login` and `/processing` checks return HTTP 200.
+- No estimate approval, conversion, shipment, invoice send, payment, or closeout action was executed during release verification.
