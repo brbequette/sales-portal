@@ -154,7 +154,7 @@ export async function GET(request: Request) {
         return {
           id,
           customer: String(items.customer_name || record.account?.name || 'UNKNOWN').toUpperCase(),
-          invoiceNumber: String(record.invoiceNumber || items.invoice_number || items.salesorder_number || items.estimate_number || record.zohoId || record.id),
+          invoiceNumber: String(record.invoiceNumber || items.invoiceNumber || items.salesOrderNumber || items.invoice_number || items.salesorder_number || items.salesorderNumber || items.estimate_number || record.zohoId || record.id),
           amount: getSubTotal(items, record.amount),
           profit: Number(record.computedProfit ?? extractProfit(items)) || 0,
           date: Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString(),

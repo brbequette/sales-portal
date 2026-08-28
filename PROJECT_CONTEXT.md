@@ -938,3 +938,8 @@ live state before destructive changes or external writes.
 - Local production contained 80 eligible open collection invoices, but `collections_manager_id` pointed to a different user ID. Mandatory pre-change backup `backups/tdgpt-20260828-122951.dump` (34.27 MB) was created, then the single setting was corrected to Brian Basiliere's verified user ID `cmrjk9kyu0000w9cy2nsbfuyc`.
 - The Collections response now declares company-wide scope, and the client uses a versioned cache that stores both invoice data and that permission. This removes Brian's stale empty cache and enables the sales-representative filter for the assigned Collections Manager without granting a broader application role.
 - No invoice, account, payment, or user record was changed. TypeScript validation and the full 318-page production build pass; existing broad lint debt in the legacy Collections files is unchanged. Guarded deployment created backup `backups/tdgpt-20260828-123453.dump` (34.27 MB), found all nine migrations current, restarted the app and Books worker, and returned HTTP 200 for `/login` and `/collections`.
+## 2026-08-28 Processing document-number correction
+
+- The Processing queue now reads the canonical stored `invoiceNumber` / `salesOrderNumber` values before snake-case fallbacks and never substitutes the Zoho record ID when a real document number exists.
+- Queue cards and the selected-order header display the actual document value without an artificial `#` prefix. Live verification identified sales orders `46357` and `46529` behind the previously displayed internal IDs.
+- TypeScript and focused Processing-page lint pass. Deployment is pending.
