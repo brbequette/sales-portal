@@ -107,16 +107,17 @@ export async function GET(request: Request) {
     }
 
     if (searchParams.get('view') === 'pipeline') {
-      const recentPaidCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-      const [pipelineInvoices, pipelineOrders, pipelineQuotes] = await Promise.all([
+      if (!isAdministratorRole(session.user.role)) {
+        return NextResponse.json({ error: 'Administrator access required' }, { status: 403 });
+      }
+
+      const [pipelineInvoices, pipelineOrders] = await Promise.all([
         prisma.invoice.findMany({
           where: {
             ...documentScope,
-            status: { notIn: ['Void', 'void', 'voided', 'Deleted', 'deleted'] },
-            OR: [
-              { status: { notIn: ['Paid', 'paid', 'closed'] } },
-              { issueDate: { gte: recentPaidCutoff } },
-            ],
+            salesOrderZohoId: { not: null },
+            status: { in: ['Draft', 'draft'] },
+
           },
           select: {
             id: true, zohoId: true, invoiceNumber: true, amount: true, balance: true,
@@ -139,46 +140,17 @@ export async function GET(request: Request) {
           orderBy: { orderDate: 'desc' },
           take: 1000,
         }),
-        prisma.quote.findMany({
-          where: {
-            ...documentScope,
-            status: { notIn: ['Void', 'void', 'voided', 'Deleted', 'deleted', 'Declined', 'declined', 'Converted', 'converted', 'Invoiced', 'invoiced'] },
-          },
-          select: {
-            id: true, zohoId: true, amount: true, status: true, createdAt: true,
-            items: true, syncConflict: true, pendingCostSync: true, costsCalculatedAt: true, account: { select: { name: true } },
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 1000,
-        }),
+
       ]);
 
       const now = Date.now();
-      const pipelineDocumentIds = [
-        ...pipelineInvoices.map(record => record.zohoId || record.id),
-        ...pipelineOrders.map(record => record.zohoId || record.id),
-        ...pipelineQuotes.map(record => record.zohoId || record.id),
-      ];
-      const savedChecklists = await prisma.salesClosingChecklist.findMany({
-        where: { documentId: { in: pipelineDocumentIds } },
-      });
-      const checklistByDocument = new Map(savedChecklists.map(checklist => [checklist.documentId, checklist]));
-      const makeDeal = (record: any, type: 'invoice' | 'salesorder' | 'estimate') => {
+      const makeDeal = (record: any, type: 'invoice' | 'salesorder') => {
         const items = record.items || {};
         const dateValue = record.issueDate || record.orderDate || items.date || items.estimate_date || record.createdAt;
-        const date = new Date(dateValue);
-        const status = String(record.status || '').toLowerCase();
-        const balance = Number(record.balance ?? items.balance ?? record.amount ?? 0) || 0;
+        const date = new Date(dateValue);        const balance = Number(record.balance ?? items.balance ?? record.amount ?? 0) || 0;
         let stage: string = type;
-        if (type === 'invoice') {
-          if (status === 'overdue' || (record.dueDate && new Date(record.dueDate).getTime() < now && balance > 0 && !['paid', 'void', 'draft'].includes(status))) stage = 'overdue';
-          else if (status === 'partially_paid') stage = 'partially_paid';
-          else if (['paid', 'closed'].includes(status)) stage = 'needs_gift';
-          else stage = 'invoiced';
-        }
+        if (type === 'invoice') stage = 'billing';
         const id = record.zohoId || record.id;
-        const checklist = checklistByDocument.get(id) || null;
-        if (checklist?.completedAt) stage = 'complete';
         return {
           id,
           customer: String(items.customer_name || record.account?.name || 'UNKNOWN').toUpperCase(),
@@ -190,7 +162,6 @@ export async function GET(request: Request) {
           stage,
           rep: String(record.computedSalesperson || items.salesorder_salesperson_name || items.salesperson_name || items.salesperson || 'UNKNOWN').toUpperCase(),
           balance,
-          checklist,
           documentType: type,
           documentStatus: record.status,
           salesOrderZohoId: record.salesOrderZohoId || items.salesorder_id || null,
@@ -204,7 +175,6 @@ export async function GET(request: Request) {
 
       return NextResponse.json({
         deals: [
-          ...pipelineQuotes.map(record => makeDeal(record, 'estimate')),
           ...pipelineOrders.map(record => makeDeal(record, 'salesorder')),
           ...pipelineInvoices.map(record => makeDeal(record, 'invoice')),
         ],

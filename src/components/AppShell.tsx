@@ -17,7 +17,7 @@ import { UserSettingsModal } from "@/components/UserSettingsModal"
 import { CommandPalette } from "@/components/CommandPalette"
 import { AiAssistant } from "@/components/AiAssistant"
 import { DebugPanel } from "@/components/DebugPanel"
-import { isAdminRole } from "@/lib/roles"
+import { isAdminRole, isAdministratorRole } from "@/lib/roles"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -205,6 +205,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const effectiveRole = preferences.impersonatedUser?.role ?? user?.role ?? ""
   const isAdmin = isAdminRole(effectiveRole)
+  const isAdministrator = isAdministratorRole(effectiveRole)
 
   const showBackButton = !MAIN_PAGES.includes(pathname) && !isAdminPage
 
@@ -239,13 +240,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // ── Adaptive nav — compute top 4 by weighted score ───────────────────────
   const adaptiveBottomItems = useMemo(() =>
     [...ALL_TRACKABLE]
+      .filter(item => item.href !== '/processing' || isAdministrator)
       .sort((a, b) => {
         const sa = (navVisits[a.href] || 0) * 10 + a.defaultScore
         const sb = (navVisits[b.href] || 0) * 10 + b.defaultScore
         return sb - sa
       })
       .slice(0, 4),
-    [navVisits]
+    [navVisits, isAdministrator]
   )
 
   // ── Close mobile overlays on navigation ──────────────────────────────────
@@ -328,7 +330,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <div className={`w-5 h-[2px] rounded-full ${groupAccent[group.label] || "bg-white/10"} opacity-40`} />
                   </div>
                 )}
-                {group.items.map(item => (
+                {group.items.filter(item => item.href !== "/processing" || isAdministrator).map(item => (
                   <div key={item.href} className="mb-0.5 w-full flex justify-center">
                     <SidebarLink item={item} active={isActive(item.href)} />
                   </div>
@@ -476,7 +478,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">{group.label}</span>
                   </div>
                   <div className="space-y-0.5">
-                    {group.items.map(item => {
+                    {group.items.filter(item => item.href !== "/processing" || isAdministrator).map(item => {
                       const Icon = item.icon
                       const active = isActive(item.href)
                       return (
@@ -630,7 +632,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {navGroups.map(group => {
                   // Only show items not already in the bottom tab bar
                   const bottomHrefs = adaptiveBottomItems.map(i => i.href)
-                  const extraItems = group.items.filter(i => !bottomHrefs.includes(i.href))
+                  const extraItems = group.items.filter(i => !bottomHrefs.includes(i.href) && (i.href !== "/processing" || isAdministrator))
                   if (extraItems.length === 0) return null
                   return (
                     <div key={group.label}>

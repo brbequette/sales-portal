@@ -908,9 +908,21 @@ live state before destructive changes or external writes.
 - Mandatory release backups include `backups/tdgpt-20260828-113315.dump`, `backups/tdgpt-20260828-113432.dump`, `backups/tdgpt-20260828-114047.dump`, and final pre-release backup `backups/tdgpt-20260828-114114.dump` (34.27 MB). Two guarded attempts stopped before deployment due build-context/WSL readiness checks; no backup guard was bypassed.
 - The successful image build found all nine migrations current. A transient Docker container-removal race during restart was resolved by rerunning the standard start script; the app and Books sync worker are healthy and live `/login` and `/processing` checks return HTTP 200.
 - No estimate approval, conversion, shipment, invoice send, payment, or closeout action was executed during release verification.
+## 2026-08-28 admin-only sales-order processing boundary
+
+- The Order Processing Center is restricted to strict administrators at both the page route and pipeline API; manager, collections, sales representative, and viewer roles cannot open it or load its queue.
+- The workspace begins only after an estimate has been converted to a sales order. Estimates and estimate acceptance/conversion actions are excluded, and downstream invoice work is limited to invoices linked to a sales order.
+- Order Processing navigation is hidden from non-administrators on desktop and mobile. Existing estimate tools elsewhere in the portal are unchanged.
+- The screen is not a Collections workflow: sent invoices leave the queue, and payment recording, overdue follow-up, and closeout remain on the separate Collections screen.
+- The combined release attempt was stopped during image build before migration or restart when this requirement changed. Its mandatory backup `backups/tdgpt-20260828-115158.dump` (34.27 MB) is retained; the corrected release is pending validation and deployment.
 ## 2026-08-28 TV daily rep subtotal and dead-profit cards
 
 - Every Monday-Friday cell for every displayed representative now shows two explicit values in the same box: SUBTOTAL and DEAD PROFIT.
 - The values continue to come from the authoritative weekly dashboard payload, which uses stored computed dead profit and the existing custom-field extractor fallback; no financial formula changed.
 - Pending cost processing is displayed as a separate warning and no longer replaces or hides the dead-profit value.
 - Focused lint passes with only the existing logo image warning, and TypeScript validation passes. This change is source-only until deployed.
+## 2026-08-28 collections manager queue authorization
+
+- The company Collections Manager is assigned through the `collections_manager_id` system setting; this does not change the user's general sales role.
+- The Collections endpoint recognizes the assignment and grants the selected manager the company-wide overdue-invoice queue while ordinary sales representatives remain restricted to accounts they own.
+- Brian Basiliere's public assignment was verified against his local user ID. No invoice, account, user, payment, or collections data was changed.
