@@ -932,4 +932,4 @@ live state before destructive changes or external writes.
 - Processing still begins only with sales orders; estimates and Collections work remain outside this screen.
 - Zoho document dates are treated as calendar dates in the workstation rather than UTC instants, preventing Arizona formatting from displaying the previous day.
 - The linked-document invoice date tool now uses inclusive UTC calendar-day boundaries, so rows stored at midnight or noon remain inside the selected range. Applied invoice dates continue to use noon UTC and do not alter Zoho source-document dates.
-- TypeScript, focused lint, and the full Next.js production build with all 318 pages pass. Deployment is pending.
+- TypeScript, focused lint, and the full Next.js production build with all 318 pages pass. Guarded self-host deployment created backup `backups/tdgpt-20260828-121704.dump` (34.27 MB), found all nine migrations current, restarted the app and Books worker, and passed live `/login` and `/processing` health checks.
