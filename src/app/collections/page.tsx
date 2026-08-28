@@ -51,9 +51,17 @@ export default function CollectionsPage() {
 
   const fetchCollections = useCallback(async (force = false) => {
     if (!currentUser?.id && !currentUser?.email) return
-    const cacheKey = `collections-v3-${currentUser?.id || currentUser?.email || "anonymous"}`
-    const cached = !force && currentUser ? sessionGet<Invoice[]>(cacheKey, TTL.TEN_MIN) : null
-    if (cached) { setInvoices(cached); setLoading(false); return }
+    const cacheKey = `collections-v4-${currentUser?.id || currentUser?.email || "anonymous"}`
+    const cached = !force && currentUser
+      ? sessionGet<{ invoices: Invoice[]; canViewCompanyCollections: boolean } | Invoice[]>(cacheKey, TTL.TEN_MIN)
+      : null
+    const cachedInvoices = Array.isArray(cached) ? cached : cached?.invoices
+    if (Array.isArray(cachedInvoices)) {
+      setInvoices(cachedInvoices)
+      setManagerScope(Boolean(cached && !Array.isArray(cached) && cached.canViewCompanyCollections === true))
+      setLoading(false)
+      return
+    }
     // First load with no data: full spinner. Subsequent: subtle refresh
     if (invoices.length === 0) setLoading(true)
     try {
