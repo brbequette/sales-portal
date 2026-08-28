@@ -942,4 +942,4 @@ live state before destructive changes or external writes.
 
 - The Processing queue now reads the canonical stored `invoiceNumber` / `salesOrderNumber` values before snake-case fallbacks and never substitutes the Zoho record ID when a real document number exists.
 - Queue cards and the selected-order header display the actual document value without an artificial `#` prefix. Live verification identified sales orders `46357` and `46529` behind the previously displayed internal IDs.
-- TypeScript and focused Processing-page lint pass. Deployment is pending.
+- TypeScript, focused Processing-page lint, and the full 318-page production build pass. Guarded deployment created backup `backups/tdgpt-20260828-124915.dump` (34.27 MB), found all nine migrations current, restarted the app and Books worker, and returned HTTP 200 for `/processing`.
