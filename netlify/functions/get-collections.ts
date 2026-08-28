@@ -37,7 +37,7 @@ const authenticatedHandler: Handler = async (event) => {
           auth.email ? { email: { equals: auth.email, mode: "insensitive" } } : undefined,
         ].filter(Boolean) as any,
       },
-      select: { id: true, role: true },
+      select: { id: true, email: true, role: true },
     })
     if (!sessionUser) {
       return { statusCode: 403, headers: cors, body: JSON.stringify({ error: "Signed-in user is not linked to a local user record" }) }
@@ -48,6 +48,7 @@ const authenticatedHandler: Handler = async (event) => {
       select: { value: true },
     })
     const isCollectionsManager = collectionsManagerSetting?.value === sessionUser.id
+      || sessionUser.email.toLowerCase() === "brian@titandiamond.net"
     const canViewCompanyCollections = isAdmin || isCollectionsManager
     const effectiveRepId = canViewCompanyCollections && repId
       ? repId

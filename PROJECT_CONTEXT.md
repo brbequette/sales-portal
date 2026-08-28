@@ -943,3 +943,8 @@ live state before destructive changes or external writes.
 - The Processing queue now reads the canonical stored `invoiceNumber` / `salesOrderNumber` values before snake-case fallbacks and never substitutes the Zoho record ID when a real document number exists.
 - Queue cards and the selected-order header display the actual document value without an artificial `#` prefix. Live verification identified sales orders `46357` and `46529` behind the previously displayed internal IDs.
 - TypeScript, focused Processing-page lint, and the full 318-page production build pass. Guarded deployment created backup `backups/tdgpt-20260828-124915.dump` (34.27 MB), found all nine migrations current, restarted the app and Books worker, and returned HTTP 200 for `/processing`.
+## 2026-08-28 cross-environment Brian Collections identity
+
+- The user explicitly approved `brian@titandiamond.net` as the exact cross-environment Collections Manager identity because local and Netlify databases can assign different internal user IDs.
+- Collections authorization still honors the configurable `collections_manager_id` first; the verified Brian email is an additional exact match granting company-wide Collections data only, not administrator access or unrelated permissions.
+- This correction is intended for the public Netlify portal, where the local database ID assignment cannot be assumed to match. No invoice, payment, account, or user record is changed.
