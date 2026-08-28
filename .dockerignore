@@ -13,3 +13,13 @@ backups
 *.dump
 *.sql.gz
 .production-transfer-*.sql
+.cache
+.agents
+.codex-artifact
+.codex-tmp
+.gemini
+.hotfix-*
+All Pics
+outputs
+Sopify data
+tmp

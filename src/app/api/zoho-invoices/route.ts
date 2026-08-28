@@ -121,7 +121,7 @@ export async function GET(request: Request) {
           select: {
             id: true, zohoId: true, invoiceNumber: true, amount: true, balance: true,
             status: true, issueDate: true, dueDate: true, items: true,
-            computedProfit: true, computedSalesperson: true,
+            computedProfit: true, computedSalesperson: true, syncConflict: true, pendingCostSync: true, costsCalculatedAt: true,
             account: { select: { name: true } },
           },
           orderBy: { issueDate: 'desc' },
@@ -134,7 +134,7 @@ export async function GET(request: Request) {
           },
           select: {
             id: true, zohoId: true, amount: true, status: true, orderDate: true,
-            items: true, account: { select: { name: true } },
+            items: true, syncConflict: true, pendingCostSync: true, costsCalculatedAt: true, account: { select: { name: true } },
           },
           orderBy: { orderDate: 'desc' },
           take: 1000,
@@ -146,7 +146,7 @@ export async function GET(request: Request) {
           },
           select: {
             id: true, zohoId: true, amount: true, status: true, createdAt: true,
-            items: true, account: { select: { name: true } },
+            items: true, syncConflict: true, pendingCostSync: true, costsCalculatedAt: true, account: { select: { name: true } },
           },
           orderBy: { createdAt: 'desc' },
           take: 1000,
@@ -194,6 +194,11 @@ export async function GET(request: Request) {
           documentType: type,
           documentStatus: record.status,
           salesOrderZohoId: record.salesOrderZohoId || items.salesorder_id || null,
+          dueDate: record.dueDate || null,
+          syncConflict: record.syncConflict === true,
+          pendingCostSync: record.pendingCostSync === true,
+          costReady: Boolean(record.costsCalculatedAt || items.deadCostTotal !== undefined || items.profit !== undefined),
+          lineCount: Array.isArray(items.line_items) ? items.line_items.length : 0,
         };
       };
 
