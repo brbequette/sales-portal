@@ -894,4 +894,5 @@ live state before destructive changes or external writes.
 - Mandatory backup `backups/tdgpt-20260828-110030.dump` (34.26 MB) was created before deployment.
 - The self-host production images rebuilt successfully, all nine migrations remained current, the app and Books sync worker restarted, and `/login` passed the guarded health check.
 - Live self-host verification returned HTTP 200 for `/processing`; the production build includes the generated processing route.
-- No payment, approval, invoice-send, or shipment action was executed during deployment verification.
+- No payment, approval, invoice-send, or shipment action was executed during deployment verification.- GitHub commit `c873e133a735d071e09e8dbb7d6d27e6b8ee3585` was pushed to `brbequette/TDGPT` and `brbequette/sales-portal`, including both production branches.
+- Netlify production deploy `6a91cfc2e0dbec0008b3c110` reached `ready` for the same commit. Live `/login`, `/processing`, and `/docs` checks returned HTTP 200.
