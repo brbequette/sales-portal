@@ -972,3 +972,10 @@ live state before destructive changes or external writes.
 - Brian's company-wide authorization was working inside `get-collections`, but the Next.js route adapter forcibly injected Brian's own user ID as `repId`; the manager-aware endpoint then treated that as an explicit rep filter and returned his zero owned-account invoices.
 - `/api/get-collections` no longer forces representative scope at the adapter. The endpoint remains authenticated and is solely responsible for applying admin, exact Collections Manager, or ordinary owner scope.
 - The browser cache namespace advanced to `collections-v5` so Brian's previously cached empty authorized response is bypassed immediately. TypeScript validation passes.
+
+## 2026-08-29 Signature Series legendary hero
+
+- `/signature-series` now has a dedicated full-bleed cinematic hero rather than relying on the faint route-wide atmosphere. The final 2048×1152 asset is `public/images/hero/field-series/signature-series-legendary-v2.jpg` and was generated in approved Image API edit mode with `gpt-image-2`, using the existing field photograph for realism and the Dragon, Zeus, and Medusa blade cutouts as exact product references.
+- The composition keeps the active concrete cutter and live demolition cut on the right, works the specialized blade identities into the left-side jobsite structure, and preserves a deliberately dark central text-safe field. Layered responsive shading, text shadows, a restrained 18-second cinematic drift, mobile-specific positioning, and reduced-motion handling preserve readability and accessibility.
+- TypeScript and the complete Next.js 16.2.6 production build pass with all 332 pages. The eleven existing broad image-tracing warnings are unchanged. Mandatory pre-deploy Netlify database backup `backups/netlify-20260829-141132.dump` (34.06 MB) was created; this visual-only release includes no schema or data mutation.
+
