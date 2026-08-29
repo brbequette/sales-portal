@@ -563,3 +563,9 @@ live state before destructive changes or external writes.
 - Employee and administrator Zoho sign-in now use the standard single redirect
   and accept only relative, same-site callback paths. Production provider
   discovery confirms both sign-in and callback URLs use `www.tdusales.com`.
+## 2026-08-29 Signature Series legendary hero
+
+- `/signature-series` now has a dedicated full-bleed cinematic hero rather than relying on the faint route-wide atmosphere. The final 2048×1152 asset is `public/images/hero/field-series/signature-series-legendary-v2.jpg` and was generated in approved Image API edit mode with `gpt-image-2`, using the existing field photograph for realism and the Dragon, Zeus, and Medusa blade cutouts as exact product references.
+- The composition keeps the active concrete cutter and live demolition cut on the right, works the specialized blade identities into the left-side jobsite structure, and preserves a deliberately dark central text-safe field. Layered responsive shading, text shadows, a restrained 18-second cinematic drift, mobile-specific positioning, and reduced-motion handling preserve readability and accessibility.
+- TypeScript and the complete Next.js 16.2.6 production build pass with all 332 pages. The eleven existing broad image-tracing warnings are unchanged. Mandatory pre-deploy Netlify database backup `backups/netlify-20260829-141132.dump` (34.06 MB) was created; this visual-only release includes no schema or data mutation.
+
