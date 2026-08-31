@@ -54,7 +54,6 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
 
     let invoicesSynced = 0, sosSynced = 0, quotesSynced = 0
     let conflictsFlagged = 0, pendingProcessed = 0, newRecordsCreated = 0, accountsCreated = 0
-    let syncIncomplete = false
 
     // One-time local baseline: normalize line items already present in JSON and
     // queue a single detail fetch only for documents whose imported snapshot
@@ -189,31 +188,57 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
     console.log(`Pass 1 complete: ${pendingProcessed} pending records processed, ${conflictsFlagged} conflicts flagged`)
 
     // ── Pass 2: Delta sweep ────────────────────────────────────────────────
-    // Persist a cursor so list calls only discover changes since the previous
-    // successful run. A two-minute overlap protects against clock skew.
-    const cursorRow = await prisma.systemSetting.findUnique({ where: { key: "books_sync_cursor" } })
-    const storedCursor = cursorRow?.value ? new Date(cursorRow.value) : null
-    const since = storedCursor && !Number.isNaN(storedCursor.getTime())
-      ? new Date(storedCursor.getTime() - 2 * 60 * 1000)
-      : new Date(Date.now() - 48 * 60 * 60 * 1000)
-    console.log(`--- Pass 2: delta sweep since ${since.toISOString()} ---`)
-    const sinceStr = since.toISOString().split(".")[0] + "+0000"
+    // Each module keeps its own cursor. A single shared cursor guarded by one
+    // all-or-nothing flag meant a transient failure in any one sweep stopped
+    // the cursor advancing for all three — and once it stops it never resumes,
+    // so the window stays pinned to the 48-hour fallback and nothing older is
+    // ever revisited. Per-module cursors let a healthy sweep keep its progress.
+    const CURSOR_KEYS = {
+      Invoice: "books_sync_cursor_invoices",
+      SalesOrder: "books_sync_cursor_salesorders",
+      Quote: "books_sync_cursor_estimates",
+    } as const
+    const cursorRows = await prisma.systemSetting.findMany({
+      where: { key: { in: [...Object.values(CURSOR_KEYS), "books_sync_cursor"] } },
+      select: { key: true, value: true },
+    })
+    const cursorValues = new Map(cursorRows.map(r => [r.key, r.value]))
+    const parseCursor = (value?: string | null): Date | null => {
+      if (!value) return null
+      const parsed = new Date(value)
+      return Number.isNaN(parsed.getTime()) ? null : parsed
+    }
+    // Fall back to the legacy shared key so an existing deployment keeps its
+    // place the first time this runs.
+    const legacyCursor = parseCursor(cursorValues.get("books_sync_cursor"))
+    const sinceFor = (module: keyof typeof CURSOR_KEYS): Date => {
+      const stored = parseCursor(cursorValues.get(CURSOR_KEYS[module])) ?? legacyCursor
+      // A two-minute overlap protects against clock skew.
+      return stored ? new Date(stored.getTime() - 2 * 60 * 1000) : new Date(Date.now() - 48 * 60 * 60 * 1000)
+    }
     const fullYear = options.fullYear
-    const fullYearQuery = fullYear
-      ? `&date_start=${fullYear}-01-01&date_end=${fullYear}-12-31`
-      : `&last_modified_time=${encodeURIComponent(sinceStr)}`
+    const queryFor = (module: keyof typeof CURSOR_KEYS): string => {
+      if (fullYear) return `&date_start=${fullYear}-01-01&date_end=${fullYear}-12-31`
+      const since = sinceFor(module)
+      console.log(`--- ${module} sweep since ${since.toISOString()} ---`)
+      return `&last_modified_time=${encodeURIComponent(since.toISOString().split(".")[0] + "+0000")}`
+    }
+    const sweepComplete: Record<keyof typeof CURSOR_KEYS, boolean> = {
+      Invoice: true, SalesOrder: true, Quote: true,
+    }
     const forceDetails = options.forceDetails === true
     if (fullYear) {
       console.log(`--- Full ${fullYear} refresh: every document will be fetched with line-item detail ---`)
     }
 
     // Invoices
+    const invoiceQuery = queryFor("Invoice")
     try {
       let page = 1, hasMore = true
       while (hasMore) {
-        const url = `${baseUrl}/invoices?organization_id=${ORG_ID}${fullYearQuery}&page=${page}&per_page=200&sort_column=date&sort_order=D`
+        const url = `${baseUrl}/invoices?organization_id=${ORG_ID}${invoiceQuery}&page=${page}&per_page=200&sort_column=date&sort_order=D`
         const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } })
-        if (!res.ok) { syncIncomplete = true; console.error(`Invoices page ${page} failed: ${res.status}`); break }
+        if (!res.ok) { sweepComplete.Invoice = false; console.error(`Invoices page ${page} failed: ${res.status}`); break }
         const data: any = await res.json()
         const invoices: any[] = data.invoices || []
         console.log(`Invoice page ${page}: ${invoices.length}`)
@@ -246,15 +271,16 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
         hasMore = data.page_context?.has_more_page === true
         page++
       }
-    } catch (e) { syncIncomplete = true; console.error("Invoice sweep error:", e) }
+    } catch (e) { sweepComplete.Invoice = false; console.error("Invoice sweep error:", e) }
 
     // Sales Orders
+    const salesOrderQuery = queryFor("SalesOrder")
     try {
       let page = 1, hasMore = true
       while (hasMore) {
-        const url = `${baseUrl}/salesorders?organization_id=${ORG_ID}${fullYearQuery}&page=${page}&per_page=200&sort_column=date&sort_order=D`
+        const url = `${baseUrl}/salesorders?organization_id=${ORG_ID}${salesOrderQuery}&page=${page}&per_page=200&sort_column=date&sort_order=D`
         const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } })
-        if (!res.ok) { syncIncomplete = true; console.error(`SalesOrders page ${page} failed: ${res.status}`); break }
+        if (!res.ok) { sweepComplete.SalesOrder = false; console.error(`SalesOrders page ${page} failed: ${res.status}`); break }
         const data: any = await res.json()
         const orders: any[] = data.salesorders || []
         console.log(`SalesOrder page ${page}: ${orders.length}`)
@@ -285,15 +311,16 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
         hasMore = data.page_context?.has_more_page === true
         page++
       }
-    } catch (e) { syncIncomplete = true; console.error("SalesOrder sweep error:", e) }
+    } catch (e) { sweepComplete.SalesOrder = false; console.error("SalesOrder sweep error:", e) }
 
     // Every estimate status matters operationally, so recurring syncs include all statuses.
+    const estimateQuery = queryFor("Quote")
     try {
       let page = 1, hasMore = true
       while (hasMore) {
-        const url = `${baseUrl}/estimates?organization_id=${ORG_ID}${fullYearQuery}&page=${page}&per_page=200&sort_column=date&sort_order=D`
+        const url = `${baseUrl}/estimates?organization_id=${ORG_ID}${estimateQuery}&page=${page}&per_page=200&sort_column=date&sort_order=D`
         const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } })
-        if (!res.ok) { syncIncomplete = true; console.error(`Estimates page ${page} failed: ${res.status}`); break }
+        if (!res.ok) { sweepComplete.Quote = false; console.error(`Estimates page ${page} failed: ${res.status}`); break }
         const data: any = await res.json()
         const estimates: any[] = data.estimates || []
         console.log(`Estimate page ${page}: ${estimates.length}`)
@@ -324,7 +351,7 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
         hasMore = data.page_context?.has_more_page === true
         page++
       }
-    } catch (e) { syncIncomplete = true; console.error("Estimate sweep error:", e) }
+    } catch (e) { sweepComplete.Quote = false; console.error("Estimate sweep error:", e) }
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
     console.log(`=== Daily Books Sync Complete in ${elapsed}s ===`)
@@ -333,14 +360,22 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
     console.log(`  Accounts auto-created: ${accountsCreated}`)
     console.log(`  Pending processed: ${pendingProcessed} | Conflicts flagged: ${conflictsFlagged}`)
 
-    if (!syncIncomplete) {
-      await prisma.systemSetting.upsert({
-        where: { key: "books_sync_cursor" },
-        update: { value: runStartedAt.toISOString() },
-        create: { key: "books_sync_cursor", value: runStartedAt.toISOString() },
-      })
-    } else {
-      console.warn("Books sync cursor was not advanced because a sweep was incomplete")
+    // Advance each module's cursor independently. Skipping only the sweep that
+    // actually failed keeps one flaky page from freezing discovery for all of
+    // them. A full-year refresh does not move cursors: it asks a different
+    // question than the delta sweep and its window says nothing about deltas.
+    if (!fullYear) {
+      for (const module of Object.keys(CURSOR_KEYS) as (keyof typeof CURSOR_KEYS)[]) {
+        if (!sweepComplete[module]) {
+          console.warn(`${module} cursor not advanced: sweep was incomplete`)
+          continue
+        }
+        await prisma.systemSetting.upsert({
+          where: { key: CURSOR_KEYS[module] },
+          update: { value: runStartedAt.toISOString() },
+          create: { key: CURSOR_KEYS[module], value: runStartedAt.toISOString() },
+        })
+      }
     }
 
     return {
