@@ -2,9 +2,9 @@ import { Handler } from "@netlify/functions"
 import { getStore } from "@netlify/blobs"
 
 import { prisma } from "./lib/prisma"
-import { internalHandler as processInvoiceCosts } from "./process-invoice-costs"
-import { internalHandler as processQuoteCosts } from "./process-quote-costs"
-import { internalHandler as processSalesOrderCosts } from "./process-salesorder-costs"
+import { processInvoiceCostsForPipeline } from "./process-invoice-costs"
+import { processQuoteCostsForPipeline } from "./process-quote-costs"
+import { processSalesOrderCostsForPipeline } from "./process-salesorder-costs"
 import {
   extractProfit,
   extractCommissionAmount,
@@ -492,10 +492,13 @@ export const handler: Handler = async (event) => {
         }
       })
 
-      await Promise.resolve(processInvoiceCosts({
-        httpMethod: "POST",
-        body: JSON.stringify({ invoiceId: booksId, skipLoopGuard: true }),
-      } as any, {} as any)).catch(e => console.error("Webhook error auto-processing invoice costs:", e))
+      // ── Sync-after-save: persist calculated costs immediately via the
+      // trusted pipeline entry point (runs in-process with system auth).
+      // Zoho write-back is skipped here because the webhook already carried
+      // the newest custom fields; the recalculation keeps the local DB the
+      // single source of truth for every page read.
+      await processInvoiceCostsForPipeline(booksId, { skipLoopGuard: true })
+        .catch(e => console.error("Webhook error auto-processing invoice costs:", e))
 
     } else if (type === "SalesOrder") {
       await prisma.salesOrder.update({
@@ -509,17 +512,13 @@ export const handler: Handler = async (event) => {
         }
       })
 
-      await Promise.resolve(processSalesOrderCosts({
-        httpMethod: "POST",
-        body: JSON.stringify({ salesorderId: booksId, skipLoopGuard: true }),
-      } as any, {} as any)).catch(e => console.error("Webhook error auto-processing SO costs:", e))
+      await processSalesOrderCostsForPipeline(booksId, undefined, { skipLoopGuard: true })
+        .catch(e => console.error("Webhook error auto-processing SO costs:", e))
 
     } else {
       await prisma.quote.update({ where: { id: dbDoc.id }, data: { status, items: updatedItems, ...syncFields } })
-      await Promise.resolve(processQuoteCosts({
-        httpMethod: "POST",
-        body: JSON.stringify({ estimateId: booksId, skipLoopGuard: true }),
-      } as any, {} as any)).catch(e => console.error("Webhook error auto-processing quote costs:", e))
+      await processQuoteCostsForPipeline(booksId, undefined, { skipLoopGuard: true })
+        .catch(e => console.error("Webhook error auto-processing quote costs:", e))
     }
 
     console.log(`✅ Webhook: Updated ${type} ${booksId} (status: ${status}, ${(updatedItems.line_items || []).length} line items)`)

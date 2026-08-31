@@ -56,6 +56,39 @@ export interface CostCalculationResult {
   lineItemBreakdownStrings: string[]
 }
 
+export interface CostCalculationContext {
+  settings: AppSettings
+  skuMap: Map<string, any>
+  nameMap: Map<string, any>
+  users: any[]
+  vigSettings: Record<string, any>
+}
+
+export async function createCostCalculationContext(): Promise<CostCalculationContext> {
+  const [settings, dbProducts, users, vigSettingRow] = await Promise.all([
+    getSystemSettings(prisma),
+    prisma.product.findMany().catch(() => []),
+    prisma.user.findMany().catch(() => []),
+    prisma.systemSetting.findUnique({ where: { key: "vig_settings" } }).catch(() => null),
+  ])
+
+  const skuMap = new Map<string, any>()
+  const nameMap = new Map<string, any>()
+  dbProducts.forEach(product => {
+    if (product.sku) skuMap.set(product.sku.toLowerCase().trim(), product)
+    if (product.name) nameMap.set(product.name.toLowerCase().trim(), product)
+  })
+
+  let vigSettings: Record<string, any> = {}
+  try {
+    vigSettings = vigSettingRow?.value ? JSON.parse(vigSettingRow.value) : {}
+  } catch {
+    vigSettings = {}
+  }
+
+  return { settings, skuMap, nameMap, users, vigSettings }
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 export function isSwagItem(nameOrSku: string): boolean {
@@ -195,7 +228,8 @@ export function isNoVigItem(item: any, noVigOverrides?: Record<string, boolean>)
 export async function resolveVigRate(
   doc: any,
   settings: AppSettings,
-  manualVig?: number | null
+  manualVig?: number | null,
+  context?: CostCalculationContext,
 ): Promise<number> {
   if (manualVig !== undefined && manualVig !== null && manualVig > 0) return manualVig
 
@@ -231,7 +265,7 @@ export async function resolveVigRate(
   //    Base VIG is 1.3. If rep missed goal in prior month, VIG is 1.5.
   //    Goal before 03/2026 evaluated by Subtotal Goal. Goal 03/2026+ evaluated by Dead Profit Goal.
   if (salespersonName) {
-    const users = await prisma.user.findMany()
+    const users = context?.users ?? await prisma.user.findMany()
     const user = users.find(u =>
       u.name &&
       (salespersonName.toLowerCase().includes(u.name.toLowerCase()) ||
@@ -244,8 +278,12 @@ export async function resolveVigRate(
       }
 
       // Check monthly VIG goal override in SystemSettings
-      const vigSettings = await prisma.systemSetting.findUnique({ where: { key: "vig_settings" } })
-      const allVig = vigSettings ? JSON.parse(vigSettings.value) : {}
+      const vigSettings = context
+        ? context.vigSettings
+        : await prisma.systemSetting.findUnique({ where: { key: "vig_settings" } })
+          .then(row => row ? JSON.parse(row.value) : {})
+          .catch(() => ({}))
+      const allVig = vigSettings
       const userVig = allVig[user.id]
 
       const monthKey = docDate.toISOString().substring(0, 7)
@@ -299,20 +337,12 @@ export async function calculateDocumentCosts(
     manualVigRate?: number | null
     manualCommPct?: number | null
     noVigOverrides?: Record<string, boolean>
+    context?: CostCalculationContext
   } = {}
 ): Promise<CostCalculationResult> {
   const { manualVigRate, manualCommPct, noVigOverrides } = options
-  
-  const settings = await getSystemSettings(prisma)
-
-  // Pre-fetch DB products for accurate catalog VIG lookup
-  const dbProducts = await prisma.product.findMany().catch(() => [])
-  const skuMap = new Map<string, any>()
-  const nameMap = new Map<string, any>()
-  dbProducts.forEach(p => {
-    if (p.sku) skuMap.set(p.sku.toLowerCase().trim(), p)
-    if (p.name) nameMap.set(p.name.toLowerCase().trim(), p)
-  })
+  const context = options.context ?? await createCostCalculationContext()
+  const { settings, skuMap, nameMap } = context
 
   // ─── 1. Dead cost bucketing ─────────────────────────────────────────────────
   let deadCostSubjectToVig = 0
@@ -420,7 +450,7 @@ export async function calculateDocumentCosts(
   }
 
   // ─── 2. VIG rate ────────────────────────────────────────────────────────────
-  const vigRate = await resolveVigRate(doc, settings, manualVigRate)
+  const vigRate = await resolveVigRate(doc, settings, manualVigRate, context)
 
   // ─── 3. Dead Cost Plus VIG ──────────────────────────────────────────────────
   const deadCostPlusVig = (deadCostSubjectToVig * vigRate) + deadCostNoVig

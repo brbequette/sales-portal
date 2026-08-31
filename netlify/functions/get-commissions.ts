@@ -2,9 +2,6 @@ import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { PrismaClient, Prisma } from "@prisma/client"
 import { prisma } from "./lib/prisma"
-import { isNoVigItem, calculateDocumentCosts } from "./lib/cost-calculations"
-import { extractDeadCostTotal, extractCcFees, extractAdditionalCosts } from "../../src/lib/custom-field-extractor"
-import { getSystemSettings } from "../../src/lib/settings"
 import { isAdminRole } from "../../src/lib/roles"
 import {
   CANCELLED_INVOICE_STATUSES,
@@ -58,7 +55,6 @@ const authenticatedHandler: Handler = async (event) => {
       return { statusCode: 403, headers: cors, body: JSON.stringify({ error: "Signed-in user is not linked to a local user record" }) }
     }
     const sessionIsAdmin = isAdminRole(sessionUser.role)
-    const settings = await getSystemSettings()
     const { repId, year, includeHidden, checkOnly } = event.queryStringParameters || {}
     const effectiveRepId = sessionIsAdmin && repId ? repId : (sessionIsAdmin ? undefined : sessionUser.id)
     const showHidden = sessionIsAdmin && includeHidden === 'true'
@@ -67,7 +63,6 @@ const authenticatedHandler: Handler = async (event) => {
     if (checkOnly === 'true') {
       const targetYr = year || 'all'
       let countWhere: any = { status: { notIn: CANCELLED_INVOICE_STATUS_VARIANTS } }
-      if (effectiveRepId) countWhere.account = { ownerId: effectiveRepId }
       if (targetYr !== 'all' && !isNaN(parseInt(targetYr))) {
         countWhere.issueDate = { gte: new Date(`${targetYr}-01-01`), lt: new Date(`${parseInt(targetYr)+1}-01-01`) }
       }
@@ -78,6 +73,8 @@ const authenticatedHandler: Handler = async (event) => {
         body: JSON.stringify({ success: true, checkOnly: true, count })
       }
     }
+
+    // ── DB-ONLY: reads never recalculate; the sync pipeline owns all writes ──
 
     // Default to "all" (from beginning of time) if not specified
     const targetYear = year || "all"
@@ -453,9 +450,13 @@ const authenticatedHandler: Handler = async (event) => {
     //
     // Rep attribution: items.salesperson on the document — the rep who drove the sale.
     // Account owner is a CRM assignment only and does NOT drive commissions.
-    const allInvoiceRecords = await Promise.all(invoices.map(async (inv) => {
+    //
+    // ── DB-ONLY READS ──
+    // Every value below comes from the database. The sync pipeline (webhook →
+    // process-invoice-costs + daily-books-sync) is the sole writer of stored
+    // cost/commission fields, so page reads never recalculate or write.
+    const allInvoiceRecords = invoices.map((inv) => {
       const items = inv.items as any || {}
-      const cfs = items.custom_fields || []
       const salespersonName = (items.salesperson_name || items.salesperson) as string | null
       const subTotal = getSubTotal(items, inv.amount)
       const invoiceNumber = items.invoiceNumber || items.invoice_number || null
@@ -466,7 +467,7 @@ const authenticatedHandler: Handler = async (event) => {
       const matchedRepId = matchedRep?.id || (normSpName ? nameToUserId.get(normSpName) : null) || null
       const isMontgomery = salespersonName?.toLowerCase().includes("montgomery") || salespersonName?.toLowerCase().includes("morgan")
 
-      // ── VIG Rate ────────────────────────────────────────────
+      // ── VIG Rate (resolved from stored DB settings, no Zoho calls) ──
       const docDate = inv.issueDate ? new Date(inv.issueDate) : (inv.createdAt ? new Date(inv.createdAt) : new Date())
       const vigRate = resolveVigRate(
         salespersonName,
@@ -476,99 +477,21 @@ const authenticatedHandler: Handler = async (event) => {
         !!isMontgomery
       )
 
-      // ── PREFER STORED VALUES FROM calculateDocumentCosts ───
-      // If the invoice has been processed (has stored profit), use stored values directly.
-      // This ensures the sales sheet matches the invoice detail modal exactly.
-      const hasStoredCosts = items.profit !== undefined && items.profit !== null && items.profit !== ''
-      
-      let deadCost: number
-      let deadCostPlusVig: number
-      let profit: number
-      let deadProfit: number
-      let salesCommission: number
-      let commissionPct: number
-      let usedFallbackCost = false
-
-      if (hasStoredCosts) {
-        // ── USE STORED VALUES (source of truth from cost-calculations.ts) ──
-        deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || items.deadCost || items.cf_dead_cost_total || items.cf_dead_cost_total_unformatted || 0) || 0
-        deadCostPlusVig = parseFloat(items.deadCostPlusVig || 0) || (deadCost * vigRate)
-        profit = parseFloat(items.profit) || 0
-        deadProfit = parseFloat(items.deadProfitActual || 0) || (subTotal - deadCost)
-        salesCommission = parseFloat(
-          items.salesCommission
-          ?? items.commission
-          ?? items.sales_commission
-          ?? items.cf_sales_commission
-          ?? items.cf_commission_amount_unformatted
-          ?? 0
-        ) || 0
-        commissionPct = parseFloat(items.commissionPct ?? items.commissionPercent ?? items.commission_pct ?? 50)
-        usedFallbackCost = items.usedFallbackCost === true || items.usedFallbackCost === 'true'
-      } else {
-        // ── AUTO-PROCESS: run calculateDocumentCosts and persist results ──
-        try {
-          const docForCalc = {
-            ...items,
-            line_items: items.line_items || items.items || [],
-            custom_fields: items.custom_fields || items.custom_field_hash || [],
-            sub_total: subTotal,
-            total: inv.amount || subTotal,
-            status: inv.status,
-          }
-          const calc = await calculateDocumentCosts(docForCalc)
-          deadCost = calc.deadCostTotal
-          deadCostPlusVig = calc.deadCostPlusVig
-          profit = calc.profit
-          deadProfit = calc.deadProfitActual
-          salesCommission = calc.salesCommission
-          commissionPct = calc.commissionPct
-          usedFallbackCost = calc.usedFallbackCost
-
-          // Persist to DB so next load uses stored values
-          const existingItems = items || {}
-          const updatedItems = {
-            ...existingItems,
-            deadCostTotal: calc.deadCostTotal,
-            deadCostSubjectToVig: calc.deadCostSubjectToVig,
-            deadCostNoVig: calc.deadCostNoVig,
-            deadCostPlusVig: calc.deadCostPlusVig,
-            deadProfitActual: calc.deadProfitActual,
-            profit: calc.profit,
-            marginPercent: calc.marginPercent,
-            subTotal: calc.subTotal,
-            vigRate: calc.vigRate,
-            ccFees: calc.ccFees,
-            additionalCosts: calc.additionalCosts,
-            insurance: calc.insurance,
-            commissionPct: calc.commissionPct,
-            salesCommission: calc.salesCommission,
-            isPaid: calc.isPaid,
-            lineItemBreakdownStrings: calc.lineItemBreakdownStrings,
-            usedFallbackCost: calc.usedFallbackCost,
-            costsCalculatedAt: new Date().toISOString(),
-          }
-          // Fire-and-forget DB update — don't block the response
-          prisma.invoice.update({
-            where: { id: inv.id },
-            data: { items: updatedItems as any, costsCalculatedAt: new Date() },
-          }).catch(e => console.error(`Auto-process invoice ${inv.id} save failed:`, e))
-        } catch (calcErr) {
-          console.error(`Auto-process invoice ${inv.id} failed:`, calcErr)
-          // Ultimate fallback if calculateDocumentCosts errors
-          deadCost = subTotal * (settings.dead_cost_fallback_pct / 100)
-          deadCostPlusVig = deadCost * vigRate
-          profit = subTotal - deadCostPlusVig
-          deadProfit = subTotal - deadCost
-          commissionPct = settings.commission_rate_pct
-          salesCommission = profit > 0 ? profit * (commissionPct / 100) : 0
-          usedFallbackCost = true
-        }
-      }
-
-      if (isNaN(profit)) profit = 0
-      if (isNaN(deadProfit)) deadProfit = 0
-      if (isNaN(salesCommission)) salesCommission = 0
+      // ── STORED VALUES ONLY (written by the sync pipeline) ──
+      const deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || items.deadCost || items.cf_dead_cost_total || items.cf_dead_cost_total_unformatted || 0) || 0
+      const deadCostPlusVig = parseFloat(items.deadCostPlusVig || 0) || (deadCost * vigRate)
+      const profit = parseFloat(items.profit) || 0
+      const deadProfit = parseFloat(items.deadProfitActual || 0) || (subTotal - deadCost)
+      const salesCommission = parseFloat(
+        items.salesCommission
+        ?? items.commission
+        ?? items.sales_commission
+        ?? items.cf_sales_commission
+        ?? items.cf_commission_amount_unformatted
+        ?? 0
+      ) || 0
+      const usedFallbackCost = items.usedFallbackCost === true || items.usedFallbackCost === 'true'
+      const costsPending = !items.costsCalculatedAt
 
       const isPaid = FINAL_PAID_STATUSES.has(inv.status)
 
@@ -644,9 +567,10 @@ const authenticatedHandler: Handler = async (event) => {
         contactPhone: inv.contactPhone || null,
         commission: { total, upfront, final: final, future, atRiskAmount },
         usedFallbackCost,
+        costsPending,
         type: "invoice" as const
       }
-    }))
+    })
 
     // Statements and commission totals remain scoped to the selected year.
     // Clawback candidates are returned separately from all years below.
@@ -661,9 +585,8 @@ const authenticatedHandler: Handler = async (event) => {
     // These SOs must be excluded — the Invoice is the source of truth.
     const INVOICED_SO_STATUSES = new Set(['Invoiced','invoiced','Converted','converted','Closed','closed'])
 
-    const salesOrderRecords = (await Promise.all(rawSalesOrders.map(async (so) => {
+    const salesOrderRecords = rawSalesOrders.map((so) => {
       const items = (so.items as any) || {}
-      const cfs = items.custom_fields || []
       const salespersonName = items.salesperson as string | null
       const subTotal = getSubTotal(items, so.amount)
 
@@ -682,86 +605,21 @@ const authenticatedHandler: Handler = async (event) => {
         !!isMontgomery
       )
 
-      // ── PREFER STORED VALUES ────────────────────────────────
-      const hasStoredCosts = items.profit !== undefined && items.profit !== null && items.profit !== ''
-
-      let deadCost: number
-      let deadCostPlusVig: number
-      let profit: number
-      let deadProfit: number
-      let salesCommission: number
-      let usedFallbackCost = false
-
-      if (hasStoredCosts) {
-        deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || items.deadCost || items.cf_dead_cost_total || items.cf_dead_cost_total_unformatted || 0) || 0
-        deadCostPlusVig = parseFloat(items.deadCostPlusVig || 0) || (deadCost * vigRate)
-        profit = parseFloat(items.profit) || 0
-        deadProfit = parseFloat(items.deadProfitActual || 0) || (subTotal - deadCost)
-        salesCommission = parseFloat(
-          items.salesCommission
-          ?? items.commission
-          ?? items.sales_commission
-          ?? items.cf_sales_commission
-          ?? items.cf_commission_amount_unformatted
-          ?? 0
-        ) || 0
-        usedFallbackCost = items.usedFallbackCost === true || items.usedFallbackCost === 'true'
-      } else {
-        // ── AUTO-PROCESS: run calculateDocumentCosts and persist results ──
-        try {
-          const docForCalc = {
-            ...items,
-            line_items: items.line_items || items.items || [],
-            custom_fields: items.custom_fields || items.custom_field_hash || [],
-            sub_total: subTotal,
-            total: so.amount || subTotal,
-            status: so.status,
-          }
-          const calc = await calculateDocumentCosts(docForCalc)
-          deadCost = calc.deadCostTotal
-          deadCostPlusVig = calc.deadCostPlusVig
-          profit = calc.profit
-          deadProfit = calc.deadProfitActual
-          salesCommission = calc.salesCommission
-          usedFallbackCost = calc.usedFallbackCost
-
-          // Persist to DB
-          const updatedItems = {
-            ...items,
-            deadCostTotal: calc.deadCostTotal,
-            deadCostSubjectToVig: calc.deadCostSubjectToVig,
-            deadCostNoVig: calc.deadCostNoVig,
-            deadCostPlusVig: calc.deadCostPlusVig,
-            deadProfitActual: calc.deadProfitActual,
-            profit: calc.profit,
-            marginPercent: calc.marginPercent,
-            subTotal: calc.subTotal,
-            vigRate: calc.vigRate,
-            ccFees: calc.ccFees,
-            additionalCosts: calc.additionalCosts,
-            commissionPct: calc.commissionPct,
-            salesCommission: calc.salesCommission,
-            usedFallbackCost: calc.usedFallbackCost,
-            costsCalculatedAt: new Date().toISOString(),
-          }
-          prisma.salesOrder.update({
-            where: { id: so.id },
-            data: { items: updatedItems as any, costsCalculatedAt: new Date() },
-          }).catch(e => console.error(`Auto-process SO ${so.id} save failed:`, e))
-        } catch (calcErr) {
-          console.error(`Auto-process SO ${so.id} failed:`, calcErr)
-          deadCost = subTotal * (settings.dead_cost_fallback_pct / 100)
-          deadCostPlusVig = deadCost * vigRate
-          profit = subTotal - deadCostPlusVig
-          deadProfit = subTotal - deadCost
-          salesCommission = profit > 0 ? profit * (settings.commission_rate_pct / 100) : 0
-          usedFallbackCost = true
-        }
-      }
-
-      if (isNaN(profit)) profit = 0
-      if (isNaN(deadProfit)) deadProfit = 0
-      if (isNaN(salesCommission)) salesCommission = 0
+      // ── STORED VALUES ONLY (written by the sync pipeline) ──
+      const deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || items.deadCost || items.cf_dead_cost_total || items.cf_dead_cost_total_unformatted || 0) || 0
+      const deadCostPlusVig = parseFloat(items.deadCostPlusVig || 0) || (deadCost * vigRate)
+      const profit = parseFloat(items.profit) || 0
+      const deadProfit = parseFloat(items.deadProfitActual || 0) || (subTotal - deadCost)
+      const salesCommission = parseFloat(
+        items.salesCommission
+        ?? items.commission
+        ?? items.sales_commission
+        ?? items.cf_sales_commission
+        ?? items.cf_commission_amount_unformatted
+        ?? 0
+      ) || 0
+      const usedFallbackCost = items.usedFallbackCost === true || items.usedFallbackCost === 'true'
+      const costsPending = !items.costsCalculatedAt
 
       const isPaid = FINAL_PAID_STATUSES.has((so.status || '').toLowerCase())
 
@@ -812,9 +670,10 @@ const authenticatedHandler: Handler = async (event) => {
         contactPhone: null as string | null,
         commission: { total, upfront, final, future, atRiskAmount: 0 },
         usedFallbackCost,
+        costsPending,
         type: "invoice" as const
       }
-    }))).filter(so => !INVOICED_SO_STATUSES.has(so.status || ''))
+    }).filter(so => !INVOICED_SO_STATUSES.has(so.status || ''))
 
     const allCommissionRecords = [...invoiceRecords, ...salesOrderRecords]
 

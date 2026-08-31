@@ -408,6 +408,25 @@ export const internalHandler: Handler = async (event) => {
 }
 
 /**
+ * Process one invoice for the sync pipeline (webhook receiver / daily sync).
+ * Runs the same handler in-process with trusted system credentials so the
+ * calculated costs are persisted to the local database immediately — the
+ * "sync after every save" guarantee that keeps page reads DB-only.
+ */
+export async function processInvoiceCostsForPipeline(
+  invoiceId: string,
+  options: {
+    skipLoopGuard?: boolean
+    applyTariff?: boolean
+    vigRate?: number
+    commissionPercent?: number
+    noVigOverrides?: Record<string, boolean>
+  } = {}
+) {
+  return processInvoiceCostsForSystem(invoiceId, options)
+}
+
+/**
  * Process one invoice from trusted server-side workflows without fabricating a
  * user cookie. The unexported Symbol cannot be supplied over HTTP.
  */

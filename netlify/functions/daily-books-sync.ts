@@ -1,9 +1,10 @@
 import { schedule } from "@netlify/functions"
+import { Prisma } from "@prisma/client"
 import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from "./lib/zoho-auth"
 import { prisma } from "./lib/prisma"
-import { internalHandler as processInvoiceCosts } from "./process-invoice-costs"
-import { internalHandler as processSalesOrderCosts } from "./process-salesorder-costs"
-import { internalHandler as processQuoteCosts } from "./process-quote-costs"
+import { processInvoiceCostsForSystem } from "./process-invoice-costs"
+import { processSalesOrderCostsForSystem } from "./process-salesorder-costs"
+import { processQuoteCostsForSystem } from "./process-quote-costs"
 import {
   detectConflict,
   syncInvoicePayments,
@@ -12,6 +13,9 @@ import {
   updateQuoteRecord,
   syncStoredLineItems,
 } from "../../src/lib/sync-engine"
+import {
+  INACTIVE_SALES_ORDER_STATUS_VARIANTS,
+} from "./lib/document-status"
 import {
   extractProfit,
   extractDeadProfit,
@@ -186,6 +190,87 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
     }
 
     console.log(`Pass 1 complete: ${pendingProcessed} pending records processed, ${conflictsFlagged} conflicts flagged`)
+
+    // ── Pass 1b: Cost-calculation backlog drain ───────────────────────────
+    // Documents that predate the cost pipeline (or arrived without stored
+    // costs) would otherwise force every commission read to compute on the
+    // fly forever. Persist calculated costs for a bounded batch each run so
+    // the database converges to fully-stored values and page reads stay
+    // DB-only. Oldest-first so the backlog shrinks monotonically.
+    console.log("--- Pass 1b: cost calculation backlog ---")
+    let backlogProcessed = 0
+    const BACKLOG_BATCH = 25
+    try {
+      const staleInvoices = await prisma.invoice.findMany({
+        where: {
+          status: { notIn: ["void", "voided", "cancelled", "canceled", "deleted"] },
+          OR: [
+            { items: { path: ["costsCalculatedAt"], equals: Prisma.DbNull } },
+            { items: { path: ["costsCalculatedAt"], equals: Prisma.AnyNull } },
+          ],
+        },
+        select: { id: true, zohoId: true },
+        orderBy: { issueDate: "asc" },
+        take: BACKLOG_BATCH,
+      })
+      for (const inv of staleInvoices) {
+        if (!inv.zohoId) continue
+        try {
+          await processInvoiceCostsForSystem(inv.zohoId)
+          backlogProcessed++
+        } catch (e: any) {
+          console.warn(`[daily-sync] Backlog cost processing failed for invoice ${inv.zohoId}: ${e.message}`)
+        }
+      }
+
+      const staleSalesOrders = await prisma.salesOrder.findMany({
+        where: {
+          status: { notIn: INACTIVE_SALES_ORDER_STATUS_VARIANTS },
+          OR: [
+            { items: { path: ["costsCalculatedAt"], equals: Prisma.DbNull } },
+            { items: { path: ["costsCalculatedAt"], equals: Prisma.AnyNull } },
+          ],
+        },
+        select: { id: true, zohoId: true },
+        orderBy: { orderDate: "asc" },
+        take: BACKLOG_BATCH,
+      })
+      for (const so of staleSalesOrders) {
+        if (!so.zohoId) continue
+        try {
+          const soNumber = await prisma.salesOrder.findUnique({ where: { id: so.id }, select: { items: true } })
+            .then(r => String(((r?.items as any)?.salesorder_number || (r?.items as any)?.salesOrderNumber || "")).trim() || undefined)
+          await processSalesOrderCostsForSystem(so.zohoId, soNumber)
+          backlogProcessed++
+        } catch (e: any) {
+          console.warn(`[daily-sync] Backlog cost processing failed for SO ${so.zohoId}: ${e.message}`)
+        }
+      }
+
+      const staleQuotes = await prisma.quote.findMany({
+        where: {
+          OR: [
+            { items: { path: ["costsCalculatedAt"], equals: Prisma.DbNull } },
+            { items: { path: ["costsCalculatedAt"], equals: Prisma.AnyNull } },
+          ],
+        },
+        select: { id: true, zohoId: true },
+        orderBy: { createdAt: "asc" },
+        take: BACKLOG_BATCH,
+      })
+      for (const qt of staleQuotes) {
+        if (!qt.zohoId) continue
+        try {
+          await processQuoteCostsForSystem(qt.zohoId)
+          backlogProcessed++
+        } catch (e: any) {
+          console.warn(`[daily-sync] Backlog cost processing failed for quote ${qt.zohoId}: ${e.message}`)
+        }
+      }
+      console.log(`Pass 1b complete: ${backlogProcessed} backlog documents cost-processed (max ${BACKLOG_BATCH} per type)`)
+    } catch (backlogErr: any) {
+      console.error("Backlog drain failed (non-fatal):", backlogErr.message)
+    }
 
     // ── Pass 2: Delta sweep ────────────────────────────────────────────────
     // Each module keeps its own cursor. A single shared cursor guarded by one
@@ -385,6 +470,7 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
       newRecordsCreated,
       accountsCreated,
       pendingProcessed,
+      backlogProcessed,
       conflictsFlagged,
       elapsedSeconds: Number(elapsed),
     }
