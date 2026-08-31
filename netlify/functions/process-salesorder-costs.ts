@@ -265,4 +265,22 @@ export async function processSalesOrderCostsForSystem(
   } as any, {} as any)
 }
 
+/**
+ * Process one sales order for the sync pipeline (webhook receiver / daily
+ * sync). Persists calculated costs to the local database immediately so page
+ * reads stay DB-only.
+ */
+export async function processSalesOrderCostsForPipeline(
+  salesorderId: string,
+  salesorderNumber?: string,
+  options: {
+    skipLoopGuard?: boolean
+    vigRate?: number
+    commissionPercent?: number
+    noVigOverrides?: Record<string, boolean>
+  } = {}
+) {
+  return processSalesOrderCostsForSystem(salesorderId, salesorderNumber, options)
+}
+
 export const handler = withFunctionAuth(internalHandler)

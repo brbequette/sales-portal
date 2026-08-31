@@ -211,4 +211,22 @@ export async function processQuoteCostsForSystem(
   } as any, {} as any)
 }
 
+/**
+ * Process one quote/estimate for the sync pipeline (webhook receiver / daily
+ * sync). Persists calculated costs to the local database immediately so page
+ * reads stay DB-only.
+ */
+export async function processQuoteCostsForPipeline(
+  estimateId: string,
+  estimateNumber?: string,
+  options: {
+    skipLoopGuard?: boolean
+    vigRate?: number
+    commissionPercent?: number
+    noVigOverrides?: Record<string, boolean>
+  } = {}
+) {
+  return processQuoteCostsForSystem(estimateId, estimateNumber, options)
+}
+
 export const handler = withFunctionAuth(internalHandler)

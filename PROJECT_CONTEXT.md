@@ -1023,3 +1023,31 @@ live state before destructive changes or external writes.
 - The commission route now declares a 60-second execution window. Its lightweight staleness check no longer uses account ownership as a proxy for commission ownership, because commissions are attributed from the document salesperson.
 - Zoho OAuth refresh returned successfully during diagnosis. The connected database also showed invoice and payment updates on 2026-08-31 with no pending invoice, sales-order, or quote fetches, so the shared Books sync was active rather than globally broken.
 - TypeScript validation passed. Authenticated local route checks returned HTTP 200 for the full administrator board, a scoped non-administrator board, and the lightweight staleness request without connection-pool exhaustion. No deployment was performed in this task.
+
+## 2026-08-31 DB-only commission reads and sync-after-save persistence
+
+- The commission dataflow was restructured to match the intended architecture:
+  syncs talk to the Zoho API, application reads come from PostgreSQL only.
+- `get-commissions` (commission board, monthly sales sheet, pay vouchers,
+  payouts) now serves stored cost/profit/VIG/commission values exclusively and
+  no longer runs the cost engine inline for documents missing stored fields.
+  Each record exposes a `costsPending` flag when the sync pipeline has not yet
+  stored a snapshot (`costsCalculatedAt`), so a stale or unprocessed document
+  is visible instead of silently recomputed on every load.
+- Root cause of "not getting commission data from the database": the Zoho
+  Books webhook invoked the cost processors with a fabricated unauthenticated
+  request, which the processors rejected (`Unauthorized`), so calculated costs
+  were almost never persisted after a Zoho save — reads kept recalculating.
+- The webhook now calls trusted in-process entry points
+  (`processInvoiceCostsForPipeline`, `processSalesOrderCostsForPipeline`,
+  `processQuoteCostsForPipeline`) that run with system credentials and persist
+  calculated costs immediately after each Zoho save, restoring the
+  sync-after-every-save guarantee.
+- The daily Books sync gained a bounded backlog drain (Pass 1b): up to 25
+  invoices, sales orders, and estimates per run lacking stored costs are
+  processed oldest-first through the same trusted system entry points, so the
+  database converges to fully-stored values over successive nights.
+- Reads never write; Zoho write-back of calculated fields still flows through
+  the dedicated sync paths and remains governed by the mass-update pause
+  switch. No schema migration was required.
+- TypeScript validation passes. Not yet deployed.
