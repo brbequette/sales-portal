@@ -2,7 +2,7 @@ import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { PrismaClient, Prisma } from "@prisma/client"
 import { prisma } from "./lib/prisma"
-import { isNoVigItem, calculateDocumentCosts } from "./lib/cost-calculations"
+import { calculateDocumentCosts, createCostCalculationContext } from "./lib/cost-calculations"
 import { extractDeadCostTotal, extractCcFees, extractAdditionalCosts } from "../../src/lib/custom-field-extractor"
 import { getSystemSettings } from "../../src/lib/settings"
 import { isAdminRole } from "../../src/lib/roles"
@@ -67,7 +67,6 @@ const authenticatedHandler: Handler = async (event) => {
     if (checkOnly === 'true') {
       const targetYr = year || 'all'
       let countWhere: any = { status: { notIn: CANCELLED_INVOICE_STATUS_VARIANTS } }
-      if (effectiveRepId) countWhere.account = { ownerId: effectiveRepId }
       if (targetYr !== 'all' && !isNaN(parseInt(targetYr))) {
         countWhere.issueDate = { gte: new Date(`${targetYr}-01-01`), lt: new Date(`${parseInt(targetYr)+1}-01-01`) }
       }
@@ -78,6 +77,8 @@ const authenticatedHandler: Handler = async (event) => {
         body: JSON.stringify({ success: true, checkOnly: true, count })
       }
     }
+
+    const costCalculationContextPromise = createCostCalculationContext()
 
     // Default to "all" (from beginning of time) if not specified
     const targetYear = year || "all"
@@ -516,7 +517,9 @@ const authenticatedHandler: Handler = async (event) => {
             total: inv.amount || subTotal,
             status: inv.status,
           }
-          const calc = await calculateDocumentCosts(docForCalc)
+          const calc = await calculateDocumentCosts(docForCalc, {
+            context: await costCalculationContextPromise,
+          })
           deadCost = calc.deadCostTotal
           deadCostPlusVig = calc.deadCostPlusVig
           profit = calc.profit
@@ -525,34 +528,6 @@ const authenticatedHandler: Handler = async (event) => {
           commissionPct = calc.commissionPct
           usedFallbackCost = calc.usedFallbackCost
 
-          // Persist to DB so next load uses stored values
-          const existingItems = items || {}
-          const updatedItems = {
-            ...existingItems,
-            deadCostTotal: calc.deadCostTotal,
-            deadCostSubjectToVig: calc.deadCostSubjectToVig,
-            deadCostNoVig: calc.deadCostNoVig,
-            deadCostPlusVig: calc.deadCostPlusVig,
-            deadProfitActual: calc.deadProfitActual,
-            profit: calc.profit,
-            marginPercent: calc.marginPercent,
-            subTotal: calc.subTotal,
-            vigRate: calc.vigRate,
-            ccFees: calc.ccFees,
-            additionalCosts: calc.additionalCosts,
-            insurance: calc.insurance,
-            commissionPct: calc.commissionPct,
-            salesCommission: calc.salesCommission,
-            isPaid: calc.isPaid,
-            lineItemBreakdownStrings: calc.lineItemBreakdownStrings,
-            usedFallbackCost: calc.usedFallbackCost,
-            costsCalculatedAt: new Date().toISOString(),
-          }
-          // Fire-and-forget DB update — don't block the response
-          prisma.invoice.update({
-            where: { id: inv.id },
-            data: { items: updatedItems as any, costsCalculatedAt: new Date() },
-          }).catch(e => console.error(`Auto-process invoice ${inv.id} save failed:`, e))
         } catch (calcErr) {
           console.error(`Auto-process invoice ${inv.id} failed:`, calcErr)
           // Ultimate fallback if calculateDocumentCosts errors
@@ -717,7 +692,9 @@ const authenticatedHandler: Handler = async (event) => {
             total: so.amount || subTotal,
             status: so.status,
           }
-          const calc = await calculateDocumentCosts(docForCalc)
+          const calc = await calculateDocumentCosts(docForCalc, {
+            context: await costCalculationContextPromise,
+          })
           deadCost = calc.deadCostTotal
           deadCostPlusVig = calc.deadCostPlusVig
           profit = calc.profit
@@ -725,29 +702,6 @@ const authenticatedHandler: Handler = async (event) => {
           salesCommission = calc.salesCommission
           usedFallbackCost = calc.usedFallbackCost
 
-          // Persist to DB
-          const updatedItems = {
-            ...items,
-            deadCostTotal: calc.deadCostTotal,
-            deadCostSubjectToVig: calc.deadCostSubjectToVig,
-            deadCostNoVig: calc.deadCostNoVig,
-            deadCostPlusVig: calc.deadCostPlusVig,
-            deadProfitActual: calc.deadProfitActual,
-            profit: calc.profit,
-            marginPercent: calc.marginPercent,
-            subTotal: calc.subTotal,
-            vigRate: calc.vigRate,
-            ccFees: calc.ccFees,
-            additionalCosts: calc.additionalCosts,
-            commissionPct: calc.commissionPct,
-            salesCommission: calc.salesCommission,
-            usedFallbackCost: calc.usedFallbackCost,
-            costsCalculatedAt: new Date().toISOString(),
-          }
-          prisma.salesOrder.update({
-            where: { id: so.id },
-            data: { items: updatedItems as any, costsCalculatedAt: new Date() },
-          }).catch(e => console.error(`Auto-process SO ${so.id} save failed:`, e))
         } catch (calcErr) {
           console.error(`Auto-process SO ${so.id} failed:`, calcErr)
           deadCost = subTotal * (settings.dead_cost_fallback_pct / 100)

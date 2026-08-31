@@ -2,6 +2,8 @@ import { handler } from "../../../../netlify/functions/get-commissions"
 import { executeSessionScopedNetlifyHandler } from "@/lib/netlify-route-adapter"
 import type { NextRequest } from "next/server"
 
+export const maxDuration = 60
+
 const execute = (req: NextRequest) => executeSessionScopedNetlifyHandler(req, handler, { forceRepScope: true })
 
 export const GET = execute
