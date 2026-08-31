@@ -31,17 +31,27 @@ export async function POST(req: Request) {
       systemPrompt = promptSetting.value
     }
 
-    // Format messages for OpenAI
+    // Format messages for AI completion
     const formattedMessages = messages.slice(-10).map(m => ({
       role: (m.direction === 'INBOUND' ? 'user' : 'assistant') as 'user' | 'assistant',
       content: (m.body || '').slice(0, 4000),
     }))
 
+    // If the conversation ends with an outbound message (assistant), add a user-prompt asking for follow-up suggestions
+    // to ensure the conversation turns do not end with a model/assistant turn (which Gemini and other providers reject with 400).
+    const conversationMessages = [...formattedMessages]
+    if (conversationMessages.length > 0 && conversationMessages[conversationMessages.length - 1].role === 'assistant') {
+      conversationMessages.push({
+        role: 'user',
+        content: 'Please suggest 3 short follow-up or reply options based on the message thread above.',
+      })
+    }
+
     const { response: completion, provider, model } = await createAIChatCompletion({
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: systemPrompt + ' IMPORTANT: You must return a JSON object with a single key suggestions containing an array of 3 string suggestions.' },
-        ...formattedMessages
+        ...conversationMessages
       ],
     })
 

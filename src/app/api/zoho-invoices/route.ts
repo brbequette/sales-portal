@@ -4,6 +4,14 @@ import { extractProfit, extractCommissionAmount, extractVigRate } from '@/lib/cu
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdministratorRole } from '@/lib/roles';
+import {
+  activeSalesOrderStatusFilter,
+  countableInvoiceStatusFilter,
+  isReceivableInvoiceStatus,
+  plannedInvoiceCommission,
+  receivableInvoiceStatusFilter,
+  utcMonthRange,
+} from '@/lib/document-status';
 
 function getSubTotal(items: any, amount: number) {
   let sub = parseFloat(items.sub_total ?? items.subTotal ?? 0);
@@ -40,55 +48,54 @@ export async function GET(request: Request) {
 
     if (searchParams.get('summary') === 'true') {
       const now = new Date();
-      const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 7));
-      const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 7));
-      const [monthInvoices, monthOrders, invoiceBalances, orderPipeline] = await Promise.all([
+      // Calendar month in UTC. The former Arizona-offset bounds (07:00) dropped
+      // invoices dated the 1st that Zoho stored at 00:00 UTC and pulled in
+      // invoices dated the 1st of the following month.
+      const { start: monthStart, end: monthEnd } = utcMonthRange(now);
+      const [monthInvoices, invoiceBalances, orderPipeline] = await Promise.all([
         prisma.invoice.findMany({
-          where: { issueDate: { gte: monthStart, lt: monthEnd } },
-          select: { amount: true, items: true, computedProfit: true, computedUpfront: true, computedFinal: true },
-        }),
-        prisma.salesOrder.findMany({
-          where: { orderDate: { gte: monthStart, lt: monthEnd } },
-          select: { amount: true, items: true },
+          // Every invoice counts as a sale at any status except cancelled/voided.
+          where: { issueDate: { gte: monthStart, lt: monthEnd }, status: countableInvoiceStatusFilter() },
+          select: { amount: true, items: true, computedProfit: true, computedUpfront: true },
         }),
         prisma.invoice.findMany({
-          where: { balance: { gt: 0 }, status: { notIn: ['Paid', 'paid', 'closed', 'Void', 'void', 'voided', 'Draft', 'draft'] } },
+          where: { balance: { gt: 0 }, status: receivableInvoiceStatusFilter() },
           select: { balance: true, dueDate: true, status: true },
         }),
         prisma.salesOrder.aggregate({
-          where: { status: { notIn: ['Paid', 'paid', 'closed', 'Void', 'void', 'voided', 'Draft', 'draft', 'Invoiced', 'invoiced', 'billed'] } },
+          where: { status: activeSalesOrderStatusFilter() },
           _sum: { amount: true },
         }),
       ]);
 
+      // MTD sales are invoice-only, exactly like the dashboard's Company MTD
+      // Sales card and the executive board. Uninvoiced sales orders stay in
+      // pipeline; adding them here double-counted revenue in the stats strip.
       let mtdSales = 0;
       let mtdProfit = 0;
       let mtdCommission = 0;
-      const includeRep = (items: any) => {
-        const rep = String(items?.salesorder_salesperson_name || items?.salesperson_name || items?.salesperson || '').toUpperCase();
-        return !(rep.includes('PAUL') && (rep.includes('GENCUSKI') || rep.includes('GENKUSKI')));
-      };
+      let mtdInvoiceCount = 0;
       for (const invoice of monthInvoices) {
         const items = (invoice.items as any) || {};
-        if (!includeRep(items)) continue;
-        mtdSales += getSubTotal(items, invoice.amount);
-        mtdProfit += Number(invoice.computedProfit ?? extractProfit(items)) || 0;
-        mtdCommission += Number(
-          invoice.computedUpfront != null || invoice.computedFinal != null
-            ? (invoice.computedUpfront || 0) + (invoice.computedFinal || 0)
-            : extractCommissionAmount(items)
-        ) || 0;
-      }
-      for (const order of monthOrders) {
-        const items = (order.items as any) || {};
-        if (!includeRep(items)) continue;
-        mtdSales += getSubTotal(items, order.amount);
-        mtdProfit += Number(extractProfit(items)) || 0;
-        mtdCommission += Number(extractCommissionAmount(items)) || 0;
+        const subTotal = getSubTotal(items, invoice.amount);
+        const profit = Number(invoice.computedProfit ?? extractProfit(items)) || 0;
+        mtdSales += subTotal;
+        mtdProfit += profit;
+        mtdInvoiceCount += 1;
+        const planned = plannedInvoiceCommission({
+          storedCommission: items.salesCommission,
+          legacyCommission: items.commission,
+          customCommission: extractCommissionAmount(items),
+          computedUpfront: invoice.computedUpfront,
+          profit,
+        });
+        // Unpaid invoices have only earned the upfront half.
+        mtdCommission += planned * 0.5;
       }
 
       const invoicePipeline = invoiceBalances.reduce((sum, invoice) => sum + Number(invoice.balance || 0), 0);
       const overdue = invoiceBalances.reduce((sum, invoice) => {
+        if (!isReceivableInvoiceStatus(invoice.status)) return sum;
         const explicitlyOverdue = String(invoice.status).toLowerCase() === 'overdue';
         return explicitlyOverdue || (invoice.dueDate && invoice.dueDate < now)
           ? sum + Number(invoice.balance || 0)
@@ -100,6 +107,7 @@ export async function GET(request: Request) {
           mtdSales,
           mtdProfit,
           mtdCommission,
+          mtdInvoiceCount,
           pipeline: invoicePipeline + Number(orderPipeline._sum.amount || 0),
           overdue,
         },

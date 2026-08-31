@@ -239,12 +239,28 @@ export const internalHandler: Handler = async (event) => {
 }
 
 /** Process one sales order from trusted server-side workflows. */
-export async function processSalesOrderCostsForSystem(salesorderId: string, salesorderNumber?: string) {
+export async function processSalesOrderCostsForSystem(
+  salesorderId: string,
+  salesorderNumber?: string,
+  options: {
+    skipLoopGuard?: boolean
+    vigRate?: number
+    commissionPercent?: number
+    noVigOverrides?: Record<string, boolean>
+  } = {}
+) {
   return internalHandler({
     httpMethod: "POST",
     // Prefer the immutable business document number when available. Local
     // Zoho IDs can become stale after a document is recreated in Books.
-    body: JSON.stringify(salesorderNumber ? { salesorderNumber } : { salesorderId }),
+    body: JSON.stringify({
+      ...(salesorderNumber ? { salesorderNumber } : {}),
+      salesorderId,
+      skipLoopGuard: options.skipLoopGuard,
+      vigRate: options.vigRate,
+      commissionPercent: options.commissionPercent,
+      noVigOverrides: options.noVigOverrides,
+    }),
     [TRUSTED_SYSTEM_COST_REQUEST]: true,
   } as any, {} as any)
 }

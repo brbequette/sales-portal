@@ -1,20 +1,26 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getZohoAccessToken, ZOHO_DC, ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
 import { requireAdministrator } from "@/lib/auth-helpers"
+import { processInvoiceCostsForSystem } from "../../../../../../netlify/functions/process-invoice-costs"
+import { processSalesOrderCostsForSystem } from "../../../../../../netlify/functions/process-salesorder-costs"
+import { processQuoteCostsForSystem } from "../../../../../../netlify/functions/process-quote-costs"
+import { executeSyncCostsToZoho } from "@/app/api/sync-costs-to-zoho/route"
 
 export const maxDuration = 60
 
 /**
- * Bulk Process Costs -- calls the per-document Next.js API routes
- * (/api/process-invoice-costs, /api/process-salesorder-costs, /api/process-quote-costs)
- * for each doc in a page, running up to 5 concurrently to reduce wall-clock time.
+ * Bulk Process Costs -- runs the per-document calculation and sync handlers
+ * directly in-process for each doc in a page, running up to 5 concurrently to reduce wall-clock time.
  *
  * POST body:
- *   entity:   'invoices' | 'salesorders' | 'estimates'  (default 'invoices')
- *   page:     number   (default 1)
- *   filter:   'all' | 'unpaid' | 'recent'               (default 'unpaid')
- *   perPage:  number   (default 25, max 50)
- *   force:    boolean  (skip loop-guard -- default false)
+ *   entity:       'invoices' | 'salesorders' | 'estimates'  (default 'invoices')
+ *   page:         number   (default 1)
+ *   filter:       'all' | 'unpaid' | 'recent' | 'daterange' | 'draft'  (default 'unpaid')
+ *   perPage:      number   (default 25, max 50)
+ *   force:        boolean  (skip loop-guard -- default false)
+ *   applyTariff:  boolean  (default true for invoices)
+ *   startDate:    string   (used when filter = 'daterange')
+ *   endDate:      string   (used when filter = 'daterange')
  */
 export async function POST(req: NextRequest) {
   try {
@@ -31,22 +37,16 @@ export async function POST(req: NextRequest) {
     const BATCH_CONCURRENCY = 5
     const BATCH_DELAY_MS    = 300
 
-
-    // -- Entity config --------------------------------------------------------
-    // Map each entity to its Next.js API route (which directly imports the handler code).
-    // These routes work on Vercel — the old /.netlify/functions/... URLs do NOT.
     const ENTITY_CONFIG: Record<string, {
-      booksEndpoint: string; listKey: string; idField: string; numField: string
-      apiRoute: string; idBodyField: string; resultKey: string
+      booksEndpoint: string; listKey: string; idField: string; numField: string; resultKey: string
     }> = {
-      invoices:    { booksEndpoint: "invoices",    listKey: "invoices",    idField: "invoice_id",    numField: "invoice_number",    apiRoute: "/api/process-invoice-costs",    idBodyField: "invoiceId",    resultKey: "invoice"    },
-      salesorders: { booksEndpoint: "salesorders", listKey: "salesorders", idField: "salesorder_id", numField: "salesorder_number", apiRoute: "/api/process-salesorder-costs", idBodyField: "salesorderId", resultKey: "salesorder" },
-      estimates:   { booksEndpoint: "estimates",   listKey: "estimates",   idField: "estimate_id",   numField: "estimate_number",   apiRoute: "/api/process-quote-costs",      idBodyField: "estimateId",   resultKey: "quote"      },
+      invoices:    { booksEndpoint: "invoices",    listKey: "invoices",    idField: "invoice_id",    numField: "invoice_number",    resultKey: "invoice"    },
+      salesorders: { booksEndpoint: "salesorders", listKey: "salesorders", idField: "salesorder_id", numField: "salesorder_number", resultKey: "salesorder" },
+      estimates:   { booksEndpoint: "estimates",   listKey: "estimates",   idField: "estimate_id",   numField: "estimate_number",   resultKey: "quote"      },
     }
     const cfg = ENTITY_CONFIG[entity]
     if (!cfg) return NextResponse.json({ success: false, error: `Unknown entity: ${entity}` }, { status: 400 })
 
-    // -- Zoho token (shared helper: memory cache → DB cache → OAuth refresh) ---
     const ORG_ID  = ZOHO_ORGANIZATION_ID
     const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
 
@@ -63,21 +63,23 @@ export async function POST(req: NextRequest) {
 
     // -- Status / date filter --------------------------------------------------
     let statusFilter = ""
-    if (filter === "unpaid" && entity === "invoices") {
-      statusFilter = "&status=sent,overdue,partially_paid"
+    if (filter === "daterange" && (body.startDate || body.endDate)) {
+      if (body.startDate) statusFilter += `&date_start=${body.startDate}`
+      if (body.endDate) statusFilter += `&date_end=${body.endDate}`
     } else if (filter === "draft") {
       statusFilter = "&status=draft"
+    } else if (filter === "unpaid" && entity === "invoices") {
+      statusFilter = "&status=sent,overdue,partially_paid"
     } else if (filter === "recent") {
       const since = new Date(); since.setDate(since.getDate() - 90)
       statusFilter = `&date_start=${since.toISOString().split("T")[0]}`
-    } else if (filter === "daterange" && body.startDate && body.endDate) {
-      statusFilter = `&date_start=${body.startDate}&date_end=${body.endDate}`
     }
 
     // -- Step 1: 1 list GET ---------------------------------------------------
     const sortParam = entity === "estimates" ? "" : "&sort_column=date&sort_order=D"
     const listRes = await fetch(
-      `${baseUrl}/${cfg.booksEndpoint}?organization_id=${ORG_ID}&page=${page}&per_page=${perPage}${sortParam}${statusFilter}`, { signal: AbortSignal.timeout(15000), headers: authHeaders }
+      `${baseUrl}/${cfg.booksEndpoint}?organization_id=${ORG_ID}&page=${page}&per_page=${perPage}${sortParam}${statusFilter}`,
+      { signal: AbortSignal.timeout(15000), headers: authHeaders }
     )
     if (!listRes.ok) return NextResponse.json({ success: false, error: `Zoho list error ${listRes.status}` }, { status: 500 })
     const listData: any = await listRes.json()
@@ -90,13 +92,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, processed: 0, errors: 0, skipped: 0, hasMore: false, page, results: [] })
     }
 
-    // -- Step 2: Call each doc's Next.js API route directly (works on Vercel) --
+    // -- Step 2: Directly execute each doc's calculation handler in-process ---
     const results: any[] = []
     let processed = 0, errors = 0, skipped = 0
-    // The per-document routes enforce the same NextAuth session as a direct
-    // browser request. Preserve it for these server-to-server calls; without
-    // this cookie every document is rejected with HTTP 401.
-    const sessionCookie = req.headers.get("cookie") || ""
 
     async function processOne(item: any): Promise<void> {
       const docNum   = item[cfg.numField]
@@ -104,24 +102,26 @@ export async function POST(req: NextRequest) {
       const zohoId   = item[cfg.idField]
 
       try {
-        // Use Next.js API route (works on Vercel) — not /.netlify/functions/...
-        const fnUrl = `${req.nextUrl.origin}${cfg.apiRoute}`
-        const res = await fetch(fnUrl, { signal: AbortSignal.timeout(15000),
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(sessionCookie ? { cookie: sessionCookie } : {}),
-          },
-          body: JSON.stringify({ [cfg.idBodyField]: zohoId, skipLoopGuard: force, applyTariff }),
-        })
+        let handlerRes: any = null
 
-        const contentType = res.headers.get("content-type") || ""
-        if (!contentType.includes("application/json")) {
-          throw new Error(`API route returned non-JSON (HTTP ${res.status}) -- route may not exist or server error`)
+        if (entity === "invoices") {
+          handlerRes = await processInvoiceCostsForSystem(zohoId, {
+            invoiceNumber: docNum,
+            skipLoopGuard: force,
+            applyTariff,
+          })
+        } else if (entity === "salesorders") {
+          handlerRes = await processSalesOrderCostsForSystem(zohoId, docNum, {
+            skipLoopGuard: force,
+          })
+        } else if (entity === "estimates") {
+          handlerRes = await processQuoteCostsForSystem(zohoId, docNum, {
+            skipLoopGuard: force,
+          })
         }
 
-        const data: any = await res.json()
-        if (data.success) {
+        const data: any = JSON.parse(handlerRes?.body || "{}")
+        if (handlerRes?.statusCode === 200 && data.success) {
           if (data.skipped) {
             skipped++
             results.push({ number: docNum, customer, status: "skipped", reason: data.reason })
@@ -132,14 +132,14 @@ export async function POST(req: NextRequest) {
               number: docNum, customer, status: "processed",
               vigRate:         doc.vigRate,
               profit:          doc.profit,
-              commission:      doc.salesCommission,
+              commission:      doc.salesCommission ?? doc.commission ?? 0,
               fieldsUpdated:   doc.fieldsUpdated   || 0,
               changesDetected: doc.changesDetected || 0,
             })
           }
         } else {
           errors++
-          results.push({ number: docNum, customer, status: "error", error: data.error })
+          results.push({ number: docNum, customer, status: "error", error: data.error || `Error status ${handlerRes?.statusCode}` })
         }
       } catch (err: any) {
         errors++
@@ -154,10 +154,28 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Auto-sync processed document changes directly to Zoho Books
+    let autoSyncResult: any = null
+    if (processed > 0) {
+      try {
+        const docTypesMap: Record<string, "invoices" | "salesorders" | "quotes"> = {
+          invoices: "invoices",
+          salesorders: "salesorders",
+          estimates: "quotes",
+        }
+        const targetType = docTypesMap[entity] || "invoices"
+        autoSyncResult = await executeSyncCostsToZoho({ docTypes: [targetType] })
+      } catch (syncErr: any) {
+        console.warn("[bulk-process-costs] In-process auto-sync warning:", syncErr.message)
+        autoSyncResult = { success: false, error: syncErr.message }
+      }
+    }
+
     return NextResponse.json({
       success: true, entity, page,
       processed, errors, skipped,
       total: items.length, hasMore, results,
+      autoSync: autoSyncResult,
     })
 
   } catch (error: any) {

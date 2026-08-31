@@ -411,10 +411,28 @@ export const internalHandler: Handler = async (event) => {
  * Process one invoice from trusted server-side workflows without fabricating a
  * user cookie. The unexported Symbol cannot be supplied over HTTP.
  */
-export async function processInvoiceCostsForSystem(invoiceId: string) {
+export async function processInvoiceCostsForSystem(
+  invoiceId: string,
+  options: {
+    invoiceNumber?: string
+    skipLoopGuard?: boolean
+    applyTariff?: boolean
+    vigRate?: number
+    commissionPercent?: number
+    noVigOverrides?: Record<string, boolean>
+  } = {}
+) {
   return internalHandler({
     httpMethod: "POST",
-    body: JSON.stringify({ invoiceId }),
+    body: JSON.stringify({
+      invoiceId,
+      invoiceNumber: options.invoiceNumber,
+      skipLoopGuard: options.skipLoopGuard,
+      applyTariff: options.applyTariff,
+      vigRate: options.vigRate,
+      commissionPercent: options.commissionPercent,
+      noVigOverrides: options.noVigOverrides,
+    }),
     [TRUSTED_SYSTEM_COST_REQUEST]: true,
   } as any, {} as any)
 }

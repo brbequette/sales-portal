@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { requireAdministrator } from "@/lib/auth-helpers"
+import { CANCELLED_INVOICE_STATUS_VARIANTS } from "@/lib/document-status"
 
 // Helper to determine start and end date of current period based on cadence
 function getPeriodBounds(cadence: string, referenceDate: Date = new Date()) {
@@ -103,7 +104,8 @@ export async function GET(req: Request) {
         const invs = await prisma.invoice.findMany({
           where: {
             issueDate: { gte: start, lte: end },
-            status: { notIn: ["Void", "Draft", "writeoff", "write_off", "bad debt"] }
+            // Any status counts toward goals except cancelled/voided paperwork.
+            status: { notIn: CANCELLED_INVOICE_STATUS_VARIANTS }
           },
           select: {
             id: true,

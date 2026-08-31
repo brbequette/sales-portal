@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { calculateDocumentCosts } from "../../../../../netlify/functions/lib/cost-calculations"
 import { requireAdministrator } from "@/lib/auth-helpers"
+import { isCountableInvoiceStatus } from "@/lib/document-status"
 
 function formatMonthKey(d: Date): string {
   const y = d.getFullYear()
@@ -161,7 +162,7 @@ export async function POST(req: Request) {
             profit: calcResult.profit,
             salesCommission: calcResult.salesCommission
           }
-          if (inv.status !== 'Void' && inv.status !== 'Draft') {
+          if (isCountableInvoiceStatus(inv.status)) {
             monthlyTotalProfit   += calcResult.profit
             monthlyTotalSubtotal += calcResult.subTotal
           }

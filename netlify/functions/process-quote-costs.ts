@@ -8,6 +8,7 @@ import { detectConflict, updateQuoteRecord } from "../../src/lib/sync-engine"
 import { prisma } from "./lib/prisma"
 import { authorizeCostProcessing, hasPrivilegedCostOptions } from "./lib/document-access"
 const ZOHO_DC = process.env.ZOHO_DC || "com"
+const TRUSTED_SYSTEM_COST_REQUEST = Symbol("trusted-system-quote-cost-request")
 
 // ── Loop Guard ──
 // Prevents re-entry when our PUT triggers a Zoho workflow that calls back
@@ -38,7 +39,9 @@ export const internalHandler: Handler = async (event) => {
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "Method not allowed" }) }
 
   try {
-    const sessionUser = await authenticateFunction(event)
+    const sessionUser = (event as any)[TRUSTED_SYSTEM_COST_REQUEST]
+      ? { userId: "system", dbId: "system", role: "ADMIN" }
+      : await authenticateFunction(event)
     const body = JSON.parse(event.body || "{}")
     const { estimateNumber, estimateId, vigRate: manualVigRate, commissionPercent: manualCommPct, noVigOverrides, skipLoopGuard } = body
 
@@ -181,6 +184,31 @@ export const internalHandler: Handler = async (event) => {
     console.error("process-quote-costs error:", err)
     return { statusCode: 500, headers: cors, body: JSON.stringify({ success: false, error: err.message }) }
   }
+}
+
+/** Process one quote/estimate from trusted server-side workflows. */
+export async function processQuoteCostsForSystem(
+  estimateId: string,
+  estimateNumber?: string,
+  options: {
+    skipLoopGuard?: boolean
+    vigRate?: number
+    commissionPercent?: number
+    noVigOverrides?: Record<string, boolean>
+  } = {}
+) {
+  return internalHandler({
+    httpMethod: "POST",
+    body: JSON.stringify({
+      ...(estimateNumber ? { estimateNumber } : {}),
+      estimateId,
+      skipLoopGuard: options.skipLoopGuard,
+      vigRate: options.vigRate,
+      commissionPercent: options.commissionPercent,
+      noVigOverrides: options.noVigOverrides,
+    }),
+    [TRUSTED_SYSTEM_COST_REQUEST]: true,
+  } as any, {} as any)
 }
 
 export const handler = withFunctionAuth(internalHandler)

@@ -54,8 +54,16 @@ export function FutureSalesBoard() {
     const goalSales = Number(booked.subtotal || 0) + Number(orders.subtotal || 0)
     const goalProfit = Number(booked.profit || 0) + Number(orders.profit || 0)
     const goalDeadCost = Number(booked.deadCost || 0) + Number(orders.deadCost || 0)
-    const mtdSales = sum(reps.map((rep: any) => rep.mtdSales)); const mtdProfit = sum(reps.map((rep: any) => rep.mtdProfit)); const mtdCount = sum(reps.map((rep: any) => rep.mtdCount))
-    const ytdSales = sum(reps.map((rep: any) => rep.ytdSales)); const ytdProfit = sum(reps.map((rep: any) => rep.ytdProfit)); const ytdCount = sum(reps.map((rep: any) => rep.ytdCount))
+    // Company tiles use the company-wide roll-up (house accounts, hidden and
+    // deactivated reps included) so the TV agrees with the exec/dashboard MTD.
+    const companyMtd = data.companyTotals?.mtd
+    const companyYtd = data.companyTotals?.ytd
+    const mtdSales = companyMtd ? Number(companyMtd.sales || 0) : sum(reps.map((rep: any) => rep.mtdSales))
+    const mtdProfit = companyMtd ? Number(companyMtd.profit || 0) : sum(reps.map((rep: any) => rep.mtdProfit))
+    const mtdCount = companyMtd ? Number(companyMtd.dealsClosed || 0) : sum(reps.map((rep: any) => rep.mtdCount))
+    const ytdSales = companyYtd ? Number(companyYtd.sales || 0) : sum(reps.map((rep: any) => rep.ytdSales))
+    const ytdProfit = companyYtd ? Number(companyYtd.profit || 0) : sum(reps.map((rep: any) => rep.ytdProfit))
+    const ytdCount = companyYtd ? Number(companyYtd.dealsClosed || 0) : sum(reps.map((rep: any) => rep.ytdCount))
     const dailySales = Array.from({ length: 5 }, (_, day) => sum(reps.map((rep: any) => Number(rep.goalDailySales?.[day] || 0))))
     const dailyProfit = Array.from({ length: 5 }, (_, day) => sum(reps.map((rep: any) => Number(rep.goalDailyProfit?.[day] || 0))))
     const dailyLeaders = Array.from({ length: 5 }, (_, day) => Math.max(0, ...reps.map((rep: any) => Number(rep.goalDailySales?.[day] || 0))))

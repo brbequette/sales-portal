@@ -208,19 +208,18 @@ export async function resolveVigRate(
   const salespersonName: string = (doc.salesperson_name || doc.salesperson || "").trim()
   const isMontgomery = salespersonName.toLowerCase().includes("montgomery") || salespersonName.toLowerCase().includes("morgan")
 
+  // 1. Montgomery Morgan is always 1.0 VIG
+  if (isMontgomery) return 1.0
+
   // Parse document date
   const docDateRaw = doc.date || doc.issueDate || doc.created_time
   const docDate = docDateRaw ? new Date(docDateRaw) : new Date()
   const year = docDate.getFullYear()
 
-  // 1. Up to end of 2024 (through Dec 31, 2024):
-  //    Monty is 1.0 VIG; everyone else is 1.3 VIG.
+  // 2. Pre-2025: every invoice prior to 2025 is fixed at 1.3 (Montgomery handled above as 1.0)
   if (year <= 2024) {
-    return isMontgomery ? 1.0 : 1.3
+    return 1.3
   }
-
-  // 2. Montgomery is always 1.0 unless explicitly overridden
-  if (isMontgomery) return 1.0
 
   // 3. Check for an explicit SALESPERSON VIG RATE override on the document
   //    NOTE: Be specific — do NOT match "SALESPERSON VIG" (which is the output field we write)

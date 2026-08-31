@@ -53,7 +53,7 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
     const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
 
     let invoicesSynced = 0, sosSynced = 0, quotesSynced = 0
-    let conflictsFlagged = 0, pendingProcessed = 0, newRecordsCreated = 0
+    let conflictsFlagged = 0, pendingProcessed = 0, newRecordsCreated = 0, accountsCreated = 0
     let syncIncomplete = false
 
     // One-time local baseline: normalize line items already present in JSON and
@@ -102,6 +102,52 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
       if (a.zohoId) accountByZohoId.set(a.zohoId, a.id)
       accountByName.set(a.name.toLowerCase().trim(), a.id)
     })
+
+    // Documents for a customer with no local Account used to be skipped, and
+    // because the skip happens on every run the record never arrived at all.
+    // Create the Account instead, owned by the document's salesperson where we
+    // can match one and by the house owner otherwise.
+    const allUsers = await prisma.user.findMany({ select: { id: true, name: true, role: true, createdAt: true } })
+    const userByName = new Map<string, string>()
+    allUsers.forEach(u => { if (u.name) userByName.set(u.name.toLowerCase().trim(), u.id) })
+    const houseOwnerId = (allUsers.find(u => String(u.role).toUpperCase() === "ADMIN") ?? allUsers[0])?.id ?? null
+
+    const resolveOwnerId = (salespersonName?: string): string | null => {
+      const key = String(salespersonName || "").toLowerCase().trim()
+      if (key && userByName.has(key)) return userByName.get(key)!
+      return houseOwnerId
+    }
+
+    const ensureAccountId = async (
+      customerZohoId: string | undefined,
+      customerName: string | undefined,
+      salespersonName: string | undefined,
+    ): Promise<string | null> => {
+      const existing = resolveAccountId(customerZohoId, customerName, accountByZohoId, accountByName)
+      if (existing) return existing
+      if (!customerZohoId) return null
+      const ownerId = resolveOwnerId(salespersonName)
+      if (!ownerId) return null
+      try {
+        const account = await prisma.account.upsert({
+          where: { zohoId: String(customerZohoId) },
+          update: {},
+          create: {
+            zohoId: String(customerZohoId),
+            name: String(customerName || "").trim() || `Zoho customer ${customerZohoId}`,
+            ownerId,
+          },
+        })
+        accountByZohoId.set(String(customerZohoId), account.id)
+        accountByName.set(account.name.toLowerCase().trim(), account.id)
+        accountsCreated++
+        console.log(`[daily-sync] Created Account for Zoho customer ${customerZohoId} (${customerName})`)
+        return account.id
+      } catch (e: any) {
+        console.error(`[daily-sync] Could not create Account for Zoho customer ${customerZohoId}: ${e.message}`)
+        return null
+      }
+    }
 
     // ── Pass 1: Process pendingZohoFetch queue ────────────────────────────
     // These were flagged by the real-time webhook and need a full detail pull.
@@ -179,12 +225,12 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
           })
           if (!dbDoc) {
             // NEW: Create record for new Zoho invoice
-            const accountId = resolveAccountId(inv.customer_id, inv.customer_name, accountByZohoId, accountByName)
-            if (!accountId) { console.log(`Skipping invoice ${inv.invoice_id}: no matching account`); continue }
+            const accountId = await ensureAccountId(inv.customer_id, inv.customer_name, inv.salesperson_name)
+            if (!accountId) { console.log(`Skipping invoice ${inv.invoice_id}: no account and none could be created`); continue }
             dbDoc = await prisma.invoice.upsert({
               where: { zohoId: inv.invoice_id },
               update: {},
-              create: { zohoId: inv.invoice_id, accountId, amount: parseFloat(inv.total || '0') || 0, status: inv.status || 'draft', issueDate: inv.date ? new Date(inv.date) : new Date(), items: {} }
+              create: { zohoId: inv.invoice_id, accountId, invoiceNumber: inv.invoice_number || null, amount: parseFloat(inv.total || '0') || 0, status: inv.status || 'draft', issueDate: inv.date ? new Date(`${inv.date}T12:00:00.000Z`) : new Date(), items: {} }
             })
             newRecordsCreated++
             console.log(`[daily-sync] Created new Invoice ${inv.invoice_id} for ${inv.customer_name}`)
@@ -219,12 +265,12 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
             select: { id: true, zohoId: true, status: true, items: true, lastSyncedAt: true, appModifiedAt: true, lastZohoModifiedTime: true }
           })
           if (!dbDoc) {
-            const accountId = resolveAccountId(so.customer_id, so.customer_name, accountByZohoId, accountByName)
-            if (!accountId) { console.log(`Skipping SO ${so.salesorder_id}: no matching account`); continue }
+            const accountId = await ensureAccountId(so.customer_id, so.customer_name, so.salesperson_name)
+            if (!accountId) { console.log(`Skipping SO ${so.salesorder_id}: no account and none could be created`); continue }
             dbDoc = await prisma.salesOrder.upsert({
               where: { zohoId: so.salesorder_id },
               update: {},
-              create: { zohoId: so.salesorder_id, accountId, amount: parseFloat(so.total || '0') || 0, status: so.status || 'draft', orderDate: so.date ? new Date(so.date) : new Date(), items: {} }
+              create: { zohoId: so.salesorder_id, accountId, amount: parseFloat(so.total || '0') || 0, status: so.status || 'draft', orderDate: so.date ? new Date(`${so.date}T12:00:00.000Z`) : new Date(), items: {} }
             })
             newRecordsCreated++
             console.log(`[daily-sync] Created new SalesOrder ${so.salesorder_id} for ${so.customer_name}`)
@@ -258,8 +304,8 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
             select: { id: true, zohoId: true, status: true, items: true, lastSyncedAt: true, appModifiedAt: true, lastZohoModifiedTime: true }
           })
           if (!dbDoc) {
-            const accountId = resolveAccountId(est.customer_id, est.customer_name, accountByZohoId, accountByName)
-            if (!accountId) { console.log(`Skipping estimate ${est.estimate_id}: no matching account`); continue }
+            const accountId = await ensureAccountId(est.customer_id, est.customer_name, est.salesperson_name)
+            if (!accountId) { console.log(`Skipping estimate ${est.estimate_id}: no account and none could be created`); continue }
             dbDoc = await prisma.quote.upsert({
               where: { zohoId: est.estimate_id },
               update: {},
@@ -284,6 +330,7 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
     console.log(`=== Daily Books Sync Complete in ${elapsed}s ===`)
     console.log(`  Invoices: ${invoicesSynced} | SOs: ${sosSynced} | Quotes: ${quotesSynced}`)
     console.log(`  New records created: ${newRecordsCreated}`)
+    console.log(`  Accounts auto-created: ${accountsCreated}`)
     console.log(`  Pending processed: ${pendingProcessed} | Conflicts flagged: ${conflictsFlagged}`)
 
     if (!syncIncomplete) {
@@ -301,6 +348,7 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
       salesOrdersSynced: sosSynced,
       quotesSynced,
       newRecordsCreated,
+      accountsCreated,
       pendingProcessed,
       conflictsFlagged,
       elapsedSeconds: Number(elapsed),
@@ -337,7 +385,9 @@ function resolveAccountId(
 /** Returns true if the local record is stale relative to Zoho's modified time */
 function isStale(lastSyncedAt: Date | null, zohoModTime: string | undefined): boolean {
   if (!lastSyncedAt) return true
-  if (!zohoModTime)  return false
+  // No Zoho timestamp means we cannot prove the local copy is current, so pull
+  // the detail rather than assuming it is fresh and leaving it stale forever.
+  if (!zohoModTime)  return true
   return new Date(zohoModTime).getTime() > lastSyncedAt.getTime()
 }
 

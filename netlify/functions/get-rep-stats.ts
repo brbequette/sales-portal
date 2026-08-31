@@ -2,6 +2,13 @@ import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { getSystemSettings } from "./lib/settings"
 import { prisma, Prisma } from "./lib/prisma"
+import {
+  CANCELLED_INVOICE_STATUSES,
+  INACTIVE_SALES_ORDER_STATUS_VARIANTS,
+  isActiveSalesOrderStatus,
+  isCountableInvoiceStatus,
+  plannedInvoiceCommission,
+} from "./lib/document-status"
 
 // Workday calculation helpers
 function getWorkdaysCount(startDate: Date, endDate: Date, holidays: any[]): number {
@@ -149,7 +156,7 @@ const authenticatedHandler: Handler = async (event) => {
     // PERF: invoices and salesOrders now use $queryRaw — extracts only needed JSON keys
     //       at the DB layer instead of hydrating the entire items blob in JS.
     //       Also reads new computedProfit/deadProfit columns when available (post-migration).
-    const soExcludedStatuses = ['Void','void','VOID','Draft','draft','DRAFT','Cancelled','cancelled','CANCELLED','Invoiced','invoiced','INVOICED','Converted','converted','CONVERTED']
+    const soExcludedStatuses = [...INACTIVE_SALES_ORDER_STATUS_VARIANTS]
     const soExcludedSql = Prisma.sql`AND s.status NOT IN (${Prisma.join(soExcludedStatuses)})`
     const requestedRep = repIdFilter !== 'all'
       ? await prisma.user.findFirst({
@@ -247,7 +254,10 @@ const authenticatedHandler: Handler = async (event) => {
         FROM "Invoice" i
         JOIN "Account" a ON a.id = i."accountId"
         WHERE i."issueDate" >= ${rangeStart} AND i."issueDate" <= ${rangeEnd}
-          AND i.status NOT IN ('Void','void','Draft','draft')
+          -- Invoices count as sales at any status; only cancelled/voided
+          -- paperwork is excluded. Drafts were previously dropped here, which
+          -- is why portal totals read low against Zoho Books.
+          AND LOWER(TRIM(i.status)) NOT IN (${Prisma.join([...CANCELLED_INVOICE_STATUSES])})
           ${invoiceRepFilterSql}
         ORDER BY i."issueDate" DESC
       `).catch(() => []),
@@ -312,11 +322,13 @@ const authenticatedHandler: Handler = async (event) => {
       const year = docDate.getFullYear()
       const isMontgomery = salespersonName.toLowerCase().includes('montgomery') || salespersonName.toLowerCase().includes('morgan')
 
-      // 1. Pre-2025 fixed rates
-      if (year <= 2024) return isMontgomery ? 1.0 : 1.3
+      // 1. Montgomery Morgan is always 1.0 VIG
       if (isMontgomery) return 1.0
 
-      // 2. constantVigEnabled override
+      // 2. Pre-2025: every invoice prior to 2025 is fixed at 1.3
+      if (year <= 2024) return 1.3
+
+      // 3. constantVigEnabled override
       if (matchedUserId) {
         const u = users.find((x: any) => x.id === matchedUserId)
         if (u?.constantVigEnabled && u.constantVigValue !== null && u.constantVigValue !== undefined) {
@@ -367,6 +379,13 @@ const authenticatedHandler: Handler = async (event) => {
     addAlias("ben bequette", "benjamin bequette")
     addAlias("justin  zastrow", "justin zastrow")
     const unassignedId = "unassigned"
+
+    // Payout structure per rep — single-payment reps earn 100% only once the
+    // invoice is paid, so planned halves must not be credited early.
+    const payoutStructureById: Record<string, string> = {}
+    users.forEach(u => {
+      payoutStructureById[u.id] = String((u as any).payoutStructure || 'two_payment')
+    })
 
     // Compute current week boundaries (Mon-Sun)
     const weekNow = new Date()
@@ -434,7 +453,9 @@ const authenticatedHandler: Handler = async (event) => {
 
       // ── FAST PATH: use pre-computed scalar columns when available ──────────
       const hasComputed = inv.computedProfit !== null && inv.computedProfit !== undefined
-      let profit: number, deadProfit: number, deadCost: number, vigRate: number, commission: number
+      let profit: number, deadProfit: number, deadCost: number, vigRate: number
+      let commission = 0
+      let plannedCommission = 0
       let salespersonName: string
       let matchedUserId: string | null = null
 
@@ -443,19 +464,14 @@ const authenticatedHandler: Handler = async (event) => {
         deadProfit  = parseFloat(inv.computedDeadProfit) || 0
         deadCost    = parseFloat(inv.computedDeadCost)   || 0
         vigRate     = parseFloat(inv.computedVigRate)    || 1.3
-        const storedCommission = parseFloat(items.salesCommission)
-        const legacyCommission = parseFloat(items.commission)
-        const computedUpfront = parseFloat(inv.computedUpfront)
-        const plannedCommission = Number.isFinite(storedCommission)
-          ? storedCommission
-          : Number.isFinite(legacyCommission)
-            ? legacyCommission
-            : Number.isFinite(computedUpfront)
-              ? computedUpfront * 2
-              : profit * 0.50
-        commission = (inv.status || '').toLowerCase() === 'paid'
-          ? plannedCommission
-          : plannedCommission * 0.50
+        // computedFinal is deliberately ignored: historical rows stored the
+        // whole invoice total in that column instead of the 50% final half.
+        plannedCommission = plannedInvoiceCommission({
+          storedCommission: items.salesCommission,
+          legacyCommission: items.commission,
+          computedUpfront: inv.computedUpfront,
+          profit,
+        })
         salespersonName = inv.computedSalesperson || items.salesperson || ''
       } else {
         // ── FALLBACK: parse from extracted JSON scalar fields ─────────────────
@@ -494,19 +510,12 @@ const authenticatedHandler: Handler = async (event) => {
 
         deadProfit = amount - deadCost - additionalCosts - ccFees
         profit     = amount - deadCostPlusVig - additionalCosts - ccFees
-        const storedCommission = parseFloat(items.salesCommission)
-        const legacyCommission = parseFloat(items.commission)
-        const customCommission = parseFloat(items.cf_commission_amount_unformatted)
-        const plannedCommission = Number.isFinite(storedCommission)
-          ? storedCommission
-          : Number.isFinite(legacyCommission)
-            ? legacyCommission
-            : Number.isFinite(customCommission)
-              ? customCommission
-              : profit * 0.50
-        commission = (inv.status || '').toLowerCase() === 'paid'
-          ? plannedCommission
-          : plannedCommission * 0.50
+        plannedCommission = plannedInvoiceCommission({
+          storedCommission: items.salesCommission,
+          legacyCommission: items.commission,
+          customCommission: items.cf_commission_amount_unformatted,
+          profit,
+        })
       }
 
       // Resolve repId from salesperson name or account owner
@@ -517,8 +526,16 @@ const authenticatedHandler: Handler = async (event) => {
       if (!matchedUserId) matchedUserId = inv.accountOwnerId || null
       const repId = matchedUserId || unassignedId
 
-      const invStatusLower = (inv.status || '').toLowerCase()
-      if (repStatsMap[repId] && invStatusLower !== 'void' && invStatusLower !== 'draft') {
+      // Payment status decides when commission is earned, never whether the
+      // invoice counts. Single-payment reps earn nothing until the invoice is
+      // paid; two-payment reps earn the upfront half on issue.
+      const invoicePaid = ['paid', 'closed'].includes((inv.status || '').toLowerCase())
+      const singlePayment = payoutStructureById[repId] === 'single_payment'
+      commission = invoicePaid
+        ? plannedCommission
+        : singlePayment ? 0 : plannedCommission * 0.50
+
+      if (repStatsMap[repId] && isCountableInvoiceStatus(inv.status)) {
         repStatsMap[repId].revenue    += amount
         repStatsMap[repId].profit     += profit
         repStatsMap[repId].deadProfit += deadProfit
@@ -588,8 +605,7 @@ const authenticatedHandler: Handler = async (event) => {
       const profit        = amount - deadCostPlusVig - additionalCosts - giftsCost - ccFees
       const estCommission = profit * 0.50
 
-      const soStatusLower = (so.status || '').toLowerCase()
-      if (repStatsMap[repId] && soStatusLower !== 'void' && soStatusLower !== 'draft') {
+      if (repStatsMap[repId] && isActiveSalesOrderStatus(so.status)) {
         repStatsMap[repId].salesOrderCount++
         repStatsMap[repId].salesOrderSubtotal += amount
         repStatsMap[repId].salesOrderDeadProfit += deadProfit

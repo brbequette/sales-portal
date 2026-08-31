@@ -93,6 +93,29 @@ export function getAIProviderStatus() {
 }
 
 /**
+ * Normalizes and sanitizes chat messages for broad provider compatibility (OpenAI, Gemini, Ollama, Anthropic).
+ * Google Gemini / OpenAI-compatible gateways reject requests ending with a model/assistant turn with HTTP 400.
+ */
+export function sanitizeMessagesForAI<T extends { role?: string; content?: any }>(
+  rawMessages: T[]
+): T[] {
+  if (!Array.isArray(rawMessages) || rawMessages.length === 0) return []
+
+  const result: T[] = [...rawMessages]
+
+  // If the last message is from the assistant/model, append a user prompt to continue or summarize
+  const lastMsg = result[result.length - 1]
+  if (lastMsg && (lastMsg.role === 'assistant' || lastMsg.role === 'model')) {
+    result.push({
+      role: 'user',
+      content: 'Please proceed.',
+    } as unknown as T)
+  }
+
+  return result
+}
+
+/**
  * Runs a chat completion through the configured provider chain. Local models
  * have a shorter deadline so slow hardware cannot stall user-facing work.
  */
@@ -102,13 +125,19 @@ export async function createAIChatCompletion(
   const candidates = getAIClientCandidates()
   const errors: string[] = []
 
+  const sanitizedMessages = sanitizeMessagesForAI(request.messages as any[])
+  const sanitizedRequest = {
+    ...request,
+    messages: sanitizedMessages,
+  }
+
   for (const candidate of candidates) {
     const timeout = candidate.provider === 'ollama'
       ? Number(process.env.OLLAMA_TIMEOUT_MS || 20000)
       : Number(process.env.OPENAI_TIMEOUT_MS || 45000)
     try {
       const response = await candidate.client.chat.completions.create(
-        { ...request, model: candidate.model },
+        { ...sanitizedRequest, model: candidate.model } as any,
         { timeout },
       )
       return { response, provider: candidate.provider, model: candidate.model }

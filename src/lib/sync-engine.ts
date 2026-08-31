@@ -208,6 +208,7 @@ export async function syncInvoicePayments(
   zohoInvoiceId: string,
   invoiceDbId: string
 ): Promise<{
+  ok: boolean
   paymentMade: number
   paymentExpected: number | null
   lastPaymentDate: Date | null
@@ -215,6 +216,20 @@ export async function syncInvoicePayments(
   paymentCount: number
 }> {
   let payments: ZohoPayment[] = []
+  // A payment fetch that fails must never abort the caller. Zoho returns an
+  // error for invoices that cannot have payments (drafts), and rate limits or
+  // timeouts happen on any of them. Throwing here used to take the whole
+  // invoice sync down with it while sales orders — which have no payment
+  // call — kept syncing, so invoice status, subtotals and line items silently
+  // went stale. `ok: false` tells the caller to leave payment fields alone.
+  const failed = {
+    ok: false,
+    paymentMade: 0,
+    paymentExpected: null,
+    lastPaymentDate: null,
+    balance: null,
+    paymentCount: 0,
+  }
 
   try {
     const token = await getZohoAccessToken()
@@ -229,10 +244,12 @@ export async function syncInvoicePayments(
       const data = await res.json()
       payments = data.payments ?? []
     } else {
-      throw new Error(`[sync-engine] Payment fetch returned ${res.status} for invoice ${zohoInvoiceId}`)
+      console.warn(`[sync-engine] Payment fetch returned ${res.status} for invoice ${zohoInvoiceId}; continuing without payment data`)
+      return failed
     }
   } catch (err: unknown) {
-    throw new Error(`[sync-engine] Payment fetch failed: ${(err as Error).message}`)
+    console.warn(`[sync-engine] Payment fetch failed for invoice ${zohoInvoiceId}: ${(err as Error).message}`)
+    return failed
   }
 
   // Upsert each payment
@@ -278,10 +295,16 @@ export async function syncInvoicePayments(
   }
 
   if (ops.length > 0) {
-    await prisma.$transaction(ops)
+    try {
+      await prisma.$transaction(ops)
+    } catch (err: unknown) {
+      console.warn(`[sync-engine] Payment upsert failed for invoice ${zohoInvoiceId}: ${(err as Error).message}`)
+      return failed
+    }
   }
 
   return {
+    ok:              true,
     paymentMade:     totalPaid,
     paymentExpected: null,   // filled by caller from zoho doc
     lastPaymentDate: lastPayDate,
@@ -316,7 +339,10 @@ export async function updateInvoiceRecord(opts: {
     ? new Date(zohoDoc.last_modified_time as string)
     : null
 
-  const lastPaymentDate = paymentSummary.lastPaymentDate
+  // When the payment fetch failed we have no payment facts, so leave whatever
+  // is already stored untouched rather than overwriting it with nulls.
+  const paymentsUsable = paymentSummary.ok !== false
+  const lastPaymentDate = paymentsUsable ? paymentSummary.lastPaymentDate : undefined
 
   // Build the updated items JSON merge
   const existing = await prisma.invoice.findUnique({
@@ -376,6 +402,7 @@ export async function updateInvoiceRecord(opts: {
       computedVigRate:      finiteNumber(calcItems.vigRate),
       computedSalesperson:  String(zohoDoc.salesperson_name || "").trim() || null,
       computedInvoiceNumber:String(zohoDoc.invoice_number || "").trim() || null,
+      invoiceNumber:        String(zohoDoc.invoice_number || "").trim() || undefined,
       computedUpfront:      commission == null ? null : commission / 2,
       computedFinal:        commission == null ? null : (isPaid ? commission / 2 : 0),
       // Payment summary
@@ -383,7 +410,7 @@ export async function updateInvoiceRecord(opts: {
       paymentExpected:      zohoDoc.payment_expected != null
                               ? parseFloat(zohoDoc.payment_expected as string)
                               : null,
-      lastPaymentDate:      lastPaymentDate,
+      lastPaymentDate:      paymentsUsable ? lastPaymentDate ?? null : undefined,
       balance:              zohoDoc.balance != null
                               ? parseFloat(zohoDoc.balance as string)
                               : null,

@@ -350,16 +350,16 @@ export function useSalesBoardData(): SalesBoardDataReturn {
         const workdaysInCurrentWeek = Math.max(1, countWorkdays(monday, friday))
 
         // Compute workdays in current month and current workday index N
-        const firstDayOfMonth = new Date(currentYear, currentMonth, 1)
-        const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0)
+        const firstDayOfMonth = new Date(currentYear, currentMonth, 1, 0, 0, 0, 0)
+        const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59, 999)
         const workdaysInCurrentMonth = Math.max(1, countWorkdays(firstDayOfMonth, lastDayOfMonth))
         const currentWorkdayIndex = Math.max(1, countWorkdays(firstDayOfMonth, today))
 
         // Compute Last Month date range & Workday #N Cutoff Date
         const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear
         const lastMonthIndex = currentMonth === 0 ? 11 : currentMonth - 1
-        const firstDayOfLastMonth = new Date(lastMonthYear, lastMonthIndex, 1)
-        const lastDayOfLastMonth = new Date(lastMonthYear, lastMonthIndex + 1, 0)
+        const firstDayOfLastMonth = new Date(lastMonthYear, lastMonthIndex, 1, 0, 0, 0, 0)
+        const lastDayOfLastMonth = new Date(lastMonthYear, lastMonthIndex + 1, 0, 23, 59, 59, 999)
 
         let countLM = 0
         let lastMonthCutoffDateStr = `${lastMonthYear}-${String(lastMonthIndex + 1).padStart(2, '0')}-01`
@@ -429,6 +429,15 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           deadCostSubjectToVig: 0,
           commission: 0, 
           target: dynamicReps.reduce((sum: number, r: any) => sum + r.weeklyTarget, 0) 
+        }
+
+        // Company-wide roll-ups count every invoice in the period, including
+        // house accounts, deactivated reps and reps hidden from the board, so
+        // the TV totals agree with the executive and dashboard totals.
+        const companyTotals = {
+          mtd: { sales: 0, profit: 0, commission: 0, dealsClosed: 0 },
+          ytd: { sales: 0, profit: 0, commission: 0, dealsClosed: 0 },
+          lastMonth: { sales: 0, profit: 0, dealsClosed: 0 },
         }
 
         const normalizeRepName = (n: string) => {
@@ -529,20 +538,23 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           let spName = (doc.salesperson || "").toUpperCase()
           const docType = doc.type || 'Invoice'
 
+          // Reps hidden from the board (and Paul Gencuski) stay off the rep
+          // cards but their invoices still belong in the company roll-ups.
+          const hiddenFromBoard = spName.includes("PAUL") && (spName.includes("GENCUSKI") || spName.includes("GENKUSKI"))
+
           // If no salesperson, fall back to account owner ID matching
           let matchedRep: any = null
-          if (spName) {
-            if (spName.includes("PAUL") && (spName.includes("GENCUSKI") || spName.includes("GENKUSKI"))) return
+          if (spName && !hiddenFromBoard) {
             matchedRep = getMatchedRep(spName)
           }
           // Fallback: match by account owner ID when salesperson is missing
-          if (!matchedRep && doc.accountOwnerId) {
+          if (!matchedRep && !hiddenFromBoard && doc.accountOwnerId) {
             matchedRep = Object.values(repsMap).find((r: any) => r.id === doc.accountOwnerId) || null
           }
-          if (!matchedRep && !spName) return // truly unattributable — skip
 
           // --- 1. ESTIMATES / QUOTES (48 Hours active on board or until SO) ---
           if (docType === 'Quote') {
+            if (hiddenFromBoard) return
             const quoteDate = new Date(doc.date)
             const ageHours = (today.getTime() - quoteDate.getTime()) / (1000 * 3600)
             const isConvertedToSO = doc.isConvertedToSO || false
@@ -555,6 +567,7 @@ export function useSalesBoardData(): SalesBoardDataReturn {
 
           // --- 2. SALES ORDERS (Active on board until Invoiced/Closed) ---
           if (docType === 'SalesOrder') {
+            if (hiddenFromBoard) return
             const isInvoicedOrClosed = doc.isInvoicedOrClosed || false
             if (isInvoicedOrClosed) return // Skip converted/closed/voided Sales Orders to avoid double-counting
             if (matchedRep) {
@@ -603,6 +616,25 @@ export function useSalesBoardData(): SalesBoardDataReturn {
             const isMTD = invDateObj >= firstDayOfMonth && invDateObj <= lastDayOfMonth
             const isLastMonth = invDateObj >= firstDayOfLastMonth && invDateObj <= lastDayOfLastMonth
             const isYTD = invDateObj.getFullYear() === currentYear
+
+            // Company roll-ups first — every invoice counts, matched or not.
+            if (isMTD) {
+              companyTotals.mtd.sales += amount
+              companyTotals.mtd.profit += profit
+              companyTotals.mtd.commission += commissionEarned
+              companyTotals.mtd.dealsClosed += 1
+            }
+            if (isYTD) {
+              companyTotals.ytd.sales += amount
+              companyTotals.ytd.profit += profit
+              companyTotals.ytd.commission += commissionEarned
+              companyTotals.ytd.dealsClosed += 1
+            }
+            if (isLastMonth) {
+              companyTotals.lastMonth.sales += amount
+              companyTotals.lastMonth.profit += profit
+              companyTotals.lastMonth.dealsClosed += 1
+            }
 
             if (matchedRep) {
               if (isLastMonth) {
@@ -738,6 +770,7 @@ export function useSalesBoardData(): SalesBoardDataReturn {
 
         const computedBoardData = {
           reps: Object.values(repsMap),
+          companyTotals,
           teamWeekly,
           currentWorkdayIndex,
           repOverdueMap,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getSystemSettings } from "@/lib/settings"
 import { requireAdministrator } from "@/lib/auth-helpers"
+import { CANCELLED_INVOICE_STATUS_VARIANTS } from "@/lib/document-status"
 
 export async function GET(req: NextRequest) {
   try {
@@ -34,7 +35,8 @@ export async function GET(req: NextRequest) {
     const invoices = await prisma.invoice.findMany({
       where: {
         issueDate: { gte: startDate, lte: endDate },
-        NOT: { status: { in: ["Void", "Draft"] } },
+        // Invoices count at any status; only cancelled/voided paperwork is excluded.
+        status: { notIn: CANCELLED_INVOICE_STATUS_VARIANTS },
         ...(targetOwnerId ? { account: { ownerId: targetOwnerId } } : {}),
       },
       select: {
@@ -53,7 +55,7 @@ export async function GET(req: NextRequest) {
     const salesOrders = await prisma.salesOrder.findMany({
       where: {
         orderDate: { gte: startDate, lte: endDate },
-        NOT: { status: { in: ["void", "draft"] } },
+        status: { notIn: CANCELLED_INVOICE_STATUS_VARIANTS },
         ...(targetOwnerId ? { account: { ownerId: targetOwnerId } } : {}),
       },
       select: {
