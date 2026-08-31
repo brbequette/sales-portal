@@ -87,6 +87,22 @@ live state before destructive changes or external writes.
 
 ## Sales, financial, and commission rules
 
+- **Canonical invoice counting rule (2026-08-31):** an invoice counts as a sale
+  at any status — draft, sent, unpaid, overdue, partially paid, paid — and is
+  excluded only when cancelled or voided. The rule lives in
+  `src/lib/document-status.ts`, mirrored at
+  `netlify/functions/lib/document-status.ts` because functions cannot import
+  from `src/lib` at runtime. Every sales, profit and commission aggregation
+  imports from it; do not re-type status lists inline.
+- Company MTD sales are invoice-only. Sales orders belong to the pipeline tile;
+  adding them into MTD double-counts revenue that has already been invoiced.
+- Month windows for MTD use UTC month bounds (`utcMonthRange()`), not Arizona
+  07:00-UTC bounds, because Books date-only values are stored at 00:00/12:00 UTC.
+- The `Invoice.computedFinal` column is corrupted on historical rows (it holds
+  the full invoice total on some records instead of the 50% final payout).
+  Never sum it into commission; use `plannedInvoiceCommission()`.
+- Company-labelled totals must include unassigned/house-account invoices and
+  reps hidden from the TV board, or the same screen shows two different MTDs.
 - Sales/goal totals treat valid invoices and sales orders as booked sales;
   payment status must not be required for goal credit.
 - TV dates use invoice `issueDate` and sales-order `orderDate`; record
@@ -376,6 +392,27 @@ live state before destructive changes or external writes.
   unchanged.
 
 ## Known risks and open verification work
+
+- **Backfill still owed (2026-08-31).** The invoice sync bugs below are fixed
+  in code, but the delta sweep only asks Zoho for records modified since
+  `books_sync_cursor`, so previously-skipped invoices will not reappear on
+  their own. A one-time `POST /api/internal/books-sync` with
+  `{"fullYear": 2026}` is required to backfill, and has not been run.
+- **Zoho Books → Postgres August 2026 sync gap (root-caused 2026-08-31).** The Books
+  API returns 52 August invoices; the database holds 44. Per-rep totals diverge
+  in both directions (Montgomery Morgan reads about $4.9k high locally, Ross
+  Haisler about $13.3k low), invoice 10943 carries a grand total identical to
+  another invoice's, and 25 August rows have a null `invoiceNumber`. This is a
+  data-freshness problem, not an aggregation problem, and it is the remaining
+  reason portal totals differ from the Books report. Root causes found and
+  fixed: `syncInvoicePayments` threw on any failed payment fetch and aborted
+  the entire invoice write (invoice-only path — sales orders have no payments
+  call, which is why they synced fine), documents for customers with no local
+  Account were skipped on every run instead of having the Account created, and
+  `isStale` treated a missing Zoho timestamp as proof of freshness.
+- Zoho's "Sales by Salesperson" report excludes drafts and reports grand total
+  minus tax, while the portal counts drafts and reports line-item subtotals.
+  The two figures are expected to differ; this is not a bug to chase.
 
 - The working tree is very large and mixed. Before any commit, enumerate and
   stage an intentional scope. Before a whole-tree deployment, state explicitly

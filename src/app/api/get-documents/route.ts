@@ -4,6 +4,12 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasValidTvSession } from '@/lib/tv-auth'
 import { isAdminRole } from '@/lib/roles'
+import {
+  CANCELLED_INVOICE_STATUSES,
+  CANCELLED_INVOICE_STATUS_VARIANTS,
+  NON_RECEIVABLE_INVOICE_STATUS_VARIANTS,
+  plannedInvoiceCommission,
+} from '@/lib/document-status'
 
 export async function GET(request: Request) {
   try {
@@ -91,7 +97,7 @@ export async function GET(request: Request) {
 
     if (statusFilters.includes('overdue')) {
       invoiceWhere.balance = { gt: 0 }
-      invoiceWhere.status = { notIn: ['paid', 'Paid', 'PAID', 'void', 'Void', 'Closed', 'closed', 'Draft', 'draft', 'written_off', 'Written Off', 'WRITTEN_OFF'] }
+      invoiceWhere.status = { notIn: NON_RECEIVABLE_INVOICE_STATUS_VARIANTS }
       invoiceWhere.isWrittenOff = false
     } else if (!loadAll && !startDate && statusFilters.length === 0) {
       invoiceWhere.OR = [
@@ -110,11 +116,21 @@ export async function GET(request: Request) {
       ]
     } else if (statusFilters.length > 0) {
       if (statusFilters.includes('unpaid')) {
-        invoiceWhere.status = { notIn: ['paid', 'void', 'voided', 'draft', 'closed', 'Paid', 'Void', 'Voided', 'Draft', 'Closed', 'PAID', 'VOID', 'VOIDED', 'DRAFT', 'CLOSED'] }
+        invoiceWhere.status = { notIn: NON_RECEIVABLE_INVOICE_STATUS_VARIANTS }
       } else {
         const statuses = statusFilters.flatMap(s => [s.toLowerCase(), s.toUpperCase(), s.charAt(0).toUpperCase() + s.slice(1)])
         invoiceWhere.status = { in: statuses }
       }
+    }
+
+    // Baseline sales rule: an invoice counts at any status unless it was
+    // cancelled or voided. Callers that load everything (TV board, financial
+    // board, exports) previously got no status filter at all, so voided
+    // invoices were counted as revenue while drafts were dropped elsewhere.
+    const requestedCancelledStatuses = statusFilters.some(status =>
+      (CANCELLED_INVOICE_STATUSES as readonly string[]).includes(status))
+    if (!invoiceWhere.status && !requestedCancelledStatuses) {
+      invoiceWhere.status = { notIn: CANCELLED_INVOICE_STATUS_VARIANTS }
     }
 
     // Build Quote & SalesOrder WHERE clauses
@@ -134,13 +150,16 @@ export async function GET(request: Request) {
 
     if (statusFilters.length > 0) {
       if (statusFilters.includes('unpaid')) {
-        quoteWhere.status = { notIn: ['paid', 'void', 'voided', 'draft', 'closed', 'Paid', 'Void', 'Voided', 'Draft', 'Closed'] }
-        salesOrderWhere.status = { notIn: ['paid', 'void', 'voided', 'draft', 'closed', 'Paid', 'Void', 'Voided', 'Draft', 'Closed'] }
+        quoteWhere.status = { notIn: NON_RECEIVABLE_INVOICE_STATUS_VARIANTS }
+        salesOrderWhere.status = { notIn: NON_RECEIVABLE_INVOICE_STATUS_VARIANTS }
       } else {
         const statuses = statusFilters.flatMap(s => [s.toLowerCase(), s.toUpperCase(), s.charAt(0).toUpperCase() + s.slice(1)])
         quoteWhere.status = { in: statuses }
         salesOrderWhere.status = { in: statuses }
       }
+    } else if (!requestedCancelledStatuses) {
+      quoteWhere.status = { notIn: CANCELLED_INVOICE_STATUS_VARIANTS }
+      salesOrderWhere.status = { notIn: CANCELLED_INVOICE_STATUS_VARIANTS }
     }
 
     const skip = (page - 1) * pageSize
@@ -262,17 +281,23 @@ export async function GET(request: Request) {
         }, 0)
       }
 
+      const statusLower = (raw.status || "").toLowerCase()
+      const isPaid = statusLower === "paid" || items?.paymentDate != null
+      const isSameDayPaid = items?.isSameDayPaid || false
+
       // Denormalized invoice metrics are the authoritative values maintained
       // by the cost engine. Prefer them over reparsing historical JSON.
       if (t === 'Invoice' && raw.computedDeadProfit !== null && raw.computedDeadProfit !== undefined) {
         profit = Number(raw.computedDeadProfit) || 0
-        const computedCommission = Number(raw.computedUpfront || 0) + Number(raw.computedFinal || 0)
-        commission = computedCommission
+        const plannedCommission = plannedInvoiceCommission({
+          storedCommission: items?.salesCommission,
+          legacyCommission: items?.commission,
+          computedUpfront: raw.computedUpfront,
+          profit,
+        })
+        commission = isPaid ? plannedCommission : plannedCommission * 0.50
       }
       
-      const statusLower = (raw.status || "").toLowerCase()
-      const isPaid = statusLower === "paid" || items?.paymentDate != null
-      const isSameDayPaid = items?.isSameDayPaid || false
       const isConvertedToSO = statusLower === 'converted' || items?.salesorder_id || items?.salesorder_number || raw.salesorder_id || raw.salesorder_number || false
       const soStatus = statusLower.trim()
       const salesOrderNumber = items?.salesOrderNumber || items?.salesorder_number || items?.sales_order_number || raw.salesorderNumber || ''

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma"
 import { processInvoiceCostsForSystem } from "../../../../../netlify/functions/process-invoice-costs"
 import { processSalesOrderCostsForSystem } from "../../../../../netlify/functions/process-salesorder-costs"
 import { getSystemSettings } from "../../../../../netlify/functions/lib/settings"
+import { INACTIVE_SALES_ORDER_STATUS_VARIANTS } from "@/lib/document-status"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 120
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
     where: {
       zohoId: { in: requestedSalesOrderIds },
       orderDate: { gte: yearStart },
-      status: { notIn: ["invoiced", "billed", "void", "voided", "declined", "cancelled", "canceled", "draft", "orphaned"] },
+      status: { notIn: INACTIVE_SALES_ORDER_STATUS_VARIANTS },
     },
     select: { zohoId: true, items: true },
   })

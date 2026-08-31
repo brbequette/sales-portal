@@ -178,6 +178,42 @@ async function syncDocType(
   }
 }
 
+export async function executeSyncCostsToZoho(options: {
+  docTypes?: DocType[]
+  dryRun?: boolean
+  batchDelay?: number
+} = {}) {
+  const docTypes: DocType[] = options.docTypes || ["invoices", "quotes", "salesorders"]
+  const dryRun = !!options.dryRun
+  const batchDelay = options.batchDelay ? Number(options.batchDelay) : 800
+
+  const stats = { synced: 0, skipped: 0, errors: 0, total: 0, results: [] as any[] }
+  const startTime = Date.now()
+
+  const token = await getZohoAccessToken()
+  if (!token) throw new Error("Failed to get Zoho access token")
+
+  for (const docType of docTypes) {
+    await syncDocType(docType, token, dryRun, batchDelay, stats)
+  }
+
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
+  console.log(`[sync-costs-to-zoho] Done in ${elapsed}s: ${stats.synced} synced, ${stats.skipped} skipped, ${stats.errors} errors`)
+
+  return {
+    success: true,
+    dryRun,
+    elapsed: `${elapsed}s`,
+    summary: {
+      total:   stats.total,
+      synced:  stats.synced,
+      skipped: stats.skipped,
+      errors:  stats.errors,
+    },
+    results: stats.results,
+  }
+}
+
 export async function POST(req: NextRequest) {
   const auth = await requireAdministrator()
   if (auth.errorResponse) return auth.errorResponse
@@ -188,31 +224,9 @@ export async function POST(req: NextRequest) {
   const dryRun = !!body.dryRun
   const batchDelay = body.batchDelay ? Number(body.batchDelay) : 800
 
-  const stats = { synced: 0, skipped: 0, errors: 0, total: 0, results: [] as any[] }
-  const startTime = Date.now()
-
   try {
-    const token = await getZohoAccessToken()
-    if (!token) throw new Error("Failed to get Zoho access token")
-
-    for (const docType of docTypes) {
-      await syncDocType(docType, token, dryRun, batchDelay, stats)
-    }
-
-    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
-    console.log(`[sync-costs-to-zoho] Done in ${elapsed}s: ${stats.synced} synced, ${stats.skipped} skipped, ${stats.errors} errors`)
-
-    return NextResponse.json({
-      success: true, dryRun,
-      elapsed: `${elapsed}s`,
-      summary: {
-        total:   stats.total,
-        synced:  stats.synced,
-        skipped: stats.skipped,
-        errors:  stats.errors,
-      },
-      results: stats.results,
-    }, { headers: CORS })
+    const result = await executeSyncCostsToZoho({ docTypes, dryRun, batchDelay })
+    return NextResponse.json(result, { headers: CORS })
   } catch (err: any) {
     console.error("[sync-costs-to-zoho] Fatal error:", err)
     return NextResponse.json({ success: false, error: err.message }, { status: 500, headers: CORS })

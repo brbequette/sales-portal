@@ -4,6 +4,7 @@ import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
 const ORG_ID = ZOHO_ORGANIZATION_ID
 import { calculateDocumentCosts, buildFieldsToUpdate } from "../../../../netlify/functions/lib/cost-calculations"
 import { requireAdministrator } from "@/lib/auth-helpers"
+import { executeSyncCostsToZoho } from "@/app/api/sync-costs-to-zoho/route"
 
 /**
  * bulk-calculate-costs — Inline Next.js route (no Netlify proxy)
@@ -250,18 +251,7 @@ export async function POST(req: NextRequest) {
     let syncResult: any = null
     if (!opts.dryRun && stats.totalChanged > 0) {
       try {
-        const syncRes = await fetch(`${req.nextUrl.origin}/api/sync-costs-to-zoho`, {
-          method: "POST",
-          // The sync endpoint is independently admin-protected. Forward the
-          // already-validated same-origin session so automatic sync does not
-          // silently fail with 401 after a successful calculation run.
-          headers: {
-            "Content-Type": "application/json",
-            cookie: req.headers.get("cookie") || "",
-          },
-          body: JSON.stringify({ docTypes }),
-        })
-        syncResult = await syncRes.json()
+        syncResult = await executeSyncCostsToZoho({ docTypes })
         console.log(`[bulk-calculate-costs] Auto-sync: ${syncResult?.summary?.synced ?? 0} synced to Zoho`)
       } catch (syncErr: any) {
         console.warn("[bulk-calculate-costs] Auto-sync failed (non-fatal):", syncErr.message)

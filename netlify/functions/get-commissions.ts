@@ -6,12 +6,19 @@ import { isNoVigItem, calculateDocumentCosts } from "./lib/cost-calculations"
 import { extractDeadCostTotal, extractCcFees, extractAdditionalCosts } from "../../src/lib/custom-field-extractor"
 import { getSystemSettings } from "../../src/lib/settings"
 import { isAdminRole } from "../../src/lib/roles"
+import {
+  CANCELLED_INVOICE_STATUSES,
+  CANCELLED_INVOICE_STATUS_VARIANTS,
+  INACTIVE_SALES_ORDER_STATUSES,
+} from "./lib/document-status"
 
 
 // Statuses where the FINAL half is earned (invoice has been paid)
 const FINAL_PAID_STATUSES = new Set(['Paid', 'paid', 'Closed', 'closed', 'Fulfilled', 'fulfilled'])
-// Statuses where at least the UPFRONT half is earned (invoice created/open)
-const SKIP_STATUSES = new Set(['Void', 'void', 'Draft', 'draft'])
+// Paperwork that never earns commission. An invoice at ANY other status
+// (draft, sent, unpaid, overdue, partially paid, paid) is a real sale and
+// earns at least the upfront half.
+const SKIP_STATUSES = new Set<string>(CANCELLED_INVOICE_STATUS_VARIANTS)
 
 function getSubTotal(items: any, amount: number) {
   let sub = parseFloat(items?.sub_total ?? items?.subTotal ?? 0)
@@ -59,7 +66,7 @@ const authenticatedHandler: Handler = async (event) => {
     // ── checkOnly mode: fast staleness check without full commission calc ──
     if (checkOnly === 'true') {
       const targetYr = year || 'all'
-      let countWhere: any = { status: { notIn: ['Void', 'void', 'Draft', 'draft'] } }
+      let countWhere: any = { status: { notIn: CANCELLED_INVOICE_STATUS_VARIANTS } }
       if (effectiveRepId) countWhere.account = { ownerId: effectiveRepId }
       if (targetYr !== 'all' && !isNaN(parseInt(targetYr))) {
         countWhere.issueDate = { gte: new Date(`${targetYr}-01-01`), lt: new Date(`${parseInt(targetYr)+1}-01-01`) }
@@ -81,7 +88,7 @@ const authenticatedHandler: Handler = async (event) => {
       dateFilter = { gte: start, lt: end }
     }
 
-    // --- Commission source: ALL invoices except Void/Draft ---
+    // --- Commission source: ALL invoices except cancelled/voided ---
     // Upfront half earned on creation, final half earned on payment
     // --- Batch all queries concurrently in a single Promise.all trip ---
     let payoutWhere: any = effectiveRepId ? { repId: effectiveRepId } : {}
@@ -175,7 +182,7 @@ const authenticatedHandler: Handler = async (event) => {
           ORDER BY "isPrimary" DESC NULLS LAST, "createdAt" ASC
           LIMIT 1
         ) c ON true
-        WHERE i.status NOT IN ('Void','void','Draft','draft')
+        WHERE LOWER(TRIM(COALESCE(i.status, ''))) NOT IN (${Prisma.join([...CANCELLED_INVOICE_STATUSES])})
         ORDER BY i."issueDate" DESC NULLS LAST
       `).catch(() => []),
       prisma.$queryRaw<any[]>(Prisma.sql`
@@ -231,7 +238,7 @@ const authenticatedHandler: Handler = async (event) => {
           ) AS items
         FROM "SalesOrder" s
         LEFT JOIN "Account" a ON a.id = s."accountId"
-        WHERE s.status NOT IN ('Void','void','Draft','draft','Cancelled','cancelled','Invoiced','invoiced','Converted','converted')
+        WHERE LOWER(TRIM(COALESCE(s.status, ''))) NOT IN (${Prisma.join([...INACTIVE_SALES_ORDER_STATUSES])})
         ${soDateSql}
         ORDER BY s."orderDate" DESC NULLS LAST
       `).catch(() => []),
@@ -988,16 +995,17 @@ const authenticatedHandler: Handler = async (event) => {
     // ── Get available years from invoices ────────────────────────────────
     let years: number[] = []
     try {
-      const yearRows = await prisma.$queryRaw<{ y: number }[]>`
+      const yearRows = await prisma.$queryRaw<{ y: number }[]>(Prisma.sql`
         SELECT DISTINCT y FROM (
           SELECT EXTRACT(YEAR FROM "issueDate")::int AS y FROM "Invoice"
-            WHERE "issueDate" IS NOT NULL AND status NOT IN ('Void','void','Draft','draft')
+            WHERE "issueDate" IS NOT NULL
+              AND LOWER(TRIM(COALESCE(status, ''))) NOT IN (${Prisma.join([...CANCELLED_INVOICE_STATUSES])})
           UNION
           SELECT EXTRACT(YEAR FROM "closingDate")::int AS y FROM "Deal" WHERE "closingDate" IS NOT NULL
           UNION
           SELECT EXTRACT(YEAR FROM "createdAt")::int AS y FROM "Deal" WHERE "closingDate" IS NULL
         ) t WHERE y IS NOT NULL ORDER BY y DESC
-      `
+      `)
       years = yearRows.map(r => r.y)
     } catch (yearErr: any) {
       console.warn("Years query failed, using fallback:", yearErr.message)

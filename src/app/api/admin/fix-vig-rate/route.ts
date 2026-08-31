@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { calculateDocumentCosts } from "../../../../../netlify/functions/lib/cost-calculations"
 import { requireAdministrator } from "@/lib/auth-helpers"
+import { CANCELLED_INVOICE_STATUS_VARIANTS } from "@/lib/document-status"
 
 /**
  * POST /api/admin/fix-vig-rate
@@ -38,7 +39,8 @@ export async function POST(req: NextRequest) {
       const allInvoices = await prisma.invoice.findMany({
         where: {
           issueDate: { gte: monthStart, lte: monthEnd },
-          NOT: { status: { in: ['Void', 'Draft'] } },
+          // Drafts are real sales here, so their VIG/costs must be recomputed too.
+          status: { notIn: CANCELLED_INVOICE_STATUS_VARIANTS },
           account: { ownerId: repId }
         },
         select: { id: true, items: true }
