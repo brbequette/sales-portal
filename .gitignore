@@ -78,3 +78,16 @@ scripts/backfill/*backup*.json
 /cf_profit
 /deadCostTotal
 /deadProfitActual
+# Local caches, exports, and temporary review artifacts
+**/__pycache__/
+*.pyc
+*.patch
+*.dump
+*.sql
+*.sql.gz
+backups/
+output/
+outputs/
+tmp/
+.codex/
+.env*

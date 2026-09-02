@@ -8,7 +8,7 @@ export async function POST(req: Request) {
     const auth = await requireAdministrator()
     if (auth.errorResponse) return auth.errorResponse
     const data = await req.json()
-    const { id, name, price, descriptionText, size, application, manufacturer, vendor, qualityTier } = data
+    const { id, name, price, descriptionText, size, application, manufacturer, vendor, qualityTier, subjectToVig, giftItem, showOnWeb } = data
 
     if (!id) {
       return NextResponse.json({ error: "Missing product ID" }, { status: 400 })
@@ -78,7 +78,10 @@ export async function POST(req: Request) {
         application,
         manufacturer,
         vendor,
-        qualityTier
+        qualityTier,
+        subjectToVig: subjectToVig !== undefined ? Boolean(subjectToVig) : undefined,
+        giftItem: giftItem !== undefined ? Boolean(giftItem) : undefined,
+        showOnWeb: giftItem === true ? false : showOnWeb !== undefined ? Boolean(showOnWeb) : undefined
       }
     })
 

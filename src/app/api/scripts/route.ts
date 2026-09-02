@@ -9,7 +9,7 @@ export async function GET() {
     if (!session?.user) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 })
     const scripts = await prisma.callScript.findMany({
       where: { isActive: true },
-      orderBy: { createdAt: 'desc' }
+      orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }]
     })
     return NextResponse.json({ success: true, scripts })
   } catch (error: any) {

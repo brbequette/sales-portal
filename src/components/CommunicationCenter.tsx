@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 
 /**
  * CommunicationCenter.tsx
@@ -43,18 +44,30 @@ const tierColors: Record<string, string> = {
   Best: "bg-cyan-500/10 border-cyan-500/20 text-cyan-400",
 }
 
+type SavedCampaignTemplate = {
+  id: string
+  name: string
+  content: string
+  channel: string
+  imageUrl?: string | null
+}
+
 // â”â”â” Main Component â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 
 export function CommunicationCenter({
   accountId,
   account,
   contacts,
+  selectedContactId,
+  onContactChange,
 }: {
   accountId: string
   account?: any
   contacts?: any[]
+  selectedContactId?: string
+  onContactChange?: (contactId: string) => void
 }) {
-  const data = useCommunicationData({ accountId, account, contacts })
+  const data = useCommunicationData({ accountId, account, contacts, selectedContactId })
   const {
     currentUser, repName,
     activeTab, setActiveTab, callSubTab, setCallSubTab,
@@ -81,6 +94,41 @@ export function CommunicationCenter({
   } = data
 
   const bladeRecs = getBladeRecommendations()
+  const [campaignTemplates, setCampaignTemplates] = useState<SavedCampaignTemplate[]>([])
+  const [emailCampaignDraft, setEmailCampaignDraft] = useState<{ id: string; subject: string; body: string } | null>(null)
+
+  useEffect(() => {
+    let active = true
+    fetch("/api/campaign-templates", { cache: "no-store" })
+      .then(async response => response.ok ? response.json() : null)
+      .then(payload => { if (active && payload?.success) setCampaignTemplates(payload.templates || []) })
+      .catch(() => undefined)
+    return () => { active = false }
+  }, [])
+
+  const loadCampaign = (templateId: string) => {
+    const template = campaignTemplates.find(item => item.id === templateId)
+    if (!template) return
+    const copy = template.content
+      .replace(/{{contactName}}/g, contactName || "Customer")
+      .replace(/{{accountName}}/g, account?.name || "")
+      .replace(/{{repName}}/g, repName || "Your Rep")
+    const channel = template.channel.toUpperCase()
+    if (channel === "EMAIL") {
+      setEmailCampaignDraft({ id: `${template.id}-${Date.now()}`, subject: template.name, body: copy })
+      setActiveTab("EMAIL")
+    } else if (channel === "POSTAL") {
+      window.dispatchEvent(new CustomEvent("titan:postal-campaign", { detail: { subject: template.name, body: copy } }))
+    } else if (channel === "PHONE" || channel === "VOICE") {
+      setScriptText(copy)
+      setShowScript(true)
+      setCallSubTab("SCRIPT")
+      setActiveTab("CALL")
+    } else {
+      setSmsText(copy)
+      setActiveTab("SMS")
+    }
+  }
 
 
 
@@ -113,12 +161,23 @@ type Message = {
         Communications &amp; Sales Center
       </h2>
 
+      {campaignTemplates.length > 0 && (
+        <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3">
+          <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-cyan-300">Load saved campaign or flyer copy</label>
+          <select defaultValue="" onChange={event => { loadCampaign(event.target.value); event.currentTarget.value = "" }} className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-xs text-white outline-none focus:border-cyan-500">
+            <option value="" disabled>Select content and open its communication tool…</option>
+            {campaignTemplates.map(template => <option key={template.id} value={template.id}>{template.name} · {template.channel}</option>)}
+          </select>
+          <p className="mt-1 text-[10px] text-neutral-500">Flyer artwork stays with the saved campaign; direct text messaging currently loads the copy only.</p>
+        </div>
+      )}
+
       {/* Primary Contact Banner */}
       {primaryContact ? (
         <div className="p-3 bg-neutral-800/50 border border-neutral-700 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <div className="text-[10px] text-neutral-400 uppercase tracking-wider font-bold">Communicating with</div>
-            <div className="font-bold text-base text-white">{primaryContact.firstName} {primaryContact.lastName}</div>
+            {contacts && contacts.length > 1 && onContactChange ? <select value={primaryContact.id} onChange={event => onContactChange(event.target.value)} className="my-1 rounded-lg border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm font-bold text-white outline-none focus:border-cyan-500">{contacts.map(contact => <option key={contact.id} value={contact.id}>{[contact.firstName, contact.lastName].filter(Boolean).join(" ") || "Unnamed contact"}{contact.isPrimary ? " · Primary" : ""}</option>)}</select> : <div className="font-bold text-base text-white">{primaryContact.firstName} {primaryContact.lastName}</div>}
             <div className="text-xs text-neutral-500 font-mono mt-0.5">
               {activeTab === "EMAIL" ? primaryContact.email : (
                 cleanPhone
@@ -622,7 +681,7 @@ type Message = {
       Ã¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-Â */}
       {activeTab === "EMAIL" && (
         <div className="flex-1 flex flex-col min-h-0">
-          <EmailInbox accountId={accountId} account={account} contacts={contacts} />
+          <EmailInbox key={`${emailCampaignDraft?.id || "account-email"}-${primaryContact?.id || "primary"}`} accountId={accountId} account={account} contacts={contacts} selectedContactId={primaryContact?.id} campaignDraft={emailCampaignDraft} />
         </div>
       )}
 

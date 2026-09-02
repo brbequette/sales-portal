@@ -25,6 +25,8 @@ self.addEventListener('activate', function(event) {
 // attempt and only falls back to the branded offline page if the network is down.
 self.addEventListener('fetch', function(event) {
   if (event.request.method !== 'GET' || event.request.mode !== 'navigate') return
+  var requestUrl = new URL(event.request.url)
+  if (requestUrl.pathname.indexOf('/api/auth/') === 0 || requestUrl.pathname === '/auth/complete') return
   event.respondWith(
     fetch(event.request).catch(function() {
       return caches.match('/offline.html')

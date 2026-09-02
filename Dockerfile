@@ -1,20 +1,24 @@
+# syntax=docker/dockerfile:1.7
 FROM node:20-bookworm-slim AS dependencies
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 FROM dependencies AS builder
 WORKDIR /app
 COPY . .
 # Build-time placeholders apply to this command only and are never persisted in
 # the image configuration. Runtime secrets are injected by Docker Compose.
-RUN npx prisma generate && \
+RUN --mount=type=cache,target=/root/.npm \
+    --mount=type=cache,target=/app/.next/cache \
+    npx prisma generate && \
     NEXT_TELEMETRY_DISABLED=1 \
     NEXTAUTH_SECRET=build-only-not-for-runtime \
     DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build \
     OPENAI_API_KEY=build-only-not-for-runtime \
-    npm run build
+    # Docker standalone output requires webpack; development remains on the default Turbopack path.
+    npm run build -- --webpack
 
 # Development dependencies and Prisma engines are prepared while the image has
 # build-time network access. The running dev container stays internal-only.

@@ -11,6 +11,7 @@
  *   - Commission = Profit * commissionPct  (only when Profit > 0)
  */
 
+import { aggregateShippingCosts } from "../../../src/lib/shipping-costs"
 import { prisma } from "./prisma"
 import { getSystemSettings, AppSettings } from "./settings"
 import { extractCcFees, extractAdditionalCosts, extractInsurance, extractActualShippingCost, extractShippingCostBreakdown } from "../../../src/lib/custom-field-extractor"
@@ -50,6 +51,7 @@ export interface CostCalculationResult {
   usedFallbackCost: boolean  // true when dead cost was estimated (no real cost data on line items)
   actualShippingCost: number
   shippingCostBreakdown: string
+  shippingRollup: Record<string, unknown>
   lineItemDetails: LineItemDetail[]
   lineItemBreakdownStrings: string[]
 }
@@ -435,8 +437,37 @@ export async function calculateDocumentCosts(
     return `${d.quantity}x ${d.sku || d.name} | Cost: $${d.cost.toFixed(2)} | DC: $${d.deadCost.toFixed(2)} | VIG-DC: $${vigDC.toFixed(2)} | ${vigLabel}${flagStr}`
   })
 
-  // ─── 5. Profit ──────────────────────────────────────────────────────────────
+  // ─── 4b. Shipping Cost & Breakdown Resolution ──────────────────────────────
+  const legacyShippingCost = extractActualShippingCost(doc)
+  const legacyShippingBreakdown = extractShippingCostBreakdown(doc) || ""
+  const docSoNum = doc.salesorder_number || doc.items?.salesOrderNumber || doc.items?.salesorderNumber
+  const docSoId = doc.salesorder_id || doc.items?.salesOrderZohoId || doc.items?.salesorder_id
+  let dbPackages: any[] = []
 
+  if (docSoNum || docSoId) {
+    try {
+      const packageLinks = [
+        docSoNum ? { salesOrderNumber: String(docSoNum) } : null,
+        docSoId ? { salesOrderId: String(docSoId) } : null,
+      ].filter(Boolean) as any[]
+      dbPackages = await prisma.package.findMany({ where: { OR: packageLinks } })
+    } catch (e) {
+      console.error("Error checking packages for shipping breakdown:", e)
+    }
+  }
+
+  const shipping = aggregateShippingCosts({
+    legacyCost: legacyShippingCost,
+    legacyBreakdown: legacyShippingBreakdown,
+    allocations: doc.items?.shippingAllocations || doc.shippingAllocations || [],
+    packages: dbPackages,
+    priorRollup: doc.items?.shippingRollup || null,
+  })
+  const actualShippingCost = shipping.total
+  const shippingCostBreakdown = shipping.breakdown
+
+  // ─── 5. Profit ──────────────────────────────────────────────────────────────
+  // Actual freight/label cost is tracked for invoice and shipping reporting only; it does not reduce profit or commission.
   const totalDeductions  = deadCostPlusVig + ccFees + additionalCosts
   const profit           = subTotal - totalDeductions
   const marginPercent    = subTotal > 0 ? (profit / subTotal) * 100 : 0
@@ -450,43 +481,6 @@ export async function calculateDocumentCosts(
 
   // ─── 7. Paid ────────────────────────────────────────────────────────────────
   const isPaid = doc.status === "paid" || parseFloat(doc.balance || 0) <= 0
-
-  // ─── 4b. Shipping Cost & Breakdown Resolution ──────────────────────────────
-  let actualShippingCost = extractActualShippingCost(doc)
-  let shippingCostBreakdown = extractShippingCostBreakdown(doc) || ""
-
-  // If DB packages exist for this document, build itemized breakdown
-  const docSoNum = doc.salesorder_number || doc.items?.salesOrderNumber
-  const docInvNum = doc.invoice_number || doc.items?.invoiceNumber
-  const docBooksId = doc.invoice_id || doc.salesorder_id || doc.id
-
-  if (docSoNum || docInvNum || docBooksId) {
-    try {
-      const dbPackages = await prisma.package.findMany({
-        where: {
-          OR: [
-            { salesOrderNumber: String(docSoNum || '') },
-            { salesOrderId: String(docBooksId || '') }
-          ]
-        }
-      })
-      if (dbPackages.length > 0) {
-        const pkgTotal = dbPackages.reduce((sum, p) => sum + (p.shippingCharge || 0), 0)
-        if (pkgTotal > 0 && (actualShippingCost === 0 || actualShippingCost < pkgTotal)) {
-          actualShippingCost = pkgTotal
-        }
-        const pkgStrings = dbPackages.map(p => 
-          `Pkg #${p.packageNumber || p.zohoId} (${p.carrier || 'Shipment'} ${p.trackingNumber || ''}) - $${(p.shippingCharge || 0).toFixed(2)}`
-        )
-        if (pkgStrings.length > 0 && !shippingCostBreakdown) {
-          shippingCostBreakdown = pkgStrings.join("\n")
-        }
-      }
-    } catch (e) {
-      console.error("Error checking packages for shipping breakdown:", e)
-    }
-  }
-
   return {
     deadCostSubjectToVig, deadCostNoVig, deadCostTotal,
     vigRate, deadCostPlusVig,
@@ -494,7 +488,7 @@ export async function calculateDocumentCosts(
     subTotal, totalDeductions,
     profit, marginPercent, deadProfitActual,
     commissionPct, salesCommission,
-    isPaid, usedFallbackCost, actualShippingCost, shippingCostBreakdown,
+    isPaid, usedFallbackCost, actualShippingCost, shippingCostBreakdown, shippingRollup: shipping.rollup,
     lineItemDetails, lineItemBreakdownStrings,
   }
 }

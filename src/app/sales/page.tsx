@@ -8,6 +8,7 @@ import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 import { SalesCallCampaignModal } from "@/components/SalesCallCampaignModal"
 import { OrderNextSteps } from "@/components/OrderNextSteps"
 import { NewCustomerModal } from "@/components/NewCustomerModal"
+import { NewLeadModal } from "@/components/NewLeadModal"
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
@@ -26,7 +27,7 @@ import { CallTaskSidebar } from "@/components/CallTaskSidebar"
 import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiPhone, FiMail, FiMessageSquare, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiAlertCircle, FiBox, FiLayers, FiEye, FiTarget, FiImage, FiUserPlus } from "react-icons/fi"
 import { toast } from 'react-hot-toast';
 import { useCampaignProgress } from "@/components/CampaignProgressProvider"
-import { sessionGet, sessionSet, localGet, localSet, TTL } from "@/lib/dataCache"
+import { sessionGet, sessionSet, TTL } from "@/lib/dataCache"
 import { UpdateBanner } from "@/lib/useStaleCheck"
 import { isAdminRole, isAdministratorRole } from "@/lib/roles"
 
@@ -140,61 +141,63 @@ function isDoNotCallAccount(account: any): boolean {
   return false
 }
 
-export function getExclusivityDetails(account: any, nowMs: number) {
-  const originDateStr = account.lastPurchaseAt || account.lastOrderDate || account.createdAt
-  const originTime = originDateStr ? new Date(originDateStr).getTime() : nowMs
-  const endMs = originTime + (365 * 24 * 60 * 60 * 1000)
-  const msLeft = endMs - nowMs
+function collapseDuplicateAccounts(source: any[]) {
+  const groups = new Map<string, any[]>()
+  for (const account of source) {
+    const key = String(account.name || account.zohoId || account.id).trim().toLocaleLowerCase()
+    const group = groups.get(key)
+    if (group) group.push(account)
+    else groups.set(key, [account])
+  }
 
-  if (msLeft <= 0) {
+  return Array.from(groups.values()).map((group) => {
+    if (group.length === 1) return group[0]
+    const canonical = [...group].sort((a, b) => {
+      const score = (item: any) =>
+        Number(item.totalSales || 0) +
+        Number(item.totalProfit || 0) +
+        ((item.contacts || []).length * 100) +
+        ((item.unpaidCount || 0) * 100)
+      return score(b) - score(a)
+    })[0]
+    const uniqueBy = (items: any[], key: (item: any) => string) =>
+      Array.from(new Map(items.map((item) => [key(item), item])).values())
+    const contacts = uniqueBy(
+      group.flatMap((item) => item.contacts || []),
+      (item) => String(item.zohoId || item.id || `${item.email || ''}:${item.phone || item.mobilePhone || ''}`),
+    )
+    const boughtProducts = uniqueBy(
+      group.flatMap((item) => item.boughtProducts || []),
+      (item) => `${item.sku || ''}:${item.name || ''}`.toLocaleLowerCase(),
+    )
+    const latestDate = (field: string) => group
+      .map((item) => item[field])
+      .filter(Boolean)
+      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || null
+
     return {
-      msLeft: 0,
-      daysLeft: 0,
-      category: "expired",
-      formatted: "UNLOCKED",
-      badgeClass: "bg-neutral-800 text-neutral-400 border-neutral-700",
-      textClass: "text-neutral-400 font-semibold",
+      ...canonical,
+      duplicateCount: group.length,
+      sourceAccountIds: group.map((item) => item.id),
+      sourceZohoIds: group.map((item) => item.zohoId),
+      ownerConflict: new Set(group.map((item) => item.ownerId || item.owner?.id).filter(Boolean)).size > 1,
+      contacts,
+      boughtProducts,
+      purchasedProductNames: boughtProducts.map((item) => item.name).filter(Boolean),
+      unpaidInvoiceSummary: group.flatMap((item) => item.unpaidInvoiceSummary || []),
+      totalSales: group.reduce((sum, item) => sum + Number(item.totalSales || 0), 0),
+      totalProfit: group.reduce((sum, item) => sum + Number(item.totalProfit || 0), 0),
+      overdueBalance: group.reduce((sum, item) => sum + Number(item.overdueBalance || 0), 0),
+      overdueCount: group.reduce((sum, item) => sum + Number(item.overdueCount || 0), 0),
+      unpaidBalance: group.reduce((sum, item) => sum + Number(item.unpaidBalance || 0), 0),
+      unpaidCount: group.reduce((sum, item) => sum + Number(item.unpaidCount || 0), 0),
+      lastPurchaseAt: latestDate('lastPurchaseAt'),
+      lastCalledAt: latestDate('lastCalledAt'),
     }
-  }
-
-  const secondsTotal = Math.floor(msLeft / 1000)
-  const days = Math.floor(secondsTotal / 86400)
-  const hours = Math.floor((secondsTotal % 86400) / 3600)
-  const minutes = Math.floor((secondsTotal % 3600) / 60)
-  const seconds = secondsTotal % 60
-
-  const formatted = `${days}d ${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`
-
-  let category: "green" | "yellow" | "red" = "green"
-  let badgeClass = ""
-  let textClass = ""
-
-  if (days > 180) {
-    // Green: > 6 months left (> 180 days)
-    category = "green"
-    badgeClass = "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
-    textClass = "text-emerald-400 font-bold"
-  } else if (days >= 90) {
-    // Yellow: 3 to 6 months left (90 to 180 days)
-    category = "yellow"
-    badgeClass = "bg-amber-500/15 text-amber-300 border-amber-500/30"
-    textClass = "text-amber-400 font-bold"
-  } else {
-    // Red: 1 to 3 months left (< 90 days)
-    category = "red"
-    badgeClass = "bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse"
-    textClass = "text-rose-400 font-bold"
-  }
-
-  return {
-    msLeft,
-    daysLeft: days,
-    category,
-    formatted,
-    badgeClass,
-    textClass,
-  }
+  })
 }
+
+import { getExclusivityDetails } from "@/lib/exclusivity"
 
 export default function SalesPage() {
   const { isInitialized, zohoContext: currentUser } = useZoho()
@@ -293,6 +296,7 @@ export default function SalesPage() {
   const [showAssetSelector, setShowAssetSelector] = useState(false)
   const [leads, setLeads] = useState<any[]>([])
   const [showAddAccount, setShowAddAccount] = useState(false)
+  const [showAddLead, setShowAddLead] = useState(false)
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const updateCheckSigRef = useRef<string | null>(null)
 
@@ -424,7 +428,7 @@ export default function SalesPage() {
     const cached = sessionGet<any[]>('campaign-templates', TTL.THIRTY_MIN)
     if (cached) { setCampaignTemplates(cached); return }
     try {
-      const res = await fetch("/api/admin/campaigns")
+      const res = await fetch("/api/campaign-templates")
       const data = await res.json()
       if (data.success) {
         const templates = data.templates || []
@@ -435,8 +439,6 @@ export default function SalesPage() {
   }
 
   const fetchZohoNumbers = async () => {
-    const cached = localGet<{ numbers: any[]; defaultNumber: string }>('zoho-numbers', TTL.ONE_DAY)
-    if (cached) { setZohoNumbers(cached.numbers); setSelectedZohoNumber(cached.defaultNumber); return }
     try {
       const res = await fetch("/api/manage-zoho-numbers")
       const d = await res.json()
@@ -445,7 +447,6 @@ export default function SalesPage() {
         const def = d.numbers.find((n: any) => n.isDefault)
         const defaultNumber = def ? def.number : (d.numbers[0]?.number || "")
         setSelectedZohoNumber(defaultNumber)
-        localSet('zoho-numbers', { numbers: d.numbers, defaultNumber })
       }
     } catch (e) {}
   }
@@ -606,7 +607,7 @@ export default function SalesPage() {
     )
   }
 
-  const filteredByOwnerActive = accounts.filter(a => matchesOwnerFilter(a, ownerFilter))
+  const filteredByOwnerActive = collapseDuplicateAccounts(accounts.filter(a => matchesOwnerFilter(a, ownerFilter)))
 
   const filteredAccounts = filteredByOwnerActive.filter(account => {
     const isDNC = isDoNotCallAccount(account)
@@ -874,7 +875,7 @@ export default function SalesPage() {
         scheduledTime,
         useAccountTimezone
       } as any)
-      
+      if (!res.success) throw new Error(res.error || "Failed to start campaign")
       setShowCampaignModal(false)
       if (isScheduled) {
         toast.success("Campaign blast scheduled successfully!")
@@ -899,6 +900,13 @@ export default function SalesPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="page-title">My Sales Pipeline</h1>
+                  <Link
+                    href="/sales/todays-calls"
+                    className="px-2.5 py-1 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 font-bold rounded-lg text-[10px] flex items-center gap-1.5 transition-all"
+                  >
+                    <FiTarget size={11} />
+                    <span>Sales Execution Workspace</span>
+                  </Link>
                   <Link
                     href="/sales/leads-calling"
                     className="px-2.5 py-1 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold rounded-lg text-[10px] flex items-center gap-1.5 shadow-md transition-all"
@@ -1079,12 +1087,7 @@ export default function SalesPage() {
             {leads.length} unconverted leads found in CRM. Grouped by company.
           </p>
         </div>
-        <button
-          onClick={fetchLeads}
-          className="px-3.5 py-2 bg-orange-500/20 text-orange-300 border border-orange-500/30 rounded-lg text-xs font-bold hover:bg-orange-500/30 flex items-center gap-1.5 transition-colors cursor-pointer"
-        >
-          <FiRefreshCw size={13} /> Sync Leads from CRM
-        </button>
+        <div className="flex flex-wrap gap-2"><button onClick={() => setShowAddLead(true)} className="px-3.5 py-2 bg-orange-500 text-black rounded-lg text-xs font-black hover:bg-orange-400 flex items-center gap-1.5"><FiUserPlus size={13} /> Add Lead</button><button onClick={fetchLeads} className="px-3.5 py-2 bg-orange-500/20 text-orange-300 border border-orange-500/30 rounded-lg text-xs font-bold hover:bg-orange-500/30 flex items-center gap-1.5 transition-colors cursor-pointer"><FiRefreshCw size={13} /> Refresh Leads</button></div>
       </div>
 
       {leads.length === 0 ? (
@@ -1357,14 +1360,16 @@ export default function SalesPage() {
                             <div className="flex flex-wrap items-center gap-2">
                               <input 
                                 type="checkbox"
-                                checked={accountsPagination.paginatedItems.length > 0 && accountsPagination.paginatedItems.every(a => selectedAccountIds.includes(a.id))}
+                                checked={activeAccountsList.length > 0 && activeAccountsList.every(a => selectedAccountIds.includes(a.id))}
+                                aria-label={`Select all ${activeAccountsList.length} filtered accounts across every page`}
+                                title={`Select all ${activeAccountsList.length} filtered accounts across every page`}
                                 onChange={() => {
-                                  const pageIds = accountsPagination.paginatedItems.map(a => a.id)
-                                  const allPageSelected = pageIds.length > 0 && pageIds.every(id => selectedAccountIds.includes(id))
-                                  if (allPageSelected) {
-                                    setSelectedAccountIds(prev => prev.filter(id => !pageIds.includes(id)))
+                                  const allFilteredIds = activeAccountsList.map(a => a.id)
+                                  const allFilteredSelected = allFilteredIds.length > 0 && allFilteredIds.every(id => selectedAccountIds.includes(id))
+                                  if (allFilteredSelected) {
+                                    setSelectedAccountIds(prev => prev.filter(id => !allFilteredIds.includes(id)))
                                   } else {
-                                    setSelectedAccountIds(prev => [...new Set([...prev, ...pageIds])])
+                                    setSelectedAccountIds(prev => [...new Set([...prev, ...allFilteredIds])])
                                   }
                                 }}
                                 className="w-4 h-4 rounded border-[var(--border)] text-emerald-600 focus:ring-emerald-500 bg-neutral-800 cursor-pointer shrink-0"
@@ -1461,7 +1466,7 @@ export default function SalesPage() {
 
                                   <div className="flex items-center gap-2 flex-wrap">
                                     <button 
-                                      onClick={() => setShowCampaignModal(true)}
+                                      onClick={() => { fetchZohoNumbers(); setShowCampaignModal(true) }}
                                       className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-all flex items-center gap-1.5 text-xs cursor-pointer shadow-md"
                                     >
                                       <FiMail size={14} />
@@ -2336,6 +2341,11 @@ export default function SalesPage() {
       )}
 
       {/* Add Account Modal */}
+      {showAddLead && typeof window !== "undefined" && createPortal(
+        <NewLeadModal isOpen={showAddLead} onClose={() => setShowAddLead(false)} onCreated={fetchLeads} />,
+        document.body
+      )}
+
       {showAddAccount && typeof window !== "undefined" && createPortal(
         <NewCustomerModal
           isOpen={showAddAccount}

@@ -1,14 +1,20 @@
 "use client"
 
+/* Campaign payloads are provider-shaped records pending a shared static model. */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { toastConfirm } from '@/lib/toastConfirm'
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { FiTrash2, FiPlus, FiTarget, FiActivity, FiImage, FiPhone } from "react-icons/fi"
+import { useState, useEffect, useSyncExternalStore } from "react"
+import { FiTrash2, FiPlus, FiTarget, FiActivity, FiImage } from "react-icons/fi"
 import { toast } from 'react-hot-toast';
 
 export default function AdminCampaignsPage() {
-  const router = useRouter()
+  const accountName = useSyncExternalStore(
+    callback => { window.addEventListener("popstate", callback); return () => window.removeEventListener("popstate", callback) },
+    () => new URLSearchParams(window.location.search).get("accountName") || "",
+    () => "",
+  )
   const [templates, setTemplates] = useState<any[]>([])
   const [blasts, setBlasts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -20,12 +26,7 @@ export default function AdminCampaignsPage() {
   const [imageUrl, setImageUrl] = useState('')
   const [channel, setChannel] = useState('SMS')
 
-  useEffect(() => {
-    fetchData()
-  }, [])
-
-  const fetchData = async () => {
-    setLoading(true)
+  async function fetchData() {
     try {
       const res = await fetch('/api/admin/campaigns')
       const data = await res.json()
@@ -37,6 +38,10 @@ export default function AdminCampaignsPage() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    void fetchData()
+  }, [])
 
   const handleCreate = async () => {
     if (!name || !content) return toast.error("Name and Content are required")
@@ -54,7 +59,7 @@ export default function AdminCampaignsPage() {
         setContent('')
         setImageUrl('')
       } else toast.error("Error: " + data.error)
-    } catch (e: any) {
+    } catch {
       toast.error("Error creating template")
     }
   }
@@ -64,7 +69,7 @@ export default function AdminCampaignsPage() {
     try {
       const res = await fetch(`/api/admin/campaigns?id=${id}`, { method: 'DELETE' })
       if (res.ok) setTemplates(templates.filter(t => t.id !== id))
-    } catch (e) {
+    } catch {
       toast.error("Error deleting")
     }
   });}
@@ -86,6 +91,7 @@ export default function AdminCampaignsPage() {
       </div>
 
       <div className="page-body">
+        {accountName && <div className="mb-5 rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100"><span className="font-black uppercase">Account context:</span> {accountName}. Build reusable content here, then return to Communications &amp; Sales to contact this account.</div>}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Templates Section */}
           <div className="glass-panel/50 border border-white/10 rounded-xl p-6">
@@ -109,6 +115,8 @@ export default function AdminCampaignsPage() {
                   <label className="text-xs text-neutral-500 block mb-1">Channel</label>
                   <select value={channel} onChange={e => setChannel(e.target.value)} className="w-full bg-black/20 border border-neutral-700 rounded px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
                     <option value="SMS">SMS / MMS</option>
+                    <option value="EMAIL">Email</option>
+                    <option value="POSTAL">Postal mail</option>
                     <option value="Voice">Voice Call</option>
                   </select>
                 </div>
@@ -116,7 +124,7 @@ export default function AdminCampaignsPage() {
                   <label className="text-xs text-neutral-500 block mb-1">Content</label>
                   <textarea value={content} onChange={e => setContent(e.target.value)} rows={4} className="w-full bg-black/20 border border-neutral-700 rounded px-3 py-2 text-white focus:border-emerald-500 focus:outline-none" />
                 </div>
-                {channel === 'SMS' && (
+                {(channel === 'SMS' || channel === 'EMAIL') && (
                   <div>
                     <label className="text-xs text-neutral-500 block mb-1">Image URL (Optional for MMS)</label>
                     <input value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://..." className="w-full bg-black/20 border border-neutral-700 rounded px-3 py-2 text-white focus:border-emerald-500 focus:outline-none" />

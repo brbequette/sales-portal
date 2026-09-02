@@ -200,6 +200,7 @@ export function extractProfit(docOrItems: any): number {
  */
 export function extractDeadProfit(docOrItems: any, documentSubtotal?: number): number {
   const explicit = extractCustomFieldValue(docOrItems, 'deadProfitActual', null)
+    ?? extractCustomFieldValue(docOrItems, 'cf_dead_profit_actual', null)
     ?? extractCustomFieldValue(docOrItems, 'dead_profit_actual', null)
     ?? extractCustomFieldValue(docOrItems, 'cf_dead_profit', null)
     ?? extractCustomFieldValue(docOrItems, 'computedDeadProfit', null);

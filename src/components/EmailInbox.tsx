@@ -14,11 +14,15 @@ import { isAdministratorRole } from "@/lib/roles"
 export function EmailInbox({
   accountId,
   account,
-  contacts
+  contacts,
+  selectedContactId,
+  campaignDraft,
 }: {
   accountId?: string
   account?: any
   contacts?: any[]
+  selectedContactId?: string
+  campaignDraft?: { id: string; subject: string; body: string } | null
 }) {
   const { zohoContext: currentUser } = useZoho()
   const canSync = isAdministratorRole(currentUser?.role)
@@ -31,18 +35,18 @@ export function EmailInbox({
   const [selectedEmail, setSelectedEmail] = useState<any | null>(null)
   
   // Compose State
-  const [isComposing, setIsComposing] = useState(false)
+  const [isComposing, setIsComposing] = useState(Boolean(campaignDraft))
   const [composeTo, setComposeTo] = useState("")
   const [composeCc, setComposeCc] = useState("")
-  const [composeSubject, setComposeSubject] = useState("")
-  const [composeBody, setComposeBody] = useState("")
+  const [composeSubject, setComposeSubject] = useState(campaignDraft?.subject || "")
+  const [composeBody, setComposeBody] = useState(campaignDraft?.body || "")
   const [isSending, setIsSending] = useState(false)
   
   // Templates
   const [templates, setTemplates] = useState<any[]>([])
   const [showTemplates, setShowTemplates] = useState(false)
 
-  const primaryContact = contacts?.find(c => c.isPrimary) || contacts?.[0]
+  const primaryContact = contacts?.find(c => c.id === selectedContactId) || contacts?.find(c => c.isPrimary) || contacts?.[0]
 
   useEffect(() => {
     fetchEmails()
@@ -105,11 +109,13 @@ export function EmailInbox({
       toast.error("Please fill in all required fields")
       return
     }
+    if (!window.confirm(`Send this email to ${composeTo}${composeCc ? ` with CC to ${composeCc}` : ""}?`)) return
 
     setIsSending(true)
     try {
       const payload = {
         accountId,
+        contactId: primaryContact?.id,
         toAddress: composeTo,
         ccAddress: composeCc,
         subject: composeSubject,
@@ -140,10 +146,12 @@ export function EmailInbox({
   }
 
   const handleAcceptResponse = async (emailId: string, responseBody: string) => {
+    if (!window.confirm(`Send this suggested reply to ${selectedEmail.fromAddress}?`)) return
     try {
       // Send the email first
       const payload = {
         accountId,
+        contactId: selectedEmail.contactId || primaryContact?.id,
         toAddress: selectedEmail.fromAddress,
         subject: `Re: ${selectedEmail.subject}`,
         content: responseBody,
@@ -277,7 +285,7 @@ export function EmailInbox({
           <div>
             <input 
               type="text" 
-              placeholder="Cc/Bcc (comma separated)" 
+              placeholder="CC (comma separated)"
               value={composeCc}
               onChange={e => setComposeCc(e.target.value)}
               className="td-input text-sm"

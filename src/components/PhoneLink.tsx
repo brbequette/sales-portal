@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { FiPhone, FiCheck, FiMessageSquare } from 'react-icons/fi'
 import { toast } from 'react-hot-toast'
 import { formatPhoneNumber } from '@/lib/formatters'
+import { makeZohoVoiceCall } from '@/lib/zoho-voice-websdk'
 
 export interface PhoneLinkProps {
   phone: string
@@ -51,7 +52,7 @@ export function PhoneLink({
   const displayPhone = formatPhoneNumber(phone) || phone.trim()
   const isSms = type === 'sms'
 
-  const handleDesktopClick = (e: React.MouseEvent) => {
+  const handleDesktopClick = async (e: React.MouseEvent) => {
     e.stopPropagation()
     onBeforeCall?.(cleanPhone)
 
@@ -65,7 +66,23 @@ export function PhoneLink({
         try { win.ZohoVoice.sendSMS(cleanPhone); return; } catch (err) {}
       }
       if (!isSms && win.ZDialer?.dial) {
-        try { win.ZDialer.dial(cleanPhone); } catch (err) {}
+        try {
+          win.ZDialer.dial(cleanPhone)
+          toast.success(`Zoho Voice call started: ${cleanPhone}`, { icon: '📞' })
+          return
+        } catch (err) {}
+      }
+    }
+
+    if (!isSms) {
+      try {
+        if (await makeZohoVoiceCall(cleanPhone)) {
+          toast.success(`Zoho Voice call started: ${cleanPhone}`, { icon: '📞' })
+          return
+        }
+      } catch (err) {
+        console.error('Zoho Voice call failed', err)
+        toast.error('Zoho Voice could not start the call. Number copied instead.')
       }
     }
 
@@ -108,7 +125,7 @@ export function PhoneLink({
       data-zohovoice-sms={isSms ? "true" : undefined}
       data-zohovoice-type={isSms ? "sms" : "call"}
       data-phone-number={cleanPhone}
-      onClick={handleDesktopClick}
+      onClick={(event) => void handleDesktopClick(event)}
       title={isSms ? `ZDialer SMS: ${cleanPhone} (Click to open / copy)` : `ZDialer Call: ${cleanPhone} (Click to copy)`}
       className={`inline-flex items-center gap-2 cursor-pointer select-all transition-colors ${className}`}
     >

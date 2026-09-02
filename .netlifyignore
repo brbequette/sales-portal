@@ -1,0 +1,23 @@
+# Private source drops, generated working files, and local archives.
+# Public-ready assets intentionally live under public/ and are not excluded here.
+All Pics/
+Sopify data/
+output/
+outputs/
+tmp/
+backups/
+.codex-artifact/
+.codex-tmp/
+.cache/
+.agents/
+.gemini/
+scratch/
+scratch_*
+coverage/
+*.log
+*.pem
+.env
+.env.*
+!.env.example
+!.env.*.example
+!.env.selfhost.example
