@@ -157,6 +157,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, resolution: "dismiss" })
     }
 
+    // ── FIELD MERGE — apply the reviewed source per field, then write all
+    // selected portal values in one Zoho PUT and persist the merged snapshot.
+    if (resolution === "merge") {
+      const selections = body.fieldSelections as Record<string, "app" | "zoho">
+      if (!selections || !Object.keys(selections).length) return NextResponse.json({ error: "Choose Portal or Zoho for every conflicting field" }, { status: 400 })
+      const conflictFields = await getConflictFields(docType, docId)
+      const unresolved = Object.keys(conflictFields).filter(key => !["app", "zoho"].includes(selections[key]))
+      if (unresolved.length) return NextResponse.json({ error: `Selections required for: ${unresolved.join(", ")}` }, { status: 400 })
+      const items = await getItems(docType, docId)
+      const merged = { ...items }
+      for (const [key, values] of Object.entries(conflictFields) as Array<[string, any]>) merged[key] = selections[key] === "app" ? values.app : values.zoho
+      await setItems(docType, docId, merged)
+      const customFields = buildCustomFieldsFromItems(merged)
+      const zohoId = await getZohoId(docType, docId)
+      if (!zohoId) return NextResponse.json({ error: "Document not found" }, { status: 404 })
+      if (customFields.length) {
+        const token = await getZohoAccessToken()
+        const putRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/${docTypeToEndpoint(docType)}/${docTypeToZohoId(docType, zohoId)}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000), method: "PUT", headers: { Authorization: `Zoho-oauthtoken ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ custom_fields: customFields }) })
+        const putData = await putRes.json()
+        if (!putRes.ok || putData.code !== 0) return NextResponse.json({ error: `Zoho PUT failed: ${putData.message}` }, { status: 500 })
+      }
+      await clearConflict(docType, docId, true)
+      await prisma.operationalEvent.create({ data: { entityType: docType.toUpperCase(), entityId: zohoId, eventType: "SYNC_CONFLICT_MERGED", title: "Sync conflict merged field by field", status: "SUCCESS", metadata: { selections, fieldsWritten: customFields.length }, actorId: session.user?.dbId || session.user?.id, actorName: session.user?.name || session.user?.email } })
+      return NextResponse.json({ success: true, resolution: "merge", fieldSelections: selections, fieldsWritten: customFields.length })
+    }
+
     // ── APP wins — push app's current custom_fields back to Zoho ──────────
     if (resolution === "app") {
       const zohoId = await getZohoId(docType, docId)
@@ -258,6 +284,18 @@ async function getItems(docType: string, docId: string): Promise<Record<string, 
     const r = await prisma.quote.findUnique({ where: { id: docId }, select: { items: true } })
     return (r?.items as Record<string, unknown>) ?? {}
   }
+}
+
+async function getConflictFields(docType: string, docId: string): Promise<Record<string, { app: unknown; zoho: unknown }>> {
+  if (docType === "invoice") return ((await prisma.invoice.findUnique({ where: { id: docId }, select: { conflictFields: true } }))?.conflictFields as any) || {}
+  if (docType === "salesorder") return ((await prisma.salesOrder.findUnique({ where: { id: docId }, select: { conflictFields: true } }))?.conflictFields as any) || {}
+  return ((await prisma.quote.findUnique({ where: { id: docId }, select: { conflictFields: true } }))?.conflictFields as any) || {}
+}
+
+async function setItems(docType: string, docId: string, items: Record<string, unknown>) {
+  if (docType === "invoice") return prisma.invoice.update({ where: { id: docId }, data: { items: items as any } })
+  if (docType === "salesorder") return prisma.salesOrder.update({ where: { id: docId }, data: { items: items as any } })
+  return prisma.quote.update({ where: { id: docId }, data: { items: items as any } })
 }
 
 function docTypeToEndpoint(docType: string): string {

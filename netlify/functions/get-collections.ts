@@ -37,13 +37,22 @@ const authenticatedHandler: Handler = async (event) => {
           auth.email ? { email: { equals: auth.email, mode: "insensitive" } } : undefined,
         ].filter(Boolean) as any,
       },
-      select: { id: true, role: true },
+      select: { id: true, email: true, role: true },
     })
     if (!sessionUser) {
       return { statusCode: 403, headers: cors, body: JSON.stringify({ error: "Signed-in user is not linked to a local user record" }) }
     }
     const isAdmin = isAdminRole(sessionUser.role)
-    const effectiveRepId = isAdmin && repId ? repId : (isAdmin ? undefined : sessionUser.id)
+    const collectionsManagerSetting = await prisma.systemSetting.findUnique({
+      where: { key: "collections_manager_id" },
+      select: { value: true },
+    })
+    const isCollectionsManager = collectionsManagerSetting?.value === sessionUser.id
+      || sessionUser.email.toLowerCase() === "brian@titandiamond.net"
+    const canViewCompanyCollections = isAdmin || isCollectionsManager
+    const effectiveRepId = canViewCompanyCollections && repId
+      ? repId
+      : (canViewCompanyCollections ? undefined : sessionUser.id)
 
     // ── checkOnly mode: returns count + latestUpdatedAt only ──────────────
     if (checkOnly === 'true') {
@@ -58,11 +67,11 @@ const authenticatedHandler: Handler = async (event) => {
       return {
         statusCode: 200,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({ success: true, checkOnly: true, count, latestUpdatedAt: latest?.updatedAt ?? null })
+        body: JSON.stringify({ success: true, checkOnly: true, count, latestUpdatedAt: latest?.updatedAt ?? null, canViewCompanyCollections })
       }
     }
 
-    if (refresh === "true" && isAdmin && (zohoId || email)) {
+    if (refresh === "true" && canViewCompanyCollections && (zohoId || email)) {
       // --- 60-minute sync cooldown ---
       const COOLDOWN_KEY = 'collections_last_synced_at'
       const COOLDOWN_MS = 60 * 60 * 1000 // 60 minutes
@@ -253,6 +262,7 @@ const authenticatedHandler: Handler = async (event) => {
         totalProfit,
         uniqueAccounts,
         tab,
+        canViewCompanyCollections,
       }),
     }
   } catch (err: any) {

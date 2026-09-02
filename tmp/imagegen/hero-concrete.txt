@@ -1,0 +1,11 @@
+Use case: photorealistic-natural
+Asset type: wide website hero background
+Primary request: Create an original cinematic field photograph of a blue-collar concrete cutter actively using a handheld orange-and-white STIHL TS 420 cutoff saw fitted with a 14-inch Titan Diamond USA "THE TITAN" blade to cut a reinforced concrete slab on an active American commercial jobsite.
+Input images: Image 1 is the visual-settings reference only—match its dark industrial exposure, dramatic warm sparks, cool charcoal shadows, realistic grit, lens character, depth, contrast, and premium photographic finish without copying the scene. Image 2 is the exact blade-design reference—preserve its red, white, and blue face design, star, segment pattern, proportions, and recognizable "THE TITAN" identity on the 14-inch blade mounted correctly inside the TS 420 guard.
+Scene/backdrop: outdoor road-and-bridge construction at blue hour, dusty slab, reinforcing steel and work lights, subtle distant American flag fixed naturally to site equipment, not foregrounded.
+Subject: one experienced worker in authentic worn PPE, face secondary, both hands naturally controlling the handheld saw, believable body mechanics and cutting posture.
+Style/medium: highly photorealistic documentary industrial advertising photography; real equipment geometry, real material texture, no CGI appearance.
+Composition/framing: 16:9 wide hero; worker and saw occupy the right half; blade is large, crisp, physically plausible, partially guarded and visibly contacting the slab; leave dark uncluttered negative space on the left for white website copy.
+Lighting/mood: same image-creation settings as Image 1—moody directional work light, controlled amber sparks, cool steel shadows, subtle haze, restrained cinematic color grade.
+Constraints: exactly one handheld STIHL TS 420-style cutoff saw; exactly one 14-inch blade; blade must not be oversized; correct arbor and guard relationship; realistic PPE; no added typography, slogans, watermarks, floating logos, duplicate tools, giant walk-behind saws, or impossible hands.
+Avoid: studio scene, fantasy, illustration, excessive fire, explosion, patriotic poster styling, flag dominating the composition, pristine unused equipment, malformed saw, warped blade, unreadable random text.

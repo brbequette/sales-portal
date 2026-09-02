@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { getZohoAccessToken } from "@/lib/zoho-auth"
 import { checkAccountOwnership } from "@/lib/auth-helpers"
 
 // Resolve the outbound caller-ID number: explicit override  to  env  to  default
@@ -47,12 +46,16 @@ export async function POST(req: NextRequest) {
     }
 
     const from = normalize(await resolveFromNumber(fromNumber))
-    // Graceful fallback: let the rep proceed and log the call manually.
+    const webSdkConfigured = Boolean(process.env.NEXT_PUBLIC_ZOHO_VOICE_WEBSDK_API_KEY?.trim())
+    // Calls are placed in the authenticated browser via Zoho Voice WebSDK or
+    // ZDialer. Never claim the server placed a call when it only returned config.
     return NextResponse.json({
       success: true,
-      zohoCallId: `manual_${Date.now()}`,
-      mode: "tel",
-      message: "Dialing via softphone...",
+      placed: false,
+      mode: webSdkConfigured ? "zoho_voice_websdk" : "zdialer_or_tel",
+      fromNumber: from,
+      toNumber: to,
+      message: webSdkConfigured ? "Ready for browser WebSDK dialing" : "Zoho WebSDK API key is not configured; use ZDialer or the device dialer",
     })
   } catch (err: any) {
     console.error("Make Call Error:", err)

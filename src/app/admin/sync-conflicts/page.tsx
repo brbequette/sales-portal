@@ -43,6 +43,7 @@ export default function SyncConflictsPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [activeTab, setActiveTab] = useState<"all" | "invoices" | "salesorders" | "quotes">("all")
   const [resolving, setResolving] = useState<string | null>(null)
+  const [fieldSelections, setFieldSelections] = useState<Record<string, Record<string, "app" | "zoho">>>({})
   
   const fetchConflicts = async () => {
     setRefreshing(true)
@@ -63,7 +64,7 @@ export default function SyncConflictsPage() {
     fetchConflicts()
   }, [])
 
-  const resolveConflict = async (doc: ConflictDoc, resolution: "app" | "zoho" | "dismiss") => {
+  const resolveConflict = async (doc: ConflictDoc, resolution: "app" | "zoho" | "dismiss" | "merge") => {
     setResolving(doc.id)
     try {
       const res = await fetch("/api/admin/books/sync-conflicts", {
@@ -74,6 +75,7 @@ export default function SyncConflictsPage() {
           docType: doc.docType,
           docId: doc.id,
           resolution,
+          fieldSelections: resolution === "merge" ? fieldSelections[doc.id] : undefined,
         })
       })
       if (!res.ok) throw new Error("Failed to resolve")
@@ -207,6 +209,10 @@ export default function SyncConflictsPage() {
                         <div className="text-sm text-emerald-100 break-all">{String(zohoVal)}</div>
                       </div>
                     </div>
+                    <div className="grid grid-cols-2 gap-2 border-t border-white/5 p-2">
+                      <button onClick={() => setFieldSelections(current => ({ ...current, [doc.id]: { ...current[doc.id], [key]: "app" } }))} className={`rounded-lg px-2 py-1 text-[10px] font-bold ${fieldSelections[doc.id]?.[key] === "app" ? "bg-blue-500 text-white" : "bg-blue-500/10 text-blue-300"}`}>Use Portal field</button>
+                      <button onClick={() => setFieldSelections(current => ({ ...current, [doc.id]: { ...current[doc.id], [key]: "zoho" } }))} className={`rounded-lg px-2 py-1 text-[10px] font-bold ${fieldSelections[doc.id]?.[key] === "zoho" ? "bg-emerald-500 text-white" : "bg-emerald-500/10 text-emerald-300"}`}>Use Zoho field</button>
+                    </div>
                   </div>
                 )
               }
@@ -243,7 +249,8 @@ export default function SyncConflictsPage() {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 mt-auto">
+                  <div className="grid grid-cols-2 gap-2 mt-auto">
+                    <button onClick={() => resolveConflict(doc, "merge")} disabled={isResolving} className="col-span-2 py-2.5 px-2 bg-orange-500/15 hover:bg-orange-500/25 text-orange-300 border border-orange-500/30 rounded-xl text-xs font-bold disabled:opacity-50">Apply reviewed field merge</button>
                     <button
                       onClick={() => resolveConflict(doc, "app")}
                       className="py-2.5 px-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded-xl text-xs font-bold transition-colors text-center"

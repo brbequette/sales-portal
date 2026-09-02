@@ -1,6 +1,7 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import { usePreferences } from "@/components/PreferencesProvider"
+import { toast } from "react-hot-toast"
 
 export type OrderLine = {
   id: string
@@ -84,6 +85,16 @@ const TYPE_KEYWORDS: Record<string, string[]> = {
   "Continuous Rim": ["continuous", "rim", "cont"],
   "Premium Turbo":  ["premium turbo", "prem turbo"],
   "Abrasive":       ["abrasive", "abra", "cup", "wheel"],
+}
+
+const SIGNATURE_FAMILIES = [
+  "battle axe", "barbarian", "dark knight", "dragon", "king", "maximus",
+  "medusa", "spartan", "wizard", "zeus", "champion",
+]
+
+function isSignatureBlade(product: any) {
+  const haystack = `${product?.name || ""} ${product?.category || ""}`.toLowerCase()
+  return SIGNATURE_FAMILIES.some((family) => haystack.includes(family)) || /\bthe titan\b/.test(haystack)
 }
 
 function extractSize(name: string): string | null {
@@ -228,20 +239,26 @@ export function useOrderBuilderData({
       })
 
       if (res.ok) {
-        alert(`${transactionType === "SalesOrder" ? "Sales Order" : "Quote (Estimate)"} created successfully!`)
+        const data = await res.json()
+        const documentLabel = transactionType === "SalesOrder" ? "Sales Order" : "Quote (Estimate)"
+        toast.success(
+          data.localDevelopmentTransaction
+            ? `${documentLabel} saved locally in development. Zoho was not contacted.`
+            : `${documentLabel} created successfully in Zoho Books.`
+        )
         if (onSuccess) onSuccess()
         setShowMockOrder(false)
-        if (!externalOrderLines) setInternalOrderLines([])
+        if (!isControlled) setInternalOrderLines([])
       } else {
         const data = await res.json()
-        alert(data.error || data.message || "Failed to create transaction")
+        toast.error(data.error || data.message || "Failed to create transaction")
       }
     } catch (e: any) {
-      alert("Error: " + e.message)
+      toast.error("Error: " + e.message)
     } finally {
       setIsSubmitting(false)
     }
-  }, [accountId, dealId, transactionType, orderLines, preferences, user, externalOrderLines, onSuccess, setInternalOrderLines])
+  }, [accountId, dealId, transactionType, orderLines, preferences, user, isControlled, onSuccess, setInternalOrderLines])
 
   // Product search
   const [productSearch, setProductSearch] = useState("")
@@ -305,30 +322,29 @@ export function useOrderBuilderData({
           subjectToVig: p.subjectToVig !== false
         }
       })
+      .sort((a, b) => Number(isSignatureBlade(b)) - Number(isSignatureBlade(a)) || a.name.localeCompare(b.name))
   }, [catalogProducts])
 
   const topBladeProducts = useMemo(() => activeBlades.slice(0, 10), [activeBlades])
 
-  const popularGifts = useMemo(() => {
-    return (catalogProducts || [])
-      .filter(p => {
-        const desc = parseDesc(p.description)
-        if (desc.status === "inactive") return false
-        return !!p.giftItem
+  const qualifyingGifts = useMemo(() => {
+    const subtotal = orderLines.reduce((sum, line) => sum + (line.isPromo ? 0 : line.quantity * line.unitPrice), 0)
+    const cost = orderLines.reduce((sum, line) => sum + line.quantity * line.cost * (line.subjectToVig === false || line.giftItem ? 1 : vigRate), 0)
+    const availableProfit = Math.max(0, subtotal - cost)
+    const allowance = availableProfit * 0.2
+    return catalogProducts
+      .filter(product => {
+        const desc = parseDesc(product.description)
+        const cost = Number(desc.cost || product.cost || 0)
+        return product.giftItem && desc.status !== "inactive" && cost <= allowance
       })
-      .map(p => {
-        const desc = parseDesc(p.description)
-        return {
-          id: p.id,
-          name: p.name as string,
-          sku: p.sku as string,
-          price: (p.price || 0) as number,
-          cost: (desc.cost || 0) as number,
-          giftItem: true,
-          subjectToVig: false
-        }
+      .map(product => {
+        const desc = parseDesc(product.description)
+        return { name: product.name, sku: product.sku, price: 0, cost: Number(desc.cost || product.cost || 0), giftItem: true, subjectToVig: false }
       })
-  }, [catalogProducts])
+      .sort((a, b) => a.cost - b.cost)
+      .slice(0, 10)
+  }, [catalogProducts, orderLines, vigRate])
 
   const previousPurchasesNoGifts = useMemo(() => {
     const raw = externalAccountPurchases || fetchedPurchases || []
@@ -337,10 +353,11 @@ export function useOrderBuilderData({
     const isGiftItem = (name: string, sku?: string) => {
       const targetSku = (sku || '').trim().toUpperCase()
       const found = catalogProducts.find(p => p.sku.toUpperCase().trim() === targetSku)
-      if (found) {
-        return !!found.giftItem
-      }
-      return false
+      // Historical Zoho lines do not always retain the catalog gift flag (and
+      // some use an item id instead of the current SKU). Keep unmistakable
+      // promotional merchandise out of the normal repurchase rail so it is
+      // offered only through the profit-qualified gift section below.
+      return !!found?.giftItem || /\b(free customer gift|customer gift|gift|giveaway|promo(?:tional)? item)\b/i.test(name)
     }
 
     const seen = new Set<string>()
@@ -502,7 +519,7 @@ export function useOrderBuilderData({
     return catalogProducts
       .filter(p => {
         const desc = parseDesc(p.description)
-        return desc.status !== "inactive" && (
+        return !p.giftItem && desc.status !== "inactive" && (
           p.name?.toLowerCase().includes(term) ||
           p.sku?.toLowerCase().includes(term) ||
           p.category?.toLowerCase().includes(term)
@@ -533,7 +550,7 @@ export function useOrderBuilderData({
     handleConfirmOrder,
     activeBlades,
     topBladeProducts,
-    popularGifts,
+    qualifyingGifts,
     previousPurchasesNoGifts,
     usageMatchedBlades,
     filteredBlades,

@@ -25,6 +25,7 @@ const automations = [
   { name: "Sales flow", detail: "Stage actions, scheduled calls and re-engagement", href: "/admin/sales-stages", icon: FiZap },
   { name: "Message delivery", detail: "Scheduled email and message processing", href: "/admin/communications", icon: FiMessageSquare },
   { name: "Email intelligence", detail: "Classification, suggested replies and follow-up tasks", href: "/messages", icon: FiMail },
+  { name: "Automation opportunities", detail: "Review AI-discovered rules, simulations and approval status", href: "/admin/automation-opportunities", icon: FiCheckCircle },
 ]
 
 const recommendedAI = [

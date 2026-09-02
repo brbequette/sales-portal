@@ -45,7 +45,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
           </div>
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
             <Link href="/blade-finder" className="public-cta-secondary">Find my blade</Link>
-            <Link href="/contact" className="public-cta-primary">Talk to a diamond tech</Link>
+            <Link href="/contact" className="public-cta-primary">Talk to a diamond product tech</Link>
           </div>
         </div>
       </section>

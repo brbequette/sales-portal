@@ -12,6 +12,10 @@ function safeCallbackPath(value: string | null) {
   return value;
 }
 
+function ssoCompletionPath(callbackPath: string) {
+  return `/auth/complete?callbackUrl=${encodeURIComponent(callbackPath)}`;
+}
+
 function EmployeeLoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -60,7 +64,7 @@ function EmployeeLoginForm() {
 
     try {
       const callbackUrl = safeCallbackPath(searchParams.get('callbackUrl'));
-      await signIn('zoho', { callbackUrl });
+      await signIn('zoho', { callbackUrl: ssoCompletionPath(callbackUrl) });
     } catch (error) {
       console.error('Zoho SSO start failed:', error);
       setError('Unable to connect to Zoho. Please try again or use your staff password.');
