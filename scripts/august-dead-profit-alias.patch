@@ -1,0 +1,23 @@
+diff --git a/src/lib/custom-field-extractor.ts b/src/lib/custom-field-extractor.ts
+--- a/src/lib/custom-field-extractor.ts
++++ b/src/lib/custom-field-extractor.ts
+@@ -199,6 +199,7 @@ export function extractProfit(docOrItems: any): number {
+  */
+ export function extractDeadProfit(docOrItems: any, documentSubtotal?: number): number {
+   const explicit = extractCustomFieldValue(docOrItems, 'deadProfitActual', null)
++    ?? extractCustomFieldValue(docOrItems, 'cf_dead_profit_actual', null)
+     ?? extractCustomFieldValue(docOrItems, 'dead_profit_actual', null)
+     ?? extractCustomFieldValue(docOrItems, 'cf_dead_profit', null)
+     ?? extractCustomFieldValue(docOrItems, 'computedDeadProfit', null);
+diff --git a/netlify/functions/daily-books-sync.ts b/netlify/functions/daily-books-sync.ts
+--- a/netlify/functions/daily-books-sync.ts
++++ b/netlify/functions/daily-books-sync.ts
+@@ -404,7 +404,7 @@ async function syncFullDocument(
+ 
+     const calcItems: Record<string, unknown> = {
+       profit:              extractProfit(doc)           || currentItems.profit           || 0,
+-      deadProfitActual:    extractDeadProfit(doc)       ?? currentItems.deadProfitActual ?? 0,
++      deadProfitActual:    extractDeadProfit(doc, Number(doc.sub_total)) ?? currentItems.deadProfitActual ?? 0,
+       deadCostTotal:       extractDeadCostTotal(doc)    ?? currentItems.deadCostTotal    ?? 0,
+       commission:          extractCommissionAmount(doc) || currentItems.commission       || 0,
+       commissionPercent:   parseFloat((cfh.cf_commision_from_profit_unformatted as string) ?? (currentItems.commissionPercent as string) ?? "50") || 50,

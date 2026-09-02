@@ -1,0 +1,17 @@
+diff --git a/PROJECT_CONTEXT.md b/PROJECT_CONTEXT.md
+--- a/PROJECT_CONTEXT.md
++++ b/PROJECT_CONTEXT.md
+@@ -869,3 +869,13 @@ Last reconciled: **2026-08-22 (America/Phoenix)**
+ - Netlify site `titan-sales-portal` for `https://www.tdusales.com` is connected to `brbequette/sales-portal`, not the workspace's `brbequette/TDGPT` origin. Commit `12cc79691e6d9a76495cb50f1be9421dc9ff2f97` was fast-forwarded to the connected `codex/production-portal-updates` branch after explicit user confirmation.
+ - Netlify production deploy `6a8e15c85af9fd0008c1d1e6` completed in `ready` state with no reported error.
+ - Live verification returned HTTP 200 for `/`, `/login`, `/intro-offer`, `/signature-series`, `/api/public/products`, and representative tracked PNG assets. No new image files were pending in the released commit range; existing repository-tracked images remain available to Netlify.
++
++## 2026-08-25 August production data reconciliation
++
++- Mandatory pre-repair backup `backups/tdgpt-20260825-153731.dump` (34.25 MB) was created before production data changes.
++- Live Zoho Books detail records were reconciled against PostgreSQL for all 41 invoices dated August 1–25, 2026. Thirty-two local issue/due date snapshots differed from Zoho and were repaired; seven true August 3 invoices had been stored under July dates, while invoice 10951 was corrected from a false August date to its authoritative June 26 issue date.
++- A background full-detail refresh exposed a persistence defect that cleared `computedDeadCost` and `computedDeadProfit`. Thirty-eight August financial snapshots were restored from live Zoho custom fields. Final August verification reports zero missing dead cost, dead profit, net profit, salesperson, sync conflict, pending fetch, or pending cost flags.
++- Corrected August totals are 41 invoices overall and 34 active invoices. Active subtotal is $69,734.65; dead cost $37,264.00; dead profit $31,220.17; net profit $27,327.32; and earned/eligible commission $10,273.18.
++- Active rep totals: Ross Haisler 18 invoices / $36,571.63 subtotal; Montgomery Morgan 15 / $32,663.04; Benjamin Bequette 1 / $499.98.
++- Canonical sync persistence now updates invoice issue/due dates from Zoho and carries dead cost, dead profit, and the correctly named VIG rate through `updateInvoiceRecord`, preventing subsequent detail refreshes from undoing the repair.
++- TypeScript validation and the full Next.js 16.2.6 production build with all 317 generated pages pass. Existing broad image-tracing warnings are unchanged.

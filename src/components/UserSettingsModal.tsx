@@ -1,5 +1,6 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import React, { useState, useEffect } from "react"
-import { FiX, FiCheck, FiBell, FiSmartphone, FiMail, FiUser, FiDownload, FiCheckSquare, FiLock } from "react-icons/fi"
+import { FiX, FiCheck, FiBell, FiSmartphone, FiMail, FiUser, FiDownload, FiLock, FiRefreshCw, FiInbox } from "react-icons/fi"
 import { usePreferences } from "./PreferencesProvider"
 import { useZoho } from "./ZohoProvider"
 import { useNotifications } from "./NotificationProvider"
@@ -10,6 +11,21 @@ interface UserSettingsModalProps {
   isOpen: boolean
   onClose: () => void
 }
+
+type ProfileMailbox = {
+  id: string
+  address: string
+  enabled: boolean
+  includeInbox: boolean
+  includeSent: boolean
+  autoSync: boolean
+  lookbackDays: number
+  lastSyncAt?: string | null
+  lastSyncStatus?: string | null
+  lastSyncError?: string | null
+}
+
+const errorMessage = (error: unknown, fallback: string) => error instanceof Error ? error.message : fallback
 
 export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
   const { preferences, updatePreferences } = usePreferences()
@@ -38,6 +54,12 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [changingPassword, setChangingPassword] = useState(false)
+  const [emailAddonConfigured, setEmailAddonConfigured] = useState(false)
+  const [emailAddonLoading, setEmailAddonLoading] = useState(false)
+  const [emailAddonSaving, setEmailAddonSaving] = useState(false)
+  const [emailAddonSyncing, setEmailAddonSyncing] = useState<string | null>(null)
+  const [profileMailboxes, setProfileMailboxes] = useState<ProfileMailbox[]>([])
+  const [newMailboxAddress, setNewMailboxAddress] = useState("")
 
   // Fetch current user details when modal opens
   useEffect(() => {
@@ -69,6 +91,24 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
         .catch(console.error)
     }
   }, [isOpen, preferences])
+
+  useEffect(() => {
+    if (!isOpen) return
+    let active = true
+    setEmailAddonLoading(true)
+    fetch('/api/profile/email-mailboxes', { cache: 'no-store' })
+      .then(async response => {
+        const payload = await response.json()
+        if (!response.ok) throw new Error(payload.error || 'Unable to load email add-on settings.')
+        if (active) {
+          setEmailAddonConfigured(Boolean(payload.configuration?.configured))
+          setProfileMailboxes(payload.mailboxes || [])
+        }
+      })
+      .catch(error => { if (active) toast.error(error.message || 'Unable to load email add-on settings.') })
+      .finally(() => { if (active) setEmailAddonLoading(false) })
+    return () => { active = false }
+  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -114,9 +154,9 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
 
       toast.success("User preferences & vCard profile saved!")
       onClose()
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e)
-      toast.error(e.message || "Failed to save settings. Please try again.")
+      toast.error(errorMessage(e, "Failed to save settings. Please try again."))
     } finally {
       setSavingProfile(false)
     }
@@ -149,10 +189,71 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
       setNewPassword("")
       setConfirmPassword("")
       toast.success("Password updated successfully")
-    } catch (error: any) {
-      toast.error(error.message || "Password update failed")
+    } catch (error: unknown) {
+      toast.error(errorMessage(error, "Password update failed"))
     } finally {
       setChangingPassword(false)
+    }
+  }
+
+  const addProfileMailbox = async () => {
+    setEmailAddonSaving(true)
+    try {
+      const response = await fetch('/api/profile/email-mailboxes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: newMailboxAddress }),
+      })
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload.error || 'Unable to add mailbox.')
+      setProfileMailboxes(current => {
+        const remaining = current.filter(item => item.id !== payload.mailbox.id)
+        return [...remaining, payload.mailbox]
+      })
+      setNewMailboxAddress("")
+      toast.success('Email intelligence add-on enabled for this mailbox.')
+    } catch (error: unknown) {
+      toast.error(errorMessage(error, 'Unable to add mailbox.'))
+    } finally {
+      setEmailAddonSaving(false)
+    }
+  }
+
+  const updateProfileMailbox = async (mailbox: ProfileMailbox, changes: Partial<ProfileMailbox>) => {
+    setEmailAddonSaving(true)
+    try {
+      const response = await fetch('/api/profile/email-mailboxes', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: mailbox.id, ...changes }),
+      })
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload.error || 'Unable to update mailbox.')
+      setProfileMailboxes(current => current.map(item => item.id === mailbox.id ? payload.mailbox : item))
+    } catch (error: unknown) {
+      toast.error(errorMessage(error, 'Unable to update mailbox.'))
+    } finally {
+      setEmailAddonSaving(false)
+    }
+  }
+
+  const syncProfileMailbox = async (mailbox: ProfileMailbox) => {
+    setEmailAddonSyncing(mailbox.id)
+    try {
+      const response = await fetch('/api/profile/email-mailboxes/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mailboxId: mailbox.id }),
+      })
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload.error || 'Mailbox sync failed.')
+      toast.success(`Reviewed ${payload.processed || 0} recent messages.`)
+      const refreshed = await fetch('/api/profile/email-mailboxes', { cache: 'no-store' }).then(response => response.json())
+      setProfileMailboxes(refreshed.mailboxes || [])
+    } catch (error: unknown) {
+      toast.error(errorMessage(error, 'Mailbox sync failed.'))
+    } finally {
+      setEmailAddonSyncing(null)
     }
   }
 
@@ -304,7 +405,65 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
             </div>
           </div>
 
-          {/* Records per page */}
+          {/* Optional email intelligence add-on */}
+          <div className="border-t border-white/10 pt-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <FiInbox className="text-cyan-400" size={16} />
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider">Email Intelligence Add-on</h3>
+              <span className="ml-auto rounded-full bg-neutral-800 px-2 py-1 text-[9px] font-bold uppercase text-neutral-400">Optional</span>
+            </div>
+            <p className="text-[10px] text-neutral-500 leading-relaxed">
+              Connect your Microsoft 365 mailbox so the portal can identify shipping confirmations, costs, returns, purchase orders, and payment evidence. No mailbox password is stored and the portal cannot send email. Ask an administrator to assign additional or shared mailboxes.
+            </p>
+
+            {!emailAddonConfigured && !emailAddonLoading && (
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[10px] text-amber-200">
+                Your administrator must finish the company Microsoft 365 connection before syncing is available. You can still save your mailbox now.
+              </div>
+            )}
+
+            {emailAddonLoading ? (
+              <div className="rounded-xl border border-white/10 p-4 text-center text-[10px] text-neutral-500">Loading email add-on settings…</div>
+            ) : (
+              <div className="space-y-3">
+                {profileMailboxes.map(mailbox => (
+                  <div key={mailbox.id} className="rounded-xl border border-white/10 bg-neutral-900/60 p-3 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-bold text-white">{mailbox.address}</p>
+                        <p className="mt-1 text-[10px] text-neutral-500">
+                          {mailbox.lastSyncAt ? `Last synced ${new Date(mailbox.lastSyncAt).toLocaleString()}` : 'Not synced yet'}
+                        </p>
+                        {mailbox.lastSyncError && <p className="mt-1 text-[10px] text-red-300">{mailbox.lastSyncError}</p>}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={emailAddonSaving}
+                        onClick={() => void updateProfileMailbox(mailbox, { enabled: !mailbox.enabled })}
+                        className={`relative h-5 w-10 shrink-0 rounded-full transition-colors ${mailbox.enabled ? 'bg-cyan-500' : 'bg-neutral-700'}`}
+                        aria-label={`${mailbox.enabled ? 'Disable' : 'Enable'} ${mailbox.address}`}
+                      >
+                        <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${mailbox.enabled ? 'left-5' : 'left-0.5'}`} />
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" disabled={emailAddonSaving} onClick={() => void updateProfileMailbox(mailbox, { includeInbox: !mailbox.includeInbox })} className={`rounded-lg border px-2 py-1 text-[10px] font-bold ${mailbox.includeInbox ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300' : 'border-white/10 text-neutral-500'}`}>Inbox {mailbox.includeInbox ? 'On' : 'Off'}</button>
+                      <button type="button" disabled={emailAddonSaving} onClick={() => void updateProfileMailbox(mailbox, { includeSent: !mailbox.includeSent })} className={`rounded-lg border px-2 py-1 text-[10px] font-bold ${mailbox.includeSent ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300' : 'border-white/10 text-neutral-500'}`}>Sent {mailbox.includeSent ? 'On' : 'Off'}</button>
+                      <button type="button" disabled={emailAddonSaving} onClick={() => void updateProfileMailbox(mailbox, { autoSync: !mailbox.autoSync })} className={`rounded-lg border px-2 py-1 text-[10px] font-bold ${mailbox.autoSync ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-white/10 text-neutral-500'}`}>Auto-sync {mailbox.autoSync ? 'On' : 'Off'}</button>
+                      <button type="button" disabled={!mailbox.enabled || !emailAddonConfigured || emailAddonSyncing === mailbox.id} onClick={() => void syncProfileMailbox(mailbox)} className="ml-auto flex items-center gap-1 rounded-lg bg-cyan-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-40"><FiRefreshCw className={emailAddonSyncing === mailbox.id ? 'animate-spin' : ''} /> Sync now</button>
+                    </div>
+                  </div>
+                ))}
+
+                <div className="flex gap-2">
+                  <input type="email" value={newMailboxAddress} onChange={event => setNewMailboxAddress(event.target.value)} placeholder={vcardEmail || 'you@company.com'} className="min-w-0 flex-1 bg-black/60 border border-neutral-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500" />
+                  <button type="button" disabled={emailAddonSaving || !newMailboxAddress.trim()} onClick={() => void addProfileMailbox()} className="rounded-lg bg-cyan-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-40">Add mailbox</button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Password */}
           <div className="border-t border-white/10 pt-6 space-y-4">
             <div className="flex items-center gap-2">
               <FiLock className="text-orange-400" size={16} />

@@ -1,0 +1,3 @@
+ALTER TABLE "Task" ADD COLUMN "leadId" TEXT;
+CREATE INDEX "Task_leadId_idx" ON "Task"("leadId");
+ALTER TABLE "Task" ADD CONSTRAINT "Task_leadId_fkey" FOREIGN KEY ("leadId") REFERENCES "Lead"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -2,6 +2,7 @@ import { Handler } from "@netlify/functions"
 import { getStore } from "@netlify/blobs"
 
 import { prisma } from "./lib/prisma"
+import { updateSyncState } from "../../src/lib/operational-flow"
 import { internalHandler as processInvoiceCosts } from "./process-invoice-costs"
 import { internalHandler as processQuoteCosts } from "./process-quote-costs"
 import { internalHandler as processSalesOrderCosts } from "./process-salesorder-costs"
@@ -117,6 +118,7 @@ export const handler: Handler = async (event) => {
     if (!booksId) {
       return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, message: "No Books ID in payload" }) }
     }
+    await updateSyncState({ entityType: String(type || "unknown").toLowerCase(), kind: "webhook" }).catch(error => console.warn("Webhook telemetry unavailable", error))
 
     // ── Payment webhook ─────────────────────────────────────────────────────
     if (type === "Payment") {
@@ -256,13 +258,8 @@ export const handler: Handler = async (event) => {
         if (account) accountId = account.id
       }
 
-      // Fallback: match by name
-      if (!accountId && customerName) {
-        const account = await prisma.account.findFirst({
-          where: { name: { equals: customerName, mode: 'insensitive' } }
-        })
-        if (account) accountId = account.id
-      }
+      // Customer names are not immutable. Never attach a financial document
+      // using name alone; surface the possible match for administrator review.
 
       // If still no account, sync the specific customer from Zoho
       if (!accountId && customerIdFromZoho) {
@@ -301,6 +298,12 @@ export const handler: Handler = async (event) => {
 
       if (!accountId) {
         console.error(`[zoho-books-webhook] Could not resolve account for ${type} ${booksId}, cannot create record.`)
+        const candidates = customerName ? await prisma.account.findMany({ where: { name: { equals: customerName, mode: 'insensitive' } }, select: { id: true, zohoId: true, name: true }, take: 5 }) : []
+        await prisma.integrationException.upsert({
+          where: { integration_entityType_externalId_exceptionType: { integration: 'ZOHO_BOOKS', entityType: type.toUpperCase(), externalId: String(booksId), exceptionType: 'ACCOUNT_MATCH_REQUIRED' } },
+          create: { integration: 'ZOHO_BOOKS', entityType: type.toUpperCase(), externalId: String(booksId), externalNumber: doc.invoice_number || doc.salesorder_number || doc.estimate_number || null, exceptionType: 'ACCOUNT_MATCH_REQUIRED', summary: `${type} ${doc.invoice_number || doc.salesorder_number || doc.estimate_number || booksId} needs an account match`, payload: doc, proposedMatches: candidates, confidence: candidates.length === 1 ? 0.75 : null },
+          update: { payload: doc, proposedMatches: candidates, confidence: candidates.length === 1 ? 0.75 : null, status: 'OPEN', resolvedAt: null }
+        })
         return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, message: `Skipping: could not resolve account` }) }
       }
 
@@ -390,15 +393,6 @@ export const handler: Handler = async (event) => {
       if (type === "Quote")      await prisma.quote.update({ where: { id: dbDoc.id }, data: flagData })
 
       return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, conflict: true, message: `${type} ${booksId} flagged for manual conflict review` }) }
-    }
-
-    // For Quote/Estimate webhooks: only process estimates that have been converted to an invoice
-    if (type === "Quote") {
-      const estStatus = (doc.status || "").toLowerCase()
-      if (estStatus !== "invoiced") {
-        console.log(`Estimate ${booksId} status="${doc.status}" — not invoiced, skipping webhook sync`)
-        return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, message: `Estimate not invoiced (status: ${doc.status}) — skipped` }) }
-      }
     }
 
     // ── Build updated items from webhook payload ──────────────────────────────

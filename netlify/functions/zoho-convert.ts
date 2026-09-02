@@ -4,6 +4,8 @@ import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
 const ORG_ID = ZOHO_ORGANIZATION_ID
 import { prisma } from "./lib/prisma"
 import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
+import { authorizeDocumentAccess } from "./lib/document-access"
+import { assertNoBooksConflictBeforeWrite } from "../../src/lib/sync-engine"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 export const handler: Handler = async (event, context) => {
@@ -12,8 +14,9 @@ export const handler: Handler = async (event, context) => {
     return { statusCode: 405, body: JSON.stringify({ success: false, message: "Method Not Allowed" }) }
   }
 
+  let sessionUser
   try {
-    await authenticateFunction(event)
+    sessionUser = await authenticateFunction(event)
   } catch (error) {
     return authErrorResponse(error, headers)
   }
@@ -24,6 +27,25 @@ export const handler: Handler = async (event, context) => {
 
     if (!sourceType || !sourceId || !targetType) {
       return { statusCode: 400, body: JSON.stringify({ success: false, message: "Missing required fields" }) }
+    }
+    const documentKind = sourceType === "Quote" ? "quote" : sourceType === "SalesOrder" ? "salesOrder" : null
+    if (!documentKind) {
+      return { statusCode: 400, body: JSON.stringify({ success: false, message: "Invalid source type" }) }
+    }
+
+    const access = await authorizeDocumentAccess(sessionUser, documentKind, { id: sourceId })
+    if (!access.authorized) {
+      return { statusCode: 403, body: JSON.stringify({ success: false, message: "You can only convert documents belonging to your accounts" }) }
+    }
+
+    if (documentKind === "quote") {
+      const source = await prisma.quote.findFirst({ where: { OR: [{ id: sourceId }, { zohoId: sourceId }] } })
+      if (!source) return { statusCode: 404, body: JSON.stringify({ success: false, message: "Estimate not found" }) }
+      await assertNoBooksConflictBeforeWrite("quote", source)
+    } else {
+      const source = await prisma.salesOrder.findFirst({ where: { OR: [{ id: sourceId }, { zohoId: sourceId }] } })
+      if (!source) return { statusCode: 404, body: JSON.stringify({ success: false, message: "Sales order not found" }) }
+      await assertNoBooksConflictBeforeWrite("salesorder", source)
     }
 
     const token = await getZohoAccessToken()

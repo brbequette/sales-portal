@@ -94,7 +94,7 @@ export async function GET() {
       "productType", "toolType", equipment,
       materials, attributes, "imageUrl"
     FROM "Product"
-    WHERE "giftItem" = false
+    WHERE "giftItem" = false AND "showOnWeb" = true
     ORDER BY name ASC, sku ASC
   `);
 

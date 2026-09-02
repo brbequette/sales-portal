@@ -1,7 +1,8 @@
 import { AdminWorkspaceHub } from "@/components/AdminWorkspaceHub"
-import { FiActivity, FiImage, FiRepeat, FiSettings, FiTruck } from "react-icons/fi"
+import { FiActivity, FiAlertTriangle, FiImage, FiRepeat, FiSettings, FiTruck } from "react-icons/fi"
 
 const items = [
+  { title: "Operational Work Queue", description: "Prioritized handoffs, Zoho failures, unmatched records, review work and deadlines.", href: "/admin/operations-workbench", icon: FiAlertTriangle, accent: "text-orange-400" },
   { title: "Shipping Audit", description: "Review fulfillment, vendor shipping and exceptions.", href: "/admin/shipping-audit", icon: FiTruck },
   { title: "Vendors", description: "Maintain vendor records used across operations.", href: "/admin/vendors", icon: FiActivity, accent: "text-cyan-400" },
   { title: "Image Manager", description: "Manage shared product and system imagery.", href: "/admin/image-manager", icon: FiImage, accent: "text-violet-400" },

@@ -180,7 +180,7 @@ export function OrderBuilder({
     handleConfirmOrder,
     activeBlades,
     topBladeProducts,
-    popularGifts,
+    qualifyingGifts,
     previousPurchasesNoGifts,
     usageMatchedBlades,
     filteredBlades,
@@ -442,12 +442,12 @@ export function OrderBuilder({
         )}
       </div>
 
-      {/* Top 10 Blades & Popular Gifts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1 border-t border-white/5">
-        {/* Top 10 */}
+      {/* Specialty-first selling shortcuts */}
+      <div className="space-y-4 border-t border-white/5 pt-3">
         {topBladeProducts.length > 0 && (
           <div className="space-y-2">
-            <p className="text-[9px] text-neutral-500 uppercase tracking-widest font-extrabold">Top Catalog Blades</p>
+            <p className="text-[10px] text-amber-300 uppercase tracking-widest font-black">Titan Specialty Blades</p>
+            <p className="text-[11px] text-neutral-500">Signature families appear first. Use the job filters above for a precise match.</p>
             <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto scrollbar-thin pr-1">
               {topBladeProducts.map(bp => (
                 <button
@@ -463,14 +463,12 @@ export function OrderBuilder({
           </div>
         )}
 
-        {/* Popular Gifts */}
-        {popularGifts.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-[9px] text-purple-400 uppercase tracking-widest font-extrabold flex items-center gap-1.5">
-              🎁 Popular Gifts (No VIG)
-            </p>
+        {qualifyingGifts.length > 0 && (
+          <details className="group rounded-2xl border border-purple-500/20 bg-purple-950/10 p-3">
+            <summary className="flex cursor-pointer list-none items-center justify-between text-[10px] font-black uppercase tracking-widest text-purple-300"><span>🎁 Qualifying promotional gifts</span><FiChevronDown className="transition group-open:rotate-180" /></summary>
+            <p className="mt-2 text-[11px] text-neutral-500">Collapsed by default and limited by current order profit. Confirm the approved promotion before offering a gift.</p>
             <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto scrollbar-thin pr-1">
-              {popularGifts.map(gift => (
+              {qualifyingGifts.map(gift => (
                 <button
                   key={gift.sku}
                   type="button"
@@ -481,7 +479,7 @@ export function OrderBuilder({
                 </button>
               ))}
             </div>
-          </div>
+          </details>
         )}
       </div>
 
@@ -966,7 +964,7 @@ export function OrderBuilder({
                     Processing Transaction...
                   </>
                 ) : (
-                  transactionType === "SalesOrder" ? "Confirm & Push Order" : "Confirm & Push Quote"
+                  transactionType === "SalesOrder" ? "Confirm & Create Order" : "Confirm & Create Quote"
                 )}
               </button>
             </div>

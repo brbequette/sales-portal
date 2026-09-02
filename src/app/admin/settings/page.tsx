@@ -325,6 +325,13 @@ export default function AdminSettingsPage() {
                 <div className="space-y-8">
                   <VigManagementBuilder />
 
+                  <div className="glass-panel rounded-2xl border border-orange-500/20 p-6 shadow-xl">
+                    <h3 className="text-lg font-black text-white">Sales productivity prompt</h3>
+                    <p className="mt-1 text-xs font-medium text-neutral-500">Minutes without keyboard, pointer, touch, or scrolling before a sales rep sees the full-screen return-to-work message.</p>
+                    <label className="mt-4 block text-sm font-black uppercase tracking-wider text-neutral-300">Idle minutes</label>
+                    <input type="number" min="1" max="120" step="1" value={settings.sales_idle_prompt_minutes ?? 5} onChange={event => handleUpdateSetting('sales_idle_prompt_minutes', event.target.value)} className="mt-2 w-32 rounded-lg border border-white/10 bg-black/20 px-4 py-2 font-mono font-bold text-orange-400 focus:border-orange-500 focus:outline-none" />
+                  </div>
+
                   {/* ── Commission & Cost Calculation Settings ──────────────── */}
                   <div className="glass-panel border border-white/10 rounded-2xl p-6 space-y-6 shadow-xl">
                     <div>

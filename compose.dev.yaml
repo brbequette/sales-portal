@@ -42,9 +42,15 @@ services:
       - path: .env.dev
     environment:
       NODE_ENV: development
+      # Enables the existing explicit localhost-only test session used by browser QA.
+      # The proxy still requires localhost plus ?bypass=true/header/cookie.
+      AUTH_E2E_BYPASS_ENABLED: "true"
+      # Creates local-only Quotes/Sales Orders when Zoho is intentionally disconnected.
+      # The production path ignores this unless explicitly enabled outside production.
+      ALLOW_DEV_LOCAL_TRANSACTIONS: "true"
       DATABASE_URL: postgresql://tdgpt_dev:tdgpt-dev-local-only@postgres:5432/tdgpt_dev
       DIRECT_URL: postgresql://tdgpt_dev:tdgpt-dev-local-only@postgres:5432/tdgpt_dev
-      NEXTAUTH_URL: http://localhost:3001
+      NEXTAUTH_URL: ${DEV_APP_URL:-http://localhost:3001}
       PORT: "3000"
       HOSTNAME: 0.0.0.0
       NODE_OPTIONS: --max-old-space-size=3072
@@ -82,7 +88,7 @@ services:
       - dev_node_modules:/app/node_modules
       - dev_next_cache:/app/.next
     ports:
-      - "127.0.0.1:3001:3000"
+      - "0.0.0.0:3001:3000"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/login').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 10s
