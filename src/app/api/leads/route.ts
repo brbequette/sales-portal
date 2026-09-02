@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getAuthenticatedDbUser } from "@/lib/session-user"
+import { normalizeLeadInput, normalizeLeadPhone, validateLeadInput } from "@/lib/lead-intake"
 
 export async function GET(req: Request) {
   try {
@@ -88,14 +89,33 @@ export async function POST(req: Request) {
         }
       })
     } else {
+      const normalized = normalizeLeadInput({ company, firstName, lastName, email, phone, mobile, title, industry, street, city, state, zip, timeZone: body.timeZone })
+      const errors = validateLeadInput(normalized)
+      if (Object.keys(errors).length) return NextResponse.json({ success: false, error: "Lead validation failed", fieldErrors: errors }, { status: 400 })
+
+      const candidates = await prisma.lead.findMany({
+        where: { convertedAccountId: null, OR: [
+          ...(normalized.email ? [{ email: { equals: normalized.email, mode: "insensitive" as const } }] : []),
+          { company: { equals: normalized.company, mode: "insensitive" as const } },
+        ] },
+        select: { id: true, company: true, firstName: true, lastName: true, email: true, phone: true, mobile: true },
+      })
+      const incomingPhones = new Set([normalized.phone, normalized.mobile].filter(Boolean))
+      const duplicate = candidates.find(candidate =>
+        (normalized.email && candidate.email?.toLowerCase() === normalized.email) ||
+        (candidate.company.toLowerCase() === normalized.company.toLowerCase() && [candidate.phone, candidate.mobile].some(value => incomingPhones.has(normalizeLeadPhone(value))))
+      )
+      if (duplicate) return NextResponse.json({ success: false, error: "A matching unconverted lead already exists.", duplicate }, { status: 409 })
+
       const generatedZohoId = `lead_local_${Date.now()}`
       lead = await prisma.lead.create({
         data: {
           zohoId: generatedZohoId,
-          company: company || "New Lead",
-          firstName, lastName, email, phone, mobile, title, industry, status: status || "New Lead",
-          street, city, state, zip, bladeSizes, materialsCut, currentSupplier, averageBladeCost, crewCount, bladesPerOrder, improvementPriority,
-          ownerId: targetOwnerId
+          ...normalized, status: status || "New Lead",
+          bladeSizes, materialsCut, currentSupplier, averageBladeCost, crewCount, bladesPerOrder, improvementPriority,
+          ownerId: targetOwnerId,
+          claimedById: targetOwnerId,
+          claimedAt: new Date(),
         }
       })
     }

@@ -1,8 +1,9 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect, useMemo } from "react"
+import { createPortal } from "react-dom"
 import { signOut } from "next-auth/react"
 import { useZoho } from "@/components/ZohoProvider"
 import { usePreferences } from "@/components/PreferencesProvider"
@@ -10,7 +11,7 @@ import {
   FiHome, FiPhoneCall, FiDollarSign, FiTool, FiTrendingUp,
   FiX, FiFileText, FiLogOut, FiSettings, FiBookOpen,
   FiMessageSquare, FiArrowLeft, FiCheckSquare, FiClock, FiGrid,
-  FiTruck, FiAward, FiLayers,
+  FiTruck, FiAward, FiLayers, FiChevronLeft, FiChevronRight, FiZap,
 } from "react-icons/fi"
 import { GlobalTopBar } from "@/components/GlobalTopBar"
 import { UserSettingsModal } from "@/components/UserSettingsModal"
@@ -124,7 +125,7 @@ const MAIN_PAGES = [
 
 // ─── SidebarLink ─────────────────────────────────────────────────────────────
 
-function SidebarLink({ item, active }: { item: NavItem; active: boolean }) {
+function SidebarLink({ item, active, expanded }: { item: NavItem; active: boolean; expanded: boolean }) {
   const Icon = item.icon
   return (
     <Link
@@ -133,7 +134,8 @@ function SidebarLink({ item, active }: { item: NavItem; active: boolean }) {
       aria-label={item.label}
       aria-current={active ? "page" : undefined}
       className={`
-        relative flex items-center justify-center w-10 h-10 rounded-xl
+        relative flex items-center h-10 rounded-xl
+        ${expanded ? "w-full justify-start gap-3 px-3" : "w-10 justify-center"}
         transition-all duration-200 group shrink-0
         ${active
           ? "bg-white/15 text-white shadow-lg border border-white/15"
@@ -145,9 +147,10 @@ function SidebarLink({ item, active }: { item: NavItem; active: boolean }) {
         <span className="absolute left-0 top-1/4 bottom-1/4 w-[3px] rounded-r-full bg-sky-400 shadow-[0_0_10px_rgba(24,168,255,0.9)]" />
       )}
       <Icon size={16} className={`relative z-10 ${active ? item.color : "opacity-70 group-hover:opacity-100 transition-opacity"}`} />
+      {expanded && <span className="truncate text-xs font-semibold">{item.label}</span>}
 
       {/* Floating tooltip */}
-      <span className="
+      {!expanded && <span className="
         pointer-events-none absolute left-[3.25rem] top-1/2 -translate-y-1/2
         bg-[#111214]/95 backdrop-blur-xl border border-white/15
         text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-lg
@@ -158,12 +161,52 @@ function SidebarLink({ item, active }: { item: NavItem; active: boolean }) {
       ">
         <span className={`w-1.5 h-1.5 rounded-full ${item.color.replace("text-", "bg-")}`} />
         {item.label}
-      </span>
+      </span>}
     </Link>
   )
 }
 
 // ─── AppShell ─────────────────────────────────────────────────────────────────
+
+export function DisplayAwareAppShell({ children }: { children: React.ReactNode }) {
+  const searchParams = useSearchParams()
+  if (searchParams.get("display") === "1") return <>{children}</>
+  return <AppShell>{children}</AppShell>
+}
+
+function SalesProductivityPrompt({ enabled }: { enabled: boolean }) {
+  const router = useRouter()
+  const [idle, setIdle] = useState(false)
+  const [minutes, setMinutes] = useState(5)
+
+  useEffect(() => {
+    if (!enabled) return
+    fetch("/api/sales/productivity-settings").then(response => response.ok ? response.json() : null).then(data => {
+      if (data?.idlePromptMinutes) setMinutes(Math.max(1, Number(data.idlePromptMinutes)))
+    }).catch(() => undefined)
+  }, [enabled])
+
+  useEffect(() => {
+    if (!enabled) return
+    let timer: ReturnType<typeof setTimeout>
+    const reset = () => {
+      setIdle(false)
+      clearTimeout(timer)
+      timer = setTimeout(() => setIdle(true), minutes * 60_000)
+    }
+    const events = ["pointerdown", "pointermove", "keydown", "touchstart", "scroll"] as const
+    events.forEach(event => window.addEventListener(event, reset, { passive: true }))
+    reset()
+    return () => { clearTimeout(timer); events.forEach(event => window.removeEventListener(event, reset)) }
+  }, [enabled, minutes])
+
+  if (!enabled || typeof document === "undefined") return null
+  const start = () => { setIdle(false); sessionStorage.setItem("titan-sales-workday-active", "1"); router.push("/sales/todays-calls") }
+  return createPortal(<>
+    <button type="button" onClick={start} className="fixed bottom-20 right-3 z-[800] inline-flex min-h-12 items-center gap-2 rounded-full bg-gradient-to-r from-orange-500 to-amber-400 px-5 text-sm font-black text-black shadow-[0_12px_40px_rgba(249,115,22,.35)] md:bottom-5 md:right-5"><FiZap /> Get to work. Make money.</button>
+    {idle && <div className="fixed inset-0 z-[12000] grid place-items-center bg-black p-6 text-center text-white"><div className="max-w-xl"><FiZap className="mx-auto text-5xl text-orange-400" /><div className="mt-6 text-xs font-black uppercase tracking-[.28em] text-orange-400">Your next opportunity is waiting</div><h2 className="mt-4 text-4xl font-black uppercase leading-tight sm:text-6xl">You don’t make money standing still.</h2><p className="mx-auto mt-5 max-w-md text-base leading-7 text-neutral-400">Five focused minutes can create the next quote, order, or customer relationship. Pick up where you left off and take the next best action.</p><button type="button" onClick={start} className="mt-8 min-h-14 rounded-2xl bg-orange-500 px-8 text-base font-black uppercase text-black"><FiZap className="mr-2 inline" /> Get back to work</button></div></div>}
+  </>, document.body)
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -173,6 +216,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const [sidebarExpanded, setSidebarExpanded] = useState(false)
   const [navVisits, setNavVisits] = useState<Record<string, number>>({})
 
   // ── Auth / layout bypass ──────────────────────────────────────────────────
@@ -181,6 +225,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     || pathname === "/about" 
     || pathname === "/contact" 
     || pathname.startsWith("/resources") 
+    || pathname.startsWith("/technical-information")
     || pathname.startsWith("/blade-finder") 
     || pathname.startsWith("/applications") 
     || pathname.startsWith("/signature-series") 
@@ -196,16 +241,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     || pathname === "/customer-portal"
     || pathname === "/privacy" 
     || pathname === "/terms"
-  if (pathname === "/login" || pathname === "/intro-offer" || pathname.startsWith("/tv") || isPublicPage) {
-    return <>{children}</>
-  }
-
   // ── Derived state ─────────────────────────────────────────────────────────
   const isAdminPage = pathname.startsWith("/admin")
 
   const effectiveRole = preferences.impersonatedUser?.role ?? user?.role ?? ""
   const isAdmin = isAdminRole(effectiveRole)
   const isAdministrator = isAdministratorRole(effectiveRole)
+  const isSalesRep = effectiveRole === "AGENT"
 
   const showBackButton = !MAIN_PAGES.includes(pathname) && !isAdminPage
 
@@ -221,7 +263,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // ── Adaptive nav — load visits on mount ───────────────────────────────────
   useEffect(() => {
     setNavVisits(loadVisits())
+    setSidebarExpanded(localStorage.getItem("titan_sidebar_expanded") === "true")
   }, [])
+
+  const toggleSidebar = () => {
+    setSidebarExpanded(current => {
+      const next = !current
+      try { localStorage.setItem("titan_sidebar_expanded", String(next)) } catch {}
+      return next
+    })
+  }
 
   // ── Adaptive nav — track every page visit ────────────────────────────────
   useEffect(() => {
@@ -238,17 +289,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [pathname])
 
   // ── Adaptive nav — compute top 4 by weighted score ───────────────────────
-  const adaptiveBottomItems = useMemo(() =>
-    [...ALL_TRACKABLE]
-      .filter(item => item.href !== '/processing' || isAdministrator)
-      .sort((a, b) => {
-        const sa = (navVisits[a.href] || 0) * 10 + a.defaultScore
-        const sb = (navVisits[b.href] || 0) * 10 + b.defaultScore
-        return sb - sa
-      })
-      .slice(0, 4),
-    [navVisits, isAdministrator]
-  )
+  // Stable role-based mobile navigation preserves muscle memory. Visit counts
+  // remain available for analytics but never move primary controls.
+  const adaptiveBottomItems = useMemo(() => {
+    const stable = ["/dashboard", "/sales", "/tasks", isAdministrator ? "/processing" : "/messages"]
+    return stable.map(href => ALL_TRACKABLE.find(item => item.href === href)!).filter(Boolean)
+  }, [isAdministrator])
 
   // ── Close mobile overlays on navigation ──────────────────────────────────
   useEffect(() => {
@@ -256,26 +302,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setShowMoreMenu(false)
   }, [pathname])
 
+  if (pathname === "/login" || pathname === "/intro-offer" || pathname.startsWith("/tv") || pathname.startsWith("/display") || isPublicPage) {
+    return <>{children}</>
+  }
+
   return (
     <div className="flex bg-[var(--background)] text-[var(--foreground)]" style={{ height: "100dvh" }}>
+      <SalesProductivityPrompt enabled={isSalesRep} />
 
       {/* ════════════════════════════════════════════════════════════════════
           DESKTOP SIDEBAR (md+) — Hidden on admin pages (AdminLayout has own nav)
       ═════════════════════════════════════════════════════════════════════= */}
       {!isAdminPage && (
         <aside
-          className="
-            hidden md:flex flex-col items-center
-            w-[3.5rem] shrink-0
+          className={`
+            hidden md:flex flex-col
+            ${sidebarExpanded ? "w-60 items-stretch" : "w-[3.5rem] items-center"} shrink-0
             fixed top-3 left-3 bottom-3
             glass-panel rounded-2xl border-white/10
             shadow-[0_20px_60px_rgba(0,0,0,0.5)]
-            py-3 z-40 overflow-visible
-          "
+            py-3 z-40 overflow-visible transition-[width] duration-200
+          `}
           aria-label="Main navigation"
         >
           {/* Brand mark */}
-          <div className="shrink-0 mb-3 flex justify-center w-full">
+          <div className={`shrink-0 mb-2 flex items-center w-full ${sidebarExpanded ? "justify-start px-2 gap-2" : "justify-center"}`}>
             <Link href="/dashboard" className="w-10 h-10 flex items-center justify-center relative group">
               <img 
                 src="/images/brand/logo-system/titan-mark-light.png"
@@ -295,7 +346,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 Titan Diamond Hub
               </span>
             </Link>
+            {sidebarExpanded && <span className="min-w-0 flex-1 truncate text-xs font-black uppercase tracking-wider text-white">Titan Hub</span>}
           </div>
+
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            aria-expanded={sidebarExpanded}
+            aria-label={sidebarExpanded ? "Collapse navigation" : "Expand navigation with labels"}
+            title={sidebarExpanded ? "Collapse menu" : "Expand menu"}
+            className={`mb-2 flex h-9 items-center rounded-xl border border-white/10 text-neutral-400 transition-colors hover:bg-white/10 hover:text-white ${sidebarExpanded ? "mx-2 justify-start gap-3 px-3" : "w-9 justify-center"}`}
+          >
+            {sidebarExpanded ? <FiChevronLeft size={16} /> : <FiChevronRight size={16} />}
+            {sidebarExpanded && <span className="text-xs font-bold">Collapse menu</span>}
+          </button>
 
           {/* Back button */}
           {showBackButton && (
@@ -303,13 +367,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               onClick={() => router.back()}
               title="Go Back"
               aria-label="Go Back"
-              className="
+              className={`
                 shrink-0 w-9 h-9 mb-2 rounded-xl flex items-center justify-center
                 text-neutral-500 hover:text-white hover:bg-white/8
                 transition-all border border-transparent hover:border-white/10 relative group
-              "
+                ${sidebarExpanded ? "mx-2 w-auto justify-start gap-3 px-3" : "w-9 justify-center"}
+              `}
             >
               <FiArrowLeft size={15} />
+              {sidebarExpanded && <span className="text-xs font-semibold">Go Back</span>}
               <span className="
                 pointer-events-none absolute left-[3.25rem] top-1/2 -translate-y-1/2
                 bg-[#111214]/95 backdrop-blur-xl border border-white/15
@@ -322,17 +388,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           )}
 
           {/* Scrollable nav groups */}
-          <nav className="flex-1 min-h-0 overflow-y-auto overflow-x-visible scrollbar-none flex flex-col items-center w-full px-1.5 gap-0.5">
+          <nav className={`flex-1 min-h-0 overflow-y-auto overflow-x-visible scrollbar-none flex flex-col w-full px-1.5 gap-0.5 ${sidebarExpanded ? "items-stretch" : "items-center"}`}>
             {navGroups.map((group, gi) => (
-              <div key={group.label} className="flex flex-col items-center w-full">
+              <div key={group.label} className={`flex flex-col w-full ${sidebarExpanded ? "items-stretch" : "items-center"}`}>
                 {gi > 0 && (
-                  <div className="flex flex-col items-center my-1.5 w-full">
-                    <div className={`w-5 h-[2px] rounded-full ${groupAccent[group.label] || "bg-white/10"} opacity-40`} />
+                  <div className={`flex my-1.5 w-full ${sidebarExpanded ? "items-center gap-2 px-2" : "flex-col items-center"}`}>
+                    <div className={`${sidebarExpanded ? "w-2" : "w-5"} h-[2px] rounded-full ${groupAccent[group.label] || "bg-white/10"} opacity-40`} />
+                    {sidebarExpanded && <span className="text-[9px] font-black uppercase tracking-[.16em] text-neutral-600">{group.label}</span>}
                   </div>
                 )}
+                {gi === 0 && sidebarExpanded && <div className="px-2 pb-1 text-[9px] font-black uppercase tracking-[.16em] text-neutral-600">{group.label}</div>}
                 {group.items.filter(item => item.href !== "/processing" || isAdministrator).map(item => (
-                  <div key={item.href} className="mb-0.5 w-full flex justify-center">
-                    <SidebarLink item={item} active={isActive(item.href)} />
+                  <div key={item.href} className={`mb-0.5 w-full flex ${sidebarExpanded ? "justify-stretch" : "justify-center"}`}>
+                    <SidebarLink item={item} active={isActive(item.href)} expanded={sidebarExpanded} />
                   </div>
                 ))}
               </div>
@@ -348,6 +416,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <SidebarLink
                     item={{ href: "/admin", icon: FiGrid, label: "Admin Hub", color: "text-purple-400" }}
                     active={isActive("/admin")}
+                    expanded={sidebarExpanded}
                   />
                 </div>
               </div>
@@ -355,15 +424,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           {/* Bottom: avatar + sign out */}
-          <div className="shrink-0 flex flex-col gap-1.5 items-center border-t border-white/8 pt-2 mt-1 w-full px-1.5">
+          <div className={`shrink-0 flex flex-col gap-1.5 border-t border-white/8 pt-2 mt-1 w-full px-1.5 ${sidebarExpanded ? "items-stretch" : "items-center"}`}>
             {user && (
               <button
                 onClick={() => setShowSettings(true)}
                 title="Account Settings"
                 aria-label="Account Settings"
-                className="relative group cursor-pointer w-8 h-8 rounded-full bg-gradient-to-br from-neutral-700 to-neutral-900 border border-white/15 hover:border-orange-500 flex items-center justify-center shadow-lg transition-all duration-200"
+                className={`relative group cursor-pointer h-9 rounded-xl bg-gradient-to-br from-neutral-700 to-neutral-900 border border-white/15 hover:border-orange-500 flex items-center shadow-lg transition-all duration-200 ${sidebarExpanded ? "w-full justify-start gap-3 px-3" : "w-8 justify-center"}`}
               >
                 <span className="text-xs font-bold text-white">{user.name?.charAt(0) ?? "?"}</span>
+                {sidebarExpanded && <span className="truncate text-xs font-semibold text-white">Account settings</span>}
                 <div className="
                   pointer-events-none absolute left-[3.25rem] bottom-0
                   bg-[#111214]/95 backdrop-blur-xl border border-white/15
@@ -381,13 +451,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               onClick={handleLogout}
               title="Sign Out"
               aria-label="Sign Out"
-              className="
-                w-8 h-8 rounded-xl flex items-center justify-center
+              className={`
+                h-9 rounded-xl flex items-center
+                ${sidebarExpanded ? "w-full justify-start gap-3 px-3" : "w-8 justify-center"}
                 text-neutral-500 hover:text-red-400 hover:bg-red-500/10
                 transition-all relative group border border-transparent hover:border-red-500/20
-              "
+              `}
             >
               <FiLogOut size={15} />
+              {sidebarExpanded && <span className="text-xs font-semibold">Sign Out</span>}
               <span className="
                 pointer-events-none absolute left-[3.25rem] top-1/2 -translate-y-1/2
                 bg-[#111214]/95 backdrop-blur-xl border border-white/15
@@ -709,7 +781,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         flex-1 overflow-hidden flex flex-col
         pt-14 md:pt-0
         pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0
-        ${isAdminPage ? "" : "md:pl-[4.75rem]"}
+        ${isAdminPage ? "" : sidebarExpanded ? "md:pl-[16rem]" : "md:pl-[4.75rem]"}
+        transition-[padding] duration-200
       `}>
         <GlobalTopBar />
         <div className={`flex-1 min-h-0 flex flex-col ${isAdminPage ? "" : "overflow-y-auto"}`}>

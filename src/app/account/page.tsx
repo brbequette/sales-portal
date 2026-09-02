@@ -29,6 +29,7 @@ import { AccountProductsPurchased } from "@/components/AccountProductsPurchased"
 import { AccountPackages } from "@/components/AccountPackages"
 import { TaskEditor } from "@/components/TaskEditor"
 import { AccountEditModal } from "@/components/AccountEditModal"
+import { AccountSecondScreenWorkspace } from "@/components/AccountSecondScreenWorkspace"
 import { toast } from 'react-hot-toast';
 
 type ActiveTab = "comms" | "overview" | "quicksale"
@@ -228,15 +229,6 @@ function AccountLeftRail({
         </div>
       )}
 
-      {/* Quick Sale CTA */}
-      <div className="p-3 mt-auto">
-        <button
-          onClick={() => onTabSwitch("quicksale")}
-          className="w-full flex items-center justify-center gap-2 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-colors"
-        >
-          <FiShoppingCart size={12} /> Quick Sale
-        </button>
-      </div>
     </aside>
   )
 }
@@ -569,6 +561,7 @@ function AccountHubContent() {
   const router = useRouter()
   const id = searchParams.get("id") || ""
   const tabParam = searchParams.get("tab")
+  const isSecondDisplay = searchParams.get("display") === "1"
   const { isInitialized } = useZoho()
   const [account, setAccount] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -674,6 +667,10 @@ function AccountHubContent() {
 
   const isFluidTab = activeTab === "comms" || activeTab === "quicksale"
 
+  if (isSecondDisplay) {
+    return <AccountSecondScreenWorkspace accountId={id} account={account} />
+  }
+
   return (
     <div className="flex flex-col bg-black/20 text-white font-sans" style={{ height: "100%" }}>
 
@@ -746,14 +743,14 @@ function AccountHubContent() {
             {cleanPhone ? (
               <button
                 onClick={handleHeaderDial}
-                className="hidden sm:flex shrink-0 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 text-xs rounded-lg font-bold transition-colors items-center gap-1.5"
+                className="hidden sm:flex lg:hidden shrink-0 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 text-xs rounded-lg font-bold transition-colors items-center gap-1.5"
               >
                 <FiPhone size={12} /> Call
               </button>
             ) : null}
             <button
               onClick={handleHeaderSms}
-              className="hidden sm:flex shrink-0 bg-neutral-700 hover:bg-neutral-600 text-white px-3 py-1.5 text-xs rounded-lg font-bold transition-colors items-center gap-1.5"
+              className="hidden sm:flex lg:hidden shrink-0 bg-neutral-700 hover:bg-neutral-600 text-white px-3 py-1.5 text-xs rounded-lg font-bold transition-colors items-center gap-1.5"
             >
               <FiMessageSquare size={12} /> SMS
             </button>

@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Permit the office-LAN hostname to load development-only assets and HMR.
+  // This option is only enforced by the Next.js development server.
+  allowedDevOrigins: ['192.168.0.108'],
   experimental: {
     proxyClientMaxBodySize: '50mb',
   },

@@ -87,12 +87,16 @@ export default async function SignatureSeriesPage() {
       <div className="relative z-10 overflow-hidden border-y border-orange-300/20 bg-orange-500 py-2.5 text-[10px] font-black uppercase tracking-[.24em] text-black sm:text-xs">
         <div className="animate-marquee inline-block whitespace-nowrap">TITAN SIGNATURE SERIES&nbsp; // &nbsp;FAST CUTTING&nbsp; // &nbsp;LONG USABLE LIFE&nbsp; // &nbsp;APPLICATION-MATCHED BONDS&nbsp; // &nbsp;CONTRACTOR DIRECT&nbsp; // &nbsp;CALL (480) 470-2577&nbsp; // &nbsp;</div>
       </div>
-      <section className="relative z-10 border-b border-white/10 px-4 pb-20 pt-24 text-center sm:pb-28 sm:pt-32">
-        <div className="signature-orbit relative mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-full border border-orange-400/40 bg-orange-500/10"><FiCrosshair className="text-orange-400" size={30} /></div>
-        <p className="mb-5 font-mono text-[10px] font-bold uppercase tracking-[.38em] text-orange-400 sm:text-xs">Forged identity. Jobsite performance.</p>
-        <h1 className="mx-auto max-w-6xl text-5xl font-black uppercase leading-[.86] tracking-[-.065em] sm:text-7xl lg:text-[7.5rem]">Cut Like A <span className="signature-metal block">Legend</span></h1>
-        <p className="mx-auto mt-8 max-w-2xl text-sm leading-7 text-neutral-400 sm:text-base">Titan Signature Series blades are selected around cut speed, usable segment life, saw power, aggregate, reinforcement, and wet or dry operation. Every listed variant and SKU reflects current catalog data.</p>
-        <div className="mt-10 flex flex-wrap justify-center gap-3 text-[10px] font-black uppercase tracking-widest text-neutral-300"><span className="signature-chip"><FiShield /> Long usable life</span><span className="signature-chip"><FiZap /> Fast cutting</span><span className="signature-chip"><FiStar /> {blades.length} application-ready families</span></div>
+      <section className="signature-legendary-hero relative z-10 flex min-h-[44rem] items-center overflow-hidden border-b border-white/10 px-4 py-24 text-center sm:min-h-[52rem] sm:py-32">
+        <Image src="/images/hero/field-series/signature-series-legendary-v2.jpg" alt="Concrete cutter using a Titan Signature Series blade on a reinforced demolition job" fill priority sizes="100vw" className="signature-legendary-image" />
+        <div className="signature-legendary-shade absolute inset-0" aria-hidden="true" />
+        <div className="signature-legendary-copy relative z-10 mx-auto w-full">
+          <div className="signature-orbit relative mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-full border border-orange-400/40 bg-black/35 backdrop-blur-sm"><FiCrosshair className="text-orange-400" size={30} /></div>
+          <p className="mb-5 font-mono text-[10px] font-bold uppercase tracking-[.38em] text-orange-400 sm:text-xs">Forged identity. Jobsite performance.</p>
+          <h1 className="mx-auto max-w-6xl text-5xl font-black uppercase leading-[.86] tracking-[-.065em] sm:text-7xl lg:text-[7.5rem]">Cut Like A <span className="signature-metal block">Legend</span></h1>
+          <p className="signature-hero-description mx-auto mt-8 max-w-2xl text-sm leading-7 text-neutral-300 sm:text-base">Titan Signature Series blades are selected around cut speed, usable segment life, saw power, aggregate, reinforcement, and wet or dry operation. Every listed variant and SKU reflects current catalog data.</p>
+          <div className="mt-10 flex flex-wrap justify-center gap-3 text-[10px] font-black uppercase tracking-widest text-neutral-200"><span className="signature-chip"><FiShield /> Long usable life</span><span className="signature-chip"><FiZap /> Fast cutting</span><span className="signature-chip"><FiStar /> {blades.length} application-ready families</span></div>
+        </div>
       </section>
       <section className="relative z-10 mx-auto max-w-[94rem] px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
         {blades.length ? <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">{blades.map((blade, index) => (

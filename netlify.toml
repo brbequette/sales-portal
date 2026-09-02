@@ -45,3 +45,6 @@
 
 [functions."email-sync"]
   schedule = "*/3 * * * *"
+
+[functions."operational-task-generator"]
+  schedule = "*/15 * * * *"

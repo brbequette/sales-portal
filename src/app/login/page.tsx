@@ -185,6 +185,10 @@ function LoginContent() {
   }
 
   const handleZohoLogin = async () => {
+    if (process.env.NODE_ENV === "development") {
+      window.location.assign("https://www.tdusales.com/employee-login")
+      return
+    }
     setLoading(true)
     setError("")
     const callbackUrl = activeTab === "admin" ? "/admin" : safeCallbackPath(searchParams.get("callbackUrl"))
@@ -322,7 +326,8 @@ function LoginContent() {
           </div>
         ) : activeTab === "employee" ? (
           <div className="space-y-5">
-          <button type="button" onClick={handleZohoLogin} disabled={loading} className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 text-neutral-950 font-black text-xs uppercase tracking-wider py-4 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"><FiZap />{loading ? "CONNECTING..." : "CONTINUE WITH ZOHO SSO"}</button>
+          {process.env.NODE_ENV === "development" && <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/10 p-3 text-xs leading-5 text-cyan-100"><b>Development login:</b> use your staff email and password below. Zoho SSO requires the registered secure production callback.</div>}
+          <button type="button" onClick={handleZohoLogin} disabled={loading} className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 text-neutral-950 font-black text-xs uppercase tracking-wider py-4 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"><FiZap />{loading ? "CONNECTING..." : process.env.NODE_ENV === "development" ? "OPEN SECURE ZOHO SSO" : "CONTINUE WITH ZOHO SSO"}</button>
           <div className="flex items-center gap-3 text-[9px] font-black uppercase tracking-widest text-neutral-600"><span className="h-px flex-1 bg-white/10" />Or staff credentials<span className="h-px flex-1 bg-white/10" /></div>
           <form onSubmit={handleEmployeeLogin} className="space-y-4">
             <div>
@@ -368,7 +373,8 @@ function LoginContent() {
           <div className="space-y-5 text-center">
             <div className="rounded-2xl border border-white/10 bg-black/30 p-5"><FiShield className="mx-auto text-3xl text-amber-400" /><h2 className="mt-3 text-sm font-black uppercase">Approved administrators only</h2><p className="mt-2 text-xs leading-5 text-neutral-400">Use your company Zoho identity. Your Titan role is checked again before access is granted.</p></div>
             {status === "authenticated" && !isAdminRole(session?.user?.role) && <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">This signed-in account does not have administrator access.</div>}
-            <button type="button" onClick={handleZohoLogin} disabled={loading || status === "loading"} className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 text-neutral-950 font-black text-xs uppercase tracking-wider py-4 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"><FiUsers />{loading ? "CONNECTING..." : "CONTINUE WITH ZOHO SSO"}<FiArrowRight /></button>
+            {process.env.NODE_ENV === "development" && <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/10 p-3 text-xs leading-5 text-cyan-100"><b>Development:</b> Zoho SSO opens the registered secure production portal. Use the Employee tab for local staff credentials.</div>}
+            <button type="button" onClick={handleZohoLogin} disabled={loading || status === "loading"} className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 text-neutral-950 font-black text-xs uppercase tracking-wider py-4 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"><FiUsers />{loading ? "CONNECTING..." : process.env.NODE_ENV === "development" ? "OPEN SECURE ZOHO SSO" : "CONTINUE WITH ZOHO SSO"}<FiArrowRight /></button>
           </div>
         )}
       </div>

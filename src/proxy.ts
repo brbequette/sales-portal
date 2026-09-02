@@ -10,6 +10,7 @@ const PUBLIC_ROUTES = [
   '/about',
   '/contact',
   '/resources',
+  '/technical-information',
   '/blade-finder',
   '/applications',
   '/signature-series',

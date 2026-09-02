@@ -278,9 +278,17 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
   const [saving, setSaving] = useState(false)
   const [addingOutcome, setAddingOutcome] = useState(false)
   const [tab, setTab] = useState<"details" | "notes" | "assets">("details")
+  const [structuredOutcomes, setStructuredOutcomes] = useState<Array<{ id: string; outcomeType: string; summary: string; nextAction?: string | null; followUpAt?: string | null; actorName?: string | null; createdAt: string }>>([])
   const cat = classifyTask(task)
   const cfg = CAT[cat]
   const overdue = isOverdue(task)
+
+  useEffect(() => {
+    fetch(`/api/tasks/outcomes?taskId=${encodeURIComponent(task.zohoId)}`, { cache: 'no-store' })
+      .then(response => response.ok ? response.json() : { outcomes: [] })
+      .then(data => setStructuredOutcomes(data.outcomes || []))
+      .catch(() => setStructuredOutcomes([]))
+  }, [task.zohoId])
 
   const handleSave = async () => {
     setSaving(true)
@@ -291,12 +299,13 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
   const handleAddOutcome = async () => {
     if (!outcome.trim()) return
     setAddingOutcome(true)
+    const response = await fetch('/api/tasks/outcomes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ taskId: task.zohoId, outcomeType: 'UPDATE', summary: outcome.trim() }) })
+    const data = await response.json()
+    if (!response.ok) { toast.error(data.error || 'Outcome could not be saved'); setAddingOutcome(false); return }
     const ts = new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
-    const updated = editDesc
-      ? `${editDesc}\n\n[${ts}] ${outcome.trim()}`
-      : `[${ts}] ${outcome.trim()}`
-    setEditDesc(updated)
-    await onUpdate(task.zohoId, { description: updated })
+    setEditDesc(current => current ? `${current}\n\n[${ts}] ${outcome.trim()}` : `[${ts}] ${outcome.trim()}`)
+    setStructuredOutcomes(current => [data.outcome, ...current])
+    toast.success('Structured outcome saved')
     setOutcome("")
     setAddingOutcome(false)
   }
@@ -467,8 +476,9 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
             {/* Outcomes */}
             <div>
               <label className="text-xs text-neutral-500 font-bold uppercase tracking-wider block mb-2">
-                Outcomes ({outcomeLines.length})
+                Outcomes ({structuredOutcomes.length + outcomeLines.length})
               </label>
+              {structuredOutcomes.map(item => <div key={item.id} className="bg-violet-500/8 border border-violet-500/20 rounded-xl px-4 py-3 mb-2"><div className="flex items-center justify-between gap-2 text-[10px] font-black uppercase text-violet-400"><span>{item.outcomeType}</span><span>{new Date(item.createdAt).toLocaleString()}</span></div><p className="mt-1 text-sm text-violet-100">{item.summary}</p>{item.nextAction&&<p className="mt-1 text-xs text-neutral-400">Next: {item.nextAction}</p>}</div>)}
               {outcomeLines.map((line, i) => (
                 <div key={i} className="bg-violet-500/8 border border-violet-500/20 rounded-xl px-4 py-3 mb-2">
                   <p className="text-sm text-violet-200">{line}</p>

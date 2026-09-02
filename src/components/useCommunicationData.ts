@@ -32,10 +32,12 @@ export function useCommunicationData({
   accountId,
   account,
   contacts,
+  selectedContactId,
 }: {
   accountId: string
   account?: any
   contacts?: any[]
+  selectedContactId?: string
 }) {
   const { zohoContext: currentUser } = useZoho()
   const repName = currentUser?.name || "your sales rep"
@@ -97,7 +99,7 @@ export function useCommunicationData({
   const [showScript, setShowScript] = useState(false)
 
   const chatEndRef = useRef<HTMLDivElement>(null)
-  const primaryContact = contacts?.find(c => c.isPrimary) || contacts?.[0] || null
+  const primaryContact = contacts?.find(c => c.id === selectedContactId) || contacts?.find(c => c.isPrimary) || contacts?.[0] || null
   const displayPhone = primaryContact?.phone || primaryContact?.mobilePhone || ""
   const cleanPhone = displayPhone ? displayPhone.replace(/[^0-9+]/g, "") : ""
   const contactName = spokeTo || (primaryContact ? `${primaryContact.firstName || ""} ${primaryContact.lastName || ""}`.trim() : "there")
@@ -286,12 +288,13 @@ export function useCommunicationData({
   const sendSMS = useCallback(async () => {
     if (!smsText.trim()) return
     const message = smsText.trim()
+    if (!window.confirm(`Send this SMS to ${contactName} at ${displayPhone || cleanPhone}?`)) return
     setIsSaving(true)
     try {
       const response = await fetch("/api/send-sms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountId, message }),
+        body: JSON.stringify({ accountId, contactId: primaryContact?.id || null, message }),
       })
       const data = await response.json()
       if (!response.ok || !data.success || !data.providerAccepted || !data.smsMessage?.id) {
@@ -311,7 +314,7 @@ export function useCommunicationData({
     } finally {
       setIsSaving(false)
     }
-  }, [smsText, accountId, notify])
+  }, [smsText, accountId, primaryContact?.id, contactName, displayPhone, cleanPhone, notify])
 
   const sendEmailLog = useCallback(async () => {
     notify("Email sending is not configured. Nothing was sent or logged.", "error")

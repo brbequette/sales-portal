@@ -1,0 +1,39 @@
+diff --git a/src/lib/sync-engine.ts b/src/lib/sync-engine.ts
+index 0c6fe42..0000000 100644
+--- a/src/lib/sync-engine.ts
++++ b/src/lib/sync-engine.ts
+@@ -352,6 +352,8 @@ export async function updateInvoiceRecord(opts: {
+     data: {
+       status:               (zohoDoc.status as string) ?? undefined,
+       amount:               parseFloat((zohoDoc.sub_total as string) ?? "0") || 0,
++      issueDate:            zohoDoc.date ? new Date(`${String(zohoDoc.date)}T12:00:00.000Z`) : undefined,
++      dueDate:              zohoDoc.due_date ? new Date(`${String(zohoDoc.due_date)}T12:00:00.000Z`) : null,
+       zohoModifiedTime:     zohoModTime,
+       lastZohoModifiedTime: zohoModTime,
+       lastSyncedAt:         now,
+diff --git a/netlify/functions/daily-books-sync.ts b/netlify/functions/daily-books-sync.ts
+index 19ee491..0000000 100644
+--- a/netlify/functions/daily-books-sync.ts
++++ b/netlify/functions/daily-books-sync.ts
+@@ -12,6 +12,8 @@ import {
+ import {
+   extractProfit,
++  extractDeadProfit,
++  extractDeadCostTotal,
+   extractCommissionAmount,
+   extractVigRate,
+   extractActualShippingCost,
+@@ -401,10 +403,13 @@ async function syncFullDocument(
+ 
+     const calcItems: Record<string, unknown> = {
+       profit:              extractProfit(doc)           || currentItems.profit           || 0,
++      deadProfitActual:    extractDeadProfit(doc)       ?? currentItems.deadProfitActual ?? 0,
++      deadCostTotal:       extractDeadCostTotal(doc)    ?? currentItems.deadCostTotal    ?? 0,
+       commission:          extractCommissionAmount(doc) || currentItems.commission       || 0,
+       commissionPercent:   parseFloat((cfh.cf_commision_from_profit_unformatted as string) ?? (currentItems.commissionPercent as string) ?? "50") || 50,
+-      vig:                 extractVigRate(doc)          || currentItems.vig              || 1.3,
++      vigRate:             extractVigRate(doc)          || currentItems.vigRate          || currentItems.vig || 1.3,
++      vig:                 extractVigRate(doc)          || currentItems.vig              || currentItems.vigRate || 1.3,
+       actualShippingCost:  extractActualShippingCost(doc)  || currentItems.actualShippingCost || 0,
+       shippingCostBreakdown: extractShippingCostBreakdown(doc) || currentItems.shippingCostBreakdown || null,
+       // Document numbers and Zoho IDs

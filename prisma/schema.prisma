@@ -40,28 +40,28 @@ enum PayoutStructure {
 }
 
 model User {
-  id                   String                @id @default(cuid())
-  email                String                @unique
+  id                   String                     @id @default(cuid())
+  email                String                     @unique
   password             String?
   name                 String?
   phone                String?
-  title                String?               @default("Sales Representative")
+  title                String?                    @default("Sales Representative")
   vcardPhotoUrl        String?
-  vcardCompany         String?               @default("Titan Diamond USA")
-  vcardWebsite         String?               @default("https://tdusales.com")
-  zohoId               String?               @unique
+  vcardCompany         String?                    @default("Titan Diamond USA")
+  vcardWebsite         String?                    @default("https://tdusales.com")
+  zohoId               String?                    @unique
   /// @future Use UserRole enum
-  role                 String                @default("AGENT")
-  autoAttachVCard      Boolean               @default(false)
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-  constantVigEnabled   Boolean               @default(false)
-  constantVigValue     Float?                @default(1.5)
-  canSendCampaigns     Boolean               @default(false)
+  role                 String                     @default("AGENT")
+  autoAttachVCard      Boolean                    @default(false)
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+  constantVigEnabled   Boolean                    @default(false)
+  constantVigValue     Float?                     @default(1.5)
+  canSendCampaigns     Boolean                    @default(false)
   permissions          Json?
-  showOnSalesBoard     Boolean               @default(false)
+  showOnSalesBoard     Boolean                    @default(false)
   /// @future Use PayoutStructure enum
-  payoutStructure      String                @default("two_payment")
+  payoutStructure      String                     @default("two_payment")
   accounts             Account[]
   campaignBlasts       CampaignBlast[]
   campaignJobs         CampaignJob[]
@@ -84,64 +84,65 @@ model User {
   proposedAutomations  AutomationRecommendation[] @relation("AutomationProposer")
   reviewedAutomations  AutomationRecommendation[] @relation("AutomationReviewer")
   leads                Lead[]
-  claimedLeads         Lead[]                @relation("ClaimedLeads")
+  claimedLeads         Lead[]                     @relation("ClaimedLeads")
   clawbackTransactions ClawbackTransaction[]
   compensationPlans    CompensationPlan[]
   basePayEarnings      BasePayEarning[]
+  emailMailboxes       EmailMailbox[]
 
   @@index([role])
 }
 
 model Account {
-  id                    String                 @id @default(cuid())
-  zohoId                String                 @unique
-  name                  String
-  industry              String?
-  status                String                 @default("Update Status")
-  lastPurchaseAt        DateTime?
-  ownerId               String
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
-  nextActionDate        DateTime?
-  tags                  String?
+  id                        String                     @id @default(cuid())
+  zohoId                    String                     @unique
+  name                      String
+  industry                  String?
+  status                    String                     @default("Update Status")
+  lastPurchaseAt            DateTime?
+  ownerId                   String
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  nextActionDate            DateTime?
+  tags                      String?
   /// @future Use AccountQuality enum
-  quality               String                 @default("NEVER_STATUSED")
-  lastCalledAt          DateTime?
-  lastClosedCycleAt     DateTime?
-  timeZone              String?
-  bladeSizes            String?
-  materialsCut          String?
-  currentSupplier       String?
-  averageBladeCost      String?
-  crewCount             String?
-  bladesPerOrder        String?
-  improvementPriority   String?
-  billingStreet         String?
-  billingCity           String?
-  billingState          String?
-  billingZip            String?
-  shippingStreet        String?
-  shippingCity          String?
-  shippingState         String?
-  shippingZip           String?
-  owner                 User                   @relation(fields: [ownerId], references: [id])
-  contacts              Contact[]
-  deals                 Deal[]
-  invoices              Invoice[]
-  notes                 Note[]
-  quotes                Quote[]
-  salesOrders           SalesOrder[]
-  tasks                 Task[]
-  campaignLogs          CampaignLog[]
-  smsMessages           SmsMessage[]
-  callLogs              CallLog[]
-  scheduledMessages     ScheduledMessage[]
-  communicationEvents   CommunicationEvent[]
-  salesCommitments      SalesCommitment[]
+  quality                   String                     @default("NEVER_STATUSED")
+  lastCalledAt              DateTime?
+  lastClosedCycleAt         DateTime?
+  timeZone                  String?
+  bladeSizes                String?
+  materialsCut              String?
+  currentSupplier           String?
+  averageBladeCost          String?
+  crewCount                 String?
+  bladesPerOrder            String?
+  improvementPriority       String?
+  billingStreet             String?
+  billingCity               String?
+  billingState              String?
+  billingZip                String?
+  shippingStreet            String?
+  shippingCity              String?
+  shippingState             String?
+  shippingZip               String?
+  owner                     User                       @relation(fields: [ownerId], references: [id])
+  contacts                  Contact[]
+  deals                     Deal[]
+  invoices                  Invoice[]
+  notes                     Note[]
+  quotes                    Quote[]
+  salesOrders               SalesOrder[]
+  tasks                     Task[]
+  campaignLogs              CampaignLog[]
+  smsMessages               SmsMessage[]
+  callLogs                  CallLog[]
+  scheduledMessages         ScheduledMessage[]
+  communicationEvents       CommunicationEvent[]
+  salesCommitments          SalesCommitment[]
   automationRecommendations AutomationRecommendation[]
-  autoshipSubscriptions AutoshipSubscription[]
-  zohoModifiedTime      DateTime?
-  rawData               Json?
+  autoshipSubscriptions     AutoshipSubscription[]
+  zohoModifiedTime          DateTime?
+  rawData                   Json?
 
   @@index([ownerId])
   @@index([status])
@@ -150,29 +151,29 @@ model Account {
 }
 
 model Contact {
-  id               String       @id @default(cuid())
-  zohoId           String       @unique
-  accountId        String
-  firstName        String?
-  lastName         String?
-  email            String?
-  phone            String?
-  mobilePhone      String?
-  isPrimary        Boolean      @default(false)
-  designation      String?
-  mailingStreet    String?
-  mailingCity      String?
-  mailingState     String?
-  mailingZip       String?
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-  zohoModifiedTime DateTime?
-  rawData          Json?
-  account          Account      @relation(fields: [accountId], references: [id])
-  smsMessages      SmsMessage[]
-  callLogs         CallLog[]
+  id                  String               @id @default(cuid())
+  zohoId              String               @unique
+  accountId           String
+  firstName           String?
+  lastName            String?
+  email               String?
+  phone               String?
+  mobilePhone         String?
+  isPrimary           Boolean              @default(false)
+  designation         String?
+  mailingStreet       String?
+  mailingCity         String?
+  mailingState        String?
+  mailingZip          String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  zohoModifiedTime    DateTime?
+  rawData             Json?
+  account             Account              @relation(fields: [accountId], references: [id])
+  smsMessages         SmsMessage[]
+  callLogs            CallLog[]
   communicationEvents CommunicationEvent[]
-  salesCommitments SalesCommitment[]
+  salesCommitments    SalesCommitment[]
 
   @@index([accountId, isPrimary])
 }
@@ -450,6 +451,7 @@ model Task {
   dueDate        DateTime?
   ownerId        String
   accountId      String?
+  leadId         String?
   dealId         String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -459,6 +461,7 @@ model Task {
   estimateId     String?
   type           String    @default("Task")
   account        Account?  @relation(fields: [accountId], references: [id])
+  lead           Lead?     @relation(fields: [leadId], references: [id], onDelete: Cascade)
   deal           Deal?     @relation(fields: [dealId], references: [id])
   reminderAt     DateTime?
   reminderMethod String?
@@ -468,6 +471,7 @@ model Task {
   @@index([ownerId])
   @@index([status])
   @@index([accountId])
+  @@index([leadId])
   @@index([ownerId, status, dueDate])
 }
 
@@ -691,13 +695,22 @@ model SmsMessage {
 }
 
 model CallScript {
-  id        String   @id @default(cuid())
-  name      String
-  callType  String // e.g., "Intro", "Follow-up", "Collections", "General"
-  content   String // The text with merge fields
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  name               String
+  callType           String // e.g., "Intro", "Follow-up", "Collections", "General"
+  content            String // The text with merge fields
+  department         String   @default("SALES")
+  scenario           String   @default("GENERAL")
+  objective          String?
+  discoveryPrompts   Json?
+  objectionResponses Json?
+  closingPrompt      String?
+  priority           Int      @default(0)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([department, scenario, isActive])
 }
 
 model CallLog {
@@ -734,23 +747,23 @@ model CallLog {
 }
 
 model CommunicationEvent {
-  id          String   @id @default(cuid())
-  accountId   String
-  contactId   String?
-  actorId     String?
-  channel     String
-  direction   String?
-  eventType   String
-  sourceType  String
-  sourceId    String
-  subject     String?
-  summary     String?
-  occurredAt  DateTime
-  metadata    Json?
-  createdAt   DateTime @default(now())
-  account     Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  contact     Contact? @relation(fields: [contactId], references: [id])
-  actor       User?    @relation(fields: [actorId], references: [id])
+  id         String   @id @default(cuid())
+  accountId  String
+  contactId  String?
+  actorId    String?
+  channel    String
+  direction  String?
+  eventType  String
+  sourceType String
+  sourceId   String
+  subject    String?
+  summary    String?
+  occurredAt DateTime
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  account    Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  contact    Contact? @relation(fields: [contactId], references: [id])
+  actor      User?    @relation(fields: [actorId], references: [id])
 
   @@unique([sourceType, sourceId, eventType])
   @@index([accountId, occurredAt])
@@ -1035,6 +1048,7 @@ model Lead {
 
   owner     User  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   claimedBy User? @relation("ClaimedLeads", fields: [claimedById], references: [id], onDelete: SetNull)
+  tasks     Task[]
 
   @@index([ownerId])
   @@index([status])
@@ -1279,34 +1293,137 @@ model DealAutomationState {
 }
 
 model Email {
-  id             String    @id @default(cuid())
-  accountId      String?
-  contactId      String?
-  userId         String?
-  zohoMailId     String    @unique
-  zohoAccountId  String
-  subject        String
-  body           String?
-  bodyHtml       String?
-  fromAddress    String
-  toAddress      String
-  ccAddresses    String?
-  direction      String // INBOUND | OUTBOUND
-  status         String // RECEIVED | READ | REPLIED | ARCHIVED
-  threadId       String?
-  needsResponse  Boolean   @default(false)
-  suggestedReply String?
-  taskCreated    Boolean   @default(false)
-  sentAt         DateTime?
-  receivedAt     DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id                String                  @id @default(cuid())
+  accountId         String?
+  contactId         String?
+  userId            String?
+  zohoMailId        String?                 @unique
+  zohoAccountId     String?
+  provider          String                  @default("ZOHO")
+  externalMessageId String?
+  internetMessageId String?
+  conversationId    String?
+  mailboxAddress    String?
+  emailMailboxId    String?
+  preview           String?
+  rawMetadata       Json?
+  processedAt       DateTime?
+  processingError   String?
+  subject           String
+  body              String?
+  bodyHtml          String?
+  fromAddress       String
+  toAddress         String
+  ccAddresses       String?
+  direction         String // INBOUND | OUTBOUND
+  status            String // RECEIVED | READ | REPLIED | ARCHIVED
+  threadId          String?
+  needsResponse     Boolean                 @default(false)
+  suggestedReply    String?
+  taskCreated       Boolean                 @default(false)
+  sentAt            DateTime?
+  receivedAt        DateTime?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  attachments       EmailAttachment[]
+  operationalEvents EmailOperationalEvent[]
+  emailMailbox      EmailMailbox?           @relation(fields: [emailMailboxId], references: [id], onDelete: SetNull)
 
+  @@unique([provider, mailboxAddress, externalMessageId])
   @@index([accountId])
   @@index([userId])
   @@index([needsResponse])
   @@index([status])
   @@index([threadId])
+  @@index([provider, receivedAt])
+  @@index([mailboxAddress, receivedAt])
+  @@index([emailMailboxId, receivedAt])
+}
+
+model EmailMailbox {
+  id             String    @id @default(cuid())
+  userId         String?
+  address        String    @unique
+  displayName    String?
+  provider       String    @default("MICROSOFT_365")
+  mailboxType    String    @default("USER")
+  enabled        Boolean   @default(true)
+  includeInbox   Boolean   @default(true)
+  includeSent    Boolean   @default(true)
+  autoSync       Boolean   @default(true)
+  lookbackDays   Int       @default(90)
+  lastSyncAt     DateTime?
+  lastSyncStatus String?
+  lastSyncError  String?
+  lastMessageAt  DateTime?
+  createdById    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  user           User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  emails         Email[]
+
+  @@index([userId])
+  @@index([enabled, autoSync])
+}
+
+model EmailAttachment {
+  id                   String   @id @default(cuid())
+  emailId              String
+  providerAttachmentId String?
+  name                 String
+  contentType          String?
+  size                 Int?
+  contentId            String?
+  isInline             Boolean  @default(false)
+  sha256               String?
+  storagePath          String?
+  classification       String?
+  extractionStatus     String   @default("METADATA_ONLY")
+  metadata             Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  email                Email    @relation(fields: [emailId], references: [id], onDelete: Cascade)
+
+  @@unique([emailId, providerAttachmentId])
+  @@index([emailId])
+  @@index([classification])
+}
+
+model EmailOperationalEvent {
+  id                String    @id @default(cuid())
+  emailId           String
+  eventType         String
+  status            String    @default("REVIEW_REQUIRED")
+  confidence        Float     @default(0)
+  effectiveAt       DateTime?
+  summary           String
+  extractedData     Json
+  sourceFingerprint String    @unique
+  accountId         String?
+  invoiceId         String?
+  salesOrderId      String?
+  purchaseOrderId   String?
+  packageId         String?
+  matchMethod       String?
+  matchConfidence   Float?
+  conflictReason    String?
+  proposedChanges   Json?
+  appliedChanges    Json?
+  reviewedById      String?
+  reviewedAt        DateTime?
+  appliedAt         DateTime?
+  errorMessage      String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  email             Email     @relation(fields: [emailId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([eventType, status])
+  @@index([invoiceId])
+  @@index([salesOrderId])
+  @@index([purchaseOrderId])
+  @@index([packageId])
+  @@index([accountId])
 }
 
 model EmailTemplate {
@@ -1410,6 +1527,171 @@ model SalesClosingChecklist {
   updatedBy           String?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
+  evidence            Json?
+}
+
+/// Durable record of every operational write, including Zoho-bound work.
+/// idempotencyKey prevents double-submission across refreshes and retries.
+model OperationalAction {
+  id             String    @id @default(cuid())
+  idempotencyKey String    @unique
+  actionType     String
+  entityType     String
+  entityId       String
+  entityNumber   String?
+  accountId      String?
+  status         String    @default("PENDING") // PENDING | RUNNING | SUCCEEDED | FAILED | DEAD_LETTER
+  payload        Json?
+  result         Json?
+  errorCode      String?
+  errorMessage   String?
+  attemptCount   Int       @default(0)
+  maxAttempts    Int       @default(5)
+  nextAttemptAt  DateTime?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  actorId        String?
+  actorName      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([entityType, entityId, createdAt])
+  @@index([accountId, createdAt])
+}
+
+/// Append-only business timeline used by the order command center.
+model OperationalEvent {
+  id           String   @id @default(cuid())
+  entityType   String
+  entityId     String
+  entityNumber String?
+  accountId    String?
+  eventType    String
+  title        String
+  detail       String?
+  source       String   @default("PORTAL")
+  status       String   @default("INFO")
+  metadata     Json?
+  actorId      String?
+  actorName    String?
+  occurredAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  @@index([entityType, entityId, occurredAt])
+  @@index([accountId, occurredAt])
+  @@index([eventType, occurredAt])
+}
+
+/// Current owner, next action and SLA for an operational record.
+model WorkAssignment {
+  id            String    @id @default(cuid())
+  entityType    String
+  entityId      String
+  entityNumber  String?
+  accountId     String?
+  stage         String
+  status        String    @default("OPEN")
+  priority      Int       @default(50)
+  ownerId       String?
+  ownerName     String?
+  escalationId  String?
+  nextAction    String
+  dueAt         DateTime?
+  blockedReason String?
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([entityType, entityId])
+  @@index([status, priority, dueAt])
+  @@index([ownerId, status])
+  @@index([stage, status])
+}
+
+/// Actual integration checkpoints. Record updatedAt is intentionally not used.
+model IntegrationSyncState {
+  id                 String    @id @default(cuid())
+  integration        String
+  entityType         String
+  lastPullAt         DateTime?
+  lastWebhookAt      DateTime?
+  lastWriteAt        DateTime?
+  lastSuccessAt      DateTime?
+  lastFailureAt      DateTime?
+  lastError          String?
+  cursor             String?
+  oldestQueuedAt     DateTime?
+  queuedCount        Int       @default(0)
+  deadLetterCount    Int       @default(0)
+  lastDurationMs     Int?
+  lastProcessedCount Int       @default(0)
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([integration, entityType])
+  @@index([integration, lastSuccessAt])
+}
+
+/// Records that could not be safely attached to a local business entity.
+model IntegrationException {
+  id               String    @id @default(cuid())
+  integration      String
+  entityType       String
+  externalId       String
+  externalNumber   String?
+  exceptionType    String
+  status           String    @default("OPEN")
+  summary          String
+  payload          Json?
+  proposedMatches  Json?
+  confidence       Float?
+  resolvedEntityId String?
+  resolvedBy       String?
+  resolvedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([integration, entityType, externalId, exceptionType])
+  @@index([status, createdAt])
+  @@index([entityType, status])
+}
+
+model TaskOutcome {
+  id           String    @id @default(cuid())
+  taskId       String
+  outcomeType  String
+  summary      String
+  nextAction   String?
+  followUpAt   DateTime?
+  accountId    String?
+  documentType String?
+  documentId   String?
+  actorId      String?
+  actorName    String?
+  createdAt    DateTime  @default(now())
+
+  @@index([taskId, createdAt])
+  @@index([accountId, createdAt])
+  @@index([outcomeType, createdAt])
+}
+
+model ShippingPreset {
+  id        String   @id @default(cuid())
+  name      String
+  length    Float
+  width     Float
+  height    Float
+  weight    Float
+  scope     String   @default("COMPANY")
+  ownerId   String?
+  isActive  Boolean  @default(true)
+  isDefault Boolean  @default(false)
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, scope, ownerId])
+  @@index([scope, isActive])
 }
 
 /// A reviewed promotion definition used by Flyer Studio. The bundle snapshot

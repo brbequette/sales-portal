@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { Metadata } from 'next';
-import { FiFileText, FiLock, FiCheckCircle, FiBookOpen, FiZap, FiDownload, FiHelpCircle } from 'react-icons/fi';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { FiBookOpen, FiDownload, FiExternalLink, FiHelpCircle, FiLock } from 'react-icons/fi';
 
 export const metadata: Metadata = {
   title: 'Technical Info & Publications | Titan Diamond USA',
@@ -42,7 +44,32 @@ const ARTICLES = [
   }
 ];
 
+type ProductSheet = {
+  productName: string;
+  typeName: string;
+  category: string;
+  outputFile: string;
+};
+
+function getProductSheets(): ProductSheet[] {
+  try {
+    const manifestPath = path.join(process.cwd(), 'public', 'downloads', 'product-sheets', 'manifest.json');
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { sheets?: ProductSheet[] };
+    return manifest.sheets ?? [];
+  } catch {
+    return [];
+  }
+}
+
 export default function ResourcesPage() {
+  const productSheets = getProductSheets();
+  const groupedSheets = Object.entries(
+    productSheets.reduce<Record<string, ProductSheet[]>>((groups, sheet) => {
+      (groups[sheet.category] ??= []).push(sheet);
+      return groups;
+    }, {})
+  ).sort(([left], [right]) => left.localeCompare(right));
+
   return (
     <div className="bg-neutral-950 text-white min-h-screen">
       {/* Header Banner */}
@@ -61,6 +88,61 @@ export default function ResourcesPage() {
       </section>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {productSheets.length > 0 && (
+          <section className="mb-14" aria-labelledby="product-sheet-library">
+            <div className="mb-7 flex flex-col gap-5 rounded-3xl border border-orange-500/25 bg-gradient-to-br from-orange-500/10 via-neutral-900 to-neutral-950 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
+              <div className="max-w-3xl">
+                <span className="text-[10px] font-black uppercase tracking-[0.22em] text-orange-400">Field-ready technical library</span>
+                <h2 id="product-sheet-library" className="mt-2 text-2xl font-black uppercase tracking-tight text-white sm:text-3xl">
+                  Product sheets by tool family
+                </h2>
+                <p className="mt-3 text-sm leading-relaxed text-neutral-400">
+                  {productSheets.length} Titan-formatted references for blades, core bits, grinding, polishing, and specialty tooling. Use the family groups to get from application to specifications quickly.
+                </p>
+              </div>
+              <a
+                href="/downloads/product-sheets/titan-product-sheet-library-index.pdf"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 text-xs font-black uppercase tracking-wide text-black transition hover:bg-orange-400"
+              >
+                <FiDownload aria-hidden /> Download library index
+              </a>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {groupedSheets.map(([category, sheets]) => (
+                <details key={category} className="group rounded-2xl border border-white/10 bg-neutral-900/75 open:border-orange-500/35">
+                  <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 px-5 py-4">
+                    <span>
+                      <span className="block text-sm font-black uppercase tracking-wide text-white">{category}</span>
+                      <span className="mt-1 block text-[11px] text-neutral-500">{sheets.length} product sheets</span>
+                    </span>
+                    <span className="text-xl text-orange-400 transition-transform group-open:rotate-45" aria-hidden>+</span>
+                  </summary>
+                  <div className="border-t border-white/10 p-2">
+                    {sheets.map((sheet) => (
+                      <a
+                        key={`${sheet.productName}-${sheet.outputFile}`}
+                        href={`/downloads/product-sheets/${sheet.outputFile}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex min-h-12 items-center justify-between gap-3 rounded-xl px-3 py-2.5 transition hover:bg-white/5"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-xs font-bold text-white">{sheet.productName}</span>
+                          <span className="block truncate text-[10px] text-neutral-500">{sheet.typeName}</span>
+                        </span>
+                        <FiExternalLink className="shrink-0 text-orange-400" aria-hidden />
+                      </a>
+                    ))}
+                  </div>
+                </details>
+              ))}
+            </div>
+          </section>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           {/* Main Articles List */}
@@ -124,15 +206,20 @@ export default function ResourcesPage() {
               <div className="w-10 h-10 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center text-amber-400 mb-4">
                 <FiDownload size={20} />
               </div>
-              <h3 className="text-base font-bold text-white mb-2">Blade RPM & Spec Sheet PDF</h3>
+              <h3 className="text-base font-bold text-white mb-2">Titan Contractor Field Guide</h3>
               <p className="text-xs text-neutral-400 mb-6 leading-relaxed">
-                Download printable jobsite reference sheets for hand-held, walk-behind, and masonry saw operating parameters.
+                Seven printable pages covering blade selection, RPM and cutting depth, mounting, operation, troubleshooting, core drilling, and a reusable job record.
               </p>
-              <Link 
-                href="/login"
+              <a
+                href="/downloads/titan-contractor-field-guide.pdf"
+                target="_blank"
+                rel="noreferrer"
                 className="w-full bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs py-3 px-4 rounded-xl border border-white/10 block text-center transition-colors flex items-center justify-center gap-2"
               >
-                <FiLock className="text-amber-400" /> Log In to Download PDFs
+                <FiDownload className="text-amber-400" /> Download Field Guide
+              </a>
+              <Link href="/technical-information" className="mt-3 block text-center text-xs font-bold text-amber-400 hover:underline">
+                Open responsive technical reference
               </Link>
             </div>
 

@@ -101,6 +101,7 @@ services:
           const wrapped = (text.startsWith('"') && text.endsWith('"')) || (text.startsWith("'") && text.endsWith("'"));
           return wrapped ? text.slice(1, -1) : text;
         };
+        let consecutiveFailures = 0;
         const run = async () => {
           try {
             const response = await fetch('http://app:3000/api/internal/books-sync', {
@@ -108,11 +109,23 @@ services:
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify({ secret: clean(process.env.INTERNAL_SYNC_SECRET || process.env.NEXTAUTH_SECRET) }),
             });
-            if (!response.ok) console.error('Books sync failed:', response.status, await response.text());
-            else console.log('Books sync complete:', await response.text());
-          } catch (error) { console.error('Books sync request failed:', error); }
+            if (!response.ok) {
+              consecutiveFailures += 1;
+              console.error('Books sync failed:', response.status, await response.text());
+            } else {
+              consecutiveFailures = 0;
+              console.log('Books sync complete:', await response.text());
+            }
+          } catch (error) {
+            consecutiveFailures += 1;
+            console.error('Books sync request failed:', error);
+          } finally {
+            const backoff = Math.min(interval * (2 ** consecutiveFailures), 6 * 60 * 60 * 1000);
+            console.log('Next Books sync in ' + Math.round(backoff / 60000) + ' minute(s)');
+            setTimeout(run, backoff);
+          }
         };
-        run().finally(() => setInterval(run, interval));
+        run();
     depends_on:
       app:
         condition: service_healthy

@@ -36,6 +36,7 @@ export async function indexCallAndCreateSafeFollowUp(call: CallAutomationInput) 
       },
     },
     update: {
+      accountId: call.accountId,
       contactId: call.contactId,
       actorId: call.authorId,
       direction: call.direction.toUpperCase(),

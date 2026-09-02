@@ -21,6 +21,7 @@ import {
   extractActualShippingCost,
   extractShippingCostBreakdown,
 } from "../../src/lib/custom-field-extractor"
+import { updateSyncState } from "../../src/lib/operational-flow"
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 
@@ -49,7 +50,6 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
   const runStartedAt = new Date()
 
   try {
-    const token   = await getZohoAccessToken()
     const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
 
     let invoicesSynced = 0, sosSynced = 0, quotesSynced = 0
@@ -113,9 +113,10 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
     })
     for (const inv of pendingInvoices) {
       if (!inv.zohoId) continue
-      const synced = await syncFullDocument(token, baseUrl, "Invoice", inv.zohoId, inv)
+      const synced = await syncFullDocument(baseUrl, "Invoice", inv.zohoId, inv)
       if (synced === "conflict") conflictsFlagged++
-      pendingProcessed++
+      if (synced !== "skipped") pendingProcessed++
+      else syncIncomplete = true
     }
 
     const pendingSOs = await prisma.salesOrder.findMany({
@@ -124,9 +125,10 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
     })
     for (const so of pendingSOs) {
       if (!so.zohoId) continue
-      const synced = await syncFullDocument(token, baseUrl, "SalesOrder", so.zohoId, so)
+      const synced = await syncFullDocument(baseUrl, "SalesOrder", so.zohoId, so)
       if (synced === "conflict") conflictsFlagged++
-      pendingProcessed++
+      if (synced !== "skipped") pendingProcessed++
+      else syncIncomplete = true
     }
 
     const pendingQuotes = await prisma.quote.findMany({
@@ -135,9 +137,10 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
     })
     for (const qt of pendingQuotes) {
       if (!qt.zohoId) continue
-      const synced = await syncFullDocument(token, baseUrl, "Quote", qt.zohoId, qt)
+      const synced = await syncFullDocument(baseUrl, "Quote", qt.zohoId, qt)
       if (synced === "conflict") conflictsFlagged++
-      pendingProcessed++
+      if (synced !== "skipped") pendingProcessed++
+      else syncIncomplete = true
     }
 
     console.log(`Pass 1 complete: ${pendingProcessed} pending records processed, ${conflictsFlagged} conflicts flagged`)
@@ -166,7 +169,7 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
       let page = 1, hasMore = true
       while (hasMore) {
         const url = `${baseUrl}/invoices?organization_id=${ORG_ID}${fullYearQuery}&page=${page}&per_page=200&sort_column=date&sort_order=D`
-        const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } })
+        const res = await fetchBooks(url)
         if (!res.ok) { syncIncomplete = true; console.error(`Invoices page ${page} failed: ${res.status}`); break }
         const data: any = await res.json()
         const invoices: any[] = data.invoices || []
@@ -180,7 +183,7 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
           if (!dbDoc) {
             // NEW: Create record for new Zoho invoice
             const accountId = resolveAccountId(inv.customer_id, inv.customer_name, accountByZohoId, accountByName)
-            if (!accountId) { console.log(`Skipping invoice ${inv.invoice_id}: no matching account`); continue }
+            if (!accountId) { await recordUnmatched("INVOICE", inv.invoice_id, inv.invoice_number, inv); continue }
             dbDoc = await prisma.invoice.upsert({
               where: { zohoId: inv.invoice_id },
               update: {},
@@ -191,9 +194,10 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
           }
           // Skip if already processed in Pass 1 (pendingZohoFetch already cleared)
           if (forceDetails || !dbDoc.lastSyncedAt || isStale(dbDoc.lastSyncedAt, inv.last_modified_time)) {
-            const r = await syncFullDocument(token, baseUrl, "Invoice", inv.invoice_id, dbDoc, inv)
+            const r = await syncFullDocument(baseUrl, "Invoice", inv.invoice_id, dbDoc, inv)
             if (r === "conflict") conflictsFlagged++
-            invoicesSynced++
+            if (r === "synced" || r === "conflict") invoicesSynced++
+            else if (r === "skipped") syncIncomplete = true
           }
         }
 
@@ -207,7 +211,7 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
       let page = 1, hasMore = true
       while (hasMore) {
         const url = `${baseUrl}/salesorders?organization_id=${ORG_ID}${fullYearQuery}&page=${page}&per_page=200&sort_column=date&sort_order=D`
-        const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } })
+        const res = await fetchBooks(url)
         if (!res.ok) { syncIncomplete = true; console.error(`SalesOrders page ${page} failed: ${res.status}`); break }
         const data: any = await res.json()
         const orders: any[] = data.salesorders || []
@@ -220,7 +224,7 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
           })
           if (!dbDoc) {
             const accountId = resolveAccountId(so.customer_id, so.customer_name, accountByZohoId, accountByName)
-            if (!accountId) { console.log(`Skipping SO ${so.salesorder_id}: no matching account`); continue }
+            if (!accountId) { await recordUnmatched("SALES_ORDER", so.salesorder_id, so.salesorder_number, so); continue }
             dbDoc = await prisma.salesOrder.upsert({
               where: { zohoId: so.salesorder_id },
               update: {},
@@ -230,9 +234,10 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
             console.log(`[daily-sync] Created new SalesOrder ${so.salesorder_id} for ${so.customer_name}`)
           }
           if (forceDetails || !dbDoc.lastSyncedAt || isStale(dbDoc.lastSyncedAt, so.last_modified_time)) {
-            const r = await syncFullDocument(token, baseUrl, "SalesOrder", so.salesorder_id, dbDoc, so)
+            const r = await syncFullDocument(baseUrl, "SalesOrder", so.salesorder_id, dbDoc, so)
             if (r === "conflict") conflictsFlagged++
-            sosSynced++
+            if (r === "synced" || r === "conflict") sosSynced++
+            else if (r === "skipped") syncIncomplete = true
           }
         }
 
@@ -246,7 +251,7 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
       let page = 1, hasMore = true
       while (hasMore) {
         const url = `${baseUrl}/estimates?organization_id=${ORG_ID}${fullYearQuery}&page=${page}&per_page=200&sort_column=date&sort_order=D`
-        const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } })
+        const res = await fetchBooks(url)
         if (!res.ok) { syncIncomplete = true; console.error(`Estimates page ${page} failed: ${res.status}`); break }
         const data: any = await res.json()
         const estimates: any[] = data.estimates || []
@@ -259,7 +264,7 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
           })
           if (!dbDoc) {
             const accountId = resolveAccountId(est.customer_id, est.customer_name, accountByZohoId, accountByName)
-            if (!accountId) { console.log(`Skipping estimate ${est.estimate_id}: no matching account`); continue }
+            if (!accountId) { await recordUnmatched("QUOTE", est.estimate_id, est.estimate_number, est); continue }
             dbDoc = await prisma.quote.upsert({
               where: { zohoId: est.estimate_id },
               update: {},
@@ -269,9 +274,10 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
             console.log(`[daily-sync] Created new Quote ${est.estimate_id} for ${est.customer_name}`)
           }
           if (forceDetails || !dbDoc.lastSyncedAt || isStale(dbDoc.lastSyncedAt, est.last_modified_time)) {
-            const r = await syncFullDocument(token, baseUrl, "Quote", est.estimate_id, dbDoc, est)
+            const r = await syncFullDocument(baseUrl, "Quote", est.estimate_id, dbDoc, est)
             if (r === "conflict") conflictsFlagged++
-            quotesSynced++
+            if (r === "synced" || r === "conflict") quotesSynced++
+            else if (r === "skipped") syncIncomplete = true
           }
         }
 
@@ -292,11 +298,14 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
         update: { value: runStartedAt.toISOString() },
         create: { key: "books_sync_cursor", value: runStartedAt.toISOString() },
       })
+      await Promise.all(["invoice", "salesorder", "quote"].map(entityType => updateSyncState({ entityType, kind: "success", cursor: runStartedAt.toISOString(), processedCount: invoicesSynced + sosSynced + quotesSynced, durationMs: Date.now() - startTime })))
     } else {
       console.warn("Books sync cursor was not advanced because a sweep was incomplete")
+      await Promise.all(["invoice", "salesorder", "quote"].map(entityType => updateSyncState({ entityType, kind: "failure", error: "One or more Zoho sweep pages were incomplete", durationMs: Date.now() - startTime })))
     }
 
     return {
+      complete: !syncIncomplete,
       invoicesSynced,
       salesOrdersSynced: sosSynced,
       quotesSynced,
@@ -308,13 +317,14 @@ export async function runBooksSync(options: BooksSyncOptions = {}) {
 
   } catch (err: any) {
     console.error("Daily Books Sync fatal error:", err)
+    await updateSyncState({ entityType: "all", kind: "failure", error: err?.message || "Fatal Zoho Books sync failure", durationMs: Date.now() - startTime }).catch(() => undefined)
     throw err
   }
 }
 
 export const handler = schedule("0 6 * * *", async () => {
   const result = await runBooksSync()
-  return { statusCode: 200, body: JSON.stringify(result) }
+  return { statusCode: result.complete ? 200 : 503, body: JSON.stringify(result) }
 })
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -327,11 +337,20 @@ function resolveAccountId(
   byName: Map<string, string>
 ): string | null {
   if (customerZohoId && byZohoId.has(String(customerZohoId))) return byZohoId.get(String(customerZohoId))!
-  if (customerName) {
-    const key = customerName.toLowerCase().trim()
-    if (byName.has(key)) return byName.get(key)!
-  }
+  // Names are not immutable identifiers. A name match is proposed in the
+  // exception inbox instead of being applied to a financial document.
   return null
+}
+
+async function recordUnmatched(entityType: string, externalId: string, externalNumber: string | undefined, payload: any) {
+  const customerName = String(payload?.customer_name || "").trim()
+  const candidates = customerName ? await prisma.account.findMany({ where: { name: { equals: customerName, mode: "insensitive" } }, select: { id: true, zohoId: true, name: true }, take: 5 }) : []
+  await prisma.integrationException.upsert({
+    where: { integration_entityType_externalId_exceptionType: { integration: "ZOHO_BOOKS", entityType, externalId: String(externalId), exceptionType: "ACCOUNT_MATCH_REQUIRED" } },
+    create: { integration: "ZOHO_BOOKS", entityType, externalId: String(externalId), externalNumber: externalNumber ? String(externalNumber) : null, exceptionType: "ACCOUNT_MATCH_REQUIRED", summary: `${entityType} ${externalNumber || externalId} needs an account match`, payload, proposedMatches: candidates, confidence: candidates.length === 1 ? 0.75 : null },
+    update: { externalNumber: externalNumber ? String(externalNumber) : null, summary: `${entityType} ${externalNumber || externalId} needs an account match`, payload, proposedMatches: candidates, confidence: candidates.length === 1 ? 0.75 : null, status: "OPEN", resolvedAt: null },
+  })
+  console.warn(`[daily-sync] Quarantined ${entityType} ${externalId}: immutable customer id was not matched`)
 }
 
 /** Returns true if the local record is stale relative to Zoho's modified time */
@@ -341,24 +360,75 @@ function isStale(lastSyncedAt: Date | null, zohoModTime: string | undefined): bo
   return new Date(zohoModTime).getTime() > lastSyncedAt.getTime()
 }
 
+const wait = (milliseconds: number) => new Promise(resolve => setTimeout(resolve, milliseconds))
+
+/**
+ * Fetch Zoho Books with a current access token and bounded recovery for the two
+ * transient failures seen during long reconciliations: token replacement (401)
+ * and provider throttling (429). The final response is returned to the caller so
+ * an exhausted retry budget still marks the sweep incomplete.
+ */
+async function fetchBooks(url: string): Promise<Response> {
+  let forceTokenRefresh = false
+  let response: Response | null = null
+
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const token = await getZohoAccessToken(forceTokenRefresh)
+    forceTokenRefresh = false
+    response = await fetch(url, {
+      signal: AbortSignal.timeout(15000),
+      headers: { Authorization: `Zoho-oauthtoken ${token}` },
+    })
+
+    if (response.status === 401 && attempt < 3) {
+      forceTokenRefresh = true
+      continue
+    }
+
+    if (response.status === 429 && attempt < 3) {
+      const retryAfterSeconds = Number.parseInt(response.headers.get("retry-after") || "", 10)
+      const fallbackSeconds = 5 * (2 ** attempt)
+      await wait(Math.min(Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : fallbackSeconds, 30) * 1000)
+      continue
+    }
+
+    return response
+  }
+
+  if (!response) throw new Error("Zoho Books request did not produce a response")
+  return response
+}
+
+async function markMissingBooksDocument(
+  type: "Invoice" | "SalesOrder" | "Quote",
+  localId: string,
+): Promise<void> {
+  const data = { status: "orphaned", pendingZohoFetch: false, lastSyncedAt: new Date() }
+  if (type === "Invoice") await prisma.invoice.update({ where: { id: localId }, data })
+  if (type === "SalesOrder") await prisma.salesOrder.update({ where: { id: localId }, data })
+  if (type === "Quote") await prisma.quote.update({ where: { id: localId }, data })
+}
+
 /**
  * Fetch the full detail for a document from Zoho and sync it to the local DB.
  * Uses sync-engine for conflict detection.
  * Returns "conflict" | "synced" | "skipped"
  */
 async function syncFullDocument(
-  token:    string,
   baseUrl:  string,
   type:     "Invoice" | "SalesOrder" | "Quote",
   booksId:  string,
   dbDoc:    { id: string; zohoId: string | null; status: string | null; items: any; lastSyncedAt: Date | null; appModifiedAt: Date | null; lastZohoModifiedTime: Date | null },
   summary?: any // list-level summary from a sweep (may not have line_items)
-): Promise<"conflict" | "synced" | "skipped"> {
+): Promise<"conflict" | "synced" | "not_found" | "skipped"> {
   try {
     const modulePath = type === "Invoice" ? "invoices" : type === "SalesOrder" ? "salesorders" : "estimates"
-    const detailRes = await fetch(`${baseUrl}/${modulePath}/${booksId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
-      headers: { Authorization: `Zoho-oauthtoken ${token}` }
-    })
+    const detailRes = await fetchBooks(`${baseUrl}/${modulePath}/${booksId}?organization_id=${ORG_ID}`)
+    if (detailRes.status === 404) {
+      await markMissingBooksDocument(type, dbDoc.id)
+      console.warn(`Marked missing ${type} ${booksId} as orphaned`)
+      return "not_found"
+    }
     if (!detailRes.ok) {
       console.warn(`Failed to fetch ${type} ${booksId}: ${detailRes.status}`)
       return "skipped"

@@ -13,6 +13,13 @@ export async function POST(req: Request) {
 
     const userId = auth.user.id
 
+    // A manually entered local lead belongs in its owner's workstation
+    // immediately, including leads created before this reservation rule.
+    await prisma.lead.updateMany({
+      where: { ownerId: userId, claimedById: null, convertedAccountId: null, zohoId: { startsWith: "lead_local_" } },
+      data: { claimedById: userId, claimedAt: new Date() },
+    })
+
     // 2. Get current active claimed leads for this rep
     const existingClaimed = await prisma.lead.findMany({
       where: {

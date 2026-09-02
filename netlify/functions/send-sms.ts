@@ -43,7 +43,7 @@ const authenticatedHandler: Handler = async (event) => {
 
   try {
     const caller = await authenticateFunction(event)
-    const { accountId, message } = JSON.parse(event.body || "{}")
+    const { accountId, contactId, message } = JSON.parse(event.body || "{}")
 
     if (!accountId || !message) {
       return {
@@ -64,8 +64,8 @@ const authenticatedHandler: Handler = async (event) => {
     }
 
     // Fetch the primary contact or first contact of the account
-    const account = await prisma.account.findUnique({
-      where: { id: accountId },
+    const account = await prisma.account.findFirst({
+      where: { OR: [{ id: accountId }, { zohoId: accountId }] },
       include: { contacts: true }
     })
 
@@ -83,7 +83,11 @@ const authenticatedHandler: Handler = async (event) => {
       return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ success: false, error: "Forbidden" }) }
     }
 
-    const contact = account.contacts.find((c: any) => c.isPrimary) || account.contacts[0]
+    const requestedContact = contactId ? account.contacts.find((c: any) => c.id === contactId) : null
+    if (contactId && !requestedContact) {
+      return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, error: "Selected contact does not belong to this account" }) }
+    }
+    const contact = requestedContact || account.contacts.find((c: any) => c.isPrimary) || account.contacts[0]
     const rawPhoneNumber = contact?.mobilePhone || contact?.phone
 
     if (!rawPhoneNumber) {
@@ -149,15 +153,34 @@ const authenticatedHandler: Handler = async (event) => {
     const providerRejected = providerStatus === 'error' || providerStatus === 'failed' || providerCode === 'error' || providerCode === 'failed'
 
     if (smsRes.ok && resultText.trim().length > 0 && !providerRejected) {
-      const smsMessage = await prisma.smsMessage.create({
-        data: {
-          accountId: account.id,
-          authorId: author.id,
-          fromNumber: fromNumber,
-          toNumber: phoneNumber,
-          body: message,
-          direction: 'OUTBOUND'
-        }
+      const smsMessage = await prisma.$transaction(async tx => {
+        const savedMessage = await tx.smsMessage.create({
+          data: {
+            accountId: account.id,
+            contactId: contact?.id || null,
+            authorId: author.id,
+            fromNumber: fromNumber,
+            toNumber: phoneNumber,
+            body: message,
+            direction: 'OUTBOUND'
+          }
+        })
+        await tx.communicationEvent.create({
+          data: {
+            accountId: account.id,
+            contactId: contact?.id || null,
+            actorId: author.id,
+            channel: 'SMS',
+            direction: 'OUTBOUND',
+            eventType: 'MESSAGE_SENT',
+            sourceType: 'SmsMessage',
+            sourceId: savedMessage.id,
+            summary: message.slice(0, 1000),
+            occurredAt: savedMessage.createdAt,
+            metadata: { fromNumber, toNumber: phoneNumber, provider: 'ZOHO_VOICE' }
+          }
+        })
+        return savedMessage
       })
 
       return {

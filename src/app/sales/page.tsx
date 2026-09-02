@@ -8,6 +8,7 @@ import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 import { SalesCallCampaignModal } from "@/components/SalesCallCampaignModal"
 import { OrderNextSteps } from "@/components/OrderNextSteps"
 import { NewCustomerModal } from "@/components/NewCustomerModal"
+import { NewLeadModal } from "@/components/NewLeadModal"
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
@@ -295,6 +296,7 @@ export default function SalesPage() {
   const [showAssetSelector, setShowAssetSelector] = useState(false)
   const [leads, setLeads] = useState<any[]>([])
   const [showAddAccount, setShowAddAccount] = useState(false)
+  const [showAddLead, setShowAddLead] = useState(false)
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const updateCheckSigRef = useRef<string | null>(null)
 
@@ -426,7 +428,7 @@ export default function SalesPage() {
     const cached = sessionGet<any[]>('campaign-templates', TTL.THIRTY_MIN)
     if (cached) { setCampaignTemplates(cached); return }
     try {
-      const res = await fetch("/api/admin/campaigns")
+      const res = await fetch("/api/campaign-templates")
       const data = await res.json()
       if (data.success) {
         const templates = data.templates || []
@@ -899,6 +901,13 @@ export default function SalesPage() {
                 <div className="flex items-center gap-2">
                   <h1 className="page-title">My Sales Pipeline</h1>
                   <Link
+                    href="/sales/todays-calls"
+                    className="px-2.5 py-1 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 font-bold rounded-lg text-[10px] flex items-center gap-1.5 transition-all"
+                  >
+                    <FiTarget size={11} />
+                    <span>Sales Execution Workspace</span>
+                  </Link>
+                  <Link
                     href="/sales/leads-calling"
                     className="px-2.5 py-1 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold rounded-lg text-[10px] flex items-center gap-1.5 shadow-md transition-all"
                   >
@@ -1078,12 +1087,7 @@ export default function SalesPage() {
             {leads.length} unconverted leads found in CRM. Grouped by company.
           </p>
         </div>
-        <button
-          onClick={fetchLeads}
-          className="px-3.5 py-2 bg-orange-500/20 text-orange-300 border border-orange-500/30 rounded-lg text-xs font-bold hover:bg-orange-500/30 flex items-center gap-1.5 transition-colors cursor-pointer"
-        >
-          <FiRefreshCw size={13} /> Sync Leads from CRM
-        </button>
+        <div className="flex flex-wrap gap-2"><button onClick={() => setShowAddLead(true)} className="px-3.5 py-2 bg-orange-500 text-black rounded-lg text-xs font-black hover:bg-orange-400 flex items-center gap-1.5"><FiUserPlus size={13} /> Add Lead</button><button onClick={fetchLeads} className="px-3.5 py-2 bg-orange-500/20 text-orange-300 border border-orange-500/30 rounded-lg text-xs font-bold hover:bg-orange-500/30 flex items-center gap-1.5 transition-colors cursor-pointer"><FiRefreshCw size={13} /> Refresh Leads</button></div>
       </div>
 
       {leads.length === 0 ? (
@@ -2337,6 +2341,11 @@ export default function SalesPage() {
       )}
 
       {/* Add Account Modal */}
+      {showAddLead && typeof window !== "undefined" && createPortal(
+        <NewLeadModal isOpen={showAddLead} onClose={() => setShowAddLead(false)} onCreated={fetchLeads} />,
+        document.body
+      )}
+
       {showAddAccount && typeof window !== "undefined" && createPortal(
         <NewCustomerModal
           isOpen={showAddAccount}

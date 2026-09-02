@@ -37,6 +37,17 @@ const ZOHO_DC = process.env.ZOHO_DC?.trim().replace(/^(["'])(.*)\1$/, '$2') || '
 const TIMEOUT_MS = 55000;
 const BATCH_SIZE = 50;
 
+// Zoho Books list endpoints reject ISO timestamps (the stored sync status is
+// ISO). They accept a date in YYYY-MM-DD format. Include the prior day so a
+// date-only boundary cannot miss records changed late in the previous run.
+function zohoSinceParam(lastSyncAt: string | null | undefined): string {
+  if (!lastSyncAt) return ''
+  const parsed = new Date(lastSyncAt)
+  if (Number.isNaN(parsed.getTime())) return ''
+  parsed.setUTCDate(parsed.getUTCDate() - 1)
+  return `&last_modified_time=${encodeURIComponent(parsed.toISOString().slice(0, 10))}`
+}
+
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
   let lockAcquired = false;
@@ -84,9 +95,7 @@ export async function POST(req: NextRequest) {
       } else {
         try {
           // Delta: only pull leads modified since last sync
-          const sinceParam = tStatus.lastSyncAt
-            ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
-            : ''
+          const sinceParam = zohoSinceParam(tStatus.lastSyncAt)
           const zRes = await fetch(
             `https://www.zohoapis.${ZOHO_DC}/crm/v3/Leads?per_page=200&sort_by=Modified_Time&sort_order=desc${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
@@ -174,9 +183,7 @@ export async function POST(req: NextRequest) {
       } else {
         try {
           // Delta: only pull invoices modified since last sync
-          const sinceParam = tStatus.lastSyncAt
-            ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
-            : ''
+          const sinceParam = zohoSinceParam(tStatus.lastSyncAt)
           const zRes = await fetch(
             `https://www.zohoapis.${ZOHO_DC}/books/v3/invoices?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
@@ -271,9 +278,7 @@ export async function POST(req: NextRequest) {
         results.salesOrders = { synced: 0, skipped: 'fresh' }
       } else {
         try {
-          const sinceParam = tStatus.lastSyncAt
-            ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
-            : ''
+          const sinceParam = zohoSinceParam(tStatus.lastSyncAt)
           const zRes = await fetch(
             `https://www.zohoapis.${ZOHO_DC}/books/v3/salesorders?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
@@ -367,9 +372,7 @@ export async function POST(req: NextRequest) {
       } else {
         try {
           // Accounts come from Zoho CRM (not Books)
-          const sinceParam = tStatus.lastSyncAt
-            ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
-            : ''
+          const sinceParam = zohoSinceParam(tStatus.lastSyncAt)
           const zRes = await fetch(
             `https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts?per_page=200&sort_by=Modified_Time&sort_order=desc${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
@@ -460,9 +463,7 @@ export async function POST(req: NextRequest) {
         results.packages = { synced: 0, skipped: 'fresh' }
       } else {
         try {
-          const sinceParam = tStatus.lastSyncAt
-            ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
-            : ''
+          const sinceParam = zohoSinceParam(tStatus.lastSyncAt)
           const zRes = await fetch(
             `https://www.zohoapis.${ZOHO_DC}/books/v3/packages?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
@@ -529,9 +530,7 @@ export async function POST(req: NextRequest) {
         results.purchaseOrders = { synced: 0, skipped: 'fresh' }
       } else {
         try {
-          const sinceParam = tStatus.lastSyncAt
-            ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
-            : ''
+          const sinceParam = zohoSinceParam(tStatus.lastSyncAt)
           const zRes = await fetch(
             `https://www.zohoapis.${ZOHO_DC}/books/v3/purchaseorders?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
@@ -600,9 +599,7 @@ export async function POST(req: NextRequest) {
         results.quotes = { synced: 0, skipped: 'fresh' }
       } else {
         try {
-          const sinceParam = tStatus.lastSyncAt
-            ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
-            : ''
+          const sinceParam = zohoSinceParam(tStatus.lastSyncAt)
           const zRes = await fetch(
             `https://www.zohoapis.${ZOHO_DC}/books/v3/estimates?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
@@ -690,9 +687,7 @@ export async function POST(req: NextRequest) {
         results.payments = { synced: 0, skipped: 'fresh' }
       } else {
         try {
-          const sinceParam = tStatus.lastSyncAt
-            ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
-            : ''
+          const sinceParam = zohoSinceParam(tStatus.lastSyncAt)
           const zRes = await fetch(
             `https://www.zohoapis.${ZOHO_DC}/books/v3/customerpayments?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
@@ -783,9 +778,7 @@ export async function POST(req: NextRequest) {
         results.vendors = { synced: 0, skipped: 'fresh' }
       } else {
         try {
-          const sinceParam = tStatus.lastSyncAt
-            ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
-            : ''
+          const sinceParam = zohoSinceParam(tStatus.lastSyncAt)
           const zRes = await fetch(
             `https://www.zohoapis.${ZOHO_DC}/books/v3/contacts?organization_id=${ZOHO_ORGANIZATION_ID}&contact_type=vendor&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
@@ -848,9 +841,7 @@ export async function POST(req: NextRequest) {
         results.products = { synced: 0, skipped: 'fresh' }
       } else {
         try {
-          const sinceParam = tStatus.lastSyncAt
-            ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
-            : ''
+          const sinceParam = zohoSinceParam(tStatus.lastSyncAt)
           const zRes = await fetch(
             `https://www.zohoapis.${ZOHO_DC}/books/v3/items?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )

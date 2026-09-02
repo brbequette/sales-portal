@@ -15,6 +15,8 @@ export default function CommunicationsDashboard() {
   const [loading, setLoading] = useState(true)
   const [savingNumbers, setSavingNumbers] = useState(false)
   const [syncingVoice, setSyncingVoice] = useState(false)
+  const [reconcilingCalls, setReconcilingCalls] = useState(false)
+  const [callAudit, setCallAudit] = useState<any>(null)
   const [showSettings, setShowSettings] = useState(false)
 
   // Filters
@@ -39,6 +41,9 @@ export default function CommunicationsDashboard() {
         if (numData.success) {
           setZohoNumbers(numData.numbers || [])
         }
+        const auditRes = await fetch('/api/admin/communications/reconcile-calls')
+        const auditData = await auditRes.json()
+        if (auditData.success) setCallAudit(auditData)
       } catch (err) {
         console.error("Failed to load communications", err)
       } finally {
@@ -109,6 +114,23 @@ export default function CommunicationsDashboard() {
         <div className="flex items-center gap-2">
           <button
             onClick={async () => {
+              setReconcilingCalls(true)
+              try {
+                const res = await fetch('/api/admin/communications/reconcile-calls', { method: 'POST' })
+                const data = await res.json()
+                if (!res.ok) throw new Error(data.error || 'Reconciliation failed')
+                setCallAudit(data)
+                toast.success(`Verified ${data.confirmed} and repaired ${data.repaired} call-account links.`)
+              } catch (e: any) { toast.error(e.message) }
+              finally { setReconcilingCalls(false) }
+            }}
+            disabled={reconcilingCalls}
+            className="td-btn td-btn-ghost td-btn-sm disabled:opacity-50"
+          >
+            <FiCheck size={13} />{reconcilingCalls ? "Reconciling..." : "Reconcile Accounts"}
+          </button>
+          <button
+            onClick={async () => {
               setSyncingVoice(true)
               try {
                 const res = await fetch('/api/admin/communications/sync-voice', { method: 'POST' })
@@ -143,6 +165,10 @@ export default function CommunicationsDashboard() {
 
       {/* ─── Body ───────────────────────────────────── */}
       <div className="page-body animate-fade-in space-y-4">
+
+        {callAudit && <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
+          {[['Calls', callAudit.calls], ['Transcripts', callAudit.transcripts], ['Confirmed', callAudit.confirmed], ['Repairable', callAudit.repairable], ['Repaired', callAudit.repaired], ['Ambiguous', callAudit.ambiguous], ['Unresolved', callAudit.unresolved]].map(([label, value]) => <div key={String(label)} className="rounded-xl border border-white/10 bg-white/[.035] p-3"><div className="text-[9px] font-black uppercase text-neutral-500">{label}</div><div className="mt-1 text-xl font-black text-white">{value}</div></div>)}
+        </div>}
 
         {/* Settings Panel (Collapsible) */}
         {showSettings && (
