@@ -91,3 +91,5 @@ outputs/
 tmp/
 .codex/
 .env*
+!.env.example
+!.env.*.example
