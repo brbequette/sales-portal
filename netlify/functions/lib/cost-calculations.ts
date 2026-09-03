@@ -56,6 +56,22 @@ export interface CostCalculationResult {
   lineItemBreakdownStrings: string[]
 }
 
+/** Approved rule: card processing is 4.5% of the invoice grand total. */
+export function calculateCardProcessingFee(grandTotal: number, ratePercent = 4.5): number {
+  const base = Number.isFinite(grandTotal) && grandTotal > 0 ? grandTotal : 0
+  return Number((base * (ratePercent / 100)).toFixed(2))
+}
+
+export function resolveCardFeeBase(doc: any, subtotal: number): { base: number; reviewReason?: 'MISSING_GRAND_TOTAL' } {
+  const grandTotal = Number(doc?.total_amount ?? doc?.grand_total ?? doc?.total)
+  if (Number.isFinite(grandTotal) && grandTotal > 0) return { base: grandTotal }
+  return { base: subtotal, reviewReason: 'MISSING_GRAND_TOTAL' }
+}
+
+export function requiresManagerReview(profit: number, giftOrSwag: boolean): boolean {
+  return !giftOrSwag && profit <= 0
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 export function isSwagItem(nameOrSku: string): boolean {
@@ -390,7 +406,8 @@ export async function calculateDocumentCosts(
                mode.includes('paypal')
       })
       if (hasCardPayment) {
-        ccFees = subTotal * (settings.cc_fee_rate / 100)
+        const feeBase = resolveCardFeeBase(doc, subTotal)
+        ccFees = calculateCardProcessingFee(feeBase.base, settings.cc_fee_rate)
       } else if (dbPayments.length > 0) {
         // If there are payments but none are card (e.g. check or cash), fee is 0
         ccFees = 0
