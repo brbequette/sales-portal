@@ -369,6 +369,7 @@ model Invoice {
   // Payment records relation
   payments  Payment[]
   lineItems LineItem[]
+  financialReviews FinancialReview[]
 
   // Clawback tracking
   clawbackDate         DateTime?
@@ -412,6 +413,27 @@ model Invoice {
   @@index([estimateZohoId])
   @@index([invoiceNumber])
   @@index([salesorderNumber])
+}
+
+model FinancialReview {
+  id                 String    @id @default(cuid())
+  invoiceId          String?
+  documentType       String
+  documentRef        String
+  reasonCode         String
+  status             String    @default("OPEN")
+  sourceType         String?
+  sourceRecord       String?
+  metadata           Json?
+  createdAt          DateTime  @default(now())
+  resolvedAt         DateTime?
+  resolverId         String?
+  resolutionNotes    String?
+  invoice            Invoice?  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@unique([documentType, documentRef, reasonCode])
+  @@index([status])
+  @@index([invoiceId, status])
 }
 
 model Note {
