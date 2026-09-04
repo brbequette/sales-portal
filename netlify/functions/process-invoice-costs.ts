@@ -5,13 +5,16 @@ import { calculateDocumentCosts, buildFieldsToUpdate, requiresManagerReview, isS
 import { getSystemSettings } from "./lib/settings"
 import {
   detectConflict,
-  syncInvoicePayments,
-  updateInvoiceRecord,
+  fetchInvoicePaymentsFromZoho,
+  buildPaymentPersistencePlan,
+  buildInvoiceUpdateData,
+  buildCompleteInvoicePersistencePlan,
+  applyInvoicePersistencePlan,
 } from "../../src/lib/sync-engine"
+import { Prisma } from "@prisma/client"
 
 import { prisma } from "./lib/prisma"
 import { authorizeCostProcessing, hasPrivilegedCostOptions } from "./lib/document-access"
-import { upsertFinancialReview, resolveFinancialReview } from "./lib/financial-review-service"
 const ORG_ID = ZOHO_ORGANIZATION_ID
 
 let invoiceFieldDefinitionsCache: { expiresAt: number; fields: any[] } | null = null
@@ -167,13 +170,14 @@ export const internalHandler: Handler = async (event) => {
 
     const reviewRef = String(invoice.invoice_number || booksInvoiceId)
     const hasGrandTotal = Number.isFinite(parseFloat(invoice.total_amount ?? invoice.grand_total ?? invoice.total ?? '')) && parseFloat(invoice.total_amount ?? invoice.grand_total ?? invoice.total ?? '0') > 0
-    if (!hasGrandTotal) {
-      await upsertFinancialReview({ documentType: 'INVOICE', documentRef: reviewRef, invoiceId: invoiceId ? String(invoiceId) : undefined, reasonCode: 'MISSING_GRAND_TOTAL', sourceType: 'process-invoice-costs', sourceRecord: String(booksInvoiceId), metadata: { subtotalFallback: true } })
-    } else {
-      await resolveFinancialReview({ documentType: 'INVOICE', documentRef: reviewRef, reasonCode: 'MISSING_GRAND_TOTAL', resolverId: 'system', resolutionNotes: 'Valid invoice grand total received.' })
-    }
+    const reviewUpserts = !hasGrandTotal
+      ? [{ documentType: 'INVOICE', documentRef: reviewRef, reasonCode: 'MISSING_GRAND_TOTAL', sourceType: 'process-invoice-costs', sourceRecord: String(booksInvoiceId), metadata: { subtotalFallback: true } as Prisma.InputJsonValue }]
+      : []
+    const reviewResolutions = hasGrandTotal
+      ? [{ documentType: 'INVOICE', documentRef: reviewRef, reasonCode: 'MISSING_GRAND_TOTAL', resolverId: 'system', resolutionNotes: 'Valid invoice grand total received.' }]
+      : []
     if (requiresManagerReview(profit, lineItemDetails.every(item => item.gift || isSwagItem(item.name)))) {
-      await upsertFinancialReview({ documentType: 'INVOICE', documentRef: reviewRef, invoiceId: invoiceId ? String(invoiceId) : undefined, reasonCode: 'NON_GIFT_NONPOSITIVE_PROFIT', sourceType: 'process-invoice-costs', sourceRecord: String(booksInvoiceId), metadata: { profit } })
+      reviewUpserts.push({ documentType: 'INVOICE', documentRef: reviewRef, reasonCode: 'NON_GIFT_NONPOSITIVE_PROFIT', sourceType: 'process-invoice-costs', sourceRecord: String(booksInvoiceId), metadata: { profit } as Prisma.InputJsonValue })
     }
 
     const salespersonName = invoice.salesperson_name
@@ -259,7 +263,9 @@ export const internalHandler: Handler = async (event) => {
       }
 
       // 7b. Sync payments into Payment table
-      const paymentSummary = await syncInvoicePayments(booksInvoiceId, localInvoice.id)
+      const rawPayments = await fetchInvoicePaymentsFromZoho(booksInvoiceId)
+      const paymentPlan = buildPaymentPersistencePlan(rawPayments, localInvoice.id)
+      const paymentSummary = { ...paymentPlan.summary, paymentExpected: parseFloat(invoice.payment_expected ?? "0") || null, balance: parseFloat(invoice.balance ?? "0") ?? null }
       console.log(`  Payments synced: ${paymentSummary.paymentCount} records | paid=$${paymentSummary.paymentMade.toFixed(2)}`)
 
       // 7c. Write full enriched record
@@ -279,17 +285,17 @@ export const internalHandler: Handler = async (event) => {
           : {}),
       }
 
-      await updateInvoiceRecord({
-        localId:        localInvoice.id,
-        zohoDoc:        invoice,
-        calcItems,
-        conflictResult,
-        paymentSummary: {
-          ...paymentSummary,
-          paymentExpected: parseFloat(invoice.payment_expected ?? "0") || null,
-          balance:         parseFloat(invoice.balance ?? "0") ?? null,
-        },
+      const plan = buildCompleteInvoicePersistencePlan({
+        mode: "existing",
+        localInvoiceId: localInvoice.id,
+        zohoId: String(booksInvoiceId),
+        updateData: buildInvoiceUpdateData({ existingItems: localInvoice.items, zohoDoc: invoice, calcItems, conflictResult, paymentSummary }),
+        lineItems: invoice.line_items,
+        payments: { ...paymentPlan, summary: paymentSummary },
+        reviewUpserts: reviewUpserts.map(review => ({ ...review, invoiceId: localInvoice.id })),
+        reviewResolutions,
       })
+      await applyInvoicePersistencePlan(plan)
     } else {
       // No local record found — try to create one so this invoice joins the system.
       // Look up the account by Zoho customer_id (which maps to Account.zohoId in CRM).
@@ -317,49 +323,30 @@ export const internalHandler: Handler = async (event) => {
             : zStatus === "overdue" ? "Overdue"
             : "Sent"
 
-          const newInvoice = await prisma.invoice.upsert({
-            where: { zohoId: booksInvoiceId },
-            update: {
-              status:          mappedStatus,
-              amount:          parseFloat(invoice.sub_total ?? "0") || 0,
-              zohoModifiedTime: invoice.last_modified_time ? new Date(invoice.last_modified_time) : null,
-              items: {
+          const initialItems = {
                 booksInvoiceId,
-                invoiceNumber:    invoice.invoice_number,
-                customer_name:    invoice.customer_name,
-                salesperson:      invoice.salesperson_name?.toUpperCase().trim() || null,
-                sub_total:        parseFloat(invoice.sub_total ?? "0") || 0,
-                balance:          parseFloat(invoice.balance ?? "0") || 0,
-                line_items:       invoice.line_items || [],
-                custom_fields:    invoice.custom_fields || [],
-              },
-            },
-            create: {
+                invoiceNumber: invoice.invoice_number,
+                customer_name: invoice.customer_name,
+                salesperson: invoice.salesperson_name?.toUpperCase().trim() || null,
+                sub_total: parseFloat(invoice.sub_total ?? "0") || 0,
+                balance: parseFloat(invoice.balance ?? "0") || 0,
+                line_items: invoice.line_items || [],
+                custom_fields: invoice.custom_fields || [],
+              }
+          const createData: Prisma.InvoiceCreateInput = {
               zohoId:          booksInvoiceId,
-              accountId:       account.id,
+              account: { connect: { id: account.id } },
               status:          mappedStatus,
               amount:          parseFloat(invoice.sub_total ?? "0") || 0,
               issueDate:       invoice.date ? new Date(invoice.date) : new Date(),
               dueDate:         invoice.due_date ? new Date(invoice.due_date) : null,
               zohoModifiedTime: invoice.last_modified_time ? new Date(invoice.last_modified_time) : null,
-              items: {
-                booksInvoiceId,
-                invoiceNumber:    invoice.invoice_number,
-                customer_name:    invoice.customer_name,
-                salesperson:      invoice.salesperson_name?.toUpperCase().trim() || null,
-                sub_total:        parseFloat(invoice.sub_total ?? "0") || 0,
-                balance:          parseFloat(invoice.balance ?? "0") || 0,
-                line_items:       invoice.line_items || [],
-                custom_fields:    invoice.custom_fields || [],
-              },
-            },
-          })
-
-          console.log(`✅ Upserted invoice ${invoice.invoice_number} → DB id=${newInvoice.id}`)
-
-          // Now write the calculated costs into the newly created record
+              items: initialItems,
+            }
           const conflictResult = { hasConflict: false, fields: {} }
-          const paymentSummary = await syncInvoicePayments(booksInvoiceId, newInvoice.id)
+          const rawPayments = await fetchInvoicePaymentsFromZoho(booksInvoiceId)
+          const paymentPlan = buildPaymentPersistencePlan(rawPayments, "")
+          const paymentSummary = { ...paymentPlan.summary, paymentExpected: parseFloat(invoice.payment_expected ?? "0") || null, balance: parseFloat(invoice.balance ?? "0") ?? null }
           const calcItems = {
             sub_total: subTotal, subTotal,
             deadCostTotal, deadCostSubjectToVig, deadCostNoVig, deadCostPlusVig,
@@ -372,17 +359,8 @@ export const internalHandler: Handler = async (event) => {
           shippingRollup: calc.shippingRollup,
             costsCalculatedAt: new Date().toISOString(),
           }
-          await updateInvoiceRecord({
-            localId:        newInvoice.id,
-            zohoDoc:        invoice,
-            calcItems,
-            conflictResult,
-            paymentSummary: {
-              ...paymentSummary,
-              paymentExpected: parseFloat(invoice.payment_expected ?? "0") || null,
-              balance:         parseFloat(invoice.balance ?? "0") ?? null,
-            },
-          })
+          const plan = buildCompleteInvoicePersistencePlan({ mode: "create", zohoId: String(booksInvoiceId), createData, updateData: buildInvoiceUpdateData({ existingItems: initialItems, zohoDoc: invoice, calcItems, conflictResult, paymentSummary }), lineItems: invoice.line_items, payments: { ...paymentPlan, summary: paymentSummary }, reviewUpserts, reviewResolutions })
+          await applyInvoicePersistencePlan(plan)
           console.log(`✅ Costs written for auto-created invoice ${invoice.invoice_number}`)
         } else {
           console.warn(`[process-invoice-costs] No matching Account for customer_id=${invoice.customer_id} — invoice ${invoice.invoice_number} not added to DB. Run a full CRM sync first.`)
