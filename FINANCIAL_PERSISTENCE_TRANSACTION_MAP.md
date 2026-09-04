@@ -77,3 +77,9 @@ The builder intentionally does not invent fields absent from the legacy branch. 
 `process-invoice-costs.ts` now performs Zoho retrieval, cost calculation, payment normalization, and review-action construction before persistence. Both the existing-invoice and auto-created-invoice branches construct one `InvoicePersistencePlan` and invoke `applyInvoicePersistencePlan` once. The former standalone payment sync, invoice update, review writes, and preliminary auto-create upsert are no longer used on these paths.
 
 The current source audit identifies an exception: `daily-books-sync.ts` and `zoho-books-webhook.ts` import the shared `process-invoice-costs` handler, while `bulk-process-costs.ts` retains its own page-processing implementation and does not call the routed handler. Bulk remains a documented bypass requiring a later routing decision; it was not silently treated as converged.
+
+## Conservative lifecycle safeguards
+
+`update-payout.ts` and `delete-payout.ts` authenticate administrators and then return HTTP 409 with code `PAYOUT_MUTATION_REQUIRES_LEDGER`. `add-payout.ts` remains unchanged. The current `Payout` model has no paid/finalized status, payout-period identity, immutable ledger entry, or commission linkage, so mutation cannot be safely distinguished from paid-result mutation without an approved schema/ledger design.
+
+`zoho-credit-note.ts` and `easyship-return.ts` retain their existing behavior. They do not automatically alter commission, do not automatically alter paid payouts, and do not perform automatic tariff reversal. Manager reconciliation remains required. No stable local lifecycle reference was introduced for refunds, credit notes, returns, or write-offs. No dedicated commission-finalization endpoint was found; none was invented.
