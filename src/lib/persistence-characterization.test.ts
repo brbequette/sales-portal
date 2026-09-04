@@ -7,12 +7,20 @@ const root = process.cwd()
 const read = (p: string) => fs.readFileSync(path.join(root, p), 'utf8')
 
 describe('current persistence call graph characterization', () => {
-  it('existing and auto-created invoice paths call payment sync before invoice update', () => {
+  it('routes existing and auto-created invoices through the atomic applier', () => {
     const source = read('netlify/functions/process-invoice-costs.ts')
-    expect(source).toContain('syncInvoicePayments(booksInvoiceId, localInvoice.id)')
-    expect(source).toContain('syncInvoicePayments(booksInvoiceId, newInvoice.id)')
-    expect(source).toContain('await updateInvoiceRecord({')
-    expect(source.indexOf('syncInvoicePayments(booksInvoiceId, localInvoice.id)')).toBeLessThan(source.indexOf('await updateInvoiceRecord({'))
+    expect(source).toContain('fetchInvoicePaymentsFromZoho')
+    expect(source).toContain('buildPaymentPersistencePlan')
+    expect(source).toContain('mode: "existing"')
+    expect(source).toContain('mode: "create"')
+    expect(source.match(/applyInvoicePersistencePlan\(plan\)/g)?.length).toBe(2)
+    expect(source).not.toContain('syncInvoicePayments(')
+    expect(source).not.toContain('updateInvoiceRecord(')
+    expect(source).not.toContain('prisma.invoice.upsert(')
+    expect(source).toContain('reviewUpserts')
+    expect(source).toContain('reviewResolutions')
+    expect(source).toContain('lineItems: invoice.line_items')
+    expect(source.indexOf('fetchInvoicePaymentsFromZoho')).toBeLessThan(source.indexOf('applyInvoicePersistencePlan'))
   })
 
   it('syncInvoicePayments uses payment upsert keyed by Zoho payment id', () => {
@@ -33,7 +41,7 @@ describe('current persistence call graph characterization', () => {
     const bulk = read('netlify/functions/bulk-process-costs.ts')
     const daily = read('netlify/functions/daily-books-sync.ts')
     const webhook = read('netlify/functions/zoho-books-webhook.ts')
-    expect(bulk).toMatch(/process-invoice-costs|calculateDocumentCosts/)
+    expect(bulk).toContain('calculateDocumentCosts')
     expect(daily).toMatch(/process-invoice-costs|calculateDocumentCosts/)
     expect(webhook).toContain('processInvoiceCosts')
   })
