@@ -73,10 +73,68 @@ export interface FinancialReviewResolutionPlan {
   resolutionNotes?: string
 }
 
-export type InvoicePersistencePlan = {
+export interface InvoiceJsonMergePlan {
+  patch: Readonly<Record<string, unknown>>
+  preserveUndefined: boolean
+  preserveNull: boolean
+}
+
+export interface StoredLineItemPersistencePlan {
+  invoiceId: string
+  replace: true
+  items: ReadonlyArray<Prisma.LineItemCreateManyInput>
+}
+
+export function mergeInvoiceJson(existingJson: unknown, mergePlan: InvoiceJsonMergePlan): Record<string, unknown> {
+  const existing = existingJson && typeof existingJson === 'object' && !Array.isArray(existingJson) ? existingJson as Record<string, unknown> : {}
+  const result: Record<string, unknown> = { ...existing }
+  for (const [key, value] of Object.entries(mergePlan.patch)) {
+    if (value === undefined && mergePlan.preserveUndefined) continue
+    if (value === null && !mergePlan.preserveNull) continue
+    result[key] = value
+  }
+  return result
+}
+
+export function buildStoredLineItemPersistencePlan(invoiceId: string, rawLineItems: unknown): StoredLineItemPersistencePlan {
+  const lineItems = Array.isArray(rawLineItems) ? rawLineItems as Record<string, unknown>[] : []
+  const finite = (value: unknown, fallback = 0) => { const parsed = typeof value === 'number' ? value : Number(value); return Number.isFinite(parsed) ? parsed : fallback }
+  return { invoiceId, replace: true, items: lineItems.map((item, index) => ({ invoiceId, zohoLineItemId: `invoice:${invoiceId}:${String(item.line_item_id || item.item_id || index)}`, productName: String(item.name || item.item_name || item.description || 'Line item'), sku: item.sku ? String(item.sku) : null, quantity: finite(item.quantity), unitPrice: finite(item.rate ?? item.unit_price), discount: finite(item.discount_amount, Math.max(0, finite(item.quantity) * finite(item.rate ?? item.unit_price) - finite(item.item_total ?? item.total))), total: finite(item.item_total ?? item.total), description: item.description ? String(item.description) : null })) }
+}
+
+export function buildInvoiceUpdateData(input: {
+  existingItems: unknown
+  zohoDoc: Record<string, unknown>
+  calcItems: Record<string, unknown>
+  conflictResult: ConflictResult
+  paymentSummary: { paymentExpected: number | null; balance: number | null; lastPaymentDate: Date | null }
+}): Prisma.InvoiceUpdateInput {
+  const currentItems = input.existingItems && typeof input.existingItems === 'object' && !Array.isArray(input.existingItems) ? input.existingItems as Record<string, unknown> : {}
+  const mergedItems = { ...currentItems, status: input.zohoDoc.status, customer_name: input.zohoDoc.customer_name, salesperson_name: input.zohoDoc.salesperson_name, sub_total: input.zohoDoc.sub_total, total: input.zohoDoc.total, balance: input.zohoDoc.balance, payment_made: input.zohoDoc.payment_made, currency_code: input.zohoDoc.currency_code, line_items: input.zohoDoc.line_items, custom_fields: input.zohoDoc.custom_fields, ...input.calcItems, paymentDate: input.paymentSummary.lastPaymentDate?.toISOString().split('T')[0] ?? currentItems.paymentDate }
+  const finite = (value: unknown): number | null => { const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value ?? '')); return Number.isFinite(parsed) ? parsed : null }
+  const commission = finite(input.calcItems.commission)
+  const status = String(input.zohoDoc.status || '').toLowerCase()
+  const isPaid = status === 'paid' || finite(input.zohoDoc.balance) === 0
+  const zohoModTime = input.zohoDoc.last_modified_time ? new Date(String(input.zohoDoc.last_modified_time)) : null
+  return {
+    status: (input.zohoDoc.status as string) ?? undefined, amount: parseFloat(String(input.zohoDoc.sub_total ?? '0')) || 0,
+    issueDate: input.zohoDoc.date ? new Date(`${String(input.zohoDoc.date)}T12:00:00.000Z`) : undefined,
+    dueDate: input.zohoDoc.due_date ? new Date(`${String(input.zohoDoc.due_date)}T12:00:00.000Z`) : null,
+    zohoModifiedTime: zohoModTime, lastZohoModifiedTime: zohoModTime, lastSyncedAt: new Date(), appModifiedAt: new Date(),
+    syncConflict: input.conflictResult.hasConflict, conflictFields: input.conflictResult.hasConflict ? JSON.parse(JSON.stringify(input.conflictResult.fields)) : undefined,
+    pendingZohoFetch: false, actualShippingCost: finite(input.calcItems.actualShippingCost), shippingCostBreakdown: String(input.calcItems.shippingCostBreakdown || '').trim() || null,
+    computedProfit: finite(input.calcItems.profit), computedDeadProfit: finite(input.calcItems.deadProfitActual), computedDeadCost: finite(input.calcItems.deadCostTotal), computedVigRate: finite(input.calcItems.vigRate),
+    computedSalesperson: String(input.zohoDoc.salesperson_name || '').trim() || null, computedInvoiceNumber: String(input.zohoDoc.invoice_number || '').trim() || null,
+    computedUpfront: commission == null ? null : commission / 2, computedFinal: commission == null ? null : (isPaid ? commission / 2 : 0),
+    paymentMade: parseFloat(String(input.zohoDoc.payment_made ?? '0')) || 0, paymentExpected: input.paymentSummary.paymentExpected, lastPaymentDate: input.paymentSummary.lastPaymentDate, balance: input.paymentSummary.balance,
+    items: JSON.parse(JSON.stringify(mergedItems)),
+  }
+}
+
+export interface InvoicePersistencePlan {
   mode: 'create-or-update' | 'update-existing'
   identity: { id?: string; zohoId: string }
-  createData: Prisma.InvoiceCreateInput
+  createData?: Prisma.InvoiceCreateInput
   updateData: Prisma.InvoiceUpdateInput
   lineItems: unknown
   payments: PaymentPersistencePlan
@@ -84,11 +142,20 @@ export type InvoicePersistencePlan = {
   reviewResolutions: FinancialReviewResolutionPlan[]
 }
 
+export type CompleteInvoicePlanInput =
+  | { mode: 'existing'; localInvoiceId: string; zohoId: string; updateData: Prisma.InvoiceUpdateInput; lineItems: unknown; payments: PaymentPersistencePlan; reviewUpserts: FinancialReviewUpsertPlan[]; reviewResolutions: FinancialReviewResolutionPlan[] }
+  | { mode: 'create'; zohoId: string; createData: Prisma.InvoiceCreateInput; updateData: Prisma.InvoiceUpdateInput; lineItems: unknown; payments: PaymentPersistencePlan; reviewUpserts: FinancialReviewUpsertPlan[]; reviewResolutions: FinancialReviewResolutionPlan[] }
+
+export function buildCompleteInvoicePersistencePlan(input: CompleteInvoicePlanInput): InvoicePersistencePlan {
+  if (input.mode === 'existing') return { mode: 'update-existing', identity: { id: input.localInvoiceId, zohoId: input.zohoId }, updateData: input.updateData, lineItems: input.lineItems, payments: input.payments, reviewUpserts: input.reviewUpserts, reviewResolutions: input.reviewResolutions }
+  return { mode: 'create-or-update', identity: { zohoId: input.zohoId }, createData: input.createData, updateData: input.updateData, lineItems: input.lineItems, payments: input.payments, reviewUpserts: input.reviewUpserts, reviewResolutions: input.reviewResolutions }
+}
+
 type InvoicePersistenceTestHooks = Partial<Record<'afterInvoice' | 'afterPayments' | 'afterLineItems' | 'afterReviews', () => void>>
 async function applyInvoicePersistencePlanInTransaction(tx: Prisma.TransactionClient, plan: InvoicePersistencePlan, hooks?: InvoicePersistenceTestHooks) {
   const invoice = plan.mode === 'update-existing'
     ? await tx.invoice.update({ where: plan.identity.id ? { id: plan.identity.id } : { zohoId: plan.identity.zohoId }, data: plan.updateData })
-    : await tx.invoice.upsert({ where: { zohoId: plan.identity.zohoId }, create: plan.createData, update: plan.updateData })
+    : await tx.invoice.upsert({ where: { zohoId: plan.identity.zohoId }, create: plan.createData ?? (() => { throw new Error('Create plan missing invoice data') })(), update: plan.updateData })
   hooks?.afterInvoice?.()
   await persistStoredLineItems(tx, 'invoice', invoice.id, plan.lineItems)
   hooks?.afterLineItems?.()
