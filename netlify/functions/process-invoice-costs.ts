@@ -1,7 +1,7 @@
 import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from "./lib/zoho-auth"
-import { calculateDocumentCosts, buildFieldsToUpdate } from "./lib/cost-calculations"
+import { calculateDocumentCosts, buildFieldsToUpdate, requiresManagerReview, isSwagItem } from "./lib/cost-calculations"
 import { getSystemSettings } from "./lib/settings"
 import {
   detectConflict,
@@ -11,6 +11,7 @@ import {
 
 import { prisma } from "./lib/prisma"
 import { authorizeCostProcessing, hasPrivilegedCostOptions } from "./lib/document-access"
+import { upsertFinancialReview, resolveFinancialReview } from "./lib/financial-review-service"
 const ORG_ID = ZOHO_ORGANIZATION_ID
 
 let invoiceFieldDefinitionsCache: { expiresAt: number; fields: any[] } | null = null
@@ -163,6 +164,17 @@ export const internalHandler: Handler = async (event) => {
       commissionPct, salesCommission, isPaid,
       lineItemDetails, lineItemBreakdownStrings,
     } = calc
+
+    const reviewRef = String(invoice.invoice_number || booksInvoiceId)
+    const hasGrandTotal = Number.isFinite(parseFloat(invoice.total_amount ?? invoice.grand_total ?? invoice.total ?? '')) && parseFloat(invoice.total_amount ?? invoice.grand_total ?? invoice.total ?? '0') > 0
+    if (!hasGrandTotal) {
+      await upsertFinancialReview({ documentType: 'INVOICE', documentRef: reviewRef, invoiceId: invoiceId ? String(invoiceId) : undefined, reasonCode: 'MISSING_GRAND_TOTAL', sourceType: 'process-invoice-costs', sourceRecord: String(booksInvoiceId), metadata: { subtotalFallback: true } })
+    } else {
+      await resolveFinancialReview({ documentType: 'INVOICE', documentRef: reviewRef, reasonCode: 'MISSING_GRAND_TOTAL', resolverId: 'system', resolutionNotes: 'Valid invoice grand total received.' })
+    }
+    if (requiresManagerReview(profit, lineItemDetails.every(item => item.gift || isSwagItem(item.name)))) {
+      await upsertFinancialReview({ documentType: 'INVOICE', documentRef: reviewRef, invoiceId: invoiceId ? String(invoiceId) : undefined, reasonCode: 'NON_GIFT_NONPOSITIVE_PROFIT', sourceType: 'process-invoice-costs', sourceRecord: String(booksInvoiceId), metadata: { profit } })
+    }
 
     const salespersonName = invoice.salesperson_name
     console.log(`\n=== Processing Invoice ${invoice.invoice_number} ===`)
