@@ -14,6 +14,7 @@
  */
 
 import { prisma } from "../../netlify/functions/lib/prisma"
+import { Prisma } from "@prisma/client"
 import { getZohoAccessToken, ZOHO_DC, ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
@@ -41,6 +42,114 @@ export interface ZohoPayment {
   reference_number?: string
   bank_charges?: number
   description?: string
+}
+
+export interface PaymentUpsertPlan {
+  sourcePaymentId: string
+  create: Omit<Prisma.PaymentCreateInput, 'invoice' | 'invoiceDbId'>
+  update: Omit<Prisma.PaymentUpdateInput, 'invoice' | 'invoiceDbId'>
+}
+
+export interface PaymentPersistencePlan {
+  payments: PaymentUpsertPlan[]
+  summary: { paymentMade: number; paymentExpected: number | null; lastPaymentDate: Date | null; balance: number | null; paymentCount: number }
+}
+
+export interface FinancialReviewUpsertPlan {
+  documentType: string
+  documentRef: string
+  reasonCode: string
+  invoiceId?: string
+  sourceType?: string
+  sourceRecord?: string
+  metadata?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput
+}
+
+export interface FinancialReviewResolutionPlan {
+  documentType: string
+  documentRef: string
+  reasonCode: string
+  resolverId?: string
+  resolutionNotes?: string
+}
+
+export type InvoicePersistencePlan = {
+  mode: 'create-or-update' | 'update-existing'
+  identity: { id?: string; zohoId: string }
+  createData: Prisma.InvoiceCreateInput
+  updateData: Prisma.InvoiceUpdateInput
+  lineItems: unknown
+  payments: PaymentPersistencePlan
+  reviewUpserts: FinancialReviewUpsertPlan[]
+  reviewResolutions: FinancialReviewResolutionPlan[]
+}
+
+type InvoicePersistenceTestHooks = Partial<Record<'afterInvoice' | 'afterPayments' | 'afterLineItems' | 'afterReviews', () => void>>
+async function applyInvoicePersistencePlanInTransaction(tx: Prisma.TransactionClient, plan: InvoicePersistencePlan, hooks?: InvoicePersistenceTestHooks) {
+  const invoice = plan.mode === 'update-existing'
+    ? await tx.invoice.update({ where: plan.identity.id ? { id: plan.identity.id } : { zohoId: plan.identity.zohoId }, data: plan.updateData })
+    : await tx.invoice.upsert({ where: { zohoId: plan.identity.zohoId }, create: plan.createData, update: plan.updateData })
+  hooks?.afterInvoice?.()
+  await persistStoredLineItems(tx, 'invoice', invoice.id, plan.lineItems)
+  hooks?.afterLineItems?.()
+  await applyPaymentPersistencePlan(tx, plan.payments, invoice.id)
+  hooks?.afterPayments?.()
+  for (const review of plan.reviewUpserts) {
+    await tx.financialReview.upsert({ where: { documentType_documentRef_reasonCode: { documentType: review.documentType, documentRef: review.documentRef, reasonCode: review.reasonCode } }, create: { documentType: review.documentType, documentRef: review.documentRef, invoiceId: review.invoiceId, reasonCode: review.reasonCode, sourceType: review.sourceType, sourceRecord: review.sourceRecord, ...(review.metadata === undefined ? {} : { metadata: review.metadata }), status: 'OPEN' }, update: { sourceType: review.sourceType, sourceRecord: review.sourceRecord, ...(review.metadata === undefined ? {} : { metadata: review.metadata }) } })
+  }
+  for (const resolution of plan.reviewResolutions) {
+    await tx.financialReview.updateMany({ where: { documentType: resolution.documentType, documentRef: resolution.documentRef, reasonCode: resolution.reasonCode, status: 'OPEN' }, data: { status: 'RESOLVED', resolvedAt: new Date(), resolverId: resolution.resolverId, resolutionNotes: resolution.resolutionNotes } })
+  }
+  hooks?.afterReviews?.()
+  return invoice
+}
+
+export async function applyInvoicePersistencePlan(plan: InvoicePersistencePlan, db: typeof prisma = prisma) {
+  const maxAttempts = 3
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await db.$transaction((tx) => applyInvoicePersistencePlanInTransaction(tx, plan))
+    } catch (error) {
+      const retryable = error instanceof Prisma.PrismaClientKnownRequestError &&
+        (error.code === 'P2034' || (error.code === 'P2002' && String(error.meta?.target ?? '').includes('zohoId')))
+      if (!retryable || attempt === maxAttempts) throw error
+    }
+  }
+  throw new Error('Atomic invoice persistence retry exhausted')
+}
+
+export async function __testOnlyApplyInvoicePersistencePlan(plan: InvoicePersistencePlan, hooks: InvoicePersistenceTestHooks) {
+  if (process.env.NODE_ENV !== 'test') throw new Error('Test-only transaction seam')
+  return prisma.$transaction((tx) => applyInvoicePersistencePlanInTransaction(tx, plan, hooks))
+}
+
+/** Remote-only payment retrieval; persistence is deliberately separate. */
+export async function fetchInvoicePaymentsFromZoho(zohoInvoiceId: string): Promise<ZohoPayment[]> {
+  const token = await getZohoAccessToken()
+  if (!token) throw new Error("No Zoho token")
+  const response = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/invoices/${zohoInvoiceId}/payments?organization_id=${ORG_ID}`, { headers: { Authorization: `Zoho-oauthtoken ${token}` } })
+  if (!response.ok) throw new Error(`[sync-engine] Payment fetch returned ${response.status} for invoice ${zohoInvoiceId}`)
+  const payload = await response.json() as { payments?: ZohoPayment[] }
+  return payload.payments ?? []
+}
+
+/** Pure, replay-safe normalization of payment rows and summary values. */
+export function buildPaymentPersistencePlan(payments: ZohoPayment[], _invoiceDbId: string): PaymentPersistencePlan {
+  let paymentMade = 0
+  let lastPaymentDate: Date | null = null
+  const plans = payments.map((payment) => {
+    const date = payment.date ? new Date(payment.date) : null
+    if (date && (!lastPaymentDate || date > lastPaymentDate)) lastPaymentDate = date
+    paymentMade += payment.amount ?? 0
+    return { sourcePaymentId: payment.payment_id, create: { zohoId: payment.payment_id, invoiceId: payment.invoice_id ?? null, invoiceNumber: payment.invoice_number ?? null, amount: payment.amount ?? 0, date, mode: payment.payment_mode ?? null, status: payment.status ?? null, referenceNumber: payment.reference_number ?? null, bankCharges: payment.bank_charges ?? 0, description: payment.description ?? null }, update: { amount: payment.amount ?? 0, date, mode: payment.payment_mode ?? null, status: payment.status ?? null, referenceNumber: payment.reference_number ?? null, bankCharges: payment.bank_charges ?? 0, description: payment.description ?? null } }
+  })
+  return { payments: plans, summary: { paymentMade, paymentExpected: null, lastPaymentDate, balance: null, paymentCount: payments.length } }
+}
+
+export async function applyPaymentPersistencePlan(tx: Prisma.TransactionClient, plan: PaymentPersistencePlan, localInvoiceId: string): Promise<void> {
+  for (const payment of plan.payments) {
+    await tx.payment.upsert({ where: { zohoId: payment.sourcePaymentId }, create: { ...payment.create, invoice: { connect: { id: localInvoiceId } } }, update: { ...payment.update, invoice: { connect: { id: localInvoiceId } } } })
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -206,7 +315,8 @@ const ZOHO_OWNED_SCALAR_KEYS = [
  */
 export async function syncInvoicePayments(
   zohoInvoiceId: string,
-  invoiceDbId: string
+  invoiceDbId: string,
+  db: typeof prisma = prisma
 ): Promise<{
   paymentMade: number
   paymentExpected: number | null
@@ -278,7 +388,7 @@ export async function syncInvoicePayments(
   }
 
   if (ops.length > 0) {
-    await prisma.$transaction(ops)
+      await db.$transaction(ops)
   }
 
   return {
@@ -510,7 +620,8 @@ export async function updateQuoteRecord(opts: {
   await syncStoredLineItems("quote", localId, zohoDoc.line_items)
 }
 
-export async function syncStoredLineItems(
+export async function persistStoredLineItems(
+  db: Prisma.TransactionClient,
   docType: "invoice" | "salesOrder" | "quote",
   documentId: string,
   rawLineItems: unknown,
@@ -526,11 +637,10 @@ export async function syncStoredLineItems(
       ? { salesOrderId: documentId }
       : { quoteId: documentId }
 
-  await prisma.$transaction(async tx => {
-    await tx.lineItem.deleteMany({ where: relation })
+  await db.lineItem.deleteMany({ where: relation })
     if (lineItems.length === 0) return
 
-    await tx.lineItem.createMany({
+    await db.lineItem.createMany({
       data: lineItems.map((item, index) => {
         const quantity = finiteNumber(item.quantity)
         const unitPrice = finiteNumber(item.rate ?? item.unit_price)
@@ -558,5 +668,12 @@ export async function syncStoredLineItems(
         }
       }),
     })
-  })
+}
+
+export async function syncStoredLineItems(
+  docType: "invoice" | "salesOrder" | "quote",
+  documentId: string,
+  rawLineItems: unknown,
+): Promise<void> {
+  await prisma.$transaction((tx) => persistStoredLineItems(tx, docType, documentId, rawLineItems))
 }
