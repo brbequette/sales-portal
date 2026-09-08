@@ -5,6 +5,7 @@ import { useZoho } from "@/components/ZohoProvider"
 import { EMPTY_FACT_FINDING, type FactFindingValues } from "@/components/FactFindingPanel"
 import { type OrderLine } from "@/components/OrderBuilder"
 import { toast } from 'react-hot-toast'
+import { makeZohoVoiceCall } from '@/lib/zoho-voice-websdk'
 
 interface UseSalesCampaignDataProps {
   accounts: any[]
@@ -57,24 +58,31 @@ export function useSalesCampaignData({ accounts, onClose, onRefresh }: UseSalesC
   const contactName = useMemo(() => spokeTo || (primaryContact ? `${primaryContact.firstName || ""} ${primaryContact.lastName || ""}`.trim() : "there"), [spokeTo, primaryContact])
   const displayEmail = useMemo(() => primaryContact?.email || accountDetail?.booksContact?.email || activeAccount?.booksContact?.email || '', [primaryContact, accountDetail, activeAccount])
 
-  const initiateCall = useCallback((phone: string) => {
-    if (!phone) return
-    fetch('/api/calls/log', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'INITIATE_CALL', accountId: activeAccount?.id, userId: currentUser?.id,
-        userEmail: currentUser?.email
-      })
-    }).catch(err => console.error("Error logging call initiation:", err))
-    
-    navigator.clipboard?.writeText(phone).catch(() => {})
-  }, [activeAccount?.id, currentUser?.id, currentUser?.email])
+  const initiateCall = useCallback(async (phone: string) => {
+    if (!phone) return false
+    const dialer = (window as any).ZDialer
+    if (dialer?.dial) {
+      dialer.dial(phone)
+      return true
+    }
+    try {
+      return await makeZohoVoiceCall(phone)
+    } catch (error) {
+      console.error("Zoho Voice power dial failed", error)
+      return false
+    }
+  }, [])
 
   useEffect(() => {
     if (isPowerDialerActive && activeAccount) {
       if (cleanPhone) {
-        const t = setTimeout(() => initiateCall(cleanPhone), 1000)
+        const t = setTimeout(() => {
+          void initiateCall(cleanPhone).then(started => {
+            if (started) return
+            setIsPowerDialerActive(false)
+            toast.error("Power Dialer paused: no configured Zoho Voice provider accepted the call")
+          })
+        }, 1000)
         return () => clearTimeout(t)
       } else {
         setIsPowerDialerActive(false)

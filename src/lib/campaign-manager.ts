@@ -61,18 +61,42 @@ class CampaignManager {
   private listeners: Set<(s: CampaignState) => void> = new Set()
   private pollTimer: ReturnType<typeof setTimeout> | null = null
   private initialized = false
+  private canAdvance = false
 
   /** Called once on app mount -- reconnects to any in-progress job from localStorage */
   init() {
     if (this.initialized || typeof window === "undefined") return
     this.initialized = true
 
-    const savedJobId = localStorage.getItem(STORAGE_KEY)
-    if (savedJobId) {
-      const savedBlastId = localStorage.getItem(STORAGE_KEY + "_blastId")
-      this.state = { ...DEFAULT_STATE, jobId: savedJobId, blastId: savedBlastId, status: "running" }
+    // Always recover from the database. This lets every administrator observe the
+    // same active campaign even when the job was started in another browser.
+    void this.recoverLatest()
+  }
+
+  private async recoverLatest() {
+    try {
+      const res = await fetch("/api/campaign-job/status?recoverLatest=true", { cache: "no-store" })
+      const data = await res.json()
+      if (!res.ok || !data.success || !data.active || !data.jobId) return
+      localStorage.setItem(STORAGE_KEY, data.jobId)
+      this.canAdvance = data.canAdvance === true
+      if (data.blastId) localStorage.setItem(STORAGE_KEY + "_blastId", data.blastId)
+      this.state = {
+        ...DEFAULT_STATE,
+        jobId: data.jobId,
+        blastId: data.blastId || null,
+        status: "running",
+        progress: data.progress || 0,
+        total: data.total || 0,
+        sentCount: data.sentCount || 0,
+        failedCount: data.failedCount || 0,
+        name: data.authorName ? `${data.name || "Campaign"} — ${data.authorName}` : (data.name || "Campaign"),
+        channel: data.channel || "SMS",
+      }
       this.notify()
       this.schedulePoll()
+    } catch (error) {
+      console.error("[CampaignManager] Recovery error:", error)
     }
   }
 
@@ -99,7 +123,8 @@ class CampaignManager {
     if (!this.state.jobId || (this.state.status !== "running" && this.state.status !== "idle")) return
 
     try {
-      const res = await fetch(`/api/campaign-job/status?jobId=${this.state.jobId}`)
+      const observe = this.canAdvance ? "" : "&observeOnly=true"
+      const res = await fetch(`/api/campaign-job/status?jobId=${this.state.jobId}${observe}`)
       const data = await res.json()
 
       if (!data.success && res.status !== 200) {
@@ -172,6 +197,7 @@ class CampaignManager {
       }
 
       const jobId = data.jobId
+      this.canAdvance = true
       const blastId = data.blastId || null
       if (typeof window !== "undefined") {
         localStorage.setItem(STORAGE_KEY, jobId)
@@ -243,6 +269,7 @@ class CampaignManager {
       localStorage.removeItem(STORAGE_KEY)
       localStorage.removeItem(STORAGE_KEY + "_blastId")
     }
+    this.canAdvance = false
     this.state = { ...DEFAULT_STATE }
     this.notify()
   }

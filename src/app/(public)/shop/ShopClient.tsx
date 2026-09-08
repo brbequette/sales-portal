@@ -5,27 +5,30 @@ import { createPortal } from 'react-dom';
 import { PublicProductImage } from '@/components/PublicProductImage';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { FiArrowLeft, FiArrowRight, FiAward, FiBox, FiCheckCircle, FiChevronDown, FiDollarSign, FiFilter, FiGift, FiLock, FiPackage, FiSearch, FiSliders, FiTag, FiTrendingUp, FiX } from 'react-icons/fi';
+import { FiArrowLeft, FiArrowRight, FiAward, FiBox, FiCheckCircle, FiChevronDown, FiFilter, FiLock, FiSearch, FiSliders, FiTag, FiX } from 'react-icons/fi';
 import imageMapData from '@/lib/image-map.json';
-import type { ProductOffer } from '@/lib/product-offers';
 import { publicUseCases } from '@/lib/public-product-normalization';
+import { SHOW_PUBLIC_SKUS } from '@/lib/public-catalog-visibility';
 
 type RawProduct = {
   id: string; name: string; sku: string; category?: string | null; imageUrl?: string | null; description?: string | null;
   price?: number; stock?: number; giftItem?: boolean; size?: string | null; application?: string | null;
   vendor?: string | null; productType?: string | null; toolType?: string | null; equipment?: string | null; materials?: unknown; useCases?: unknown; attributes?: unknown;
 };
-type PublicAttributes = { segmentHeight?: string; slotType?: string; offer?: ProductOffer };
+type PublicAttributes = { segmentHeight?: string; slotType?: string };
 type CatalogProduct = {
   id: string; name: string; sku: string; category: string; imageUrl: string; description: string; size: string; application: string;
-  productType: string; toolType: string; equipment: string; useCases: string[]; sizes: string[]; technical: PublicAttributes; searchable: string;
+  productType: string; toolType: string; equipment: string; useCases: string[]; sizes: string[]; technical: PublicAttributes; searchable: string; specialty: boolean;
 };
-type Filters = { category: string; useCase: string; size: string };
+type Filters = { category: string; useCase: string; size: string; productType: string; equipment: string; specialty: string };
 type SortMode = 'featured' | 'name-asc' | 'name-desc' | 'sku-asc';
 
 const imageMap = imageMapData as Record<string, { image?: string | null }>;
-const EMPTY_FILTERS: Filters = { category: '', useCase: '', size: '' };
+const EMPTY_FILTERS: Filters = { category: '', useCase: '', size: '', productType: '', equipment: '', specialty: '' };
 const PAGE_SIZES = [24, 48, 96];
+const SPECIALTY_FAMILIES = ['battle axe', 'barbarian', 'dark knight', 'dragon', 'king', 'maximus', 'medusa', 'spartan', 'wizard', 'zeus', 'champion'];
+const isSpecialtyName = (name: string) => SPECIALTY_FAMILIES.some((family) => name.includes(family)) || /\bthe titan\b/.test(name);
+const isGiftLike = (item: RawProduct) => /\b(t-?shirt|shirt|hat|cap|knife|gift|giveaway|promo item)\b/i.test(`${item.name} ${item.category || ''}`);
 
 function values(value: unknown): string[] {
   if (Array.isArray(value)) return value.map(String).map((item) => item.trim()).filter(Boolean);
@@ -63,7 +66,8 @@ function parseProduct(item: RawProduct): CatalogProduct {
   const canonicalText = [application, equipment, materials.join(' '), description, item.productType, item.toolType].filter(Boolean).join(' ');
   const useCases = publicUseCases([...values(item.useCases), canonicalText]);
   const technical = attributes as PublicAttributes;
-  return { id: item.id || sku, name: item.name, sku, category, imageUrl, description, size, application: useCases.join(' · '), productType: item.productType || '', toolType: item.toolType || '', equipment, useCases, sizes: canonicalSizes(size), technical, searchable };
+  const specialty = isSpecialtyName(`${item.name} ${category}`.toLowerCase());
+  return { id: item.id || sku, name: item.name, sku, category, imageUrl, description, size, application: useCases.join(' · '), productType: item.productType || '', toolType: item.toolType || '', equipment, useCases, sizes: canonicalSizes(size), technical, searchable, specialty };
 }
 
 function ShopContent() {
@@ -84,7 +88,7 @@ function ShopContent() {
       if (!response.ok) throw new Error('Catalog request failed');
       const payload = await response.json();
       const rows = (Array.isArray(payload) ? payload : payload.products || []) as RawProduct[];
-      if (active) setProducts(rows.filter((item) => !item.giftItem && Boolean(item.imageUrl)).map(parseProduct).filter((item) => Boolean(item.imageUrl)));
+      if (active) setProducts(rows.filter((item) => !item.giftItem && !isGiftLike(item) && Boolean(item.imageUrl)).map(parseProduct).filter((item) => Boolean(item.imageUrl)));
     }).catch((error) => console.error('Failed to fetch catalog:', error)).finally(() => active && setLoading(false));
     return () => { active = false; };
   }, []);
@@ -93,6 +97,8 @@ function ShopContent() {
     category: unique(products.map((item) => item.category)),
     useCase: unique(products.flatMap((item) => item.useCases)),
     size: unique(products.flatMap((item) => item.sizes)),
+    productType: unique(products.map((item) => item.productType)),
+    equipment: unique(products.flatMap((item) => values(item.equipment))),
   }), [products]);
 
   const results = useMemo(() => {
@@ -102,9 +108,14 @@ function ShopContent() {
       if (filters.category && item.category.toLowerCase() !== filters.category.toLowerCase()) return false;
       if (filters.useCase && !item.useCases.includes(filters.useCase)) return false;
       if (filters.size && !item.sizes.includes(filters.size)) return false;
+      if (filters.productType && item.productType !== filters.productType) return false;
+      if (filters.equipment && !values(item.equipment).includes(filters.equipment)) return false;
+      if (filters.specialty === 'yes' && !item.specialty) return false;
       return true;
     });
     return list.sort((a, b) => {
+      const specialtyRank = Number(b.specialty) - Number(a.specialty);
+      if (specialtyRank) return specialtyRank;
       if (sort === 'name-asc') return a.name.localeCompare(b.name, undefined, { numeric: true });
       if (sort === 'name-desc') return b.name.localeCompare(a.name, undefined, { numeric: true });
       if (sort === 'sku-asc') return a.sku.localeCompare(b.sku, undefined, { numeric: true });
@@ -147,9 +158,12 @@ function ShopContent() {
           <aside className={`${filterOpen ? 'block' : 'hidden'} h-fit rounded-2xl border border-white/10 bg-neutral-900/70 p-5 lg:sticky lg:top-24 lg:block`}>
             <div className="mb-5 flex items-center justify-between"><h2 className="flex items-center gap-2 text-xs font-black uppercase tracking-widest"><FiFilter className="text-orange-400" /> Refine results</h2>{(activeFilters.length > 0 || query) && <button onClick={clearAll} className="text-[10px] font-bold uppercase text-orange-400 hover:text-orange-300">Clear all</button>}</div>
             <div className="space-y-4">
+              <button type="button" onClick={() => setFilters({ ...filters, specialty: filters.specialty === 'yes' ? '' : 'yes' })} aria-pressed={filters.specialty === 'yes'} className={`flex min-h-12 w-full items-center justify-between rounded-xl border px-3 text-left text-xs font-black uppercase ${filters.specialty === 'yes' ? 'border-orange-400 bg-orange-500/15 text-orange-200' : 'border-orange-400/25 bg-orange-500/5 text-orange-300'}`}><span><FiAward className="mr-2 inline" />Titan specialty blades</span><span>{filters.specialty === 'yes' ? 'On' : 'View'}</span></button>
               <Facet label="Category" value={filters.category} options={facets.category} onChange={(value) => setFilters({ ...filters, category: value })} />
+              <Facet label="Product type" value={filters.productType} options={facets.productType} onChange={(value) => setFilters({ ...filters, productType: value })} />
               <Facet label="Cuts / application" value={filters.useCase} options={facets.useCase} onChange={(value) => setFilters({ ...filters, useCase: value })} />
               <Facet label="Size" value={filters.size} options={facets.size} onChange={(value) => setFilters({ ...filters, size: value })} />
+              <Facet label="Saw / equipment" value={filters.equipment} options={facets.equipment} onChange={(value) => setFilters({ ...filters, equipment: value })} />
             </div>
             <Link href="/blade-finder" className="mt-6 flex items-center justify-center gap-2 rounded-xl border border-orange-400/30 bg-orange-500/10 px-3 py-3 text-[10px] font-black uppercase tracking-wider text-orange-300"><FiSliders /> Not sure? Use blade finder</Link>
           </aside>
@@ -175,9 +189,9 @@ function Facet({ label, value, options, onChange }: { label: string; value: stri
 }
 function FilterChip({ label, onClear }: { label: string; onClear: () => void }) { return <button onClick={onClear} className="inline-flex max-w-full items-center gap-2 rounded-full border border-orange-400/30 bg-orange-500/10 px-3 py-1.5 text-[10px] font-bold capitalize text-orange-200"><span className="truncate">{label}</span><FiX /></button>; }
 function ProductCard({ product, onSelect }: { product: CatalogProduct; onSelect: () => void }) {
-  return <article onClick={onSelect} className="group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-white/10 bg-neutral-900/70 transition hover:-translate-y-1 hover:border-orange-400/40">
-    <div className="relative flex h-56 items-center justify-center overflow-hidden border-b border-white/5 bg-black/55 p-6"><PublicProductImage src={product.imageUrl} alt={product.name} className="transition duration-500 group-hover:scale-105 group-hover:rotate-1" /><span className="absolute left-3 top-3 max-w-[80%] truncate rounded-full border border-orange-400/25 bg-black/75 px-2.5 py-1 font-mono text-[8px] font-bold uppercase tracking-wider text-orange-300 backdrop-blur">{product.category}</span></div>
-    <div className="flex flex-1 flex-col p-5"><div className="font-mono text-[9px] uppercase tracking-wider text-neutral-500">SKU {product.sku}</div><h3 className="mt-1 line-clamp-2 text-sm font-black uppercase leading-5 text-white transition group-hover:text-orange-300">{product.name}</h3>{(product.size || product.application) && <div className="mt-3 flex flex-wrap gap-1.5">{product.size && <span className="rounded-md bg-white/5 px-2 py-1 text-[9px] text-neutral-400">{product.size}</span>}{product.application && <span className="max-w-full truncate rounded-md bg-white/5 px-2 py-1 text-[9px] text-neutral-400">{product.application}</span>}</div>}<div className="mt-auto flex items-center justify-between border-t border-white/10 pt-4 text-[10px] font-black uppercase tracking-wider"><span className="flex items-center gap-1.5 text-orange-400"><FiLock /> Login for pricing</span><span className="flex items-center gap-1 text-neutral-300 group-hover:text-orange-300">See full details <FiArrowRight /></span></div></div>
+  return <article onClick={onSelect} className={`group flex cursor-pointer flex-col overflow-hidden rounded-2xl bg-neutral-900/70 transition hover:-translate-y-1 ${product.specialty ? 'border border-orange-400/55 shadow-[0_16px_45px_rgba(249,115,22,.12)]' : 'border border-white/10 hover:border-orange-400/40'}`}>
+    <div className="relative flex h-56 items-center justify-center overflow-hidden border-b border-white/5 bg-black/55 p-6"><PublicProductImage src={product.imageUrl} alt={product.name} className="transition duration-500 group-hover:scale-105 group-hover:rotate-1" /><span className="absolute left-3 top-3 max-w-[80%] truncate rounded-full border border-orange-400/25 bg-black/75 px-2.5 py-1 font-mono text-[8px] font-bold uppercase tracking-wider text-orange-300 backdrop-blur">{product.specialty ? 'Titan Featured Specialty' : product.category}</span></div>
+    <div className="flex flex-1 flex-col p-5">{SHOW_PUBLIC_SKUS && <div className="font-mono text-[9px] uppercase tracking-wider text-neutral-500">SKU {product.sku}</div>}<h3 className="mt-1 line-clamp-2 text-sm font-black uppercase leading-5 text-white transition group-hover:text-orange-300">{product.name}</h3>{(product.size || product.application || product.equipment) && <div className="mt-3 flex flex-wrap gap-1.5">{product.size && <span className="rounded-md bg-white/5 px-2 py-1 text-[9px] text-neutral-400">{product.size}</span>}{product.application && <span className="max-w-full truncate rounded-md bg-white/5 px-2 py-1 text-[9px] text-neutral-400">{product.application}</span>}{product.equipment && <span className="max-w-full truncate rounded-md bg-orange-500/10 px-2 py-1 text-[9px] text-orange-200">{product.equipment}</span>}</div>}<div className="mt-auto flex items-center justify-between border-t border-white/10 pt-4 text-[10px] font-black uppercase tracking-wider"><span className="flex items-center gap-1.5 text-orange-400"><FiLock /> Login for pricing</span><span className="flex items-center gap-1 text-neutral-300 group-hover:text-orange-300">See full details <FiArrowRight /></span></div></div>
   </article>;
 }
 function LoadingGrid() { return <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{Array.from({ length: 12 }, (_, index) => <div key={index} className="h-96 animate-pulse rounded-2xl border border-white/5 bg-white/[.025]" />)}</div>; }
@@ -187,11 +201,8 @@ function Pagination({ page, total, onChange }: { page: number; total: number; on
   return <nav className="mt-10 flex flex-wrap items-center justify-center gap-2" aria-label="Catalog pages"><button disabled={page === 1} onClick={() => onChange(page - 1)} className="flex h-10 items-center gap-2 rounded-xl border border-white/10 px-3 text-[10px] font-bold uppercase text-neutral-300 disabled:opacity-30"><FiArrowLeft /> Previous</button>{pages.map((value, index) => <span key={value} className="contents">{index > 0 && value - pages[index - 1] > 1 && <span className="text-neutral-600">…</span>}<button onClick={() => onChange(value)} aria-current={page === value ? 'page' : undefined} className={`h-10 min-w-10 rounded-xl border text-xs font-bold ${page === value ? 'border-orange-400 bg-orange-500 text-black' : 'border-white/10 text-neutral-400 hover:text-white'}`}>{value}</button></span>)}<button disabled={page === total} onClick={() => onChange(page + 1)} className="flex h-10 items-center gap-2 rounded-xl border border-white/10 px-3 text-[10px] font-bold uppercase text-neutral-300 disabled:opacity-30">Next <FiArrowRight /></button></nav>;
 }
 function ProductModal({ product, onClose }: { product: CatalogProduct; onClose: () => void }) {
-  const [selectedSpend, setSelectedSpend] = useState(100);
   if (typeof document === 'undefined') return null;
-  const offer = product.technical.offer;
-  const selectedTier = offer?.tiers.find((tier) => tier.threshold === selectedSpend);
-  const quoteUrl = `/contact?product=${encodeURIComponent(product.name)}&sku=${encodeURIComponent(product.sku)}&volume=${selectedSpend}`;
+  const quoteUrl = `/contact?product=${encodeURIComponent(product.name)}&sku=${encodeURIComponent(product.sku)}`;
   return createPortal(<div className="fixed inset-0 z-[11000] overflow-y-auto bg-black/90 p-2 backdrop-blur-xl sm:p-5" onClick={onClose}>
     <div role="dialog" aria-modal="true" aria-label={product.name} className="product-detail-shell relative mx-auto my-2 w-full max-w-7xl overflow-hidden rounded-3xl border border-orange-400/25 bg-[#080808] shadow-2xl sm:my-5" onClick={(event) => event.stopPropagation()}>
       <button onClick={onClose} aria-label="Close product details" className="absolute right-4 top-4 z-30 flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-black/85 text-neutral-300 backdrop-blur hover:border-orange-400/60 hover:text-white"><FiX size={24} /></button>
@@ -218,19 +229,10 @@ function ProductModal({ product, onClose }: { product: CatalogProduct; onClose: 
             {product.technical.segmentHeight && <Spec label="Segment height" value={product.technical.segmentHeight} />}
             {product.technical.slotType && <Spec label="Slot type" value={product.technical.slotType} />}
           </dl>
-          <div className="mt-7 flex flex-col gap-3 sm:flex-row"><Link href="/login" className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 py-4 text-[10px] font-black uppercase tracking-wider text-black"><FiLock /> View contractor pricing</Link><Link href={quoteUrl} className="rounded-xl border border-white/10 bg-white/5 px-6 py-4 text-center text-[10px] font-black uppercase tracking-wider text-white">Request product quote</Link></div>
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row"><Link href="/login" className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 py-4 text-center text-[10px] font-black uppercase tracking-wider text-black"><FiLock /> Create account or login to view pricing</Link><Link href={quoteUrl} className="rounded-xl border border-white/10 bg-white/5 px-6 py-4 text-center text-[10px] font-black uppercase tracking-wider text-white">Request product quote</Link></div>
         </div>
       </div>
 
-      <section className="product-offer-zone border-t border-white/10 px-5 py-10 sm:px-9 lg:px-12 lg:py-14" aria-label="Volume and giveaway offers">
-        <div className="relative z-10 flex flex-col justify-between gap-6 lg:flex-row lg:items-end"><div className="max-w-3xl"><span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[.22em] text-orange-300"><FiTrendingUp /> Contractor volume program</span><h3 className="mt-3 text-3xl font-black uppercase leading-none tracking-tight sm:text-5xl">{offer?.headline || 'Build your crew package'}</h3><p className="mt-4 max-w-2xl text-sm leading-6 text-neutral-300">{offer?.subheadline || 'Larger qualifying orders can unlock volume pricing and application-matched jobsite tools.'}</p></div><div className="flex items-center gap-3 rounded-xl border border-blue-400/20 bg-blue-500/10 px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-blue-100"><FiGift size={18} /> Gifts are assigned by product and tier</div></div>
-        <div className="relative z-10 mt-8 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8">{offer?.tiers.map((tier) => <button key={tier.threshold} type="button" onClick={() => setSelectedSpend(tier.threshold)} className={`product-offer-tier ${selectedSpend === tier.threshold ? 'is-selected' : ''} ${tier.active ? 'is-active' : ''}`}><span>Qualifying spend</span><b>${tier.threshold.toLocaleString()}</b><small>{tier.active ? tier.giftName ? 'Gift + package' : tier.discountPercent ? `${tier.discountPercent}% volume rate` : 'Special package' : 'Volume quote'}</small></button>)}</div>
-        <div className="relative z-10 mt-6 grid gap-5 rounded-2xl border border-white/10 bg-black/55 p-5 lg:grid-cols-[1fr_auto] lg:items-center sm:p-7">
-          <div className="flex gap-4"><div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-orange-400/30 bg-orange-500/10 text-orange-400"><FiPackage size={22} /></div><div><p className="text-xs font-black uppercase tracking-wider">${selectedSpend.toLocaleString()} order tier</p>{selectedTier?.active ? <p className="mt-2 text-sm leading-6 text-neutral-300">{selectedTier.discountPercent != null && <><b className="text-white">{selectedTier.discountPercent}% volume discount.</b> </>}{selectedTier.packagePrice != null && <>Configured package price: <b className="text-white">${selectedTier.packagePrice.toLocaleString()}.</b> </>}{selectedTier.giftName && <>Choose the configured giveaway: <b className="text-orange-300">{selectedTier.giftName}</b>. </>}{selectedTier.note}</p> : <p className="mt-2 text-sm leading-6 text-neutral-400">This product can be assigned a package, volume rate, or approved giveaway at this tier. Ask sales to build the best combination for your application.</p>}</div></div>
-          <Link href={quoteUrl} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-600 px-6 text-[10px] font-black uppercase tracking-wider text-white shadow-[0_12px_35px_rgba(234,88,12,.22)]"><FiDollarSign /> Build this package</Link>
-        </div>
-        <div className="relative z-10 mt-5 flex gap-3 text-[11px] leading-5 text-neutral-500"><FiCheckCircle className="mt-0.5 shrink-0 text-orange-400" /><p>Giveaway eligibility, package price, product compatibility, and availability must be confirmed by Titan Diamond USA. A gift is included only when the selected product and qualifying tier have an active assigned offer.</p></div>
-      </section>
     </div>
   </div>, document.body);
 }

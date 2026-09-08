@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { hasValidWebhookToken } from '@/lib/webhook-auth'
+import { indexCallAndCreateSafeFollowUp } from '@/lib/communication-automation'
+import { matchVoiceCallToAccount } from '@/lib/voice-account-matching'
 
 export async function POST(req: Request) {
   try {
@@ -40,37 +42,13 @@ export async function POST(req: Request) {
     }
 
     // Try to match the phone number to a contact and account
-    const searchNumber = direction.toUpperCase() === 'INBOUND' ? fromNumber : toNumber
     let accountId = ''
     let contactId: string | null = null
 
-    if (searchNumber) {
-      const cleanNumber = searchNumber.replace(/\D/g, '')
-      if (cleanNumber.length >= 7) {
-        const last7 = cleanNumber.slice(-7)
-        const contact = await prisma.contact.findFirst({
-          where: {
-            OR: [
-              { phone: { contains: last7 } },
-              { mobilePhone: { contains: last7 } }
-            ]
-          }
-        })
-        if (contact) {
-          accountId = contact.accountId
-          contactId = contact.id
-        } else {
-          // Check raw account shipping/billing phone or notes if contact not found
-          const account = await prisma.account.findFirst({
-            where: {
-              OR: [
-                { name: { contains: cleanNumber } }
-              ]
-            }
-          })
-          if (account) accountId = account.id
-        }
-      }
+    const phoneMatch = await matchVoiceCallToAccount({ direction, fromNumber, toNumber })
+    if (phoneMatch.status === "MATCHED") {
+      accountId = phoneMatch.accountId
+      contactId = phoneMatch.contactId
     }
 
     // CallLog.accountId is required. Preserve unmatched inbound activity under
@@ -101,6 +79,7 @@ export async function POST(req: Request) {
     const callLog = await prisma.callLog.upsert({
       where: { zohoCallId },
       update: {
+        accountId,
         duration,
         status,
         recordingUrl: recordingUrl || undefined,
@@ -125,6 +104,16 @@ export async function POST(req: Request) {
         aiSummary
       }
     })
+
+    await indexCallAndCreateSafeFollowUp(callLog)
+
+    if (phoneMatch.status !== "MATCHED") {
+      await prisma.integrationException.upsert({
+        where: { integration_entityType_externalId_exceptionType: { integration: "ZOHO_VOICE", entityType: "CALL_LOG", externalId: String(zohoCallId), exceptionType: "ACCOUNT_MATCH" } },
+        update: { status: "OPEN", externalNumber: phoneMatch.normalized, summary: phoneMatch.status === "AMBIGUOUS" ? "Multiple accounts share the caller phone; review required." : "No account contact matches the caller phone; review required.", proposedMatches: phoneMatch.matches.map(item => ({ accountId: item.accountId, contactId: item.id })) },
+        create: { integration: "ZOHO_VOICE", entityType: "CALL_LOG", externalId: String(zohoCallId), externalNumber: phoneMatch.normalized, exceptionType: "ACCOUNT_MATCH", summary: phoneMatch.status === "AMBIGUOUS" ? "Multiple accounts share the caller phone; review required." : "No account contact matches the caller phone; review required.", proposedMatches: phoneMatch.matches.map(item => ({ accountId: item.accountId, contactId: item.id })), confidence: 0 },
+      })
+    }
 
     return NextResponse.json({ success: true, message: 'Call logged' })
   } catch (error: any) {

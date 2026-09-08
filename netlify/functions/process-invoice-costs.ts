@@ -258,6 +258,9 @@ export const internalHandler: Handler = async (event) => {
         commission: salesCommission, commissionPercent: commissionPct, vigRate,
         lineItemDetails,
         itemsDcBreakdown: lineItemBreakdownStrings,
+        actualShippingCost: calc.actualShippingCost,
+        shippingCostBreakdown: calc.shippingCostBreakdown,
+        shippingRollup: calc.shippingRollup,
         costsCalculatedAt: new Date().toISOString(),
         ...(isPaid && !(localInvoice.items as any)?.paidInFullDate
           ? { paidInFullDate: new Date().toISOString().split("T")[0] }
@@ -352,6 +355,9 @@ export const internalHandler: Handler = async (event) => {
             commission: salesCommission, commissionPercent: commissionPct, vigRate,
             lineItemDetails,
             itemsDcBreakdown: lineItemBreakdownStrings,
+          actualShippingCost: calc.actualShippingCost,
+          shippingCostBreakdown: calc.shippingCostBreakdown,
+          shippingRollup: calc.shippingRollup,
             costsCalculatedAt: new Date().toISOString(),
           }
           await updateInvoiceRecord({

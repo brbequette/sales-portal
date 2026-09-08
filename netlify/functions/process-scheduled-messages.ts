@@ -1,6 +1,7 @@
 import { schedule } from "@netlify/functions"
 import FormData from "form-data"
 import { getZohoAccessToken } from "./lib/zoho-auth"
+import { evaluateZohoSmsResponse } from "./lib/zoho-sms-response"
 import { prisma } from "./lib/prisma"
 
 // Runs every 10 minutes to process scheduled texts
@@ -143,7 +144,8 @@ export const handler = schedule("*/10 * * * *", async () => {
         let resultJson: any = {}
         try { resultJson = JSON.parse(resultText) } catch {}
 
-        if (smsRes.ok && resultJson.status !== "error" && resultJson.code !== "error") {
+        const providerResult = evaluateZohoSmsResponse(smsRes, resultText)
+        if (providerResult.accepted) {
           // Success
           await prisma.scheduledMessage.update({
             where: { id: msg.id },
@@ -181,7 +183,7 @@ export const handler = schedule("*/10 * * * *", async () => {
           }
         } else {
           // Failed Zoho validation
-          const errMsg = resultJson.message || "Zoho API Error"
+          const errMsg = providerResult.errorMessage
           await prisma.scheduledMessage.update({
             where: { id: msg.id },
             data: { status: "FAILED", errorMessage: errMsg, sentAt: now }

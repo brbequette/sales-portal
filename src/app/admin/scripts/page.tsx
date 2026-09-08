@@ -13,6 +13,13 @@ type CallScript = {
   name: string
   callType: string
   content: string
+  department: string
+  scenario: string
+  objective?: string | null
+  discoveryPrompts?: string[] | null
+  objectionResponses?: Array<{ trigger: string; response: string }> | null
+  closingPrompt?: string | null
+  priority?: number
   isActive: boolean
 }
 
@@ -38,7 +45,14 @@ export default function ScriptManagerPage() {
   const [formData, setFormData] = useState({
     name: "",
     callType: "Intro",
+    department: "SALES",
+    scenario: "INTRO",
+    objective: "",
     content: "",
+    discoveryPrompts: "",
+    objectionResponses: "",
+    closingPrompt: "",
+    priority: 0,
     isActive: true
   })
 
@@ -68,7 +82,14 @@ export default function ScriptManagerPage() {
       setFormData({
         name: script.name,
         callType: script.callType,
+        department: script.department || "SALES",
+        scenario: script.scenario || "GENERAL",
+        objective: script.objective || "",
         content: script.content,
+        discoveryPrompts: (script.discoveryPrompts || []).join("\n"),
+        objectionResponses: (script.objectionResponses || []).map(item => `${item.trigger} => ${item.response}`).join("\n"),
+        closingPrompt: script.closingPrompt || "",
+        priority: script.priority || 0,
         isActive: script.isActive
       })
     } else {
@@ -76,7 +97,14 @@ export default function ScriptManagerPage() {
       setFormData({
         name: "",
         callType: "Intro",
+        department: "SALES",
+        scenario: "INTRO",
+        objective: "",
         content: "",
+        discoveryPrompts: "",
+        objectionResponses: "",
+        closingPrompt: "",
+        priority: 0,
         isActive: true
       })
     }
@@ -93,7 +121,7 @@ export default function ScriptManagerPage() {
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({ ...formData, discoveryPrompts: formData.discoveryPrompts.split("\n").map(value => value.trim()).filter(Boolean), objectionResponses: formData.objectionResponses.split("\n").map(value => { const [trigger, ...response] = value.split("=>"); return { trigger: trigger?.trim(), response: response.join("=>").trim() } }).filter(item => item.trigger && item.response) })
       })
       const data = await res.json()
 
@@ -140,7 +168,7 @@ export default function ScriptManagerPage() {
           </div>
           <div>
             <h1 className="page-title">Call Scripts Manager</h1>
-            <p className="page-subtitle">Manage global call scripts used across the CRM.</p>
+            <p className="page-subtitle">Build the approved talk track, discovery flow, and conflict resolution used by every work queue.</p>
           </div>
         </div>
         <button 
@@ -161,7 +189,7 @@ export default function ScriptManagerPage() {
                 <h3 className="text-sm font-bold text-white">{script.name}</h3>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-900/30 text-blue-400 border border-blue-500/20 uppercase">
-                    {script.callType}
+                    {script.department || "SALES"} · {script.scenario || script.callType}
                   </span>
                   {!script.isActive && (
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-400 uppercase">
@@ -232,6 +260,13 @@ export default function ScriptManagerPage() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider">Department<select value={formData.department} onChange={e => setFormData({ ...formData, department: e.target.value })} className="mt-1.5 w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white"><option value="SALES">Sales</option><option value="COLLECTIONS">Collections</option><option value="SUPPORT">Support</option><option value="SHIPPING">Shipping</option></select></label>
+                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider">Scenario<select value={formData.scenario} onChange={e => setFormData({ ...formData, scenario: e.target.value })} className="mt-1.5 w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white"><option value="GENERAL">General</option><option value="INTRO">Introduction</option><option value="FOLLOW_UP">Follow-up</option><option value="REACTIVATION">Reactivation</option><option value="QUOTE">Quote</option><option value="ORDER">Order</option><option value="PAYMENT">Payment</option><option value="DELIVERY">Delivery</option><option value="PROBLEM">Problem</option><option value="ESCALATION">Escalation</option></select></label>
+              </div>
+
+              <div className="grid grid-cols-[1fr_110px] gap-4"><label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider">Call objective<input value={formData.objective} onChange={e => setFormData({ ...formData, objective: e.target.value })} className="mt-1.5 w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white" placeholder="What must this call accomplish?" /></label><label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider">Priority<input type="number" min="0" max="100" value={formData.priority} onChange={e => setFormData({ ...formData, priority: Number(e.target.value) })} className="mt-1.5 w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white" /></label></div>
+
               <div>
                 <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Merge Fields</label>
                 <div className="flex flex-wrap gap-2 mb-2">
@@ -255,6 +290,10 @@ export default function ScriptManagerPage() {
                   placeholder="Hi {{ContactName}}, this is {{RepName}} from Titan Diamond..."
                 />
               </div>
+
+              <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider">Discovery prompts · one per line<textarea rows={4} value={formData.discoveryPrompts} onChange={e => setFormData({ ...formData, discoveryPrompts: e.target.value })} className="mt-1.5 w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white" placeholder="What are you cutting most often?" /></label>
+              <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider">Conflict & objection responses · one per line<textarea rows={5} value={formData.objectionResponses} onChange={e => setFormData({ ...formData, objectionResponses: e.target.value })} className="mt-1.5 w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white" placeholder="Your price is too high => Let's compare cost per cut…" /></label>
+              <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider">Closing / handoff prompt<textarea rows={3} value={formData.closingPrompt} onChange={e => setFormData({ ...formData, closingPrompt: e.target.value })} className="mt-1.5 w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white" placeholder="Would you like me to build that quote now?" /></label>
 
               <div className="flex items-center gap-3 mt-2">
                 <input

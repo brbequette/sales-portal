@@ -58,19 +58,6 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
 
   const repName = currentUser?.name || "your sales rep"
 
-  const initiateCall = (phone: string) => {
-    if (!phone) return
-    fetch('/api/calls/log', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'INITIATE_CALL', accountId: account?.id, userId: currentUser?.id,
-        userEmail: currentUser?.email
-      })
-    }).catch(err => console.error("Error logging call initiation:", err))
-    
-    navigator.clipboard?.writeText(phone).catch(() => {})
-  }
 
   useEffect(() => {
     fetch('/api/get-products').then(r => r.json()).then(d => {
@@ -438,7 +425,6 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
                         phone={cleanPhone}
                         showNumberOnDesktop
                         className="flex items-center gap-1 px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-black font-extrabold text-[10px] rounded-lg shadow-lg shadow-cyan-500/20 transition-all cursor-pointer"
-                        onBeforeCall={(ph) => initiateCall(ph)}
                       >
                         <FiPhoneCall size={12} />
                       </PhoneLink>

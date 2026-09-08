@@ -7,7 +7,8 @@ const authenticatedHandler: Handler = async (event) => {
   const cors = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type"
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Cache-Control": "no-store, max-age=0"
   }
 
   if (event.httpMethod === "OPTIONS") {

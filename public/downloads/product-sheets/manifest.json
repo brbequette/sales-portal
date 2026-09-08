@@ -1,0 +1,870 @@
+{
+  "count": 51,
+  "sheets": [
+    {
+      "productName": "AB",
+      "typeName": "Antiquing Brush",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/ab-antiquing-brush-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/general-tool-ab-antiquing-brush-product-sheet-v2.pdf",
+      "categories": [
+        "catalog",
+        "databaseId",
+        "thumbnailUrl",
+        "https://admin.gtdiamond.com/wp-content/uploads/2026/07/general-too-product-catalog-2023-pdf-preview.jpeg",
+        "title",
+        "General Tool Product Catalog 2023",
+        "url",
+        "https://admin.gtdiamond.com/wp-content/uploads/2026/07/GT-Product-Catalog-2023.pdf",
+        "categorySlugs",
+        "catalog",
+        "databaseId",
+        "thumbnailUrl",
+        "https://admin.gtdiamond.com/wp-content/uploads/2026/07/zenesis-tile-stone-line-product-catalog-7th-edition-pdf-preview.jpeg",
+        "title",
+        "ZENESIS\u2122 Tile & Stone Product Catalog 7th Edition",
+        "url",
+        "https://admin.gtdiamond.com/wp-content/uploads/2026/07/2_ZENESIS_Tile-Stone-Line_Product-Catalog_7th-Edition_0512261.pdf",
+        "categorySlugs",
+        "catalog",
+        "databaseId",
+        "thumbnailUrl",
+        "https://admin.gtdiamond.com/wp-content/uploads/2026/07/diamondx-product-catalog-2024-pdf-preview.jpeg",
+        "title",
+        "Diamond X\u00ae Product Catalog",
+        "url",
+        "https://admin.gtdiamond.com/wp-content/uploads/2026/07/3_DiamondX_ProductCatalog_2024.pdf",
+        "categorySlugs",
+        "brochure",
+        "databaseId",
+        "thumbnailUrl",
+        "https://admin.gtdiamond.com/wp-content/uploads/2026/07/general-tool-pool-and-hardscaping-program-2020-pdf-preview.jpeg",
+        "title",
+        "Pool & Hardscaping Program",
+        "url",
+        "https://admin.gtdiamond.com/wp-content/uploads/2026/07/4_General-Tool_Pool_and_Hardscaping_Program_2020.pdf",
+        "categorySlugs",
+        "brochure",
+        "databaseId",
+        "thumbnailUrl",
+        "https://admin.gtdiamond.com/wp-content/uploads/2026/07/general-tool-tile-brochure-pdf-preview.jpeg",
+        "title",
+        "General Tool Tile Tooling Brochure",
+        "url",
+        "https://admin.gtdiamond.com/wp-content/uploads/2026/07/5_General-Tool_Tile-Brochure_2019.pdf",
+        "categorySlugs",
+        "brochure",
+        "databaseId",
+        "thumbnailUrl",
+        "https://admin.gtdiamond.com/wp-content/uploads/2026/07/general-tool-surface-prep-brochure-pdf-preview.jpeg",
+        "title",
+        "General Tool Surface Prep Brochure",
+        "url",
+        "https://admin.gtdiamond.com/wp-content/uploads/2026/07/6_General-Tool_Surface-Prep-Brochure_20210114.pdf",
+        "categorySlugs",
+        "brochure",
+        "databaseId",
+        "thumbnailUrl",
+        "https://admin.gtdiamond.com/wp-content/uploads/2026/07/general-tool-stone-and-tile-manual-2017-pdf-preview.jpeg",
+        "title",
+        "General Tool Stone and Tile Manual",
+        "url",
+        "https://admin.gtdiamond.com/wp-content/uploads/2026/07/7_General-Tool_Stone-and-Tile-Manual_2017.pdf",
+        "$",
+        "section",
+        "id",
+        "product-sheets",
+        "className",
+        "mx-auto w-full max-w-[1400px] px-6 pb-16 lg:px-10 lg:pb-20",
+        "children",
+        "$L29",
+        "$L2a",
+        "/_next/static/chunks/cfdf08b1164d847f.js?dpl=dpl_HFGZjxfXXanUat1aHyDiJGhRoRoC",
+        "/_next/static/chunks/8d07b021c5c53fe2.js?dpl=dpl_HFGZjxfXXanUat1aHyDiJGhRoRoC",
+        "/_next/static/chunks/480038e9b6d1b1d6.js?dpl=dpl_HFGZjxfXXanUat1aHyDiJGhRoRoC",
+        "default",
+        "$",
+        "h2",
+        "className",
+        "m-0 align-middle font-['Poppins',sans-serif] text-[24px] leading-[150%] font-semibold tracking-[0.05em] text-black max-lg:text-[32px] max-lg:tracking-normal",
+        "children",
+        "$",
+        "span",
+        "className",
+        "max-lg:hidden",
+        "children",
+        "Product sheets",
+        "$",
+        "span",
+        "className",
+        "hidden max-lg:inline",
+        "children",
+        "Product Sheets",
+        "$",
+        "$L2b",
+        "sheets",
+        "categorySlugs",
+        "polishing",
+        "polishing-pads-more"
+      ],
+      "category": "Polishing Products",
+      "outputFile": "titan-ab.pdf",
+      "sourceFile": "general-tool-ab-antiquing-brush-product-sheet-v2.pdf",
+      "sourceSha256": "0b4a006aaad213dd7da69bc63d87a839298d73967258ae586d4049f0558fcf14",
+      "extractedLineCount": 29
+    },
+    {
+      "productName": "ASFM",
+      "typeName": "Snail Lock Pad",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/asfm-snail-lock-pad-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/general-tool-asfm-snail-lock-pad-2000rpm-product-sheet-v2.pdf",
+      "categories": [
+        "polishing",
+        "snail-lock-polishing"
+      ],
+      "category": "Polishing Products",
+      "outputFile": "titan-asfm.pdf",
+      "sourceFile": "general-tool-asfm-snail-lock-pad-2000rpm-product-sheet-v2.pdf",
+      "sourceSha256": "3ee3d49d44b7d09ef3a43da6bdee960c8a071fe5023f19510ce6cc6462d41cad",
+      "extractedLineCount": 24
+    },
+    {
+      "productName": "ASHP2",
+      "typeName": "Premium Polishing Pad",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/ashp2-premium-polishing-pad-product-sheet-2.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/general-tool-ashp2-premium-7-step-polishing-pad-product-sheet.pdf",
+      "categories": [
+        "polishing",
+        "polishing-pads-more"
+      ],
+      "category": "Polishing Products",
+      "outputFile": "titan-ashp2.pdf",
+      "sourceFile": "general-tool-ashp2-premium-7-step-polishing-pad-product-sheet.pdf",
+      "sourceSha256": "d457dafbd0155c997d0b6ed60af73ca3f0beaf22f33860113c43f8409b713116",
+      "extractedLineCount": 38
+    },
+    {
+      "productName": "DS821",
+      "typeName": "Dressing Stone",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/ds821-dressing-stone-product-sheet-1.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/general-tool-dressing-stone-for-blade-dressing-product-sheet-v1.pdf",
+      "categories": [
+        "diamond-blade",
+        "tile-stone-specialty-products"
+      ],
+      "category": "Specialty Products",
+      "outputFile": "titan-ds821.pdf",
+      "sourceFile": "general-tool-dressing-stone-for-blade-dressing-product-sheet-v1.pdf",
+      "sourceSha256": "5e487bd59064c9a613da75e55a117128d65678eae557568db61b0e359b113282",
+      "extractedLineCount": 8
+    },
+    {
+      "productName": "EPSP2",
+      "typeName": "Premium Polishing Pad",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/epsp2-premium-polishing-pad-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/general-tool-epsp-electroplated-polishing-pad-product-sheet-v2.pdf",
+      "categories": [
+        "polishing",
+        "polishing-pads-more"
+      ],
+      "category": "Polishing Products",
+      "outputFile": "titan-epsp2.pdf",
+      "sourceFile": "general-tool-epsp-electroplated-polishing-pad-product-sheet-v2.pdf",
+      "sourceSha256": "a0460d7d796ba1ce4090dc6ef9e6e8830a552933a75c5b72cf1f8489253196f8",
+      "extractedLineCount": 14
+    },
+    {
+      "productName": "FERC/FERR",
+      "typeName": "Snail Lock Pad",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/ferc-ferr-snail-lock-pad-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/general-tool-ferc-ferr-hybrid-flat-snail-lock-pad-product-sheet-v1.pdf",
+      "categories": [
+        "polishing",
+        "snail-lock-polishing"
+      ],
+      "category": "Polishing Products",
+      "outputFile": "titan-ferc-ferr.pdf",
+      "sourceFile": "general-tool-ferc-ferr-hybrid-flat-snail-lock-pad-product-sheet-v1.pdf",
+      "sourceSha256": "4e685449b1d36dc916e2b8333011ea572aa34fd69e9b1a53e23004843831e8dd",
+      "extractedLineCount": 14
+    },
+    {
+      "productName": "FGWIB/FGWIR Wing Pad",
+      "typeName": "Premium Grinder Router Bit",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/fgwib-fgwir-wing-pad-product-sheet-0.jpeg\",\"typeName\":null,\"url\":\"https://admin.gtdiamond.com/wp-content/uploads/2026/06/general-tool-fgwib-fgwir-17-inch-wing-pad-product-sheet.pdf\"},{\"categorySlugs\":[\"core-bits\",\"tile-stone-core-bits\"],\"productName\":\"FWB\",\"thumbnailUrl\":\"https://admin.gtdiamond.com/wp-content/uploads/2026/05/fwb-premium-grinder-router-bit-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/general-tool-fwb-router-bit-product-sheet-v1.pdf",
+      "categories": [
+        "concrete-polishing",
+        "polishing"
+      ],
+      "category": "Polishing Products",
+      "outputFile": "titan-fgwib-fgwir-wing-pad.pdf",
+      "sourceFile": "general-tool-fwb-router-bit-product-sheet-v1.pdf",
+      "sourceSha256": "8b1b80f9356ea2f6270765d0b90b0784ca12dd0b8670b02a4d6a60ec5ac9faac",
+      "extractedLineCount": 12
+    },
+    {
+      "productName": "IB20",
+      "typeName": "Premium Incremental Bit",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/ibr-ibl-premium-incremental-bit-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/general-tool-20mm-cnc-incremental-bit-product-sheet-v4.pdf",
+      "categories": [
+        "cnc-milling-tools",
+        "grinding"
+      ],
+      "category": "Grinding Products",
+      "outputFile": "titan-ib20.pdf",
+      "sourceFile": "general-tool-20mm-cnc-incremental-bit-product-sheet-v4.pdf",
+      "sourceSha256": "3bc91d468c92af7199e7829d83597ff6b0d1ef8f4ff92014557373b9bebd4d38",
+      "extractedLineCount": 10
+    },
+    {
+      "productName": "ID30ATR",
+      "typeName": "Standard General Purpose Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/id30atr-standard-general-purpose-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/general-tool-id30atr-all-purpose-blade-product-sheet-v1.pdf",
+      "categories": [
+        "diamond-blade",
+        "saw-blades"
+      ],
+      "category": "Diamond Blades",
+      "outputFile": "titan-id30atr.pdf",
+      "sourceFile": "general-tool-id30atr-all-purpose-blade-product-sheet-v1.pdf",
+      "sourceSha256": "7ab508e0b5a7199e1d1c5040096d6abee6bb9dd8da7f31523dde79c88a82c1d3",
+      "extractedLineCount": 10
+    },
+    {
+      "productName": "LD10UTR4",
+      "typeName": "Supreme Tile Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/ld10utr4-supreme-tile-blade-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/general-tool-ld10utr-tile-blade-product-sheet.pdf",
+      "categories": [
+        "diamond-blade",
+        "tile-blades"
+      ],
+      "category": "Diamond Blades",
+      "outputFile": "titan-ld10utr4.pdf",
+      "sourceFile": "general-tool-ld10utr-tile-blade-product-sheet.pdf",
+      "sourceSha256": "89d4e7c62ae288410c09c900c40e68a1d0a00ec84540fff14624264127fc4de0",
+      "extractedLineCount": 28
+    },
+    {
+      "productName": "MEBX F",
+      "typeName": "Supreme Electroplated Multi-cutter Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/mebx-f-supreme-electroplated-mulit-cutter-blade-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/general-tool-mebxf-electroplated-multi-cutter-blade-product-sheet-v1.pdf",
+      "categories": [
+        "diamond-blade",
+        "tile-stone-specialty-products"
+      ],
+      "category": "Specialty Products",
+      "outputFile": "titan-mebx-f.pdf",
+      "sourceFile": "general-tool-mebxf-electroplated-multi-cutter-blade-product-sheet-v1.pdf",
+      "sourceSha256": "5657774e5be9c03d3bfda9bc043995c923863389d593b0822855f0f05aa95461",
+      "extractedLineCount": 14
+    },
+    {
+      "productName": "MEBX W Electroplated",
+      "typeName": "Supreme Speciaity Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/mebx-w-supreme-electroplated-specialty-blade-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/general-tool-mebxw-electroplated-blade-product-sheet-v1.pdf",
+      "categories": [
+        "diamond-blade",
+        "tile-stone-specialty-products"
+      ],
+      "category": "Specialty Products",
+      "outputFile": "titan-mebx-w-electroplated.pdf",
+      "sourceFile": "general-tool-mebxw-electroplated-blade-product-sheet-v1.pdf",
+      "sourceSha256": "09ccdf3b1efeb941953fefb6de4812813e6a608f689074953f1774607d943d6a",
+      "extractedLineCount": 0
+    },
+    {
+      "productName": "MWS",
+      "typeName": "Premium Milling Wheels",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/mws-premium-milling-wheels-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/general-tool-mws-milling-wheel-product-sheet.pdf",
+      "categories": [
+        "bridge-saw-blades",
+        "diamond-blade"
+      ],
+      "category": "Diamond Blades",
+      "outputFile": "titan-mws.pdf",
+      "sourceFile": "general-tool-mws-milling-wheel-product-sheet.pdf",
+      "sourceSha256": "4626f9dc9f1358ca873cf9daa3231a14d26c84a6c38654e9d8c791d0cdb63f38",
+      "extractedLineCount": 8
+    },
+    {
+      "productName": "OD30P",
+      "typeName": "Premium Core Bit",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/od30p-premium-core-bit-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/08/general-tool-odz30pr-od30p-dry-core-bit-comparison-sheet-v2.pdf",
+      "categories": [
+        "core-bits",
+        "core-drilling"
+      ],
+      "category": "Core Bits",
+      "outputFile": "titan-od30p.pdf",
+      "sourceFile": "general-tool-odz30pr-od30p-dry-core-bit-comparison-sheet-v2.pdf",
+      "sourceSha256": "ce275e7a489d641efce302fd7eb4aee4d0f0a8b970727d655c704d4db167b017",
+      "extractedLineCount": 66
+    },
+    {
+      "productName": "OEZP30PR",
+      "typeName": "Premium Core Bit",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/oezp30pr-premium-core-bit-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/08/general-tool-odz30pr-od30p-dry-core-bit-comparison-sheet-v2.pdf",
+      "categories": [
+        "core-bits",
+        "core-drilling"
+      ],
+      "category": "Core Bits",
+      "outputFile": "titan-oezp30pr.pdf",
+      "sourceFile": "general-tool-odz30pr-od30p-dry-core-bit-comparison-sheet-v2.pdf",
+      "sourceSha256": "ce275e7a489d641efce302fd7eb4aee4d0f0a8b970727d655c704d4db167b017",
+      "extractedLineCount": 66
+    },
+    {
+      "productName": "PWR",
+      "typeName": "Profile Wheel",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/pwr-profile-wheel-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/general-tool-premium-profile-wheel-product-sheet.pdf",
+      "categories": [
+        "diamond-blade",
+        "grinding",
+        "stone-cup-wheels",
+        "tile-stone-specialty-products"
+      ],
+      "category": "Specialty Products",
+      "outputFile": "titan-pwr.pdf",
+      "sourceFile": "general-tool-premium-profile-wheel-product-sheet.pdf",
+      "sourceSha256": "9a07f8afb46271ff294b3813c5f6df3cb73afa2f542dfd1eb181c8cc3be96b37",
+      "extractedLineCount": 19
+    },
+    {
+      "productName": "QSMAP",
+      "typeName": "Supreme All Purpose Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/qsmap-supreme-all-purpose-blade-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/general-tool-QSMAP-supreme-all-purpose-diamond-blade-product-sheet.pdf",
+      "categories": [
+        "diamond-blade",
+        "saw-blades"
+      ],
+      "category": "Diamond Blades",
+      "outputFile": "titan-qsmap.pdf",
+      "sourceFile": "general-tool-QSMAP-supreme-all-purpose-diamond-blade-product-sheet.pdf",
+      "sourceSha256": "9795af91e62d9315cf9b2e3ca653b1e3475df4bbc39fa85ec18bc9b219220854",
+      "extractedLineCount": 17
+    },
+    {
+      "productName": "RB30BV",
+      "typeName": "Premium Turbo Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/rb30bv-premium-turbo-blade-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/general-tool-rb30bv-9-inch-turbo-blade-for-battery-saw-spec-sheet.pdf",
+      "categories": [
+        "diamond-blade",
+        "turbo-blades"
+      ],
+      "category": "Diamond Blades",
+      "outputFile": "titan-rb30bv.pdf",
+      "sourceFile": "general-tool-rb30bv-9-inch-turbo-blade-for-battery-saw-spec-sheet.pdf",
+      "sourceSha256": "ff92a7dd147d3e3933d2f31b1e89973ae31b0338a78b52b4c1e1048ffd2b1d6a",
+      "extractedLineCount": 17
+    },
+    {
+      "productName": "RCG FL",
+      "typeName": "Premium Multi-grinder Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/rcg-fl-premium-multi-grinder-blade-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/general-tool-meb-multi-grinder-blade-product-sheet-v1.pdf",
+      "categories": [
+        "diamond-blade",
+        "tile-stone-specialty-products"
+      ],
+      "category": "Specialty Products",
+      "outputFile": "titan-rcg-fl.pdf",
+      "sourceFile": "general-tool-meb-multi-grinder-blade-product-sheet-v1.pdf",
+      "sourceSha256": "55658295324d6372fc2b0d115f7383bafa8cfd25efb463d5e45734c1475aec12",
+      "extractedLineCount": 13
+    },
+    {
+      "productName": "RG10N",
+      "typeName": "Standard Turbo Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/rg10n-standard-turbo-blade-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/general-tool-rg10n-standard-stone-turbo-blade-product-sheet.pdf",
+      "categories": [
+        "diamond-blade",
+        "stone-turbo-blades"
+      ],
+      "category": "Diamond Blades",
+      "outputFile": "titan-rg10n.pdf",
+      "sourceFile": "general-tool-rg10n-standard-stone-turbo-blade-product-sheet.pdf",
+      "sourceSha256": "7f866f96ff0a83f7484d35c44928fcd3d59341ff5496c1504b8c1d9ec70644e3",
+      "extractedLineCount": 23
+    },
+    {
+      "productName": "SB10UT",
+      "typeName": "Premium Core Sampling Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/sb10ut-premium-core-sampling-blade-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/08/general-tool-core-cutting-blade-list-v4.pdf",
+      "categories": [
+        "construction-specialty-products",
+        "diamond-blade"
+      ],
+      "category": "Specialty Products",
+      "outputFile": "titan-sb10ut.pdf",
+      "sourceFile": "general-tool-core-cutting-blade-list-v4.pdf",
+      "sourceSha256": "201eb1b5c6654fceb2a13ebb383c3f61428269da09cbdeb2695002e10d1d6fa8",
+      "extractedLineCount": 25
+    },
+    {
+      "productName": "SMX30UV",
+      "typeName": "Supreme General Purpose Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/smx30uv-supreme-general-purpose-blade-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/general-tool-smx30uv-premium-diamond-blade-product-sheet.pdf",
+      "categories": [
+        "diamond-blade",
+        "saw-blades"
+      ],
+      "category": "Diamond Blades",
+      "outputFile": "titan-smx30uv.pdf",
+      "sourceFile": "general-tool-smx30uv-premium-diamond-blade-product-sheet.pdf",
+      "sourceSha256": "b54a2520bb601e9e7f410c2708075dca6c420b75d210214ad77cbd76e37ece9a",
+      "extractedLineCount": 54
+    },
+    {
+      "productName": "ZENESIS\u2122 ZASHP 3-step",
+      "typeName": "Polishing Pad",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zashp-3-step-polishing-pad-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-3-step-polishing-pad-product-sheet.pdf",
+      "categories": [
+        "polishing",
+        "polishing-pads-more"
+      ],
+      "category": "Polishing Products",
+      "outputFile": "titan-zenesis-zashp-3-step.pdf",
+      "sourceFile": "zenesis-3-step-polishing-pad-product-sheet.pdf",
+      "sourceSha256": "9a8996b132104419da0771e9405d9877d79ea1f738837f662134d14745bb2d2f",
+      "extractedLineCount": 24
+    },
+    {
+      "productName": "ZENESIS\u2122 ZASHP Hybrid",
+      "typeName": "White Resin Polishing Pad",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zashp-hybrid-white-resin-polishing-pad-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-hybrid-white-resin-polishing-pad-product-sheet.pdf.pdf",
+      "categories": [
+        "polishing",
+        "polishing-pads-more"
+      ],
+      "category": "Polishing Products",
+      "outputFile": "titan-zenesis-zashp-hybrid.pdf",
+      "sourceFile": "zenesis-hybrid-white-resin-polishing-pad-product-sheet.pdf.pdf",
+      "sourceSha256": "0e20c15ef9176811b8d015afdaaac09dad3fcf22d973cd500351cea3185fdc77",
+      "extractedLineCount": 30
+    },
+    {
+      "productName": "ZENESIS\u2122 ZCSRG",
+      "typeName": "Resin Cup Wheel",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zcsrg-resin-cup-wheel-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-resin-cup-wheel-4-inch-spec-sheet-2023.pdf",
+      "categories": [
+        "grinding",
+        "stone-cup-wheels"
+      ],
+      "category": "Grinding Products",
+      "outputFile": "titan-zenesis-zcsrg.pdf",
+      "sourceFile": "zenesis-resin-cup-wheel-4-inch-spec-sheet-2023.pdf",
+      "sourceSha256": "c70beda9c1030b8b23bdfb7b98e39a18530cf8fc8913482dd970dc3f516ba898",
+      "extractedLineCount": 15
+    },
+    {
+      "productName": "ZENESIS\u2122 ZDGUL Black",
+      "typeName": "Core Bit",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zdgul-black-dry-core-bit-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-zdgul-black-core-bit-product-sheet-v2.pdf",
+      "categories": [
+        "core-bits",
+        "tile-stone-core-bits"
+      ],
+      "category": "Core Bits",
+      "outputFile": "titan-zenesis-zdgul-black.pdf",
+      "sourceFile": "zenesis-zdgul-black-core-bit-product-sheet-v2.pdf",
+      "sourceSha256": "56beec7af8d1b2f773be30574b3c8cbfa48a387f2eb33880495174ba18cf41a3",
+      "extractedLineCount": 20
+    },
+    {
+      "productName": "ZENESIS\u2122 ZDGUL OBSIDIAN",
+      "typeName": "Core Bit",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zdgul-obsidian-core-bit-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-zdgul-obsidian-core-bit-product-sheet.pdf",
+      "categories": [
+        "core-bits",
+        "tile-stone-core-bits"
+      ],
+      "category": "Core Bits",
+      "outputFile": "titan-zenesis-zdgul-obsidian.pdf",
+      "sourceFile": "zenesis-zdgul-obsidian-core-bit-product-sheet.pdf",
+      "sourceSha256": "aa7cf38248972e8a0f93bb7f20468f4eb83d0e6fcde4dfd85054acae28864bf2",
+      "extractedLineCount": 30
+    },
+    {
+      "productName": "ZENESIS\u2122 ZEDGPL Z",
+      "typeName": "Core Bit",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zedgpl-z-core-bit-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-zedgpl-z-core-bit-product-sheet-v2.pdf",
+      "categories": [
+        "core-bits",
+        "tile-stone-core-bits"
+      ],
+      "category": "Core Bits",
+      "outputFile": "titan-zenesis-zedgpl-z.pdf",
+      "sourceFile": "zenesis-zedgpl-z-core-bit-product-sheet-v2.pdf",
+      "sourceSha256": "d77ce83b52269e0929d32c013c805e52f7cceb41f2e5c59cdd9614d98a72667f",
+      "extractedLineCount": 17
+    },
+    {
+      "productName": "ZENESIS\u2122 ZEPPD Z-FLEX",
+      "typeName": "Dry Polishing Pad",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zeppd-z-flex-dry-polishing-pad-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-z-flex-dry-polishing-pad-product-sheet.pdf",
+      "categories": [
+        "polishing",
+        "polishing-pads-more"
+      ],
+      "category": "Polishing Products",
+      "outputFile": "titan-zenesis-zeppd-z-flex.pdf",
+      "sourceFile": "zenesis-z-flex-dry-polishing-pad-product-sheet.pdf",
+      "sourceSha256": "48110c3e2396aeb8146279424db6fe6edb801c804e907c49a3413eadd42e53fa",
+      "extractedLineCount": 36
+    },
+    {
+      "productName": "ZENESIS\u2122 ZEPPM",
+      "typeName": "Copper Polishing Pad",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zeppm-copper-polishing-pad-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-copper-polishing-pad-product-sheet.pdf",
+      "categories": [
+        "polishing",
+        "polishing-pads-more"
+      ],
+      "category": "Polishing Products",
+      "outputFile": "titan-zenesis-zeppm.pdf",
+      "sourceFile": "zenesis-copper-polishing-pad-product-sheet.pdf",
+      "sourceSha256": "146e36df0c8215a3142c617b057e31318dbc2a231d8e7d9ec9280a8f5d812135",
+      "extractedLineCount": 22
+    },
+    {
+      "productName": "ZENESIS\u2122 ZERG Z-turbo",
+      "typeName": "Turbo Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zerg-z-turbo-turbo-blade-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-z-turbo-blade-zerg-product-sheet-v2.pdf",
+      "categories": [
+        "diamond-blade",
+        "stone-turbo-blades"
+      ],
+      "category": "Diamond Blades",
+      "outputFile": "titan-zenesis-zerg-z-turbo.pdf",
+      "sourceFile": "zenesis-z-turbo-blade-zerg-product-sheet-v2.pdf",
+      "sourceSha256": "a23f147e01903e20e91ad24751db7badead04341714699ec971e6b4d08d114ac",
+      "extractedLineCount": 22
+    },
+    {
+      "productName": "ZENESIS\u2122 ZESG Z-Pattern",
+      "typeName": "Bridge Saw Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zesg-z-pattern-bridge-saw-blade-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-z-pattern-bridge-saw-blade-product-sheet.pdf",
+      "categories": [
+        "bridge-saw-blades",
+        "diamond-blade"
+      ],
+      "category": "Diamond Blades",
+      "outputFile": "titan-zenesis-zesg-z-pattern.pdf",
+      "sourceFile": "zenesis-z-pattern-bridge-saw-blade-product-sheet.pdf",
+      "sourceSha256": "75f22970b57c6b3207ddf05f963bacee95a864b5f211c0e4999a4af4e47f33ae",
+      "extractedLineCount": 17
+    },
+    {
+      "productName": "ZENESIS\u2122 ZETWCB",
+      "typeName": "Thin Wall Core Bit",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zetwcb-thin-wall-core-bit-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-zetwcb-z-thin-wall-core-bit-product-sheet-v2.pdf",
+      "categories": [
+        "core-bits",
+        "tile-stone-core-bits"
+      ],
+      "category": "Core Bits",
+      "outputFile": "titan-zenesis-zetwcb.pdf",
+      "sourceFile": "zenesis-zetwcb-z-thin-wall-core-bit-product-sheet-v2.pdf",
+      "sourceSha256": "ad688613505759818e9579e880fb555a60054ff039f5a37c5ebeb7e23dead7fa",
+      "extractedLineCount": 21
+    },
+    {
+      "productName": "ZENESIS\u2122 ZETWCB30P  1/2\\\" GAS Z-THIN WALL",
+      "typeName": "Core Bit",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zetwcb30p-1-2-gas-core-bit-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-zetwcb-z-cnc-1-2-gas-core-bit-product-sheet.pdf",
+      "categories": [
+        "cnc-milling-tools",
+        "core-bits",
+        "grinding",
+        "tile-stone-core-bits"
+      ],
+      "category": "Core Bits",
+      "outputFile": "titan-zenesis-zetwcb30p-1-2-gas-z-thin-wall.pdf",
+      "sourceFile": "zenesis-zetwcb-z-cnc-1-2-gas-core-bit-product-sheet.pdf",
+      "sourceSha256": "752dd75274a24a9c5b237bd0202be23b180fb6a71ebe6de3e73970616ef71eef",
+      "extractedLineCount": 19
+    },
+    {
+      "productName": "ZENESIS\u2122 ZFBS",
+      "typeName": "Finger Bit",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zfbs-finger-bit-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-zfbs-finger-bit-cnc-product-sheet-v2.pdf",
+      "categories": [
+        "cnc-milling-tools",
+        "grinding"
+      ],
+      "category": "Grinding Products",
+      "outputFile": "titan-zenesis-zfbs.pdf",
+      "sourceFile": "zenesis-zfbs-finger-bit-cnc-product-sheet-v2.pdf",
+      "sourceSha256": "352e94102989df1da414e3a355b6af2107c4b740032457b9924aa22c43360ced",
+      "extractedLineCount": 19
+    },
+    {
+      "productName": "ZENESIS\u2122 ZGDSC",
+      "typeName": "Zero Tolerance Wheel",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zgdsc-zero-tolerance-wheel-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-zgdsc-zero-tolerance-cnc-wheel-product-sheet-v2.pdf",
+      "categories": [
+        "cnc-milling-tools",
+        "grinding"
+      ],
+      "category": "Grinding Products",
+      "outputFile": "titan-zenesis-zgdsc.pdf",
+      "sourceFile": "zenesis-zgdsc-zero-tolerance-cnc-wheel-product-sheet-v2.pdf",
+      "sourceSha256": "10a42b8f8073326ecf25c87a76dda9fb368bf205c70fd68369aba4e337ff1b6b",
+      "extractedLineCount": 14
+    },
+    {
+      "productName": "ZENESIS\u2122 ZLD10UTR4 NANO Dry",
+      "typeName": "Tile Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zld10utr4-nano-dry-tile-blade-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-nano-dry-tile-blade-product-sheet.pdf",
+      "categories": [
+        "diamond-blade",
+        "tile-blades"
+      ],
+      "category": "Diamond Blades",
+      "outputFile": "titan-zenesis-zld10utr4-nano-dry.pdf",
+      "sourceFile": "zenesis-nano-dry-tile-blade-product-sheet.pdf",
+      "sourceSha256": "6189f5ec875c8a6b31f7c9b6976081fb229557694abb72fa5f067522550a61d7",
+      "extractedLineCount": 34
+    },
+    {
+      "productName": "ZENESIS\u2122 ZLGW Glass",
+      "typeName": "Tile Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zlgw-glass-tile-blade-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-glass-cutting-tile-blade-product-sheet.pdf",
+      "categories": [
+        "diamond-blade",
+        "tile-blades"
+      ],
+      "category": "Diamond Blades",
+      "outputFile": "titan-zenesis-zlgw-glass.pdf",
+      "sourceFile": "zenesis-glass-cutting-tile-blade-product-sheet.pdf",
+      "sourceSha256": "a780102c53cbe30bf431b500c2ef51e87fb211c5665e2f3e30fd0d50a9ab44f1",
+      "extractedLineCount": 22
+    },
+    {
+      "productName": "ZENESIS\u2122 ZLGW20P Nano",
+      "typeName": "Tile Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zlgw20p-nano-tile-blade-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-nano-wet-tile-blade-product-sheet.pdf",
+      "categories": [
+        "diamond-blade",
+        "tile-blades"
+      ],
+      "category": "Diamond Blades",
+      "outputFile": "titan-zenesis-zlgw20p-nano.pdf",
+      "sourceFile": "zenesis-nano-wet-tile-blade-product-sheet.pdf",
+      "sourceSha256": "deabf0b65b7a9abd1f9abf7006513ae2a013bac43901c97120b71817df262359",
+      "extractedLineCount": 21
+    },
+    {
+      "productName": "ZENESIS\u2122 ZLPS Continuous",
+      "typeName": "Tile Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zlps-continuous-tile-blade-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-continuous-rim-blade-product-sheet-2025.pdf",
+      "categories": [
+        "diamond-blade",
+        "tile-blades"
+      ],
+      "category": "Diamond Blades",
+      "outputFile": "titan-zenesis-zlps-continuous.pdf",
+      "sourceFile": "zenesis-continuous-rim-blade-product-sheet-2025.pdf",
+      "sourceSha256": "901b8fbc1d87be0a2c597a6da002b90ffa24350fbf0139fbecf854944e6ce2f9",
+      "extractedLineCount": 39
+    },
+    {
+      "productName": "ZENESIS\u2122 ZLSGD CARBON 2",
+      "typeName": "Bridge Saw Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zlsgd-carbon-2-bridge-saw-blade-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-carbon2-bridge-saw-blade-dekton-approved-product-sheet.pdf",
+      "categories": [
+        "bridge-saw-blades",
+        "diamond-blade"
+      ],
+      "category": "Diamond Blades",
+      "outputFile": "titan-zenesis-zlsgd-carbon-2.pdf",
+      "sourceFile": "zenesis-carbon2-bridge-saw-blade-dekton-approved-product-sheet.pdf",
+      "sourceSha256": "89ab431363afeb952e639f448b60288d0db3ed377f5ebbba85062abd684fb19e",
+      "extractedLineCount": 19
+    },
+    {
+      "productName": "ZENESIS\u2122 ZLW Porcelain",
+      "typeName": "Tile Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zlw-porcelain-tile-blade-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-porcelain-tile-blade-product-sheet.pdf",
+      "categories": [
+        "diamond-blade",
+        "tile-blades"
+      ],
+      "category": "Diamond Blades",
+      "outputFile": "titan-zenesis-zlw-porcelain.pdf",
+      "sourceFile": "zenesis-porcelain-tile-blade-product-sheet.pdf",
+      "sourceSha256": "641d2744864d6bf6c9c0a6bc6f3f47969c23e465986d54f2ff7ff340e753cb43",
+      "extractedLineCount": 22
+    },
+    {
+      "productName": "ZENESIS\u2122 ZOE10VV",
+      "typeName": "Core Bit",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zoe10vv-core-bit-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-zoe10vv-v-notch-core-bit-product-sheet.pdf",
+      "categories": [
+        "core-bits",
+        "core-drilling"
+      ],
+      "category": "Core Bits",
+      "outputFile": "titan-zenesis-zoe10vv.pdf",
+      "sourceFile": "zenesis-zoe10vv-v-notch-core-bit-product-sheet.pdf",
+      "sourceSha256": "ff9bb63a80f306309cc6e4d9807790797b38e1ccbe6ec3918e5fc6a20087977a",
+      "extractedLineCount": 19
+    },
+    {
+      "productName": "ZENESIS\u2122 ZRGQ Quartzite",
+      "typeName": "Turbo Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zrgq-quartzite-turbo-blade-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-zrgq-quartzite-turbo-blade-product-sheet.pdf",
+      "categories": [
+        "diamond-blade",
+        "stone-turbo-blades"
+      ],
+      "category": "Diamond Blades",
+      "outputFile": "titan-zenesis-zrgq-quartzite.pdf",
+      "sourceFile": "zenesis-zrgq-quartzite-turbo-blade-product-sheet.pdf",
+      "sourceSha256": "933a66c4a45bcb63ba04e6886ceb347ecbeec75edd9ff826bb89d761d2c58d0e",
+      "extractedLineCount": 23
+    },
+    {
+      "productName": "ZENESIS\u2122 ZSG BLACK 4",
+      "typeName": "Bridge Saw Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zsg-black-4-bridge-saw-blade-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-black4-bridge-saw-blade-product-sheet.pdf",
+      "categories": [
+        "bridge-saw-blades",
+        "diamond-blade"
+      ],
+      "category": "Diamond Blades",
+      "outputFile": "titan-zenesis-zsg-black-4.pdf",
+      "sourceFile": "zenesis-black4-bridge-saw-blade-product-sheet.pdf",
+      "sourceSha256": "da65e01e09cda5c461fcd0fadcf508c1bdb08fab694a6adbc5b90f12d6c51225",
+      "extractedLineCount": 28
+    },
+    {
+      "productName": "ZENESIS\u2122 ZSG II",
+      "typeName": "Bridge Saw Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zsg-ii-bridge-saw-blade-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-zenesis2-bridge-saw-blade-product-sheet.pdf",
+      "categories": [
+        "bridge-saw-blades",
+        "diamond-blade"
+      ],
+      "category": "Diamond Blades",
+      "outputFile": "titan-zenesis-zsg-ii.pdf",
+      "sourceFile": "zenesis-zenesis2-bridge-saw-blade-product-sheet.pdf",
+      "sourceSha256": "06955a3a467d28d7ca827c40ac34b45ae399903dac83b9cb3288ae0621168681",
+      "extractedLineCount": 20
+    },
+    {
+      "productName": "ZENESIS\u2122 ZSGN20V Nano",
+      "typeName": "Bridge Saw Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zsgn20v-nano-bridge-saw-blade-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-nano-wet-bridge-saw-blade-product-sheet.pdf",
+      "categories": [
+        "bridge-saw-blades",
+        "diamond-blade"
+      ],
+      "category": "Diamond Blades",
+      "outputFile": "titan-zenesis-zsgn20v-nano.pdf",
+      "sourceFile": "zenesis-nano-wet-bridge-saw-blade-product-sheet.pdf",
+      "sourceSha256": "deabf0b65b7a9abd1f9abf7006513ae2a013bac43901c97120b71817df262359",
+      "extractedLineCount": 21
+    },
+    {
+      "productName": "ZENESIS\u2122 ZSGO MITER",
+      "typeName": "Bridge Saw Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zsgo-miter-bridge-saw-blade-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-miter-bridge-saw-blade-product-sheet.pdf",
+      "categories": [
+        "bridge-saw-blades",
+        "diamond-blade"
+      ],
+      "category": "Diamond Blades",
+      "outputFile": "titan-zenesis-zsgo-miter.pdf",
+      "sourceFile": "zenesis-miter-bridge-saw-blade-product-sheet.pdf",
+      "sourceSha256": "6263694b0c7f5d3380f160f96f2f14886a52d11fccf33db510c2d545946900dc",
+      "extractedLineCount": 22
+    },
+    {
+      "productName": "ZENESIS\u2122 ZSGO OBSIDIAN",
+      "typeName": "Bridge Saw Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zsgo-obsidian-bridge-saw-blade-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-obsidian-bridge-saw-blade-product-sheet.pdf",
+      "categories": [
+        "bridge-saw-blades",
+        "diamond-blade"
+      ],
+      "category": "Diamond Blades",
+      "outputFile": "titan-zenesis-zsgo-obsidian.pdf",
+      "sourceFile": "zenesis-obsidian-bridge-saw-blade-product-sheet.pdf",
+      "sourceSha256": "209a339c3c8ed5b85f41304947e7bf0928ad3f7d2ed54bb6da7d2bcf8b10c839",
+      "extractedLineCount": 30
+    },
+    {
+      "productName": "ZENESIS\u2122 ZSGQ QUARTZITE II",
+      "typeName": "Bridge Saw Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zsgq-quartzite-2-bridge-saw-blade-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-quartzite2-bridge-saw-blade-product-sheet.pdf",
+      "categories": [
+        "bridge-saw-blades",
+        "diamond-blade"
+      ],
+      "category": "Diamond Blades",
+      "outputFile": "titan-zenesis-zsgq-quartzite-ii.pdf",
+      "sourceFile": "zenesis-quartzite2-bridge-saw-blade-product-sheet.pdf",
+      "sourceSha256": "b17f3cb34e90f7b5b3ce9df7f1bfbd203ce61d807fb42e7d51fe917881bea7a0",
+      "extractedLineCount": 26
+    },
+    {
+      "productName": "ZENESIS\u2122 ZSMM MARBLE",
+      "typeName": "Bridge Saw Blade",
+      "thumbnailUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/05/zenesis-zsmm-marble-bridge-saw-blade-product-sheet-0.jpeg",
+      "sourceUrl": "https://admin.gtdiamond.com/wp-content/uploads/2026/06/zenesis-marble-bridge-saw-blade-product-sheet.pdf",
+      "categories": [
+        "bridge-saw-blades",
+        "diamond-blade"
+      ],
+      "category": "Diamond Blades",
+      "outputFile": "titan-zenesis-zsmm-marble.pdf",
+      "sourceFile": "zenesis-marble-bridge-saw-blade-product-sheet.pdf",
+      "sourceSha256": "d36586a0a41cf894579d78db1a449fc5df62582a6d769abdae90bb4dba988c86",
+      "extractedLineCount": 24
+    }
+  ]
+}

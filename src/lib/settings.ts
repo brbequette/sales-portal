@@ -16,6 +16,7 @@ export interface AppSettings {
   cc_fee_rate: number
   default_shipping_weight: number
   sms_daily_account_limit: number
+  sales_idle_prompt_minutes: number
   ai_reply_prompt: string
   tv_pin: string
   pause_mass_zoho_updates: boolean
@@ -39,6 +40,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   cc_fee_rate: 4.5, // 4.5%
   default_shipping_weight: 0.5,
   sms_daily_account_limit: 1,
+  sales_idle_prompt_minutes: 5,
   ai_reply_prompt: "You are a professional sales assistant for a diamond wholesaler. Provide a concise, friendly response to the customer's text message.",
   tv_pin: '8321',
   pause_mass_zoho_updates: false,
@@ -66,6 +68,7 @@ export async function getSystemSettings(): Promise<AppSettings> {
     cc_fee_rate: map.cc_fee_rate ? parseFloat(map.cc_fee_rate) : DEFAULT_SETTINGS.cc_fee_rate,
     default_shipping_weight: map.default_shipping_weight ? parseFloat(map.default_shipping_weight) : DEFAULT_SETTINGS.default_shipping_weight,
     sms_daily_account_limit: map.sms_daily_account_limit ? parseInt(map.sms_daily_account_limit) : DEFAULT_SETTINGS.sms_daily_account_limit,
+    sales_idle_prompt_minutes: map.sales_idle_prompt_minutes ? Math.max(1, parseInt(map.sales_idle_prompt_minutes)) : DEFAULT_SETTINGS.sales_idle_prompt_minutes,
     ai_reply_prompt: map.ai_reply_prompt || DEFAULT_SETTINGS.ai_reply_prompt,
     tv_pin: map.tv_pin || DEFAULT_SETTINGS.tv_pin,
     pause_mass_zoho_updates: map.pause_mass_zoho_updates === 'true' || map.pause_mass_zoho_updates === '1',

@@ -97,7 +97,7 @@
 .product-offer-tier.is-selected { border-color: #fb923c; background: rgba(249,115,22,.12); box-shadow: 0 0 0 2px rgba(249,115,22,.09),0 12px 35px rgba(0,0,0,.3); }
 .featured-tool-grid { display: grid; grid-template-columns: repeat(12,minmax(0,1fr)); gap: 1rem; }
 .featured-tool-card { position: relative; display: grid; min-height: 27rem; grid-template-rows: minmax(15rem,1fr) auto; grid-column: span 4; overflow: hidden; border: 1px solid rgba(255,255,255,.11); border-radius: 1.5rem; background: linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.012)); box-shadow: 0 24px 60px rgba(0,0,0,.26); transition: transform .35s,border-color .35s,box-shadow .35s; }
-.featured-tool-card--1,.featured-tool-card--6 { grid-column: span 6; }
+.featured-tool-card--1,.featured-tool-card--6 { grid-column: span 4; }
 .featured-tool-card:hover { transform: translateY(-5px); border-color: rgba(251,146,60,.48); box-shadow: 0 30px 75px rgba(0,0,0,.42),0 0 45px rgba(249,115,22,.06); }
 .featured-tool-art { position: relative; display: grid; min-height: 16rem; place-items: center; overflow: hidden; padding: .75rem; background: radial-gradient(circle at 52% 44%,rgba(251,146,60,.11),transparent 34%),linear-gradient(150deg,#0c0c0c,#050505); }
 .featured-tool-art::after { position: absolute; inset: 0; content: ""; background: linear-gradient(125deg,transparent 35%,rgba(255,255,255,.055) 49%,transparent 63%); transform: translateX(-90%); transition: transform 1.1s ease; }

@@ -71,102 +71,75 @@ export const handler: Handler = async (event, context) => {
     }
 
     const dbAccountId = account.id
+    if (!['Quote', 'SalesOrder'].includes(type)) {
+      return { statusCode: 400, body: JSON.stringify({ success: false, message: "Invalid type" }) }
+    }
 
-    const token = await getZohoAccessToken()
+    const localDevelopmentTransaction = process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEV_LOCAL_TRANSACTIONS === 'true'
+    let token = ''
     const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
-
-    // First, resolve the true Zoho Books Contact ID
-    let booksContactId = null;
-
-    // Search for existing contact by zcrm_account_id (most reliable link)
-    const searchRes = await fetch(`${baseUrl}/contacts?organization_id=${ORG_ID}&zcrm_account_id=${account.zohoId}`, { signal: AbortSignal.timeout(15000),
-      headers: { Authorization: `Zoho-oauthtoken ${token}` }
-    })
-    const searchData = await searchRes.json()
-    
-    if (searchData.contacts && searchData.contacts.length > 0) {
-      booksContactId = searchData.contacts[0].contact_id
-    } else {
-      // Fallback: search by name
-      const searchByNameRes = await fetch(`${baseUrl}/contacts?organization_id=${ORG_ID}&contact_name=${encodeURIComponent(account.name)}`, { signal: AbortSignal.timeout(15000),
-        headers: { Authorization: `Zoho-oauthtoken ${token}` }
-      })
-      const searchByNameData = await searchByNameRes.json()
-      
-      if (searchByNameData.contacts && searchByNameData.contacts.length > 0) {
-        booksContactId = searchByNameData.contacts[0].contact_id
-      } else {
-        // Create new contact in Zoho Books
-        const createRes = await fetch(`${baseUrl}/contacts?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
-          method: "POST",
-          headers: {
-            Authorization: `Zoho-oauthtoken ${token}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            contact_name: account.name,
-            zcrm_account_id: account.zohoId // links to CRM if integration allows
-          })
-        })
-        const createData = await createRes.json()
-        if (createData.code !== 0) {
-          throw new Error(`Zoho Books Error (Create Contact): ${createData.message}`)
-        }
-        booksContactId = createData.contact.contact_id
-      }
-    }
-
-    // Prepare Zoho Books Payload
-    const payload = {
-      customer_id: booksContactId,
-      salesperson_name: author?.name || "System Admin",
-      line_items: (lineItems || []).map((li: any) => ({
-        item_id: li.itemId || undefined,
-        name: li.name,
-        description: li.description,
-        rate: li.rate,
-        quantity: li.quantity,
-        discount: li.discount || 0
-      })),
-      discount_type: "item_level",
-      is_discount_before_tax: true,
-      notes: "Created via Sales Portal POS"
-    }
-
-    let booksRefId = null
-    let booksDocNumber = null
+    let booksRefId: string | null = null
+    let booksDocNumber: string | null = null
     let zohoDoc: any = null
 
-    if (type === "Quote") {
-      const res = await fetch(`${baseUrl}/estimates?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
-        method: "POST",
-        headers: {
-          Authorization: `Zoho-oauthtoken ${token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
-      })
-      const data = await res.json()
-      if (data.code !== 0) throw new Error(`Zoho Books Error: ${data.message}`)
-      booksRefId = data.estimate?.estimate_id
-      booksDocNumber = data.estimate?.estimate_number
-      zohoDoc = data.estimate
-    } else if (type === "SalesOrder") {
-      const res = await fetch(`${baseUrl}/salesorders?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
-        method: "POST",
-        headers: {
-          Authorization: `Zoho-oauthtoken ${token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
-      })
-      const data = await res.json()
-      if (data.code !== 0) throw new Error(`Zoho Books Error: ${data.message}`)
-      booksRefId = data.salesorder?.salesorder_id
-      booksDocNumber = data.salesorder?.salesorder_number
-      zohoDoc = data.salesorder
+    if (localDevelopmentTransaction) {
+      const localSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      booksRefId = `dev-${type.toLowerCase()}-${localSuffix}`
+      booksDocNumber = type === 'Quote' ? `DEV-EST-${localSuffix}` : `DEV-SO-${localSuffix}`
+      zohoDoc = { line_items: lineItems || [], localDevelopmentTransaction: true }
     } else {
-       return { statusCode: 400, body: JSON.stringify({ success: false, message: "Invalid type" }) }
+      token = await getZohoAccessToken()
+      let booksContactId = null
+
+      // First, resolve the true Zoho Books Contact ID.
+      const searchRes = await fetch(`${baseUrl}/contacts?organization_id=${ORG_ID}&zcrm_account_id=${account.zohoId}`, { signal: AbortSignal.timeout(15000),
+        headers: { Authorization: `Zoho-oauthtoken ${token}` }
+      })
+      const searchData = await searchRes.json()
+
+      if (searchData.contacts && searchData.contacts.length > 0) {
+        booksContactId = searchData.contacts[0].contact_id
+      } else {
+        const searchByNameRes = await fetch(`${baseUrl}/contacts?organization_id=${ORG_ID}&contact_name=${encodeURIComponent(account.name)}`, { signal: AbortSignal.timeout(15000),
+          headers: { Authorization: `Zoho-oauthtoken ${token}` }
+        })
+        const searchByNameData = await searchByNameRes.json()
+
+        if (searchByNameData.contacts && searchByNameData.contacts.length > 0) {
+          booksContactId = searchByNameData.contacts[0].contact_id
+        } else {
+          const createRes = await fetch(`${baseUrl}/contacts?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
+            method: "POST",
+            headers: { Authorization: `Zoho-oauthtoken ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ contact_name: account.name, zcrm_account_id: account.zohoId })
+          })
+          const createData = await createRes.json()
+          if (createData.code !== 0) throw new Error(`Zoho Books Error (Create Contact): ${createData.message}`)
+          booksContactId = createData.contact.contact_id
+        }
+      }
+
+      const payload = {
+        customer_id: booksContactId,
+        salesperson_name: author?.name || "System Admin",
+        line_items: (lineItems || []).map((li: any) => ({ item_id: li.itemId || undefined, name: li.name, description: li.description, rate: li.rate, quantity: li.quantity, discount: li.discount || 0 })),
+        discount_type: "item_level",
+        is_discount_before_tax: true,
+        notes: "Created via Sales Portal POS"
+      }
+
+      const endpoint = type === 'Quote' ? 'estimates' : 'salesorders'
+      const res = await fetch(`${baseUrl}/${endpoint}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
+        method: "POST",
+        headers: { Authorization: `Zoho-oauthtoken ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      })
+      const data = await res.json()
+      if (data.code !== 0) throw new Error(`Zoho Books Error: ${data.message}`)
+      const remoteDoc = type === 'Quote' ? data.estimate : data.salesorder
+      booksRefId = type === 'Quote' ? remoteDoc?.estimate_id : remoteDoc?.salesorder_id
+      booksDocNumber = type === 'Quote' ? remoteDoc?.estimate_number : remoteDoc?.salesorder_number
+      zohoDoc = remoteDoc
     }
 
     // Resolve full line items array
@@ -239,7 +212,7 @@ export const handler: Handler = async (event, context) => {
     }
 
     // ── Auto-process costs & sync back to Books ──
-    try {
+    if (!localDevelopmentTransaction) try {
       if (type === "Quote") {
         await processQuoteCosts({
           httpMethod: "POST",
@@ -337,7 +310,7 @@ export const handler: Handler = async (event, context) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ success: true, transaction, booksRefId })
+      body: JSON.stringify({ success: true, transaction, booksRefId, localDevelopmentTransaction })
     }
 
   } catch (error: any) {

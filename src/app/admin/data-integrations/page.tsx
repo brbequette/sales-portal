@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { FiAlertTriangle, FiDatabase, FiRefreshCw, FiSettings, FiTool } from "react-icons/fi"
+import { FiAlertTriangle, FiDatabase, FiInbox, FiRefreshCw, FiSettings, FiTool } from "react-icons/fi"
 
 const areas = [
   { title: "Sync & Financial Processing", description: "Run document sync, cost derivation and targeted maintenance from one tool.", href: "/admin/books-scripts", icon: FiRefreshCw, color: "text-emerald-400" },
@@ -7,6 +7,7 @@ const areas = [
   { title: "Sync Policy", description: "Configure delta-sync intervals and integration behavior.", href: "/admin/settings?tab=sync", icon: FiSettings, color: "text-violet-400" },
   { title: "Conflicts", description: "Approve the winning version when both systems changed.", href: "/admin/sync-conflicts", icon: FiAlertTriangle, color: "text-amber-400" },
   { title: "Data Quality", description: "Review orphaned and incomplete records requiring repair.", href: "/admin/orphaned-records", icon: FiTool, color: "text-red-400" },
+  { title: "Email Intelligence", description: "Connect Microsoft 365 and review shipping, payment, return and vendor events extracted from email.", href: "/admin/email-intelligence", icon: FiInbox, color: "text-pink-400" },
 ]
 
 export default function DataIntegrationsPage() {

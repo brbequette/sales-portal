@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { GeistSans, GeistMono } from "./fonts";
-import { AppShell } from "@/components/AppShell";
+import { Suspense } from "react";
+import { AppShell, DisplayAwareAppShell } from "@/components/AppShell";
 import Script from "next/script";
 import { TimeclockTracker } from "@/components/TimeclockTracker";
 import { ClientToaster } from "@/components/ClientToaster";
@@ -36,6 +37,15 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const appContent = (
+    <>
+      <TimeclockTracker />
+      <ClientToaster />
+      <PwaInstaller />
+      {children}
+    </>
+  );
+
   return (
     <html
       lang="en"
@@ -48,12 +58,9 @@ export default function RootLayout({
         <Script src="https://live.zwidgets.com/js-sdk/1.2/ZohoEmbededAppSDK.min.js" strategy="afterInteractive" />
         <ThemeProvider>
           <Providers>
-            <AppShell>
-              <TimeclockTracker />
-              <ClientToaster />
-              <PwaInstaller />
-              {children}
-            </AppShell>
+            <Suspense fallback={<AppShell>{appContent}</AppShell>}>
+              <DisplayAwareAppShell>{appContent}</DisplayAwareAppShell>
+            </Suspense>
           </Providers>
         </ThemeProvider>
       </body>

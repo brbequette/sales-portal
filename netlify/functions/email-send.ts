@@ -20,7 +20,7 @@ const authenticatedHandler: Handler = async (event) => {
   try {
     const caller = await authenticateFunction(event)
     const payload = JSON.parse(event.body || "{}")
-    const { toAddress, subject, accountId, contactId, originalEmailId, acceptedResponse } = payload
+    const { toAddress, ccAddress, subject, accountId, contactId, originalEmailId, acceptedResponse } = payload
     const content = payload.content ?? payload.body
 
     if (!toAddress || !subject || !content) {
@@ -60,18 +60,22 @@ const authenticatedHandler: Handler = async (event) => {
         processedContent = processedContent.replace(/{{companyName}}/g, process.env.COMPANY_NAME || "")
     }
 
+    let resolvedContactId: string | null = null
     if (contactId) {
       const contact = await prisma.contact.findFirst({
         where: { id: contactId, ...(resolvedAccountId ? { accountId: resolvedAccountId } : {}) },
       })
-      if (contact) {
-        processedContent = processedContent.replace(/{{contactName}}/g, contact.firstName || "")
+      if (!contact) {
+        return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, error: "Selected contact does not belong to this account" }) }
       }
+      resolvedContactId = contact.id
+      processedContent = processedContent.replace(/{{contactName}}/g, contact.firstName || "")
     }
 
     const res = await sendEmail(getZohoAccountId(), {
       fromAddress: defaultFrom,
       toAddress,
+      ccAddress: String(ccAddress || '').trim() || undefined,
       subject,
       content: processedContent
     })
@@ -80,21 +84,55 @@ const authenticatedHandler: Handler = async (event) => {
        throw new Error(res.status.description || "Failed to send email")
     }
 
-    const emailRecord = await prisma.email.create({
-      data: {
-        zohoMailId: res.data?.messageId || `sent_${Date.now()}`,
-        zohoAccountId: getZohoAccountId(),
-        subject,
-        body: processedContent,
-        fromAddress: defaultFrom,
-        toAddress,
-        direction: "OUTBOUND",
-        status: "REPLIED",
-        sentAt: new Date(),
-        accountId: resolvedAccountId,
-        contactId,
-        userId: callerId || null,
+    const providerMessageId = String(res.data?.messageId || '').trim()
+    if (!providerMessageId) {
+      throw new Error('Zoho Mail accepted no provider message ID; email was not recorded as sent')
+    }
+
+    const sentAt = new Date()
+    const emailRecord = await prisma.$transaction(async tx => {
+      const savedEmail = await tx.email.create({
+        data: {
+          zohoMailId: providerMessageId,
+          zohoAccountId: getZohoAccountId(),
+          subject,
+          body: processedContent,
+          fromAddress: defaultFrom,
+          toAddress,
+          ccAddresses: String(ccAddress || '').trim() || null,
+          direction: "OUTBOUND",
+          status: "REPLIED",
+          sentAt,
+          accountId: resolvedAccountId,
+          contactId: resolvedContactId,
+          userId: callerId || null,
+        }
+      })
+      if (resolvedAccountId) {
+        await tx.communicationEvent.create({
+          data: {
+            accountId: resolvedAccountId,
+            contactId: resolvedContactId,
+            actorId: callerId || null,
+            channel: "EMAIL",
+            direction: "OUTBOUND",
+            eventType: "EMAIL_SENT",
+            sourceType: "Email",
+            sourceId: savedEmail.id,
+            subject,
+            summary: String(processedContent).slice(0, 1000),
+            occurredAt: sentAt,
+            metadata: {
+              fromAddress: defaultFrom,
+              toAddress,
+              ccAddress: String(ccAddress || '').trim() || null,
+              provider: "ZOHO_MAIL",
+              providerMessageId,
+            }
+          }
+        })
       }
+      return savedEmail
     })
 
     if (acceptedResponse && originalEmailId) {

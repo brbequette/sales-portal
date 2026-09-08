@@ -33,16 +33,17 @@ export const handler: Handler = async (event) => {
     return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "Invalid JSON" }) }
   }
 
-  const { documentId, type, action, trackingNumber } = body
+  const { documentId, type, action, trackingNumber, shippingMethod } = body
   if (!documentId || !type || !action) {
     return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "Missing documentId, type, or action" }) }
   }
 
-  if (!['SalesOrder', 'Quote'].includes(type)) {
-    return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "Invalid type. Must be SalesOrder or Quote" }) }
+  if (!['Invoice', 'SalesOrder', 'Quote'].includes(type)) {
+    return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "Invalid document type" }) }
   }
 
   const validActions: Record<string, string[]> = {
+    Invoice: ['sent'],
     SalesOrder: ['confirm', 'shipped'],
     Quote: ['accepted', 'declined']
   }
@@ -51,7 +52,7 @@ export const handler: Handler = async (event) => {
     return { statusCode: 400, headers: cors, body: JSON.stringify({ error: `Invalid action '${action}' for type '${type}'` }) }
   }
 
-  const documentKind = type === "SalesOrder" ? "salesOrder" : "quote"
+  const documentKind = type === "Invoice" ? "invoice" : type === "SalesOrder" ? "salesOrder" : "quote"
   const access = await authorizeDocumentAccess(sessionUser, documentKind, { id: documentId })
   if (!access.authorized) {
     return { statusCode: 403, headers: cors, body: JSON.stringify({ error: "You can only update documents belonging to your accounts" }) }
@@ -63,7 +64,18 @@ export const handler: Handler = async (event) => {
     let booksId = documentId
     let dbRecord: any = null
 
-    if (type === 'SalesOrder') {
+    if (type === 'Invoice') {
+      const dbInvoice = await prisma.invoice.findFirst({ where: { OR: [{ id: documentId }, { zohoId: documentId }] } })
+      if (!dbInvoice) throw new Error('Invoice not found')
+      await assertNoBooksConflictBeforeWrite('invoice', dbInvoice)
+      booksId = dbInvoice.zohoId
+      const res = await fetch(`${baseUrl}/invoices/${booksId}/status/sent?organization_id=${ORG_ID}`, {
+        method: 'POST', headers: { Authorization: `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' }
+      })
+      const data: any = await res.json()
+      if (data.code !== 0) throw new Error(`Zoho error: ${data.message || 'Failed to mark invoice sent'}`)
+      await prisma.invoice.update({ where: { id: dbInvoice.id }, data: { status: 'sent', appModifiedAt: new Date(), lastSyncedAt: new Date() } })
+    } else if (type === 'SalesOrder') {
       const dbSalesOrder = await prisma.salesOrder.findFirst({
         where: {
           OR: [
@@ -92,24 +104,38 @@ export const handler: Handler = async (event) => {
         const data: any = await res.json()
         if (data.code !== 0) throw new Error(`Zoho error: ${data.message || 'Failed to confirm sales order'}`)
       } else if (action === 'shipped') {
-        // Zoho Books does not have a dedicated /status/shipped endpoint.
-        // Mark as shipped by updating the sales order with shipment tracking info.
+        if (!trackingNumber) throw new Error('Tracking number is required to complete shipment')
         const updatePayload: any = {
           shipment_date: new Date().toISOString().split('T')[0],
-          ...(trackingNumber ? { tracking_number: trackingNumber } : {})
+          tracking_number: trackingNumber,
+          ...(shippingMethod ? { delivery_method: shippingMethod } : {})
         }
-        const res = await fetch(`${baseUrl}/salesorders/${booksId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
+        const res = await fetch(`${baseUrl}/salesorders/${booksId}?organization_id=${ORG_ID}`, {
           method: 'PUT',
-          headers: {
-            'Authorization': `Zoho-oauthtoken ${token}`,
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Authorization': `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify(updatePayload)
         })
         const data: any = await res.json()
         if (data.code !== 0) throw new Error(`Zoho error: ${data.message || 'Failed to update sales order shipment'}`)
-      }
 
+        const orderItems = (dbSalesOrder?.items as any) || {}
+        const orderNumber = orderItems.salesOrderNumber || orderItems.salesorder_number || null
+        const packages = await prisma.package.findMany({
+          where: { OR: [{ salesOrderId: booksId }, ...(orderNumber ? [{ salesOrderNumber: orderNumber }] : [])] }
+        })
+        for (const pkg of packages) {
+          if (pkg.zohoId) {
+            const packageRes = await fetch(`${baseUrl}/packages/${pkg.zohoId}?organization_id=${ORG_ID}`, {
+              method: 'PUT',
+              headers: { 'Authorization': `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ tracking_number: trackingNumber, ...(shippingMethod ? { delivery_method: shippingMethod } : {}) })
+            })
+            const packageData: any = await packageRes.json()
+            if (packageData.code !== 0) throw new Error(`Zoho package ${pkg.packageNumber || pkg.zohoId}: ${packageData.message || 'shipment update failed'}`)
+          }
+          await prisma.package.update({ where: { id: pkg.id }, data: { status: 'shipped', trackingNumber, carrier: shippingMethod || pkg.carrier } })
+        }
+      }
       if (dbRecord) {
         const statusMap: Record<string, string> = { confirm: 'confirmed', shipped: 'shipped' }
         await prisma.salesOrder.update({

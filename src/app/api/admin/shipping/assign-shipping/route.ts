@@ -75,7 +75,12 @@ export async function POST(req: Request) {
       line_items: currentItems.line_items || [],
       custom_fields: currentItems.custom_fields || [],
       status: dbInvoice.status,
-      balance: currentItems.balance ?? 0
+      balance: currentItems.balance ?? 0,
+      salesorder_id: dbInvoice.salesOrderZohoId || currentItems.salesorder_id,
+      salesorder_number: dbInvoice.salesorderNumber || currentItems.salesOrderNumber || currentItems.salesorder_number,
+      actualShippingCost: dbInvoice.actualShippingCost,
+      shippingCostBreakdown: dbInvoice.shippingCostBreakdown,
+      items: newItems
     }
 
     const calc = await calculateDocumentCosts(doc)
@@ -88,16 +93,19 @@ export async function POST(req: Request) {
           profit: calc.profit,
           commission: calc.salesCommission,
           totalDeductions: calc.totalDeductions,
+          actualShippingCost: calc.actualShippingCost,
+          shippingCostBreakdown: calc.shippingCostBreakdown,
+          shippingRollup: calc.shippingRollup,
         },
-        actualShippingCost: totalActualShipping,
-        shippingCostBreakdown,
+        actualShippingCost: calc.actualShippingCost,
+        shippingCostBreakdown: calc.shippingCostBreakdown,
       }
     })
 
     return NextResponse.json({
       success: true,
-      actualShippingCost: totalActualShipping,
-      shippingCostBreakdown,
+      actualShippingCost: calc.actualShippingCost,
+      shippingCostBreakdown: calc.shippingCostBreakdown,
       message: `Assigned $${parseFloat(shippingCost).toFixed(2)} shipping cost covering ${skusCovered.length} item(s).`
     })
   } catch (error: any) {

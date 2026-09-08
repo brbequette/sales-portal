@@ -151,9 +151,19 @@ const authenticatedHandler: Handler = async (event) => {
     //       Also reads new computedProfit/deadProfit columns when available (post-migration).
     const soExcludedStatuses = ['Void','void','VOID','Draft','draft','DRAFT','Cancelled','cancelled','CANCELLED','Invoiced','invoiced','INVOICED','Converted','converted','CONVERTED']
     const soExcludedSql = Prisma.sql`AND s.status NOT IN (${Prisma.join(soExcludedStatuses)})`
-    const repFilterSql = repIdFilter !== 'all'
-      ? Prisma.sql`AND a."ownerId" = ${repIdFilter}`
-      : Prisma.empty
+    const requestedRep = repIdFilter !== 'all'
+      ? await prisma.user.findFirst({
+          where: { OR: [{ id: repIdFilter }, { email: { equals: repIdFilter, mode: 'insensitive' } }, { name: { equals: repIdFilter, mode: 'insensitive' } }] },
+          select: { id: true, name: true },
+        })
+      : null
+    if (requestedRep) repIdFilter = requestedRep.id
+    const invoiceRepFilterSql = requestedRep
+      ? Prisma.sql`AND (a."ownerId" = ${requestedRep.id} OR LOWER(TRIM(COALESCE(i."computedSalesperson", ''))) = LOWER(${requestedRep.name}) OR LOWER(TRIM(COALESCE(i.items->>'salesperson', ''))) = LOWER(${requestedRep.name}))`
+      : repIdFilter !== 'all' ? Prisma.sql`AND a."ownerId" = ${repIdFilter}` : Prisma.empty
+    const salesOrderRepFilterSql = requestedRep
+      ? Prisma.sql`AND (a."ownerId" = ${requestedRep.id} OR LOWER(TRIM(COALESCE(s.items->>'salesperson', ''))) = LOWER(${requestedRep.name}))`
+      : repIdFilter !== 'all' ? Prisma.sql`AND a."ownerId" = ${repIdFilter}` : Prisma.empty
 
     const [
       settings,
@@ -238,7 +248,7 @@ const authenticatedHandler: Handler = async (event) => {
         JOIN "Account" a ON a.id = i."accountId"
         WHERE i."issueDate" >= ${rangeStart} AND i."issueDate" <= ${rangeEnd}
           AND i.status NOT IN ('Void','void','Draft','draft')
-          ${repFilterSql}
+          ${invoiceRepFilterSql}
         ORDER BY i."issueDate" DESC
       `).catch(() => []),
 
@@ -274,7 +284,7 @@ const authenticatedHandler: Handler = async (event) => {
         JOIN "Account" a ON a.id = s."accountId"
         WHERE s."orderDate" >= ${rangeStart} AND s."orderDate" <= ${rangeEnd}
           ${soExcludedSql}
-          ${repFilterSql}
+          ${salesOrderRepFilterSql}
         ORDER BY s."orderDate" DESC
       `).catch(() => []),
 

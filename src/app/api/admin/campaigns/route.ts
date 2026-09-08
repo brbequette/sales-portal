@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdministrator } from '@/lib/auth-helpers'
 
+const CHANNELS = new Set(['SMS', 'EMAIL', 'POSTAL', 'VOICE', 'PHONE'])
+
 export async function GET() {
   const auth = await requireAdministrator()
   if (auth.errorResponse) return auth.errorResponse
@@ -35,9 +37,17 @@ export async function POST(req: Request) {
   try {
     const body = await req.json()
     const { name, content, imageUrl, channel } = body
+    const normalizedName = String(name || '').trim()
+    const normalizedContent = String(content || '').trim()
+    const normalizedChannel = String(channel || 'SMS').trim().toUpperCase()
+    if (!normalizedName || !normalizedContent) return NextResponse.json({ success: false, error: 'Name and content are required' }, { status: 400 })
+    if (!CHANNELS.has(normalizedChannel)) return NextResponse.json({ success: false, error: 'Unsupported campaign channel' }, { status: 400 })
+    if (imageUrl && !String(imageUrl).startsWith('data:image/') && !/^https:\/\//i.test(String(imageUrl))) {
+      return NextResponse.json({ success: false, error: 'Campaign image must use HTTPS or an embedded image' }, { status: 400 })
+    }
 
     const template = await prisma.campaignTemplate.create({
-      data: { name, content, imageUrl, channel }
+      data: { name: normalizedName, content: normalizedContent, imageUrl: imageUrl ? String(imageUrl).trim() : null, channel: normalizedChannel }
     })
 
     return NextResponse.json({ success: true, template })

@@ -19,7 +19,8 @@ function fmt(n: number) {
 
 export default function CollectionsPage() {
   const { zohoContext: currentUser } = useZoho()
-  const canViewAllReps = isAdminRole(currentUser?.role)
+  const [managerScope, setManagerScope] = useState(false)
+  const canViewAllReps = isAdminRole(currentUser?.role) || managerScope
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
   const [updateAvailable, setUpdateAvailable] = useState(false)
@@ -50,9 +51,17 @@ export default function CollectionsPage() {
 
   const fetchCollections = useCallback(async (force = false) => {
     if (!currentUser?.id && !currentUser?.email) return
-    const cacheKey = `collections-v2-${currentUser?.id || currentUser?.email || "anonymous"}`
-    const cached = !force && currentUser ? sessionGet<Invoice[]>(cacheKey, TTL.TEN_MIN) : null
-    if (cached) { setInvoices(cached); setLoading(false); return }
+    const cacheKey = `collections-v5-${currentUser?.id || currentUser?.email || "anonymous"}`
+    const cached = !force && currentUser
+      ? sessionGet<{ invoices: Invoice[]; canViewCompanyCollections: boolean } | Invoice[]>(cacheKey, TTL.TEN_MIN)
+      : null
+    const cachedInvoices = Array.isArray(cached) ? cached : cached?.invoices
+    if (Array.isArray(cachedInvoices)) {
+      setInvoices(cachedInvoices)
+      setManagerScope(Boolean(cached && !Array.isArray(cached) && cached.canViewCompanyCollections === true))
+      setLoading(false)
+      return
+    }
     // First load with no data: full spinner. Subsequent: subtle refresh
     if (invoices.length === 0) setLoading(true)
     try {
@@ -60,8 +69,9 @@ export default function CollectionsPage() {
       const res = await fetch(`/api/get-collections${emailParam}`)
       const data = await res.json()
       if (data.success && Array.isArray(data.invoices)) {
+        setManagerScope(data.canViewCompanyCollections === true)
         setInvoices(data.invoices)
-        sessionSet(cacheKey, data.invoices)
+        sessionSet(cacheKey, { invoices: data.invoices, canViewCompanyCollections: data.canViewCompanyCollections === true })
         const sig = `${data.invoices.length}|${data.invoices[0]?.updated_at ?? ''}`
         setDataSig(sig)
         setUpdateAvailable(false)

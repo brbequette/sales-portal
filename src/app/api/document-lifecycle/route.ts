@@ -186,9 +186,14 @@ export async function GET(req: Request) {
       })
     }
 
+    const lifecycleAccountId = salesOrder?.accountId || invoices[0]?.accountId || quote?.accountId || null
+    const account = lifecycleAccountId
+      ? await prisma.account.findUnique({ where: { id: lifecycleAccountId }, include: { contacts: true } })
+      : null
+
     return NextResponse.json({
       success: true,
-      lifecycle: { quote, salesOrder, purchaseOrders, packages, invoices, payments }
+      lifecycle: { quote, salesOrder, purchaseOrders, packages, invoices, payments, account }
     })
 
   } catch (error: any) {

@@ -44,7 +44,8 @@ export function ProductPopoutContent({ productId, onClose }: ProductPopoutConten
             vendor: found.vendor || parseDescription(found.description).vendor || "",
             qualityTier: found.qualityTier || "",
             subjectToVig: !!found.subjectToVig,
-            giftItem: !!found.giftItem
+            giftItem: !!found.giftItem,
+            showOnWeb: found.showOnWeb !== false && !found.giftItem
           })
           fetchHistory(found.sku)
         } else {
@@ -223,6 +224,9 @@ export function ProductPopoutContent({ productId, onClose }: ProductPopoutConten
             {product.giftItem && (
               <span className="px-2 py-1 bg-purple-500/20 text-purple-400 border border-purple-500/20 rounded text-xs font-bold">Gift Item</span>
             )}
+            <span className={`px-2 py-1 rounded text-xs font-bold border ${product.showOnWeb ? 'bg-sky-500/20 text-sky-400 border-sky-500/20' : 'bg-neutral-800 text-neutral-400 border-white/10'}`}>
+              {product.showOnWeb ? 'Shown on Web' : 'Hidden from Web'}
+            </span>
           </div>
         </div>
         <div className="flex flex-col gap-2 shrink-0">
@@ -393,6 +397,10 @@ export function ProductPopoutContent({ productId, onClose }: ProductPopoutConten
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={editForm.giftItem} onChange={e => setEditForm({...editForm, giftItem: e.target.checked})} className="rounded bg-black/40 border-white/10 text-purple-500 focus:ring-purple-500" />
                   <span className="text-sm font-semibold text-neutral-300">Gift Item</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={editForm.showOnWeb} disabled={editForm.giftItem} onChange={e => setEditForm({...editForm, showOnWeb: e.target.checked})} className="rounded bg-black/40 border-white/10 text-sky-500 focus:ring-sky-500 disabled:opacity-40" />
+                  <span className="text-sm font-semibold text-neutral-300">Show on web</span>
                 </label>
               </div>
             </div>

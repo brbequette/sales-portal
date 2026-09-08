@@ -30,13 +30,10 @@ export async function GET() {
       pendingQuotes,
       orphanPayments,
       nullSalesperson,
-      invoiceLatest,
-      soLatest,
-      quoteLatest,
-      accountLatest,
-      contactLatest,
-      paymentLatest,
-      productLatest,
+      integrationStates,
+      failedActions,
+      deadLetterActions,
+      openExceptions,
     ] = await Promise.all([
       prisma.invoice.count(),
       prisma.salesOrder.count(),
@@ -50,38 +47,42 @@ export async function GET() {
       prisma.quote.count({ where: { pendingZohoFetch: true } }),
       prisma.payment.count({ where: { invoiceDbId: null } }),
       prisma.invoice.count({ where: { computedSalesperson: null } }),
-      prisma.invoice.findFirst({ orderBy: { updatedAt: 'desc' }, select: { updatedAt: true } }),
-      prisma.salesOrder.findFirst({ orderBy: { updatedAt: 'desc' }, select: { updatedAt: true } }),
-      prisma.quote.findFirst({ orderBy: { updatedAt: 'desc' }, select: { updatedAt: true } }),
-      prisma.account.findFirst({ orderBy: { updatedAt: 'desc' }, select: { updatedAt: true } }),
-      prisma.contact.findFirst({ orderBy: { updatedAt: 'desc' }, select: { updatedAt: true } }),
-      prisma.payment.findFirst({ orderBy: { updatedAt: 'desc' }, select: { updatedAt: true } }),
-      prisma.product.findFirst({ orderBy: { updatedAt: 'desc' }, select: { updatedAt: true } }),
+      prisma.integrationSyncState.findMany({ orderBy: { entityType: 'asc' } }),
+      prisma.operationalAction.count({ where: { status: 'FAILED' } }),
+      prisma.operationalAction.count({ where: { status: 'DEAD_LETTER' } }),
+      prisma.integrationException.count({ where: { status: 'OPEN' } }),
     ])
 
-    function freshness(latest: { updatedAt: Date | null } | null) {
-      if (!latest?.updatedAt) return { lastSync: null, hoursAgo: null, status: 'never' as const }
-      const hoursAgo = Math.round((now - latest.updatedAt.getTime()) / (1000 * 60 * 60) * 10) / 10
+    const byType = new Map(integrationStates.map(state => [state.entityType.toLowerCase(), state]))
+    function freshness(entityType: string) {
+      const state = byType.get(entityType.toLowerCase())
+      const latest = state?.lastSuccessAt
+      if (!latest) return { lastSync: null, hoursAgo: null, status: 'never' as const, telemetry: state || null }
+      const hoursAgo = Math.round((now - latest.getTime()) / (1000 * 60 * 60) * 10) / 10
       const status = hoursAgo < 24 ? 'healthy' as const : hoursAgo < 72 ? 'stale' as const : 'critical' as const
-      return { lastSync: latest.updatedAt.toISOString(), hoursAgo, status }
+      return { lastSync: latest.toISOString(), hoursAgo, status, telemetry: state }
     }
 
     return NextResponse.json({
       success: true,
       tables: {
-        Invoice:    { count: invoiceCount,  ...freshness(invoiceLatest),  pendingSync: pendingInvoices },
-        SalesOrder: { count: soCount,       ...freshness(soLatest),       pendingSync: pendingSOs },
-        Quote:      { count: quoteCount,    ...freshness(quoteLatest),    pendingSync: pendingQuotes },
-        Account:    { count: accountCount,  ...freshness(accountLatest)  },
-        Contact:    { count: contactCount,  ...freshness(contactLatest)  },
-        Payment:    { count: paymentCount,  ...freshness(paymentLatest)  },
-        Product:    { count: productCount,  ...freshness(productLatest)  },
+        Invoice:    { count: invoiceCount,  ...freshness('invoice'),  pendingSync: pendingInvoices },
+        SalesOrder: { count: soCount,       ...freshness('salesorder'), pendingSync: pendingSOs },
+        Quote:      { count: quoteCount,    ...freshness('quote'), pendingSync: pendingQuotes },
+        Account:    { count: accountCount,  ...freshness('account') },
+        Contact:    { count: contactCount,  ...freshness('contact') },
+        Payment:    { count: paymentCount,  ...freshness('payment') },
+        Product:    { count: productCount,  ...freshness('product') },
       },
       health: {
         orphanPayments: orphanPayments,
         nullSalesperson: nullSalesperson,
         pendingCostCalc: pendingInvoices + pendingSOs + pendingQuotes,
+        failedActions,
+        deadLetterActions,
+        openExceptions,
       },
+      integrationStates,
     })
   } catch (err: any) {
     console.error('sync-dashboard error:', err)

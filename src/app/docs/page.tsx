@@ -46,6 +46,7 @@ function SalesDocsInner() {
   
   // Stats
   const [stats, setStats] = useState({ invoices: 0, quotes: 0, salesOrders: 0 })
+  const [statuses, setStatuses] = useState<Record<string, string[]>>({ invoice: [], quote: [], salesorder: [] })
 
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [dataSig, setDataSig] = useState<string | null>(null)
@@ -166,6 +167,7 @@ function SalesDocsInner() {
         setPages(data.totalPages)
         
         setStats(data.stats || { invoices: 0, quotes: 0, salesOrders: 0 })
+        setStatuses(data.statuses || { invoice: [], quote: [], salesorder: [] })
         
         const sig = `${data.docs.length}|${data.docs[0]?.date ?? ''}`
         setDataSig(sig)
@@ -216,6 +218,8 @@ function SalesDocsInner() {
     setAmountMax('')
     setPage(1)
   }
+
+  const availableStatuses = Array.from(new Set(type === 'all' ? Object.values(statuses).flat() : (statuses[type] || []))).sort((a, b) => a.localeCompare(b))
 
   const exportCSV = () => {
     if (!docs.length) return
@@ -343,7 +347,7 @@ function SalesDocsInner() {
             {['all', 'invoice', 'quote', 'salesorder'].map(t => (
               <button
                 key={t}
-                onClick={() => { setType(t); setPage(1) }}
+                onClick={() => { setType(t); setStatus(''); setPage(1) }}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${type === t ? 'bg-orange-500 text-white shadow-md' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'}`}
               >
                 {t === 'quote' ? 'Estimates' : t === 'salesorder' ? 'Orders' : t.charAt(0).toUpperCase() + t.slice(1)}
@@ -357,12 +361,9 @@ function SalesDocsInner() {
             className="bg-zinc-900/50 border border-zinc-700/50 text-zinc-200 px-4 py-2.5 rounded-xl focus:outline-none focus:border-orange-500/50 appearance-none min-w-[140px]"
           >
             <option value="">All Statuses</option>
-            <option value="Paid">Paid</option>
-            <option value="Sent">Sent</option>
-            <option value="Accepted">Accepted</option>
-            <option value="Overdue">Overdue</option>
-            <option value="Draft">Draft</option>
-            <option value="Void">Void</option>
+            {availableStatuses.map(value => (
+              <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>
+            ))}
           </select>
 
           {isAdmin && (

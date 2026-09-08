@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken, encode, decode } from 'next-auth/jwt';
-import { isAdminRole } from '@/lib/roles';
+import { isAdminRole, isAdministratorRole } from '@/lib/roles';
 
 // Public routes that don't require authentication
 const PUBLIC_ROUTES = [
@@ -10,6 +10,7 @@ const PUBLIC_ROUTES = [
   '/about',
   '/contact',
   '/resources',
+  '/technical-information',
   '/blade-finder',
   '/applications',
   '/signature-series',
@@ -22,6 +23,7 @@ const PUBLIC_ROUTES = [
   '/careers',
   '/admin-login',
   '/employee-login',
+  '/auth/complete',
   '/customer-portal',
   '/privacy',
   '/terms',
@@ -206,6 +208,11 @@ export async function proxy(req: NextRequest) {
     const loginUrl = new URL('/employee-login', req.url);
     loginUrl.searchParams.set('callbackUrl', `${pathname}${req.nextUrl.search}`);
     return NextResponse.redirect(loginUrl);
+  }
+
+  // Order Processing is restricted to strict administrators.
+  if (pathname.startsWith('/processing') && token && !isAdministratorRole(token.role as string | undefined)) {
+    return NextResponse.redirect(new URL('/dashboard', req.url));
   }
 
   // Admin page restriction check

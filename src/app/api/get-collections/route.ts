@@ -2,7 +2,7 @@ import { handler } from "../../../../netlify/functions/get-collections"
 import { executeSessionScopedNetlifyHandler } from "@/lib/netlify-route-adapter"
 import type { NextRequest } from "next/server"
 
-const execute = (req: NextRequest) => executeSessionScopedNetlifyHandler(req, handler, { forceRepScope: true })
+const execute = (req: NextRequest) => executeSessionScopedNetlifyHandler(req, handler)
 
 export const GET = execute
 export const POST = execute

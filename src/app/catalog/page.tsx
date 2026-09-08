@@ -51,6 +51,7 @@ export default function ProductCatalogPage() {
   
   const [editingProduct, setEditingProduct] = useState<any>(null)
   const [editSaving, setEditSaving] = useState(false)
+  const [visibilitySavingId, setVisibilitySavingId] = useState<string | null>(null)
 
   const productCategories = [
     "All",
@@ -272,6 +273,25 @@ export default function ProductCatalogPage() {
     }
   }
 
+  const handleWebVisibility = async (product: any, showOnWeb: boolean) => {
+    setVisibilitySavingId(product.id)
+    try {
+      const res = await fetch("/api/update-product", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: product.id, showOnWeb })
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) throw new Error(data.error || "Visibility update failed")
+      setProducts(current => current.map(item => item.id === product.id ? { ...item, showOnWeb } : item))
+    } catch (error) {
+      console.error("Failed to update web visibility", error)
+      alert("Could not update web visibility. Please try again.")
+    } finally {
+      setVisibilitySavingId(null)
+    }
+  }
+
   const handleReactivate = async (sku: string) => {
     if (!confirm(`Are you sure you want to reactivate ${sku} in Zoho?`)) return
     try {
@@ -309,6 +329,7 @@ export default function ProductCatalogPage() {
             <th className="p-4">{sortHeader("classification", "Classification")}</th>
             <th className="p-4 text-right">{sortHeader("price", "Price", "justify-end")}</th>
             {isAdministrator && <th className="p-4 text-right">{sortHeader("stock", "Stock", "justify-end")}</th>}
+            {isAdministrator && <th className="p-4 text-center w-24">Show on web</th>}
             {isAdministrator && <th className="p-4 text-right w-16"><span className="sr-only">Actions</span></th>}
           </tr>
         </thead>
@@ -383,6 +404,17 @@ export default function ProductCatalogPage() {
                   }`}>
                     {p.stock} in stock
                   </span>
+                </td>}
+                {isAdministrator && <td className="p-4 text-center">
+                  <input
+                    type="checkbox"
+                    checked={p.showOnWeb !== false}
+                    disabled={visibilitySavingId === p.id}
+                    aria-label={`Show ${p.name} on web`}
+                    onClick={e => e.stopPropagation()}
+                    onChange={e => handleWebVisibility(p, e.target.checked)}
+                    className="h-4 w-4 rounded border-white/20 bg-black/40 text-sky-500 focus:ring-sky-500 disabled:opacity-40"
+                  />
                 </td>}
                 {isAdministrator && <td className="p-4 text-right">
                   <div className="flex items-center justify-end gap-2">
@@ -676,6 +708,10 @@ export default function ProductCatalogPage() {
                   <option value="Best">Best</option>
                 </select>
               </div>
+              <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-white/10 bg-black/20 p-3">
+                <input type="checkbox" checked={editingProduct.showOnWeb !== false} onChange={e => setEditingProduct({...editingProduct, showOnWeb: e.target.checked})} className="rounded border-white/20 bg-black/40 text-sky-500 focus:ring-sky-500" />
+                <span className="text-sm font-semibold text-neutral-300">Show on web</span>
+              </label>
               <div className="pt-4 flex justify-end gap-3">
                 <button type="button" onClick={() => setEditingProduct(null)} className="px-4 py-2 text-xs font-bold text-neutral-400 hover:text-white">Cancel</button>
                 <button type="submit" disabled={editSaving} className="flex items-center gap-2 px-6 py-2 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 text-xs font-bold rounded-lg transition-colors disabled:opacity-50">

@@ -192,6 +192,16 @@ export async function GET(request: NextRequest) {
       quotes: Number(aggregate?.quotes ?? 0),
       salesOrders: Number(aggregate?.sales_orders ?? 0),
     }
+    const statusRows = await prisma.$queryRaw<Array<{ type: string; status: string }>>(Prisma.sql`
+      SELECT 'invoice' AS type, status FROM "Invoice" GROUP BY status
+      UNION ALL SELECT 'quote' AS type, status FROM "Quote" GROUP BY status
+      UNION ALL SELECT 'salesorder' AS type, status FROM "SalesOrder" GROUP BY status
+      ORDER BY type, status
+    `)
+    const statuses = statusRows.reduce<Record<string, string[]>>((result, row) => {
+      if (row.status) (result[row.type] ||= []).push(row.status)
+      return result
+    }, { invoice: [], quote: [], salesorder: [] })
 
     // ── Data query with sort + pagination ──
     const unionForData = typeBlocks.length === 1
@@ -225,6 +235,7 @@ export async function GET(request: NextRequest) {
       docs,
       total,
       stats,
+      statuses,
       page: page,
       totalPages: Math.ceil(total / pageSize),
     })

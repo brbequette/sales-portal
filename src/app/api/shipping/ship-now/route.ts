@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { createShipmentAndBuyLabel } from '@/lib/easyship'
 import { getZohoAccessToken, ZOHO_ORGANIZATION_ID } from '@/lib/zoho-auth'
 import { requireAdministrator } from '@/lib/auth-helpers'
+import { refreshShippingRollupForSalesOrder } from '@/lib/shipping-rollup'
 
 export async function POST(req: Request) {
   try {
@@ -91,6 +92,8 @@ export async function POST(req: Request) {
           },
         })
         console.log(`[ship-now] DB package updated successfully: ${packageId}`)
+        const rollup = await refreshShippingRollupForSalesOrder(salesOrderZohoId, soNumber)
+        console.log(`[ship-now] Shipping rollup updated ${rollup.salesOrdersUpdated} sales order(s) and ${rollup.invoicesUpdated} invoice(s)`)
       } catch (dbErr: any) {
         console.error(`[ship-now] FAILED to update DB package ${packageId}:`, dbErr.message || dbErr)
       }

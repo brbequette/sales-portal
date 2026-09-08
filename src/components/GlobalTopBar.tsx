@@ -8,6 +8,7 @@ import { toast } from "react-hot-toast"
 import { TaskModal } from "@/components/TaskModal"
 import { NotificationCenter } from "@/components/NotificationCenter"
 import { useGlobalTopBarData } from "./useGlobalTopBarData"
+import { DualScreenController } from "@/components/DualScreenController"
 
 export function GlobalTopBar() {
   const {
@@ -340,6 +341,7 @@ export function GlobalTopBar() {
         </div>
         
         {/* Notifications Dropdown */}
+        <DualScreenController />
         <NotificationCenter />
 
 

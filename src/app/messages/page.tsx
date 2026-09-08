@@ -5,7 +5,6 @@ import { createPortal } from "react-dom"
 import { FiSend, FiArrowLeft, FiMessageSquare, FiUser, FiSearch, FiZap, FiExternalLink, FiChevronDown, FiChevronRight, FiCheckCircle, FiAlertCircle, FiRefreshCw } from "react-icons/fi"
 import { AccountSlideout } from "@/components/AccountSlideout"
 import { toast } from 'react-hot-toast';
-import { localGet, localSet, TTL } from "@/lib/dataCache"
 import { COMPANY_CONFIG } from "@/lib/company-config"
 import { UpdateBanner } from '@/lib/useStaleCheck'
 import { useSession } from "next-auth/react"
@@ -77,15 +76,9 @@ export default function MessagesPage() {
     }
   }, [])
 
-  // Sync available Zoho numbers (24hr local cache — numbers change rarely)
+  // Sender numbers are configuration data and must always reflect the database.
   useEffect(() => {
-    const cached = localGet<{ numbers: any[]; defaultNumber: string }>('zoho-numbers', TTL.ONE_DAY)
-    if (cached) {
-      setOutboundNumbers(cached.numbers)
-      setSelectedOutboundNumber(cached.defaultNumber)
-      return
-    }
-    fetch("/api/manage-zoho-numbers")
+    fetch("/api/manage-zoho-numbers", { cache: "no-store" })
       .then(r => r.json())
       .then(d => {
         if (d.success && d.numbers?.length > 0) {
@@ -93,7 +86,6 @@ export default function MessagesPage() {
           const def = d.numbers.find((n: any) => n.isDefault)
           const defaultNumber = def ? def.number : d.numbers[0].number
           setSelectedOutboundNumber(defaultNumber)
-          localSet('zoho-numbers', { numbers: d.numbers, defaultNumber })
         }
       })
       .catch(console.error)

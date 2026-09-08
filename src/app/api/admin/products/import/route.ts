@@ -103,6 +103,9 @@ async function syncZohoItem(product: CatalogImportProduct, existing: ZohoItem | 
         return current === null || current === undefined || current === "" || current === 0
       }))
     : incoming
+  // An existing Zoho item description is authoritative and must never be
+  // rewritten by catalog imports, even when overwrite mode is selected.
+  if (existing) delete payload.description
   if (existing && Object.keys(payload).length === 0) return existing.item_id
   const url = existing
     ? `${zohoBase}/items/${existing.item_id}?organization_id=${ZOHO_ORGANIZATION_ID}`

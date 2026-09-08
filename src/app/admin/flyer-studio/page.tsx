@@ -258,13 +258,12 @@ export default function FlyerStudioPage() {
           <h2 className="font-bold text-white">Additional promotion costs</h2>
           <p className="text-[11px] text-neutral-500 mt-1">These are included in total cost and deducted from the package price before profit is shown.</p>
           <div className="grid sm:grid-cols-4 gap-3 mt-4">
-            <NumberField label="Tariff charges" value={promo.tariffCost} set={(tariffCost) => setPromo({ ...promo, tariffCost })} />
             <NumberField label="VIG cost" value={promo.vigCost} set={(vigCost) => setPromo({ ...promo, vigCost })} />
             <NumberField label="Rep commission" value={promo.commissionCost} set={(commissionCost) => setPromo({ ...promo, commissionCost })} />
             <NumberField label="Other promo overhead" value={promo.otherCost} set={(otherCost) => setPromo({ ...promo, otherCost })} />
           </div>
           <div className="mt-5 rounded-xl border border-white/10 bg-black/30 p-4 text-sm">
-            <div className="text-neutral-400">Package price − blade cost − gift cost − tariff − VIG − commission − packaging − handling − shipping − payment fee − other costs</div>
+            <div className="text-neutral-400">Package price − blade cost − gift cost − VIG − commission − packaging − handling − shipping − payment fee − other costs</div>
             <div className={`text-xl font-black mt-2 ${financials.grossProfit >= 0 ? "text-emerald-400" : "text-red-400"}`}>${Number(promo.sellingPrice || 0).toFixed(2)} − ${financials.totalCost.toFixed(2)} = ${financials.grossProfit.toFixed(2)} profit</div>
           </div>
         </section>

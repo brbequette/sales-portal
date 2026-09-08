@@ -53,7 +53,7 @@ export const useZoho = () => useContext(ZohoContext)
 const NON_STAFF_ROUTES = [
   "/", "/about", "/admin-login", "/blade-comparator", "/blade-finder", "/careers",
   "/contact", "/customer-portal", "/employee-login", "/intro-offer", "/knowledge-test", "/login",
-  "/privacy", "/rep-portal", "/resources", "/rpm-calculator", "/shop", "/signature-series", "/terms", "/unit-converter",
+  "/privacy", "/rep-portal", "/resources", "/technical-information", "/rpm-calculator", "/shop", "/signature-series", "/terms", "/unit-converter",
 ]
 
 function isNonStaffRoute(pathname: string) {

@@ -563,26 +563,35 @@ export default function ShippingPage() {
   }, [])
   const [addingPreset, setAddingPreset] = useState(false)
   const [newPreset, setNewPreset] = useState({ label: '', l: '', w: '', h: '', wt: '' })
-  const [customBoxPresets, setCustomBoxPresets] = useState<Array<{ label: string; l: string; w: string; h: string; wt: string }>>(() => {
-    if (typeof window !== 'undefined') {
-      try { return JSON.parse(localStorage.getItem('customBoxPresets') || '[]') } catch { return [] }
-    }
-    return []
-  })
+  const [customBoxPresets, setCustomBoxPresets] = useState<Array<{ id?: string; label: string; l: string; w: string; h: string; wt: string }>>([])
 
-  const saveCustomPreset = () => {
+  const loadShippingPresets = useCallback(async () => {
+    try {
+      const response = await fetch('/api/shipping/presets', { cache: 'no-store' })
+      const data = await response.json()
+      if (response.ok) setCustomBoxPresets((data.presets || []).map((preset: any) => ({ id: preset.id, label: preset.name, l: String(preset.length), w: String(preset.width), h: String(preset.height), wt: String(preset.weight) })))
+    } catch (error) { console.error('Shipping presets unavailable', error) }
+  }, [])
+  useEffect(() => { void loadShippingPresets() }, [loadShippingPresets])
+
+  const saveCustomPreset = async () => {
     if (!newPreset.label || !newPreset.l || !newPreset.w || !newPreset.h) return
-    const updated = [...customBoxPresets, { ...newPreset, wt: newPreset.wt || '5' }]
-    setCustomBoxPresets(updated)
-    localStorage.setItem('customBoxPresets', JSON.stringify(updated))
+    const response = await fetch('/api/shipping/presets', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newPreset.label, length: newPreset.l, width: newPreset.w, height: newPreset.h, weight: newPreset.wt || '5', scope: 'COMPANY' }) })
+    const data = await response.json()
+    if (!response.ok) return toast.error(data.error || 'Preset could not be saved')
+    await loadShippingPresets()
+    toast.success('Shared shipping preset saved')
     setNewPreset({ label: '', l: '', w: '', h: '', wt: '' })
     setAddingPreset(false)
   }
 
-  const removeCustomPreset = (idx: number) => {
-    const updated = customBoxPresets.filter((_, i) => i !== idx)
-    setCustomBoxPresets(updated)
-    localStorage.setItem('customBoxPresets', JSON.stringify(updated))
+  const removeCustomPreset = async (idx: number) => {
+    const preset = customBoxPresets[idx]
+    if (!preset?.id) return
+    const response = await fetch(`/api/shipping/presets?id=${encodeURIComponent(preset.id)}`, { method: 'DELETE' })
+    const data = await response.json()
+    if (!response.ok) return toast.error(data.error || 'Preset could not be removed')
+    await loadShippingPresets()
   }
   const [editingDropship, setEditingDropship] = useState<string | null>(null)
   const [dropshipEdit, setDropshipEdit] = useState({ tracking: '', shippingCharge: '' })

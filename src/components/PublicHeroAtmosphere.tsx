@@ -14,6 +14,7 @@ function heroScene(pathname: string) {
   if (pathname.startsWith('/blade-comparator')) return { image: '/images/hero/field-series/blade-comparator.jpg', position: '70% 48%', scene: 'compare' };
   if (pathname.startsWith('/shop')) return { image: '/images/hero/field-series/catalog.jpg', position: '70% 48%', scene: 'catalog' };
   if (pathname.startsWith('/resources')) return { image: '/images/hero/field-series/resources.jpg', position: '68% 46%', scene: 'resources' };
+  if (pathname.startsWith('/technical-information')) return { image: '/images/hero/field-series/resources.jpg', position: '68% 46%', scene: 'resources' };
   if (pathname.startsWith('/rpm-calculator')) return { image: '/images/hero/field-series/rpm-calculator.jpg', position: '70% 46%', scene: 'rpm' };
   if (pathname.startsWith('/unit-converter')) return { image: '/images/hero/field-series/unit-converter.jpg', position: '70% 46%', scene: 'converter' };
   if (pathname.startsWith('/knowledge-test')) return { image: '/images/hero/field-series/knowledge-test.jpg', position: '68% 46%', scene: 'knowledge' };

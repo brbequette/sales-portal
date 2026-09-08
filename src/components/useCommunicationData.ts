@@ -32,10 +32,12 @@ export function useCommunicationData({
   accountId,
   account,
   contacts,
+  selectedContactId,
 }: {
   accountId: string
   account?: any
   contacts?: any[]
+  selectedContactId?: string
 }) {
   const { zohoContext: currentUser } = useZoho()
   const repName = currentUser?.name || "your sales rep"
@@ -97,7 +99,7 @@ export function useCommunicationData({
   const [showScript, setShowScript] = useState(false)
 
   const chatEndRef = useRef<HTMLDivElement>(null)
-  const primaryContact = contacts?.find(c => c.isPrimary) || contacts?.[0] || null
+  const primaryContact = contacts?.find(c => c.id === selectedContactId) || contacts?.find(c => c.isPrimary) || contacts?.[0] || null
   const displayPhone = primaryContact?.phone || primaryContact?.mobilePhone || ""
   const cleanPhone = displayPhone ? displayPhone.replace(/[^0-9+]/g, "") : ""
   const contactName = spokeTo || (primaryContact ? `${primaryContact.firstName || ""} ${primaryContact.lastName || ""}`.trim() : "there")
@@ -285,54 +287,42 @@ export function useCommunicationData({
 
   const sendSMS = useCallback(async () => {
     if (!smsText.trim()) return
-    const newMsg: Message = {
-      id: String(Date.now()),
-      sender: "rep",
-      text: smsText.trim(),
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    }
-    setChatMessages(prev => [...prev, newMsg])
-    setSmsText("")
+    const message = smsText.trim()
+    if (!window.confirm(`Send this SMS to ${contactName} at ${displayPhone || cleanPhone}?`)) return
+    setIsSaving(true)
     try {
-      await fetch("/api/zoho-voice", {
+      const response = await fetch("/api/send-sms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "SEND_SMS",
-          accountId,
-          userId: currentUser?.id,
-          userEmail: currentUser?.email,
-          noteContent: newMsg.text,
-          sentiment: "Neutral",
-          fromNumber: selectedOutboundNumber,
-        }),
+        body: JSON.stringify({ accountId, contactId: primaryContact?.id || null, message }),
       })
-    } catch (err) { console.error("SMS sync error:", err) }
-  }, [smsText, accountId, currentUser?.id, currentUser?.email, selectedOutboundNumber])
+      const data = await response.json()
+      if (!response.ok || !data.success || !data.providerAccepted || !data.smsMessage?.id) {
+        throw new Error(data.error || "Zoho Voice did not confirm the message")
+      }
+      const confirmed: Message = {
+        id: data.smsMessage.id,
+        sender: "rep",
+        text: data.smsMessage.body,
+        timestamp: new Date(data.smsMessage.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      }
+      setChatMessages(prev => [...prev, confirmed])
+      setSmsText("")
+      notify("SMS accepted by Zoho Voice.", "success")
+    } catch (err) {
+      notify(err instanceof Error ? err.message : "SMS was not sent.", "error")
+    } finally {
+      setIsSaving(false)
+    }
+  }, [smsText, accountId, primaryContact?.id, contactName, displayPhone, cleanPhone, notify])
 
   const sendEmailLog = useCallback(async () => {
-    setIsSaving(true)
-    try {
-      const res = await fetch("/api/zoho-voice", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "SEND_EMAIL", accountId, userId: currentUser?.id, userEmail: currentUser?.email, noteContent: emailText, sentiment: "Neutral" }),
-      })
-      if (res.ok) { setEmailText(""); notify("Email logged!", "success") }
-    } catch { notify("Failed to send email.", "error") } finally { setIsSaving(false) }
-  }, [accountId, currentUser?.id, currentUser?.email, emailText, notify])
+    notify("Email sending is not configured. Nothing was sent or logged.", "error")
+  }, [notify])
 
   const sendWhatsAppLog = useCallback(async () => {
-    setIsSaving(true)
-    try {
-      const res = await fetch("/api/zoho-voice", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "SEND_WHATSAPP", accountId, userId: currentUser?.id, userEmail: currentUser?.email, noteContent: whatsappText, sentiment: "Neutral" }),
-      })
-      if (res.ok) { setWhatsappText(""); notify("WhatsApp message logged!", "success") }
-    } catch { notify("Failed.", "error") } finally { setIsSaving(false) }
-  }, [accountId, currentUser?.id, currentUser?.email, whatsappText, notify])
+    notify("WhatsApp sending is not configured. Nothing was sent or logged.", "error")
+  }, [notify])
 
   const handleGenerateAi = useCallback(async () => {
     if (!aiPrompt) return

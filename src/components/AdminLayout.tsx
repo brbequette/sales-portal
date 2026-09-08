@@ -3,7 +3,7 @@
 
 import { useZoho } from "@/components/ZohoProvider"
 import { useRouter, usePathname } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useSyncExternalStore } from "react"
 import { useSession } from "next-auth/react"
 import Link from "next/link"
 import {
@@ -35,6 +35,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const { status } = useSession()
   const router = useRouter()
   const pathname = usePathname()
+  const displayMode = useSyncExternalStore(
+    callback => { window.addEventListener("popstate", callback); return () => window.removeEventListener("popstate", callback) },
+    () => new URLSearchParams(window.location.search).get("display") === "1",
+    () => false,
+  )
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false)
 
@@ -82,6 +87,10 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     )
+  }
+
+  if (displayMode) {
+    return <div className="h-full min-h-0 overflow-auto" style={{ background: "var(--background)" }}>{children}</div>
   }
 
   return (

@@ -4,7 +4,7 @@ import { runBooksSync } from "../../../../../netlify/functions/daily-books-sync"
 export const dynamic = "force-dynamic"
 export const maxDuration = 300
 
-let activeRun: Promise<unknown> | null = null
+let activeRun: ReturnType<typeof runBooksSync> | null = null
 
 export async function POST(req: NextRequest) {
   const clean = (value: string | null | undefined) => value?.trim().replace(/^(["'])(.*)\1$/, "$2") || ""
@@ -35,7 +35,10 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await activeRun
-    return NextResponse.json({ success: true, result })
+    return NextResponse.json(
+      { success: result.complete, result },
+      { status: result.complete ? 200 : 503 },
+    )
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Books sync failed" },

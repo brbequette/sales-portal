@@ -2,7 +2,7 @@
   package = "@netlify/plugin-nextjs"
 
 [build]
-  command = "npm run build"
+  command = "npm run build:netlify"
 
 [build.environment]
   NODE_VERSION = "20.18.0"
@@ -45,3 +45,6 @@
 
 [functions."email-sync"]
   schedule = "*/3 * * * *"
+
+[functions."operational-task-generator"]
+  schedule = "*/15 * * * *"

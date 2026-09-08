@@ -39,14 +39,18 @@ export async function POST(req: Request) {
     if (!auth.isAdmin && lead.ownerId !== auth.user.id && lead.claimedById !== auth.user.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
+    if (lead.convertedAccountId) {
+      const existingAccount = await prisma.account.findUnique({ where: { id: lead.convertedAccountId }, select: { id: true } })
+      if (existingAccount) {
+        return NextResponse.json({ success: true, accountId: existingAccount.id, alreadyConverted: true, message: `Company '${lead.company}' was already converted.` })
+      }
+    }
 
     const targetCompanyName = companyName || lead?.company || "New Converted Account"
-    const targetOwnerId = auth.user.id
+    const targetOwnerId = lead.ownerId
 
-    const accountZohoId =
-      lead?.zohoId && !lead.zohoId.startsWith("lead_local_")
-        ? `acc_from_${lead.zohoId}`
-        : `acc_local_${Date.now()}`
+    // A deterministic external key makes retries converge on one Account.
+    const accountZohoId = `acc_from_${lead.zohoId}`
 
     // Merge fact-finding specs
     const bladeSizes = factFinding?.bladeSizes || lead?.bladeSizes || null
@@ -63,9 +67,20 @@ export async function POST(req: Request) {
     const state = address?.state || lead?.state || null
     const zip = address?.zip || lead?.zip || null
 
-    // 1. Create local Account
-    const newAccount = await prisma.account.create({
-      data: {
+    const firstName = contactFirstName || lead?.firstName || null
+    const lastName = contactLastName || lead?.lastName || "Contact"
+    const contactPhone = phone || lead?.phone || lead?.mobile || null
+    const contactEmail = email || lead?.email || null
+
+    // Account, contacts, and lead conversion are one atomic local operation.
+    const newAccount = await prisma.$transaction(async tx => {
+      const freshLead = await tx.lead.findUnique({ where: { id: lead.id } })
+      if (freshLead?.convertedAccountId) {
+        const account = await tx.account.findUnique({ where: { id: freshLead.convertedAccountId } })
+        if (account) return account
+      }
+
+      const account = await tx.account.create({ data: {
         zohoId: accountZohoId,
         name: targetCompanyName,
         ownerId: targetOwnerId,
@@ -86,19 +101,13 @@ export async function POST(req: Request) {
         shippingCity: city,
         shippingState: state,
         shippingZip: zip,
-      },
-    })
+      } })
 
     // 2. Create Primary Buyer Contact
-    const firstName = contactFirstName || lead?.firstName || null
-    const lastName = contactLastName || lead?.lastName || "Contact"
-    const contactPhone = phone || lead?.phone || lead?.mobile || null
-    const contactEmail = email || lead?.email || null
-
-    await prisma.contact.create({
+    await tx.contact.create({
       data: {
-        zohoId: `cnt_${newAccount.id}`,
-        accountId: newAccount.id,
+        zohoId: `cnt_${account.id}`,
+        accountId: account.id,
         firstName,
         lastName,
         phone: contactPhone,
@@ -117,7 +126,7 @@ export async function POST(req: Request) {
     const excludedSet = new Set<string>(excludedLeadIds.map((id: any) => String(id)))
     if (lead?.id) excludedSet.add(lead.id)
 
-    const matchingLeads = await prisma.lead.findMany({
+    const matchingLeads = await tx.lead.findMany({
       where: {
         company: { equals: targetCompanyName, mode: "insensitive" },
         status: { not: "Converted" },
@@ -127,11 +136,11 @@ export async function POST(req: Request) {
 
     for (const otherLead of matchingLeads) {
       // Mark as converted
-      await prisma.lead.update({
+      await tx.lead.update({
         where: { id: otherLead.id },
         data: {
           status: "Converted",
-          convertedAccountId: newAccount.id,
+          convertedAccountId: account.id,
         },
       })
 
@@ -148,10 +157,10 @@ export async function POST(req: Request) {
 
       if (isExcludedDisp) continue
 
-      await prisma.contact.create({
+      await tx.contact.create({
         data: {
           zohoId: otherLead.zohoId ? `cnt_lead_${otherLead.zohoId}` : `cnt_lead_${otherLead.id}`,
-          accountId: newAccount.id,
+          accountId: account.id,
           firstName: otherLead.firstName,
           lastName: otherLead.lastName || "Contact",
           email: otherLead.email,
@@ -166,6 +175,8 @@ export async function POST(req: Request) {
         },
       })
     }
+      return account
+    }, { isolationLevel: "Serializable" })
 
     // Try converting in Zoho CRM if real Zoho Lead
     if (lead?.zohoId && !lead.zohoId.startsWith("lead_local_")) {

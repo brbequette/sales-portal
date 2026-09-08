@@ -64,9 +64,10 @@ const customFields = product => [
 for (const [index, product] of products.entries()) {
   const existing = bySku.get(product.sku)
   try {
+    // Existing Zoho descriptions are authoritative business content. Catalog
+    // enrichment may add custom fields, but must never rewrite that text.
     const payload = existing ? {
       custom_fields: customFields(product),
-      description: product.zohoDescription,
     } : {
       name: product.name,
       sku: product.sku,

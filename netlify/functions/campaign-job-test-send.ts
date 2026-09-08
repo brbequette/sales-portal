@@ -74,15 +74,17 @@ const authenticatedHandler: Handler = async (event) => {
       let resultJson: any = {}
       try { resultJson = JSON.parse(resultText) } catch {}
 
-      if (smsRes.ok && resultJson.status !== "error" && resultJson.code !== "error") {
+      const providerStatus = String(resultJson.status || "").toLowerCase()
+      const providerCode = String(resultJson.code || "").toLowerCase()
+      const providerRejected = providerStatus === "error" || providerStatus === "failed" || providerCode === "error" || providerCode === "failed"
+      if (smsRes.ok && resultText.trim().length > 0 && !providerRejected) {
         return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, message: `Test sent to ${phoneNumber}` }) }
       } else {
         return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: false, message: resultJson.message || "Zoho API Error sending test" }) }
       }
     }
 
-    // Mock for non-SMS
-    return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, message: `Test sent to ${phoneNumber} (mock)` }) }
+    return { statusCode: 501, headers: corsHeaders, body: JSON.stringify({ success: false, message: `${channel || "Requested"} test provider is not configured` }) }
   } catch (error: any) {
     console.error("campaign-job-test-send error:", error)
     return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ success: false, message: error.message || "Internal server error" }) }

@@ -20,12 +20,15 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}))
     const scope = body.scope === "all" ? "all" : "range"
     const apply = body.apply === true
-    const start = scope === "range" ? dateFromValue(body.startDate) : null
+    const startBase = scope === "range" ? dateFromValue(body.startDate) : null
     const endBase = scope === "range" ? dateFromValue(body.endDate) : null
-    if (scope === "range" && (!start || !endBase)) {
+    if (scope === "range" && (!startBase || !endBase)) {
       return NextResponse.json({ success: false, error: "A valid start and end date are required." }, { status: 400 })
     }
-    const end = endBase ? new Date(endBase.getTime() + 24 * 60 * 60 * 1000 - 1) : null
+    // Range inputs are inclusive calendar days. Use UTC day boundaries so rows
+    // stored at either midnight or noon cannot fall out of the selected day.
+    const start = startBase ? new Date(`${dateKey(startBase)}T00:00:00.000Z`) : null
+    const end = endBase ? new Date(`${dateKey(endBase)}T23:59:59.999Z`) : null
 
     const [invoices, salesOrders, estimates] = await Promise.all([
       prisma.invoice.findMany({

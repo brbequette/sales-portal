@@ -2,7 +2,7 @@
 
 import { useEffect, useState, memo } from "react"
 import { FiClock } from "react-icons/fi"
-import { getExclusivityDetails } from "@/app/sales/page"
+import { getExclusivityDetails } from "@/lib/exclusivity"
 
 /**
  * Self-contained countdown timer for account exclusivity.
