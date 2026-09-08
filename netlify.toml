@@ -4,6 +4,9 @@
 [build]
   command = "npm run build:netlify"
 
+[context.production]
+  command = "npx prisma migrate deploy && npm run build:netlify"
+
 [build.environment]
   NODE_VERSION = "20.18.0"
   NEXT_TELEMETRY_DISABLED = "1"
