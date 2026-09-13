@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const adapter = fs.readFileSync(new URL('../reconciliation-legacy-document-adapter.mjs', import.meta.url), 'utf8');
+const engine = fs.readFileSync(new URL('../reconciliation-engine.mjs', import.meta.url), 'utf8');
+assert.match(adapter, /export function buildLegacyDocumentResult/);
+assert.match(adapter, /calculateDocument\s*\(/);
+assert.doesNotMatch(adapter, /from\s+['"][^'"]*(?:prisma|zoho)[^'"]*['"]|process\.env|readFile/);
+assert.doesNotMatch(adapter, /0\.045|0\.125|cardFee\s*=|deadCostTotal\s*=/);
+assert.doesNotMatch(engine, /buildLegacyDocumentResult/);
+const loop = engine.slice(engine.indexOf('const coreResult = runReconciliationCore'), engine.indexOf('const runtimeArtifacts = await writeRuntimeArtifacts'));
+assert.equal((loop.match(/buildLegacyDocumentResult\s*\(/g) || []).length, 0);
+assert.doesNotMatch(loop, /calculateDocument\s*\(/);
+assert.doesNotMatch(loop, /const after\s*=|const customFields\s*=|const payload\s*=/);
+console.log('LEGACY_ADAPTER_STRUCTURE=PASS');

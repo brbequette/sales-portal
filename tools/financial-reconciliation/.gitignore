@@ -1,0 +1,11 @@
+runtime/
+tmp/
+runs/
+*.log
+*.env
+credentials.env
+reconciliation-runs/
+output/
+*.json
+!package.json
+!package-lock.json

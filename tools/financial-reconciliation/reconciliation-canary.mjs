@@ -1,0 +1,5 @@
+export async function applyCanary({manifest,manifestSha256,expectedCount=10,client,allowlist,rollbackValues}){
+  if(!manifest||manifest.manifestSha256!==manifestSha256)throw new Error('MANIFEST_HASH_MISMATCH');
+  if(manifest.eligible.length!==expectedCount)throw new Error('CANARY_COUNT_MISMATCH');
+  const written=[];const report={attempted:0,written:0,readbackVerified:0,rolledBack:0,status:'FAILED'};
+  try{for(const item of manifest.eligible){report.attempted++;const fields=item.forwardPayload?.customFields||[];if(fields.some(x=>!allowlist.has(x.apiName)))throw new Error('FORBIDDEN_FIELD');const before=await client.read(item.documentId);await client.write(item.documentId,fields);written.push({item,before});const after=await client.read(item.documentId);if(JSON.stringify(after)!==JSON.stringify(fields))throw new Error('READBACK_MISMATCH');report.written++;report.readbackVerified++}report.status='PASS';return report}catch(error){for(const entry of written.reverse()){await client.write(entry.item.documentId,rollbackValues(entry.before));report.rolledBack++}error.report=report;throw error}}

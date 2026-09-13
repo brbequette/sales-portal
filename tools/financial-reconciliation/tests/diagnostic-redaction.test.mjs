@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import { sanitizeSourceSample, assertRedactedSamples } from '../reconciliation-diagnostics.mjs';
+const sample=sanitizeSourceSample({type:'invoice',id:'doc-1',lineOrdinal:1,source:'purchaseOrder',sourceRecordId:'po-1',effectiveDate:'2026-01-01',lookupKeyType:'sku'});
+assert.equal(assertRedactedSamples([sample]),true);
+assert.throws(()=>assertRedactedSamples({sourceSamples:[{source:'x',cost:12}]}),/forbidden/);
+assert.equal(assertRedactedSamples({lineAccounting:{total:58770},documentAccounting:{total:16130},counts:{total:0}}),true);
+assert.throws(()=>assertRedactedSamples({sourceSamples:[{total:1}]}),/forbidden/);
+assert.throws(()=>assertRedactedSamples({document:{total:1}}),/forbidden/);
+for (const key of ['amount','price','rate','subtotal','grandTotal','customer','email','phone','address','zohoId','sourceRecordId']) assert.throws(()=>assertRedactedSamples({[key]:1}),/forbidden/);
+assert.equal(assertRedactedSamples({lineAccounting:{totalLines:10},documentAccounting:{total:2},sourceSamples:{purchaseOrder:[sample]}}),true);
+assert.equal(''+JSON.stringify(sample).match(/cost|amount|price|total|rate|customer|email|phone|address/i),'null');
+console.log('DIAGNOSTIC_REDACTION=PASS');

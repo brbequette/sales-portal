@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import { resolveCost, cardProcessingFee, buildVigSequence, calculateDocument, COST_SOURCES } from '../reconciliation-calculations.mjs';
+assert.equal(resolveCost({ historical: 2, catalog: 9 }).source, COST_SOURCES.HISTORICAL);
+assert.equal(resolveCost({ breakdown: 3, catalog: 9 }).source, COST_SOURCES.EMBEDDED);
+assert.equal(resolveCost({ purchaseOrder: 4, catalog: 9 }).source, COST_SOURCES.PO);
+assert.equal(resolveCost({ catalog: 5 }).source, COST_SOURCES.CATALOG);
+assert.equal(resolveCost({ physical: true }).cost, null);
+assert.equal(cardProcessingFee([{ mode: 'Credit Card', amount: 100 }, { mode: 'Check', amount: 100 }]), 4.5);
+const vig = buildVigSequence([{ id: 'a', date: '2025-01-05', salesperson: 'A' }, { id: 'b', date: '2025-02-05', salesperson: 'A' }], { monthlyProfit: { 'A:2025-01': 22000 } });
+assert.equal(vig.get('a'), 1.3); assert.equal(vig.get('b'), 1.5);
+const calc = calculateDocument({ id: 'x', date: '2025-01-01', subtotal: 100, commissionPct: '', payments: [{ mode: 'card', amount: 100 }], lineItems: [{ sku: 'A', quantity: 1, historicalCost: 20, tariffSubject: true }] }, { vig: 1.3 });
+assert.equal(calc.commissionPct, 50); assert.equal(calc.cardFee, 4.5); assert.equal(calc.tariff, 2.5); assert.equal(calc.profit, 73);
+console.log('CALCULATION_TESTS=PASS (8)');

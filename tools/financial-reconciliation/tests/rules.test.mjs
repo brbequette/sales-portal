@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict'; import { COST_SOURCES } from '../reconciliation-calculations.mjs';
+import { resolveVig, resolveCommissionPct, chooseCost, validatePayload, assertReconciliationComplete, validateZipEntries, selectZohoOrganization } from '../reconciliation-lib/rules.mjs';
+
+assert.equal(resolveVig({ date: '2024-12-31' }), 1.3);
+assert.equal(resolveVig({ date: '2025-01-15' }), 1.3);
+assert.equal(resolveVig({ date: '2025-02-15', priorGoalMet: true }), 1.3);
+assert.equal(resolveVig({ date: '2025-02-15', priorGoalMet: false }), 1.5);
+assert.equal(resolveVig({ date: '2025-02-15', priorGoalMet: false, override: 1.3 }), 1.3);
+assert.equal(resolveCommissionPct(''), 50);
+assert.equal(resolveCommissionPct(42), 42);
+assert.deepEqual(chooseCost({ historical: 4, catalog: 9 }), { value: 4, source: 'historical' });
+assert.deepEqual(chooseCost({ breakdown: 5, catalog: 9 }), { value: 5, source: 'historical-breakdown' });
+assert.deepEqual(chooseCost({ purchaseOrder: 6, catalog: 9 }), { value: 6, source: COST_SOURCES.PO });
+assert.deepEqual(chooseCost({ catalog: 9 }), { value: 9, source: COST_SOURCES.CATALOG });
+assert.equal(validatePayload([{ zohoId: '1', customFields: [{ apiName: 'native_total', value: 1 }] }]).length, 1);
+assert.throws(() => assertReconciliationComplete({ documents: 1, forward: [], rollback: [], failures: [] }));
+assert.doesNotThrow(() => assertReconciliationComplete({ documents: 1, forward: [{ zohoId: '1' }], rollback: [{ zohoId: '1' }], failures: [] }));
+assert.doesNotThrow(() => validateZipEntries(['Invoice00.csv', 'nested/Invoice01.csv']));
+assert.throws(() => validateZipEntries(['/absolute.csv']));
+assert.throws(() => validateZipEntries(['nested/../unsafe.csv']));
+assert.equal(selectZohoOrganization({ organizations: [{ organization_id: '1', organization_name: ' Titan Diamond USA, LLC ' }] }, '1').selectedOrganizationIdMatches, true);
+assert.throws(() => selectZohoOrganization({ organizations: [{ organization_id: '2', organization_name: 'TITAN DIAMOND USA' }] }, '1'));
+assert.throws(() => selectZohoOrganization({}, '1'));
+assert.throws(() => selectZohoOrganization({ organizations: [{ organization_id: '1', organization_name: 'TITAN DIAMOND USA' }, { organization_id: '1', organization_name: 'TITAN DIAMOND USA' }] }, '1'));
+assert.equal(['Invoice ID','SalesOrder ID','Quote ID'].map(x => x.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')).join(','), 'invoice_id,salesorder_id,quote_id');
+console.log('reconciliation rules self-tests: 10 passed');

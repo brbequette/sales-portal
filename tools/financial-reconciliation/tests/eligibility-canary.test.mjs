@@ -1,0 +1,8 @@
+import assert from 'node:assert/strict';
+import {buildEligibleManifest} from '../reconciliation-eligibility.mjs';
+import {applyCanary} from '../reconciliation-canary.mjs';
+const docs=[...Array(10)].map((_,i)=>({type:'invoice',id:`id-${i}`,status:'ready'})).concat([{type:'invoice',id:'u',status:'uncertain'},{type:'invoice',id:'n',status:'ready'}]);
+const forward=docs.filter(x=>x.status==='ready').map(x=>({type:x.type,zohoId:x.id,customFields:x.id==='n'?[]:[{apiName:'cf_profit',value:1}]}));const rollback=forward.map(x=>({...x,customFields:[]}));const m=buildEligibleManifest({documents:docs,forward,rollback});assert.equal(m.eligible.length,10);assert.equal(m.reviewEntries.filter(x=>x.exclusionReason).length,2);assert.equal(buildEligibleManifest({documents:docs,forward:[],rollback:[]}).eligible.length,0);
+const state=new Map(m.eligible.map(x=>[x.documentId,[{apiName:'cf_profit',value:0}]]));const client={read:async id=>state.get(id),write:async(id,v)=>state.set(id,v)};const report=await applyCanary({manifest:m,manifestSha256:m.manifestSha256,client,allowlist:new Set(['cf_profit']),rollbackValues:()=>[]});assert.equal(report.status,'PASS');assert.equal(report.readbackVerified,10);
+await assert.rejects(()=>applyCanary({manifest:m,manifestSha256:'bad',client,allowlist:new Set(['cf_profit']),rollbackValues:()=>[]}));console.log('ELIGIBILITY_CANARY=PASS');
+const failing={read:async id=>state.get(id),write:async(id,v)=>{if(id==='id-3'&&v[0]?.value===1)throw new Error('injected');state.set(id,v)}};await assert.rejects(()=>applyCanary({manifest:m,manifestSha256:m.manifestSha256,client:failing,allowlist:new Set(['cf_profit']),rollbackValues:()=>[]}));

@@ -1,0 +1,6 @@
+import fs from 'node:fs/promises'; import path from 'node:path';
+const dir = process.argv[2]; const file = path.join(dir, 'production-settings-snapshot.redacted.json'); const value = JSON.parse(await fs.readFile(file, 'utf8'));
+const forbidden = ['invoices','lineItems','payments','customers','contacts','addresses','emails','phones','descriptions','credentials','tokens','rawData']; const keys = Object.keys(value); const present = Object.fromEntries(forbidden.map(k => [k, Object.prototype.hasOwnProperty.call(value, k)]));
+const aggregateCounts = {}; for (const key of keys) { const item = value[key]; if (typeof item === 'number' || typeof item === 'boolean') aggregateCounts[key] = item; else if (Array.isArray(item)) aggregateCounts[`${key}Count`] = item.length; else if (item && typeof item === 'object') aggregateCounts[`${key}Present`] = true; }
+const audit = { topLevelKeys: keys, forbiddenRecordCollectionsPresent: present, recordLevelDataPresent: forbidden.some(k => present[k]), aggregateCounts, pass: forbidden.every(k => !present[k]) };
+await fs.writeFile(path.join(dir, 'redaction-audit.json'), JSON.stringify(audit, null, 2)); if (!audit.pass) process.exit(1); console.log('REDACTION_AUDIT=PASS');

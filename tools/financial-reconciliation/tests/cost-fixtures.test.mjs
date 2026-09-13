@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import { resolveCost, cardProcessingFee } from '../reconciliation-calculations.mjs'; import { resolveAuxiliaryCost } from '../reconciliation-cost-sources.mjs';
+assert.equal(resolveCost({ historical: 10, breakdown: 9, purchaseOrder: 8, catalog: 7 }).source, 'historicalInvoiceJson');
+assert.equal(resolveCost({ breakdown: 9, purchaseOrder: 8, catalog: 7 }).source, 'embeddedBreakdown');
+assert.equal(resolveCost({ purchaseOrder: 8, catalog: 7 }).source, 'purchaseOrder');
+assert.equal(resolveCost({ catalog: 7 }).source, 'dbCatalogCost');
+assert.equal(resolveCost({ physical: false }).source, 'nonphysical');
+assert.equal(resolveCost({ physical: true }).source, 'unresolved');
+assert.equal(cardProcessingFee([{ mode: 'Credit Card', amountApplied: 100 }, { mode: 'ACH', amountApplied: 100 }]), 4.5);
+const sources={itemMap:new Map([['abc',{cost:9,source:'itemExportPurchaseRate'}]]),itemById:new Map(),poMapById:new Map(),poMapBySku:new Map([['abc',[{cost:7,source:'purchaseOrder',effectiveDate:'2024-01-01'},{cost:8,source:'purchaseOrder',effectiveDate:'2025-01-01'}]]])}; assert.equal(resolveAuxiliaryCost({sku:'ABC'},sources,'2024-12-31').cost,7); assert.equal(resolveAuxiliaryCost({sku:'ABC'},sources,'2025-12-31').cost,8);
+console.log('COST_FIXTURE_TESTS=PASS (7)');
