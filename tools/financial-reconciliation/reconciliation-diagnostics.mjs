@@ -1,0 +1,6 @@
+import crypto from 'node:crypto';
+const forbidden=/^(cost|amount|price|rate|subtotal|grandtotal|customer|email|phone|address|description|zohoid|documentid|sourcerecordid)$/i;
+const aggregateParents=new Set(['lineAccounting','documentAccounting','failureCounts','failureReferences','counts']);
+export function hashId(value){return crypto.createHash('sha256').update(String(value??'')).digest('hex').slice(0,16)}
+export function sanitizeSourceSample({type,id,lineOrdinal,source,sourceRecordId,effectiveDate,lookupKeyType}){return Object.freeze({documentType:type,documentIdHash:hashId(id),lineOrdinal,source,sourceRecordIdHash:hashId(sourceRecordId),effectiveDate:effectiveDate||null,lookupKeyType:lookupKeyType||null})}
+export function assertRedactedSamples(value){const visit=(x,path=[])=>{if(Array.isArray(x))return x.forEach((v,i)=>visit(v,path.concat(String(i))));if(x&&typeof x==='object')for(const [k,v] of Object.entries(x)){const parent=path.at(-1);if(/^total$/i.test(k)){if(!aggregateParents.has(parent)||!Number.isInteger(v)||v<0)throw new Error(`forbidden diagnostic key: ${k}`)}else if(forbidden.test(k)||(/^id$/i.test(k)&&!String(parent||'').toLowerCase().endsWith('hash'))){throw new Error(`forbidden diagnostic key: ${k}`)}visit(v,path.concat(k))}};visit(value);return true}

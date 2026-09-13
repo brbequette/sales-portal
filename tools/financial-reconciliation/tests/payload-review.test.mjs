@@ -1,0 +1,7 @@
+import assert from 'node:assert/strict'; import fs from 'node:fs/promises'; import os from 'node:os'; import path from 'node:path'; import { reviewRun } from '../reconciliation-payload-review.mjs';
+const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'reconciliation-review-')); const write = async (name, value) => fs.writeFile(path.join(dir, name), JSON.stringify(value));
+const summary = { status: 'COMPLETE_WITH_BLOCKERS', documents: 2, forwardDocuments: 1, rollbackDocuments: 1, failures: 2, writesEnabled: false, lineAccounting: { physicalUnresolved: 1, uncertain: 1 } };
+const forward = [{ type: 'invoice', zohoId: '1', customFields: [{ apiName: 'cf_salesperson_vig', value: 1.3 }] }];
+const rollback = [{ type: 'invoice', zohoId: '1', customFields: [{ apiName: 'cf_salesperson_vig', value: null }] }];
+await write('reconciliation-summary.json', summary); await write('ready-forward-payload.json', forward); await write('ready-rollback-snapshot.json', rollback); await write('unresolved-cost-report.json', { total: 1 }); await write('uncertain-classification-report.json', { total: 1 }); await write('custom-field-metadata.json', { allowlist: ['cf_salesperson_vig'] });
+try { const result = await reviewRun(dir); assert.equal(result.pass, true); const bad = [...rollback]; bad[0] = { ...bad[0], customFields: [] }; await write('ready-rollback-snapshot.json', bad); await assert.rejects(() => reviewRun(dir), /failed/); console.log('PAYLOAD_REVIEW_TESTS=PASS (2)'); } finally { await fs.rm(dir, { recursive: true, force: true }); }

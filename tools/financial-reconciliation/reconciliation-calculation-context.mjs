@@ -1,0 +1,6 @@
+const required=['vigSequence','salespersonOverrides','commission','commissionFieldAliases','payments','cardFees','refunds','tariffLines','additionalCosts','shippingInsuranceExclusions','resolvedLines','existingFields','fieldMetadata','allowlist','documentDate','documentStatus','documentType','rollbackValues','documentId','lineItems','subtotal','total'];
+const frozen = value => Object.freeze(structuredClone(value));
+export function buildCalculationContext(input={}) { for (const key of required) if (!Object.prototype.hasOwnProperty.call(input,key)) throw new Error(`Missing calculation context: ${key}`); return frozen(input); }
+export { required as CALCULATION_CONTEXT_FIELDS };
+export const COMMISSION_FIELD_ALIASES = Object.freeze(['cf_commission_from_profit','cf_commision_from_profit','cf_sales_commission_profit','commission_percentage']);
+export const LEGACY_CONTEXT_DEPENDENCY_MAP = Object.freeze({documentId:'documentId',documentType:'documentType',documentDate:'documentDate',documentStatus:'documentStatus',lineItems:'lineItems',subtotal:'subtotal',total:'total',commission:'commission',commissionFieldAliases:'commissionFieldAliases',payments:'payments',additionalCosts:'additionalCosts',vigSequence:'vigSequence',existingFields:'existingFields',rollbackValues:'rollbackValues',fieldMetadata:'fieldMetadata',allowlist:'allowlist'});

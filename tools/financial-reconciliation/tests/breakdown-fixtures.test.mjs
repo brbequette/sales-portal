@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict'; import { parseEmbeddedEntriesStrict as parse, associateEmbeddedCostTokens } from '../reconciliation-calculations.mjs';
+assert.equal(parse('2x ABC | Cost: $10.00 | DC: $20.00 | VIG-DC: $23.00 | Subj to VIG').entries.length,1);
+assert.equal(parse('1x A | Cost: $2 | DC: $2 | VIG-DC: $2 | No VIG\n3x B | Cost: $4 | DC: $12 | VIG-DC: $12').entries.length,2);
+assert.equal(parse('1x A | Cost: $2 | DC: $2 | VIG-DC: $2 | Subj to VIG2x B | Cost: $4 | DC: $8 | VIG-DC: $8').entries.length,2);
+assert.equal(parse('1x A | Cost: $2 | DC: $2 | VIG-DC: $2 | Subj to VIG2x A | Cost: $3 | DC: $6 | VIG-DC: $6').entries[1].identifier,'A');
+assert.equal(parse('1x A [GIFT] | Cost: $2 | DC: $2 | VIG-DC: $2 | No VIG').entries[0].gift,true);
+assert.equal(parse('1x  | Cost: $2 | DC: $2 | VIG-DC: $2 | Subj to VIG').entries[0].identifier,'');
+assert.equal(parse('malformed').reason,'malformed'); for(const cost of ['0','-1','','nope']) assert.notEqual(parse(`1x A | Cost: ${cost} | DC: $2 | VIG-DC: $2`).reason,'accepted');
+const associated=associateEmbeddedCostTokens('2x A | Cost: $10 | DC: $20 | VIG-DC: $20 | Subj to VIG 1x B | Cost: $4 | DC: $4 | VIG-DC: $4 | No VIG'); assert.equal(associated.associatedEntries,2); assert.equal(associated.droppedCostTokens,0); assert.equal(associated.duplicateAssociations,0); assert.equal(associated.overlappingEntries,0);
+console.log('BREAKDOWN_FIXTURES=PASS (10)');

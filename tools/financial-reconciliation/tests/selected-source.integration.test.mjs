@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import { runReconciliationCore } from '../reconciliation-engine-core.mjs';
+const docs=[{type:'invoice',id:'fixture',date:'2026-01-01',lineItems:[{product_id:'ITEM-1',sku:'SKU-1',itemName:'RING',quantity:1}]}];
+const costSources={itemById:new Map([['ITEM-1',{cost:12,source:'itemExportPurchaseRate',sourceRecordId:'ITEM-1',lookupKeyType:'itemId'}]]),itemMap:new Map([['sku-1',{cost:12,source:'itemExportPurchaseRate',sourceRecordId:'ITEM-1',lookupKeyType:'sku'}]]),poMapById:new Map(),poMapBySku:new Map()};
+const result=runReconciliationCore({docs,costSources});
+assert.equal(result.outcomes[0].kind,'physical-resolved');
+assert.equal(result.outcomes[0].costResolution.source,'itemExportPurchaseRate');
+assert.equal(result.lineAccounting.selectedButUnresolvedCount,0);
+console.log('SELECTED_BUT_UNRESOLVED_ZERO=PASS');
+assert.equal(result.outcomes[0].costResolution.cost,12);
+assert.equal(result.outcomes.filter(x=>x.kind==='physical-unresolved'&&x.diagnostic?.itemState==='selected').length,0);
+console.log('SELECTED_SOURCE_INVARIANTS=PASS');

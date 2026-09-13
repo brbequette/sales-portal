@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import { buildCalculatedFields, compareCalculatedFields, buildRollbackFields, buildDocumentPayloadResult } from '../reconciliation-document-builder.mjs';
+const doc={id:'d1',type:'invoice',row:{cf_commission_from_profit:'',cf_salesperson_vig:''}};
+const context={vig:1.3,calculation:{deadCost:10,tariff:2,profit:20,cardFee:1,additionalCosts:3},existingFields:{cf_salesperson_vig:'',cf_commision_from_profit:'',cf_dead_cost_total:0,cf_dead_cost_with_vig:0,cf_profit:0,cf_dead_profit_actual:0,cf_sales_commission:0}};
+const fields=buildCalculatedFields(doc,context); assert.equal(fields.cf_commision_from_profit,50); assert.equal(fields.cf_salesperson_vig,1.3);
+const changed=compareCalculatedFields(context.existingFields,fields); assert.equal(changed.noOp,false); assert.deepEqual(buildRollbackFields(context.existingFields,changed.changedFields),Object.fromEntries(Object.keys(changed.changedFields).map(k=>[k,context.existingFields[k]])));
+const result=buildDocumentPayloadResult(doc,context); assert.ok(result.forwardPayload); assert.ok(result.rollbackPayload);
+const noop=buildDocumentPayloadResult(doc,{...context,existingFields:fields}); assert.equal(noop.noOp,true); assert.equal(noop.forwardPayload,null);
+assert.throws(()=>buildRollbackFields({},fields),/Missing rollback value/);
+const uncertain=buildDocumentPayloadResult(doc,{...context,status:'UNCERTAIN'}); assert.equal(uncertain.forwardPayload,null); assert.deepEqual(uncertain.exclusionReasons,['UNCERTAIN']);
+console.log('DOCUMENT_BUILDER_PARITY=PASS');

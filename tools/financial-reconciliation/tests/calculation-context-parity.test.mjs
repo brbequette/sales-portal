@@ -1,0 +1,6 @@
+import assert from 'node:assert/strict';
+import { buildCalculationContext, CALCULATION_CONTEXT_FIELDS, COMMISSION_FIELD_ALIASES, LEGACY_CONTEXT_DEPENDENCY_MAP } from '../reconciliation-calculation-context.mjs';
+const input=Object.fromEntries(CALCULATION_CONTEXT_FIELDS.map(k=>[k, k==='commission'?{blank:'',nonblank:25,zero:0,null:null}:k==='payments'?[{mode:'card',amount:10},{mode:'cash',amount:5}]:k==='tariffLines'?[{subject:true}]:k==='shippingInsuranceExclusions'?{shipping:true,insurance:true}:{}]));
+const context=buildCalculationContext(input); assert.equal(context.commission.blank,''); assert.equal(context.commission.zero,0); assert.equal(context.commission.null,null); assert.deepEqual(context.payments,input.payments); assert.throws(()=>buildCalculationContext({}),/Missing calculation context/); assert.equal(Object.isFrozen(context),true);
+assert.notEqual(LEGACY_CONTEXT_DEPENDENCY_MAP.subtotal,LEGACY_CONTEXT_DEPENDENCY_MAP.total);assert.ok(COMMISSION_FIELD_ALIASES.includes('cf_commision_from_profit'));assert.ok(CALCULATION_CONTEXT_FIELDS.includes('documentType'));assert.ok(CALCULATION_CONTEXT_FIELDS.includes('fieldMetadata'));assert.ok(CALCULATION_CONTEXT_FIELDS.includes('allowlist'));
+console.log('CALCULATION_CONTEXT_PARITY=PASS');

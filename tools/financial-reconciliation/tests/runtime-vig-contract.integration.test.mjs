@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import path from 'node:path';
+process.env.RECONCILIATION_INPUTS ||= path.resolve('../../tmp/Titan_Zoho_Reconciliation_Inputs_2026-09-08');
+const { parseSources, buildRuntimeVigContract } = await import('../reconciliation-engine.mjs');
+const { docs } = await parseSources();
+const calculations = docs.map(doc => ({ ...doc, documentType: doc.type, date: doc.row.date || doc.row.invoice_date || doc.row.quote_date || doc.row.order_date || '', status: doc.row.status || 'Paid', repId: 'contract-fixture', salesperson: 'contract-fixture', lineItems: doc.lineItems, profit: 0 }));
+const contract = buildRuntimeVigContract({ representatives: [{ id: 'contract-fixture', name: 'Contract Fixture' }], monthlyGoals: [], compensationPlans: [], documents: calculations }, () => 0);
+assert.ok(Array.isArray(contract.assignments));
+assert.strictEqual(contract.assignmentRecords, contract.assignments);
+assert.ok(contract.vigByDocument instanceof Map);
+assert.ok(contract.audit);
+console.log(`RUNTIME_VIG_CONTRACT_COUNTS=${JSON.stringify({ documents: calculations.length, assignments: contract.assignmentRecords.length })}`);
+console.log('RUNTIME_VIG_CONTRACT=PASS');

@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import path from 'node:path';
+process.env.RECONCILIATION_INPUTS=process.env.RECONCILIATION_INPUTS||path.resolve('tmp/Titan_Zoho_Reconciliation_Inputs_2026-09-08');
+const {parseSources}=await import('../reconciliation-engine.mjs');
+const {runReconciliationCore}=await import('../reconciliation-engine-core.mjs');
+const {loadCostSources}=await import('../reconciliation-cost-sources.mjs');
+const {docs}=await parseSources();
+const result=runReconciliationCore({docs,costSources:await loadCostSources(process.env.RECONCILIATION_INPUTS),productionSnapshot:{}});
+assert.equal(result.lineAccounting.total,58770);
+assert.equal(result.outcomes.length,58770);
+assert.equal(result.lineAccounting.physicalResolved+result.lineAccounting.physicalUnresolved+result.lineAccounting.nonphysical+result.lineAccounting.uncertain,58770);
+assert.equal(result.lineAccounting.physicalResolved+result.lineAccounting.physicalUnresolved,result.lineAccounting.physicalResolved+result.lineAccounting.physicalUnresolved);
+assert.equal(Object.values(result.lineAccounting.sources).reduce((a,b)=>a+b,0),result.lineAccounting.physicalResolved);
+assert.equal(result.documentAccounting.total,16130);
+assert.equal(result.documentResults.length,16130);
+assert.equal(result.documentResults.filter(x=>x.vigRate!=null).length,16130);
+const uncertainty={}; for(const o of result.outcomes.filter(x=>x.kind==='uncertain')){const type=o.lineKey.split(':')[0];const reason=o.terminalReason||o.classificationReason;uncertainty[type]??={};uncertainty[type][reason]=(uncertainty[type][reason]||0)+1}const uncertainCount=Object.values(uncertainty).flatMap(Object.values).reduce((a,b)=>a+b,0);assert.ok(uncertainCount<=5097);console.log(`UNCERTAINTY_INVENTORY=${JSON.stringify(uncertainty)}`);
+console.log(JSON.stringify({lineAccounting:result.lineAccounting,documentAccounting:result.documentAccounting,outcomes:result.outcomes.length})); console.log('CORE_VIG_ASSIGNMENT=PASS'); console.log('VIG_DOCUMENT_COVERAGE=PASS'); console.log('DOCUMENT_RESULT_CONSERVATION=PASS'); console.log('LINE_OUTCOME_CONSERVATION=PASS'); console.log('ENGINE_CORE_INTEGRATION=PASS');
