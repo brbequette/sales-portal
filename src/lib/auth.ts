@@ -4,6 +4,7 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import type { Prisma } from "@prisma/client"
 import bcrypt from "bcryptjs"
 import { prisma } from "./prisma"
+import { isMasterAdminRole } from "./roles"
 
 type LoginAttempt = { failures: number; blockedUntil: number; lastFailure: number }
 
@@ -192,17 +193,41 @@ export const authOptions: NextAuthOptions = {
 
         if (isLoginBlocked(preliminaryKeys, now)) return null
 
-        const dbUser = await findUserFlexibly(input);
+        // Master accounts are resolved by exact email only. They never use the
+        // historical salesperson alias resolver.
+        const exactMaster = await prisma.user.findFirst({
+          where: { email: { equals: input, mode: "insensitive" }, role: "MASTER_ADMIN", authType: "LOCAL" },
+        }).catch(() => null)
+        const dbUser = exactMaster || await findUserFlexibly(input);
         const attemptKeys = loginAttemptKeys(input, request, dbUser?.id)
         if (isLoginBlocked(attemptKeys, now)) return null
+
+        if (dbUser?.lockedUntil && dbUser.lockedUntil.getTime() > now) return null
 
         const isValid = await bcrypt.compare(credentials.password, dbUser?.password || dummyPasswordHash);
         if (!dbUser || !dbUser.password || !isValid) {
           recordLoginFailure(attemptKeys, now)
+          if (dbUser) {
+            const nextFailures = (dbUser.failedLoginCount || 0) + 1
+            await prisma.user.update({
+              where: { id: dbUser.id },
+              data: {
+                failedLoginCount: nextFailures,
+                lockedUntil: nextFailures >= MAX_LOGIN_FAILURES ? new Date(now + LOGIN_BLOCK_MS) : null,
+              },
+            }).catch(() => undefined)
+            await prisma.authAuditEvent.create({
+              data: { eventType: "LOCAL_LOGIN_FAILURE", actorUserId: dbUser.id, reasonCode: "INVALID_CREDENTIALS" },
+            }).catch(() => undefined)
+          }
           return null
         }
 
         clearLoginFailures(attemptKeys)
+        await prisma.user.update({ where: { id: dbUser.id }, data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date() } }).catch(() => undefined)
+        await prisma.authAuditEvent.create({
+          data: { eventType: "LOCAL_LOGIN_SUCCESS", actorUserId: dbUser.id },
+        }).catch(() => undefined)
 
         return {
           id: dbUser.zohoId || dbUser.id,
@@ -210,7 +235,8 @@ export const authOptions: NextAuthOptions = {
           name: dbUser.name,
           email: dbUser.email,
           role: dbUser.role,
-          isZohoUser: true,
+          isZohoUser: !isMasterAdminRole(dbUser.role),
+          mustRotatePassword: Boolean(dbUser.mustRotatePassword),
         };
       }
     })
@@ -269,6 +295,7 @@ export const authOptions: NextAuthOptions = {
         token.dbId = (user as any).dbId || user.id
         token.role = (user as any).role || "Sales Representative"
         token.isZohoUser = account?.provider === "zoho" || (user as any).isZohoUser
+        token.mustRotatePassword = Boolean((user as any).mustRotatePassword)
       }
       return token
     },
@@ -278,6 +305,7 @@ export const authOptions: NextAuthOptions = {
         session.user.dbId = token.dbId
         session.user.role = token.role
         session.user.isZohoUser = token.isZohoUser
+        session.user.mustRotatePassword = token.mustRotatePassword
       }
       return session
     },

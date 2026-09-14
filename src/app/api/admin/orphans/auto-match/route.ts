@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { computePOMatchScore } from "../suggest-matches/route"
+import { computePOMatchScore } from "../suggest-matches/match-score"
 import { requireAdministrator } from "@/lib/auth-helpers"
 
 export async function POST() {

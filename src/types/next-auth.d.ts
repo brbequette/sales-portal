@@ -5,6 +5,7 @@ declare module "next-auth" {
     dbId?: string
     role?: string
     isZohoUser?: boolean
+    mustRotatePassword?: boolean
   }
 
   interface Session {
@@ -13,6 +14,7 @@ declare module "next-auth" {
       dbId?: string
       role?: string
       isZohoUser?: boolean
+      mustRotatePassword?: boolean
     } & DefaultSession["user"]
   }
 }
@@ -23,5 +25,6 @@ declare module "next-auth/jwt" {
     dbId?: string
     role?: string
     isZohoUser?: boolean
+    mustRotatePassword?: boolean
   }
 }
