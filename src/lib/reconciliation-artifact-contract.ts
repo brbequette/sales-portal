@@ -17,6 +17,12 @@ const bytes = (value: unknown) => typeof value === "string" ? Buffer.from(value)
 
 export function artifactFingerprint(bytes: Uint8Array) { return hash(bytes) }
 
+export function canonicalArtifactFingerprint(manifest: Record<string, string>, format = "reconciliation-artifact-registration-v1") {
+  const names = Object.keys(manifest).sort()
+  if (names.length !== RECONCILIATION_ARTIFACT_FILES.length - 1 || names.some(name => !RECONCILIATION_ARTIFACT_FILES.includes(name as typeof RECONCILIATION_ARTIFACT_FILES[number])) || names.some(name => !/^[a-z0-9][a-z0-9._-]*\.json$/.test(name)) || names.some(name => !/^[a-f0-9]{64}$/.test(manifest[name]))) throw new Error("MANIFEST_INVALID")
+  return hash(JSON.stringify({ format, manifest: Object.fromEntries(names.map(name => [name, manifest[name]])) }))
+}
+
 function rejectSensitive(value: unknown): void {
   if (!value || typeof value !== "object") return
   for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
@@ -45,7 +51,7 @@ export function validateReconciliationArtifactPackage(files: Record<string, unkn
   const manifest = parsed(files["sha256-manifest.json"]) as Record<string, unknown>
   if (!manifest || typeof manifest !== "object") throw new Error("MANIFEST_INVALID")
   const manifestHashes = Object.keys(manifest).sort()
-  if (JSON.stringify(manifestHashes) !== JSON.stringify(expected.filter(name => name !== "sha256-manifest.json").sort()) || Object.values(manifest).some(value => typeof value !== "string" || !/^[a-f0-9]{64}$/i.test(value))) throw new Error("MANIFEST_INVALID")
+  if (JSON.stringify(manifestHashes) !== JSON.stringify(expected.filter(name => name !== "sha256-manifest.json").sort()) || Object.values(manifest).some(value => typeof value !== "string" || !/^[a-f0-9]{64}$/.test(value))) throw new Error("MANIFEST_INVALID")
   for (const name of expected.filter(file => file !== "sha256-manifest.json")) if (hash(bytes(files[name])) !== (manifest as Record<string, string>)[name]) throw new Error("MANIFEST_HASH_MISMATCH")
   const summary = parsed(files["reconciliation-summary.json"]) as Record<string, unknown>
   if (summary.dryRunComplete !== true || summary.readyPayloadIsolation !== true || summary.blockedDocumentExclusion !== true || summary.applyEnabled !== false || summary.status !== "COMPLETE_WITH_BLOCKERS") throw new Error("SUMMARY_GATE_INVALID")
@@ -59,5 +65,5 @@ export function validateReconciliationArtifactPackage(files: Record<string, unkn
   const blocked = new Set([...unresolved, ...uncertain])
   if (forwardIds.some(id => blocked.has(id))) throw new Error("BLOCKED_DOCUMENT_IN_READY_PAYLOAD")
   rejectSensitive(parsed(files["redaction-audit.json"]))
-  return Object.freeze({ readyCount: forwardIds.length, blockedCount: blocked.size, fingerprint: hash(JSON.stringify(files)) })
+  return Object.freeze({ readyCount: forwardIds.length, blockedCount: blocked.size, fingerprint: canonicalArtifactFingerprint(manifest as Record<string, string>) })
 }

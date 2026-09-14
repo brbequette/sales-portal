@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { buildSha256Manifest } from './reconciliation-manifest.mjs';
 const sha = value => crypto.createHash('sha256').update(value).digest('hex').slice(0, 16);
 const read = async (dir, name) => JSON.parse(await fs.readFile(path.join(dir, name), 'utf8'));
 const fields = value => Array.isArray(value) ? new Map(value.map(x => [x.apiName, x.value])) : new Map(Object.entries(value || {}));
@@ -22,7 +23,7 @@ export async function reviewRun(dir) {
   if (summary.writesEnabled !== false) reasons.push({ reason: 'APPLY_NOT_DISABLED' });
   const result = { pass: reasons.length === 0 && mismatch === 0 && forbidden === 0 && forward.length > 0, status: summary.status, artifactCounts: { documents: summary.documents, readyForward: forward.length, readyRollback: rollback.length, unresolved: unresolvedTotal, uncertain: uncertainTotal, failures }, forwardRollbackMismatchCount: mismatch, forbiddenFieldCount: forbidden, reasons, generatedAt: new Date().toISOString() };
   await fs.writeFile(path.join(dir, 'payload-review.json'), JSON.stringify(result, null, 2));
-  const manifest = {}; for (const name of await fs.readdir(dir)) { if (name === 'sha256-manifest.json' || name === 'credentials.env' || name.endsWith('.log') || name.startsWith('_zip')) continue; const stat = await fs.stat(path.join(dir, name)); if (stat.isFile()) manifest[name] = sha(await fs.readFile(path.join(dir, name))); }
+  const manifest = await buildSha256Manifest(dir);
   await fs.writeFile(path.join(dir, 'sha256-manifest.json'), JSON.stringify(manifest, null, 2));
   if (!result.pass) throw new Error('Independent payload review failed'); console.log('INDEPENDENT_PAYLOAD_REVIEW=PASS'); return result;
 }

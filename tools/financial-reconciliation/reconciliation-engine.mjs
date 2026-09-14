@@ -12,6 +12,7 @@ import { loadCostSources, resolveAuxiliaryCost, buildCatalogCostSources, buildHi
 import { runReconciliationCore } from './reconciliation-engine-core.mjs';
 import { sanitizeSourceSample, assertRedactedSamples } from './reconciliation-diagnostics.mjs';
 import { writeRuntimeArtifacts } from './reconciliation-artifact-core.mjs';
+import { buildSha256Manifest } from './reconciliation-manifest.mjs';
 
 const exec = promisify(execFile);
 const args = new Set(process.argv.slice(2));
@@ -19,17 +20,7 @@ const repo = process.env.RECONCILIATION_REPO || process.cwd();
 const inputs = process.env.RECONCILIATION_INPUTS;
 const out = process.env.RECONCILIATION_OUTPUT || path.join(repo, 'tmp', 'reconciliation-runs', new Date().toISOString().replace(/[-:.TZ]/g, ''));
 const sha256 = data => crypto.createHash('sha256').update(data).digest('hex');
-export async function buildArtifactHashManifest(outputDir) {
-  const hashes = {};
-  for (const name of await fs.readdir(outputDir)) {
-    if (name === 'sha256-manifest.json' || name.startsWith('_zip') || name.endsWith('.log') || name === 'credentials.env') continue;
-    const filePath = path.join(outputDir, name);
-    const stat = await fs.stat(filePath);
-    if (!stat.isFile()) throw new Error(`ARTIFACT_NOT_FILE category=DIRECTORY_WHERE_FILE_EXPECTED name=${path.basename(name)}`);
-    hashes[name] = sha256(await fs.readFile(filePath));
-  }
-  return hashes;
-}
+export const buildArtifactHashManifest = buildSha256Manifest;
 const writeJson = (name, value) => fs.writeFile(path.join(out, name), JSON.stringify(value, null, 2));
 const runStage = (stage, operation) => { try { return operation(); } catch (error) { throw new Error(`${stage}:${String(error?.message || 'FAILED').replace(/\r?\n.*/s, '')}`); } };
 
