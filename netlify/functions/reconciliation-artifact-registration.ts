@@ -1,5 +1,6 @@
 import { Handler } from "@netlify/functions"
 import { getStore } from "@netlify/blobs"
+import { gunzipSync } from "node:zlib"
 import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
 import { prisma } from "./lib/prisma"
 import { isAdminRole } from "../../src/lib/roles"
@@ -33,7 +34,19 @@ export const handler: Handler = async event => {
       return response(202, { status: "CHUNK_ACCEPTED", index })
     }
     if (body.action !== "finalize") return response(400, { error: "FINALIZE_REQUIRED" })
-    const files = body.files as Record<string, unknown>
+    let files = body.files as Record<string, unknown>
+    if (!files && body.sessionId) {
+      const session = String(body.sessionId); const total = Number(body.total)
+      if (!session || !Number.isInteger(total) || total < 1 || total > 32) return response(400, { error: "CHUNK_SEQUENCE_INVALID" })
+      const parts: Buffer[] = []
+      for (let index = 0; index < total; index++) {
+        const part = await store().get(`sessions/${caller.dbId}/${session}/${index}`, { type: "arrayBuffer" })
+        if (!part) return response(409, { error: "CHUNK_INCOMPLETE" })
+        parts.push(Buffer.from(part as ArrayBuffer))
+      }
+      const unpacked = JSON.parse(gunzipSync(Buffer.concat(parts)).toString("utf8")) as Record<string, unknown>
+      files = unpacked.files as Record<string, unknown>
+    }
     const validation = validateReconciliationArtifactPackage(files)
     const artifactId = `reconciliation/${validation.fingerprint}`
     const existing = await prisma.reconciliationArtifactRegistration.findUnique({ where: { fingerprint: validation.fingerprint } })

@@ -6,6 +6,7 @@ param(
   [switch]$ApplyReadyCanary,
   [switch]$ApplyReadyResume,
   [switch]$ZohoApplyPreflight,
+  [switch]$PrepareArtifactRegistrationPackage,
   [string]$RunDirectory,
   [string]$CredentialFile,
   [int]$ApplyCanary = 0,
@@ -186,13 +187,21 @@ if ($ZohoApplyPreflight) {
   Write-Output 'APPLY_NOT_EXECUTED=PASS'
   exit $code
 }
+if ($PrepareArtifactRegistrationPackage) {
+  if ([string]::IsNullOrWhiteSpace($RunDirectory)) { throw 'RUN_DIRECTORY_REQUIRED' }
+  $resolvedRun = (Resolve-Path -LiteralPath $RunDirectory).Path
+  $packageDir = Join-Path (Split-Path -Parent $resolvedRun) 'registration-packages'
+  & node --experimental-strip-types (Join-Path $repo 'reconciliation-artifact-package.mjs') $resolvedRun $packageDir
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  exit 0
+}
 if (-not (Test-Path -LiteralPath $docker)) { throw "Missing approved Docker CLI." }
 if (-not (Test-Path -LiteralPath $repo)) { throw "Missing isolated repository." }
 if (-not (Test-Path -LiteralPath $inputs)) { throw "Missing reconciliation inputs." }
 New-Item -ItemType Directory -Path $work -Force | Out-Null
 $requiredFiles = @(
   'reconciliation-focused-test-runner.mjs','tests/enrichment-order.test.mjs',
-  'reconciliation-engine.mjs','reconciliation-db.mjs','reconciliation-calculations.mjs',
+  'reconciliation-engine.mjs','reconciliation-db.mjs','reconciliation-calculations.mjs','reconciliation-artifact-package.mjs',
   'reconciliation-payload-review.mjs','reconciliation-redaction-audit.mjs',
   'reconciliation-credential-preflight.mjs','reconciliation-db-preflight.mjs',
   'tests/rules.test.mjs','tests/calculations.test.mjs',
