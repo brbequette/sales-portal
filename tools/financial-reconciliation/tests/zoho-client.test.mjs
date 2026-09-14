@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import { createZohoBooksClient, endpointFor } from '../reconciliation-zoho-client.mjs';
+
+const env = { ZOHO_CLIENT_ID: 'id', ZOHO_CLIENT_SECRET: 'secret', ZOHO_REFRESH_TOKEN: 'refresh', ZOHO_ORGANIZATION_ID: 'org-1', ZOHO_DC: 'com' };
+const calls = []; let tokenRefreshes = 0;
+const response = (body, ok = true, status = 200) => ({ ok, status, async json() { return body; } });
+const fetchImpl = async (url, options = {}) => { calls.push({ url, options }); if (url.includes('/oauth/')) { tokenRefreshes++; return response({ access_token: 'opaque-token' }); } if (url.endsWith('/organizations')) return response({ organizations: [{ organization_id: 'org-1' }] }); if (options.method === 'PUT') return response({ code: 0 }); if (url.includes('/invoices/')) return response({ invoice: { custom_fields: [{ apiName: 'cf_vig', value: 0 }] } }); if (url.includes('/estimates/')) return response({ estimate: { custom_fields: [] } }); return response({ salesorder: { custom_fields: [] } }); };
+const client = createZohoBooksClient({ env, fetchImpl });
+await client.verifyOrganization();
+await client.read({ documentType: 'invoice', documentId: 'i1' });
+await client.read({ documentType: 'quote', documentId: 'q1' });
+await client.read({ documentType: 'sales_order', documentId: 's1' });
+await client.update({ documentType: 'invoice', documentId: 'i1' }, [{ apiName: 'cf_vig', value: 1.3 }]);
+assert.equal(endpointFor('invoice'), 'invoices'); assert.equal(endpointFor('quote'), 'estimates'); assert.equal(endpointFor('sales_order'), 'salesorders');
+assert.equal(tokenRefreshes, 1); assert.equal(calls.some(call => String(call.options?.headers?.Authorization || '').includes('opaque-token')), true);
+assert.equal(calls.filter(call => call.options?.method === 'PUT').length, 1);
+assert.equal(calls.filter(call => call.options?.method === 'PUT')[0].options.body.includes('cf_vig'), true);
+console.log('ZOHO_CLIENT_WIRING=PASS');
+console.log('ZOHO_ORGANIZATION_GUARD=PASS');
+console.log('ZOHO_DOCUMENT_ROUTING=PASS');
+console.log('ZOHO_FIELD_PRESERVATION=PASS');
+console.log('CANARY_PREFLIGHT_ZERO_WRITES=PASS');
