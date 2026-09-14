@@ -1,5 +1,4 @@
 import { prisma } from "./prisma"
-// @ts-ignore shared platform-neutral provider
 import { createZohoTokenProvider, cleanEnv as sharedCleanEnv, normalizeDataCenter } from "./zoho-token-provider.mjs"
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -30,8 +29,8 @@ const TOKEN_CACHE_KEY = 'zoho_token_cache'
 const provider = createZohoTokenProvider({
   env: process.env,
   cache: {
-    read: async key => prisma.systemSetting.findUnique({ where: { key } }),
-    write: async (key, value) => prisma.systemSetting.upsert({ where: { key }, update: { value: JSON.stringify(value) }, create: { key, value: JSON.stringify(value) } }),
+    read: async (key: string) => prisma.systemSetting.findUnique({ where: { key } }),
+    write: async (key: string, value: { token: string; expiresAt: number }) => prisma.systemSetting.upsert({ where: { key }, update: { value: JSON.stringify(value) }, create: { key, value: JSON.stringify(value) } }),
   },
 })
 
