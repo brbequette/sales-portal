@@ -11,7 +11,7 @@ const cache = { read: async key => { calls.push(`cache-read:${key}`); return nul
 const fetchImpl = async (url, init={}) => { calls.push(url.includes('/oauth/') ? 'refresh' : 'organization'); if(url.includes('/oauth/')) return { ok:true, status:200, json:async()=>({access_token:'fake',expires_in:3600}) }; return { ok:true, status:200, json:async()=>({organizations:[{organization_id:'org'}]}) }; };
 const result = await runZohoApplyPreflight({ env, cache, fetchImpl, outputDir });
 assert.equal(result.status, 'PASS'); assert.equal(result.documentWrites, 0); assert.deepEqual(writes, ['zoho_token_cache']); assert.deepEqual(calls, ['cache-read:zoho_token_cache','refresh','organization']);
-const artifact = JSON.parse(await fs.readFile(path.join(outputDir, 'zoho-apply-preflight.json'), 'utf8')); assert.deepEqual(artifact, { status:'PASS', category:null, documentWrites:0, organizationGuard:true });
+const artifact = JSON.parse(await fs.readFile(path.join(outputDir, 'zoho-apply-preflight.json'), 'utf8')); assert.equal(artifact.status, 'PASS'); assert.equal(artifact.category, null); assert.equal(artifact.documentReads, 0); assert.equal(artifact.documentWrites, 0); assert.equal(artifact.organizationVerified, true); assert.equal(artifact.cacheRead, true); assert.equal(artifact.cacheWrite, true);
 await fs.rm(outputDir, { recursive:true, force:true });
 console.log('ZOHO_APPLY_PREFLIGHT_CONTRACT=PASS');
 console.log('ORGANIZATION_GUARD_BEFORE_WRITES=PASS');

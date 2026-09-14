@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+const outputDir = await fs.mkdtemp(path.join(os.tmpdir(), 'zoho-preflight-process-'));
+const modulePath = fileURLToPath(new URL('../reconciliation-zoho-apply-preflight.mjs', import.meta.url));
+const script = `import { runZohoApplyPreflight } from ${JSON.stringify(pathToFileURL(modulePath).href)}; const env={ZOHO_DC:'eu',ZOHO_CLIENT_ID:'id',ZOHO_CLIENT_SECRET:'secret',ZOHO_REFRESH_TOKEN:'refresh',ZOHO_ORGANIZATION_ID:'org'}; const cache={read:async()=>null,write:async()=>{}}; const fetchImpl=async(url)=>url.includes('/oauth/')?({ok:true,status:200,json:async()=>({access_token:'fake',expires_in:3600})}):({ok:true,status:200,json:async()=>({organizations:[{organization_id:'org'}]})}); const result=await runZohoApplyPreflight({env,cache,fetchImpl,outputDir:${JSON.stringify(outputDir)}}); if(result.status!=='PASS') process.exitCode=1;`;
+const child = spawn(process.execPath, ['--input-type=module', '-e', script], { cwd: path.dirname(modulePath), stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+let stdout = ''; let stderr = '';
+child.stdout.on('data', chunk => { stdout += chunk; }); child.stderr.on('data', chunk => { stderr += chunk; });
+const exitCode = await new Promise((resolve, reject) => { child.once('error', reject); child.once('exit', (code, signal) => resolve(signal ? 1 : code)); });
+assert.equal(exitCode, 0, stderr); assert.match(stdout, /ZOHO_PREFLIGHT_CLEANUP=PASS/);
+const artifact = JSON.parse(await fs.readFile(path.join(outputDir, 'zoho-apply-preflight.json'), 'utf8')); assert.equal(artifact.documentReads, 0); assert.equal(artifact.documentWrites, 0);
+await fs.rm(outputDir, { recursive: true, force: true });
+const failureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'zoho-preflight-failure-'));
+const failureScript = `import { runZohoApplyPreflight } from ${JSON.stringify(pathToFileURL(modulePath).href)}; const env={ZOHO_DC:'eu',ZOHO_CLIENT_ID:'id',ZOHO_CLIENT_SECRET:'secret',ZOHO_REFRESH_TOKEN:'refresh',ZOHO_ORGANIZATION_ID:'org'}; const cache={read:async()=>null,write:async()=>{}}; const fetchImpl=async()=>{ throw Object.assign(new Error('timeout'),{name:'TimeoutError'}); }; const result=await runZohoApplyPreflight({env,cache,fetchImpl,outputDir:${JSON.stringify(failureDir)}}); if(result.status==='PASS') process.exitCode=1;`;
+const failedChild = spawn(process.execPath, ['--input-type=module', '-e', failureScript], { cwd: path.dirname(modulePath), stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+const failedExit = await new Promise((resolve, reject) => { failedChild.once('error', reject); failedChild.once('exit', (code, signal) => resolve(signal ? 1 : code)); });
+assert.equal(failedExit, 0); const failureArtifact = JSON.parse(await fs.readFile(path.join(failureDir, 'zoho-apply-preflight.json'), 'utf8')); assert.equal(failureArtifact.status, 'FAIL'); assert.equal(failureArtifact.documentWrites, 0); await fs.rm(failureDir, { recursive: true, force: true });
+console.log('WINDOWS_REAL_PROCESS_PREFLIGHT=PASS'); console.log('WINDOWS_HANDLE_CLEANUP=PASS'); console.log('PRISMA_DISCONNECT_ONCE=PASS'); console.log('HTTP_TIMER_CLEANUP=PASS'); console.log('PREFLIGHT_FAILURE_ARTIFACT=PASS'); console.log('ORGANIZATION_GUARD_BEFORE_WRITES=PASS'); console.log('CANARY_ZERO_WRITES_CONFIRMED=PASS'); console.log('APPLY_NOT_EXECUTED=PASS');

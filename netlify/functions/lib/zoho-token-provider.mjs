@@ -20,7 +20,7 @@ export function classifyOAuthFailure(error, status) {
   return 'other_oauth_failure';
 }
 
-export function createZohoTokenProvider({ env = {}, cache = {}, fetchImpl = globalThis.fetch, now = () => Date.now(), timeoutMs = 15000, abort = AbortSignal } = {}) {
+export function createZohoTokenProvider({ env = {}, cache = {}, fetchImpl = globalThis.fetch, now = () => Date.now(), timeoutMs = 15000 } = {}) {
   let cachedToken = null;
   let cachedExpiresAt = 0;
   const dc = normalizeDataCenter(env.ZOHO_DC);
@@ -45,12 +45,15 @@ export function createZohoTokenProvider({ env = {}, cache = {}, fetchImpl = glob
     if (required.some(key => !config[key])) { const e = new Error('other_oauth_failure'); e.oauthCode = 'other_oauth_failure'; throw e; }
     const body = new URLSearchParams({ ...config, grant_type: 'refresh_token' }).toString();
     let response;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       response = await fetchImpl(`https://accounts.zoho.${dc}/oauth/v2/token`, {
         method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body,
-        signal: abort.timeout(timeoutMs),
+        signal: controller.signal,
       });
     } catch (error) { const e = new Error(classifyOAuthFailure(error)); e.oauthCode = classifyOAuthFailure(error); throw e; }
+    finally { clearTimeout(timer); }
     let payload = {};
     try { payload = await response.json(); } catch { payload = {}; }
     if (!response.ok || !payload.access_token) {
