@@ -116,8 +116,16 @@ async function readJson(file) { return JSON.parse(await fs.readFile(file, 'utf8'
 
 if (process.argv[1] && process.argv[1].endsWith('reconciliation-ready-apply.mjs')) {
   const mode = process.argv[process.argv.indexOf('--mode') + 1];
-  const manifestPath = process.argv[process.argv.indexOf('--manifest') + 1];
-  if (!['canary', 'resume'].includes(mode) || !manifestPath) { console.error('APPLY_MANIFEST_REQUIRED'); process.exit(2); }
+  const runDirectory = process.argv[process.argv.indexOf('--run-directory') + 1];
+  if (!['canary', 'resume'].includes(mode) || !runDirectory) { console.error('APPLY_RUN_DIRECTORY_REQUIRED'); process.exit(2); }
   if (process.env.RECONCILIATION_APPLY_AUTHORIZED !== '1') { console.error('APPLY_EXPLICIT_AUTHORIZATION_REQUIRED'); process.exit(2); }
-  console.error('APPLY_CLIENT_REQUIRED'); process.exit(2);
+  const { createZohoBooksClient } = await import('./reconciliation-zoho-client.mjs');
+  const metadata = await readJson(path.join(runDirectory, 'custom-field-metadata.json'));
+  const allowlist = new Set(metadata.allowlist || metadata.calculatedAllowlist || []);
+  const plan = await loadApplyManifest({ outputDir: runDirectory, allowlist });
+  const client = createZohoBooksClient();
+  await client.verifyOrganization();
+  const report = await executeReadyApply({ plan, client, outputDir: runDirectory, mode, allowlist, checkpointPath: path.join(runDirectory, 'apply-checkpoint.json'), canaryVerificationPath: mode === 'resume' ? path.join(runDirectory, 'canary-verification.json') : null, authorization: true, expectedOrganizationId: client.organizationId });
+  if (report.failed > 0) process.exit(1);
+  if (mode === 'canary') await atomicWrite(path.join(runDirectory, 'canary-verification.json'), { mode: 'canary', status: 'PASS', verified: report.verified });
 }
