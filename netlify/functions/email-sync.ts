@@ -76,7 +76,7 @@ export const handler: Handler = async (event) => {
         const existing = await prisma.email.findUnique({ where: { zohoMailId: mail.messageId } })
         if (existing) continue
 
-        const contentRes = await fetchEmailContent(ZOHO_ACCOUNT_ID, mail.messageId)
+        const contentRes = await fetchEmailContent(ZOHO_ACCOUNT_ID, inbox.folderId, mail.messageId)
         const content = contentRes.data?.content || ""
 
         const fromAddress = mail.sender || mail.fromAddress
@@ -132,7 +132,16 @@ export const handler: Handler = async (event) => {
         })
         processedCount++
       } catch (emailError) {
-        console.error(`Failed to process email ${mail.messageId}:`, emailError)
+        const code = emailError instanceof Error ? emailError.message : "EMAIL_PROCESSING_FAILED"
+        if (code === "URL_RULE_NOT_CONFIGURED" || code === "NOT_FOUND") {
+          await prisma.email.upsert({
+            where: { zohoMailId: mail.messageId },
+            update: { processingError: code, processedAt: new Date(), status: "CONTENT_UNAVAILABLE", subject: mail.subject || "", fromAddress: mail.sender || mail.fromAddress || "", toAddress: mail.toAddress || "", direction: "INBOUND" },
+            create: { zohoMailId: mail.messageId, zohoAccountId: ZOHO_ACCOUNT_ID, subject: mail.subject || "", fromAddress: mail.sender || mail.fromAddress || "", toAddress: mail.toAddress || "", direction: "INBOUND", status: "CONTENT_UNAVAILABLE", processingError: code, processedAt: new Date(), receivedAt: new Date(parseInt(mail.receivedTime, 10)) },
+          })
+        } else {
+          console.error("Email content processing failed", { code })
+        }
         continue // Skip this email, process the rest
       }
     }

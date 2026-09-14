@@ -1,4 +1,5 @@
 import { getZohoAccessToken, ZOHO_DC } from "./zoho-auth"
+import { requestMailContent } from "../../../src/lib/zoho-mail-content"
 
 const MAIL_BASE_URL = `https://mail.zoho.${ZOHO_DC}/api`
 
@@ -29,13 +30,9 @@ export async function fetchEmails(accountId: string, folderId: string, limit: nu
   return res.json()
 }
 
-export async function fetchEmailContent(accountId: string, messageId: string) {
+export async function fetchEmailContent(accountId: string, folderId: string, messageId: string) {
   const token = await getZohoAccessToken()
-  const res = await fetch(`${MAIL_BASE_URL}/accounts/${accountId}/messages/${messageId}/content`, { signal: AbortSignal.timeout(15000),
-    headers: { 'Authorization': `Zoho-oauthtoken ${token}` }
-  })
-  if (!res.ok) throw new Error(`Zoho Mail content fetch failed: ${await res.text()}`)
-  return res.json()
+  return requestMailContent({ baseUrl: MAIL_BASE_URL, accountId, folderId, messageId, token, fetchImpl: (url, init) => fetch(url, { ...init, signal: AbortSignal.timeout(15000) }) })
 }
 
 export async function sendEmail(accountId: string, payload: { fromAddress: string, toAddress: string, ccAddress?: string, subject: string, content: string }) {
