@@ -505,6 +505,20 @@ model SystemSetting {
   updatedAt        DateTime @updatedAt
 }
 
+model ReconciliationArtifactRegistration {
+  id              String   @id @default(cuid())
+  artifactId      String   @unique
+  fingerprint     String   @unique
+  aggregate       Json
+  uploaderUserId  String
+  createdAt       DateTime @default(now())
+  finalizedAt     DateTime?
+  validationStatus String
+  productionCommit String?
+  approvalStatus  String   @default("REGISTERED_UNAPPROVED")
+  @@index([uploaderUserId, createdAt])
+}
+
 model CustomFieldMapping {
   id            String   @id @default(cuid())
   entity        String // INVOICE, SALESORDER, ESTIMATE, ITEM, ACCOUNT, DEAL
