@@ -10,7 +10,8 @@
     "lint": "eslint",
     "reconciliation:test": "node reconciliation-focused-test-runner.mjs",
     "reconciliation:dry-run": "node reconciliation-engine.mjs --dry-run",
-    "reconciliation:db-preflight": "node reconciliation-db-preflight.mjs"
+    "reconciliation:db-preflight": "node reconciliation-db-preflight.mjs",
+    "reconciliation:apply-contract": "node tests/ready-apply.test.mjs"
   },
   "dependencies": {
     "@netlify/blobs": "10.7.13",

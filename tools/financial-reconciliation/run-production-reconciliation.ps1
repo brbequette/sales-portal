@@ -3,6 +3,8 @@ param(
   [switch]$ZipSmokeOnly,
   [switch]$DbPreflightOnly,
   [switch]$ValidateDbConfigOnly,
+  [switch]$ApplyReadyCanary,
+  [switch]$ApplyReadyResume,
   [int]$ApplyCanary = 0,
   [string]$Manifest
 )
@@ -149,6 +151,14 @@ if ($ValidateDbConfigOnly) {
   if ($normalized.Reason) { Write-Output $normalized.Reason; exit 1 }
   Write-Output 'DB_CONFIG_VALIDATION=PASS'; exit 0
 }
+if ($ApplyReadyCanary -or $ApplyReadyResume) {
+  if ($Apply) { throw 'APPLY_REMAINS_DISABLED' }
+  if ([string]::IsNullOrWhiteSpace($Manifest)) { throw 'APPLY_MANIFEST_REQUIRED' }
+  $mode = if ($ApplyReadyCanary) { 'canary' } else { 'resume' }
+  & node (Join-Path $repo 'reconciliation-ready-apply.mjs') '--mode' $mode '--manifest' $Manifest
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  exit 0
+}
 if (-not (Test-Path -LiteralPath $docker)) { throw "Missing approved Docker CLI." }
 if (-not (Test-Path -LiteralPath $repo)) { throw "Missing isolated repository." }
 if (-not (Test-Path -LiteralPath $inputs)) { throw "Missing reconciliation inputs." }
@@ -159,6 +169,7 @@ $requiredFiles = @(
   'reconciliation-payload-review.mjs','reconciliation-redaction-audit.mjs',
   'reconciliation-credential-preflight.mjs','reconciliation-db-preflight.mjs',
   'tests/rules.test.mjs','tests/calculations.test.mjs',
+  'reconciliation-ready-apply.mjs','tests/ready-apply.test.mjs',
   'tests/payload-review.test.mjs','tests/db-structure.test.mjs','tests/db-preflight-diagnostic.test.mjs','tests/db-wrapper-structure.test.mjs','tests/eligibility-canary.test.mjs',
   'tests/cost-fixtures.test.mjs','tests/cost-source-preflight.test.mjs','tests/item-fallback.integration.test.mjs','tests/breakdown-fixtures.test.mjs','tests/breakdown-all-exports.integration.test.mjs','tests/zip-extraction.test.mjs','tests/classification-fixtures.test.mjs','tests/engine-core.integration.test.mjs','tests/runtime-artifact.integration.test.mjs','tests/diagnostic-redaction.test.mjs','reconciliation-engine-core.mjs','reconciliation-diagnostics.mjs','reconciliation-zip-smoke.mjs','reconciliation-cost-sources.mjs'
 )
