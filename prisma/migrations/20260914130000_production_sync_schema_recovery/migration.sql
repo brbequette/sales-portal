@@ -1,9 +1,12 @@
 -- Additive, idempotent recovery for objects proven absent from production logs.
 ALTER TABLE "Task" ADD COLUMN IF NOT EXISTS "leadId" TEXT;
 CREATE INDEX IF NOT EXISTS "Task_leadId_idx" ON "Task"("leadId");
+ALTER TABLE "Email" ADD COLUMN IF NOT EXISTS "mailboxAddress" TEXT;
+ALTER TABLE "Email" ADD COLUMN IF NOT EXISTS "externalMessageId" TEXT;
 ALTER TABLE "Email" ADD COLUMN IF NOT EXISTS "provider" TEXT NOT NULL DEFAULT 'ZOHO';
 CREATE UNIQUE INDEX IF NOT EXISTS "Email_provider_mailboxAddress_externalMessageId_key" ON "Email"("provider", "mailboxAddress", "externalMessageId");
 CREATE INDEX IF NOT EXISTS "Email_provider_receivedAt_idx" ON "Email"("provider", "receivedAt");
+CREATE INDEX IF NOT EXISTS "Email_mailboxAddress_receivedAt_idx" ON "Email"("mailboxAddress", "receivedAt");
 CREATE TABLE IF NOT EXISTS "ShippingPreset" (
   "id" TEXT NOT NULL PRIMARY KEY, "name" TEXT NOT NULL, "length" DOUBLE PRECISION NOT NULL,
   "width" DOUBLE PRECISION NOT NULL, "height" DOUBLE PRECISION NOT NULL, "weight" DOUBLE PRECISION NOT NULL,
