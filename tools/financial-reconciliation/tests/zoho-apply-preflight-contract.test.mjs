@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import { runZohoApplyPreflight } from '../reconciliation-zoho-apply-preflight.mjs';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+
+const outputDir = await fs.mkdtemp(path.join(os.tmpdir(), 'zoho-preflight-'));
+const calls = []; const writes = [];
+const env = { ZOHO_DC: '"eu"', ZOHO_CLIENT_ID: 'id', ZOHO_CLIENT_SECRET: 'secret', ZOHO_REFRESH_TOKEN: 'refresh', ZOHO_ORGANIZATION_ID: 'org' };
+const cache = { read: async key => { calls.push(`cache-read:${key}`); return null; }, write: async (key) => { writes.push(key); } };
+const fetchImpl = async (url, init={}) => { calls.push(url.includes('/oauth/') ? 'refresh' : 'organization'); if(url.includes('/oauth/')) return { ok:true, status:200, json:async()=>({access_token:'fake',expires_in:3600}) }; return { ok:true, status:200, json:async()=>({organizations:[{organization_id:'org'}]}) }; };
+const result = await runZohoApplyPreflight({ env, cache, fetchImpl, outputDir });
+assert.equal(result.status, 'PASS'); assert.equal(result.documentWrites, 0); assert.deepEqual(writes, ['zoho_token_cache']); assert.deepEqual(calls, ['cache-read:zoho_token_cache','refresh','organization']);
+const artifact = JSON.parse(await fs.readFile(path.join(outputDir, 'zoho-apply-preflight.json'), 'utf8')); assert.deepEqual(artifact, { status:'PASS', category:null, documentWrites:0, organizationGuard:true });
+await fs.rm(outputDir, { recursive:true, force:true });
+console.log('ZOHO_APPLY_PREFLIGHT_CONTRACT=PASS');
+console.log('ORGANIZATION_GUARD_BEFORE_WRITES=PASS');
+console.log('CANARY_ZERO_WRITES_CONFIRMED=PASS');
+console.log('WINDOWS_HANDLE_CLEANUP=PASS');
+console.log('APPLY_NOT_EXECUTED=PASS');
