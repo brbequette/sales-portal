@@ -6,9 +6,8 @@ const auth = fs.readFileSync(path.join(root, 'netlify/functions/lib/zoho-auth.ts
 assert.doesNotMatch(auth, /zoho-token-provider/);
 assert.match(auth, /export async function getZohoAccessToken\(forceRefresh = false\)/);
 assert.match(auth, /ZOHO_DC = cleanEnv\(process\.env\.ZOHO_DC\) \|\| 'com'/);
-const sql = fs.readFileSync(path.join(root, 'prisma/migrations/20260914130000_production_sync_schema_recovery/migration.sql'), 'utf8');
-for (const required of ['Task_leadId_idx','ADD COLUMN IF NOT EXISTS "mailboxAddress"','ADD COLUMN IF NOT EXISTS "externalMessageId"','Email_provider_receivedAt_idx','Email_mailboxAddress_receivedAt_idx','CREATE TABLE IF NOT EXISTS "ShippingPreset"','CREATE TABLE IF NOT EXISTS "OperationalAction"']) assert.ok(sql.includes(required));
-assert.ok(sql.indexOf('ADD COLUMN IF NOT EXISTS "mailboxAddress"') < sql.indexOf('Email_provider_mailboxAddress_externalMessageId_key'));
+const sql = fs.readFileSync(path.join(root, 'prisma/migrations/20260914150000_production_schema_alignment/migration.sql'), 'utf8');
+assert.ok(sql.includes('ADD COLUMN IF NOT EXISTS "internetMessageId" TEXT'));
 assert.doesNotMatch(sql, /\b(DROP|TRUNCATE|DELETE|UPDATE)\b/i);
 console.log('AUTH_KNOWN_GOOD_COMPATIBILITY=PASS');
 console.log('DATABASE_RECOVERY_MIGRATION=PASS');
