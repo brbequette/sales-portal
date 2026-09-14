@@ -7,6 +7,7 @@ import { calculateDocumentCosts, buildFieldsToUpdate } from "./lib/cost-calculat
 import { detectConflict, updateSalesOrderRecord } from "../../src/lib/sync-engine"
 
 import { prisma } from "./lib/prisma"
+import { assertSyncJobWritable, recordSyncWriteAttempt } from "../../src/lib/sync-job-control"
 import { authorizeCostProcessing, hasPrivilegedCostOptions } from "./lib/document-access"
 const ZOHO_DC = process.env.ZOHO_DC || "com"
 const TRUSTED_SYSTEM_COST_REQUEST = Symbol("trusted-system-salesorder-cost-request")
@@ -44,7 +45,7 @@ export const internalHandler: Handler = async (event) => {
       ? { role: "ADMIN" }
       : await authenticateFunction(event)
     const body = JSON.parse(event.body || "{}")
-    const { salesorderNumber, salesorderId, vigRate: manualVigRate, commissionPercent: manualCommPct, noVigOverrides, skipLoopGuard } = body
+    const { salesorderNumber, salesorderId, vigRate: manualVigRate, commissionPercent: manualCommPct, noVigOverrides, skipLoopGuard, syncJobId, writeBack = true } = body
 
     if (!salesorderNumber && !salesorderId) {
       return { statusCode: 400, headers: cors, body: JSON.stringify({ success: false, error: "Missing salesorderNumber or salesorderId" }) }
@@ -151,7 +152,9 @@ export const internalHandler: Handler = async (event) => {
 
     // 6. PUT to Zoho Books — only if changes exist
     let zohoUpdateResult: any = null
-    if (fieldsToUpdate.length > 0) {
+    if (fieldsToUpdate.length > 0 && writeBack) {
+      await assertSyncJobWritable(syncJobId)
+      await recordSyncWriteAttempt({ jobId: syncJobId, documentType: "sales_order", documentId: String(booksSalesorderId), status: "ATTEMPTED" })
       markProcessed(booksSalesorderId)
       const putRes = await fetch(`${baseUrl}/salesorders/${booksSalesorderId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
         method: "PUT",
@@ -164,6 +167,7 @@ export const internalHandler: Handler = async (event) => {
         console.error("Zoho Books update failed:", JSON.stringify(putData))
       } else {
         console.log(`✅ Updated ${fieldsToUpdate.length} fields on sales order ${salesorder.salesorder_number} (${changesDetected} changed)`)
+        await recordSyncWriteAttempt({ jobId: syncJobId, documentType: "sales_order", documentId: String(booksSalesorderId), status: "SUCCEEDED" })
       }
     } else {
       console.log(`⏭️ No changes for sales order ${salesorder.salesorder_number} — skipping PUT`)

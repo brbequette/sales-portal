@@ -15,6 +15,7 @@ import { Prisma } from "@prisma/client"
 
 import { prisma } from "./lib/prisma"
 import { authorizeCostProcessing, hasPrivilegedCostOptions } from "./lib/document-access"
+import { assertSyncJobWritable, recordSyncWriteAttempt } from "../../src/lib/sync-job-control"
 const ORG_ID = ZOHO_ORGANIZATION_ID
 
 let invoiceFieldDefinitionsCache: { expiresAt: number; fields: any[] } | null = null
@@ -83,7 +84,7 @@ export const internalHandler: Handler = async (event) => {
       ? { userId: "system", dbId: "system", role: "ADMIN" }
       : await authenticateFunction(event)
     const body = JSON.parse(event.body || "{}")
-    const { invoiceNumber, invoiceId, vigRate: manualVigRate, commissionPercent: manualCommPct, noVigOverrides, skipLoopGuard, applyTariff } = body
+    const { invoiceNumber, invoiceId, vigRate: manualVigRate, commissionPercent: manualCommPct, noVigOverrides, skipLoopGuard, applyTariff, syncJobId, writeBack = true } = body
 
     if (skipLoopGuard) {
       const appSettings = await getSystemSettings(prisma)
@@ -217,7 +218,9 @@ export const internalHandler: Handler = async (event) => {
       putPayload.reason = "Applied 12.5% tariff surcharge and recalculated invoice costs"
     }
 
-    if (Object.keys(putPayload).length > 0) {
+    if (Object.keys(putPayload).length > 0 && writeBack) {
+      await assertSyncJobWritable(syncJobId)
+      await recordSyncWriteAttempt({ jobId: syncJobId, documentType: "invoice", documentId: String(booksInvoiceId), status: "ATTEMPTED" })
       markProcessed(booksInvoiceId)
       const putRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
         method: "PUT",
@@ -231,6 +234,7 @@ export const internalHandler: Handler = async (event) => {
         throw new Error(`Zoho Books update failed (${putData.code ?? putRes.status}): ${putData.message || "Unknown error"}`)
       } else {
         console.log(`✅ Updated invoice ${invoice.invoice_number} in Zoho`)
+        await recordSyncWriteAttempt({ jobId: syncJobId, documentType: "invoice", documentId: String(booksInvoiceId), status: "SUCCEEDED" })
       }
     } else {
       console.log(`Skip: No changes for invoice ${invoice.invoice_number} — skipping PUT`)

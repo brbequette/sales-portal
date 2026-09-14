@@ -95,6 +95,7 @@ model User {
   compensationPlans    CompensationPlan[]
   basePayEarnings      BasePayEarning[]
   emailMailboxes       EmailMailbox[]
+  syncJobs             SyncJob[]
 
   @@index([role])
 }
@@ -523,6 +524,48 @@ model ReconciliationArtifactRegistration {
   productionCommit String?
   approvalStatus  String   @default("REGISTERED_UNAPPROVED")
   @@index([uploaderUserId, createdAt])
+
+model SyncJob {
+  id               String   @id @default(cuid())
+  actorId          String
+  requestedScope   Json
+  writeBack        Boolean  @default(false)
+  status           String   @default("QUEUED")
+  stage            String   @default("QUEUED")
+  total            Int      @default(0)
+  processed        Int      @default(0)
+  succeeded        Int      @default(0)
+  skipped          Int      @default(0)
+  failed           Int      @default(0)
+  startedAt        DateTime?
+  heartbeatAt      DateTime?
+  cancelRequestedAt DateTime?
+  completedAt      DateTime?
+  errorCategory    String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  actor            User     @relation(fields: [actorId], references: [id])
+  writes           SyncJobWriteAudit[]
+
+  @@index([status])
+  @@index([actorId, createdAt])
+}
+
+model SyncJobWriteAudit {
+  id             String   @id @default(cuid())
+  jobId          String
+  documentType   String
+  documentRefHash String
+  status         String
+  attemptCount   Int      @default(1)
+  beforeHash     String?
+  afterHash      String?
+  errorCategory  String?
+  createdAt      DateTime @default(now())
+  job            SyncJob  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, status])
+  @@unique([jobId, documentType, documentRefHash])
 }
 
 model CustomFieldMapping {

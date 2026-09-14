@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getZohoAccessToken, ZOHO_DC, ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
 import { requireAdministrator } from "@/lib/auth-helpers"
+import { prisma } from "@/lib/prisma"
+import { getActiveSyncJob, isSyncJobCancelled } from "@/lib/sync-job-control"
 
 export const maxDuration = 60
 
@@ -27,6 +29,10 @@ export async function POST(req: NextRequest) {
     const perPage  = Math.min(parseInt(body.perPage || "25", 10), 50)
     const force    = !!body.force
     const applyTariff = !!body.applyTariff
+    const syncJobId = typeof body.syncJobId === "string" ? body.syncJobId : undefined
+    const syncJob = syncJobId ? await getActiveSyncJob(syncJobId) : null
+    if (syncJobId && (!syncJob || isSyncJobCancelled(syncJob))) return NextResponse.json({ success: false, cancelled: true, error: "Sync job cancelled" }, { status: 409 })
+    const writeBack = syncJobId ? body.writeBack === true : true
 
     const BATCH_CONCURRENCY = 5
     const BATCH_DELAY_MS    = 300
@@ -112,7 +118,7 @@ export async function POST(req: NextRequest) {
             "Content-Type": "application/json",
             ...(sessionCookie ? { cookie: sessionCookie } : {}),
           },
-          body: JSON.stringify({ [cfg.idBodyField]: zohoId, skipLoopGuard: force, applyTariff }),
+            body: JSON.stringify({ [cfg.idBodyField]: zohoId, skipLoopGuard: force, applyTariff, syncJobId, writeBack }),
         })
 
         const contentType = res.headers.get("content-type") || ""
@@ -154,6 +160,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (syncJobId) {
+      const current = await getActiveSyncJob(syncJobId)
+      await prisma.syncJob.update({ where: { id: syncJobId }, data: { status: current && isSyncJobCancelled(current) ? "CANCELLED_PARTIAL" : hasMore ? "RUNNING" : "COMPLETED", stage: hasMore ? entity : "DONE", heartbeatAt: new Date(), completedAt: hasMore ? undefined : new Date(), startedAt: current?.startedAt || new Date(), processed: { increment: processed + errors + skipped }, succeeded: { increment: processed }, failed: { increment: errors }, skipped: { increment: skipped } } })
+    }
     return NextResponse.json({
       success: true, entity, page,
       processed, errors, skipped,
