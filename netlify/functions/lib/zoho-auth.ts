@@ -1,5 +1,4 @@
 import { prisma } from "./prisma"
-import { createZohoTokenProvider, cleanEnv as sharedCleanEnv, normalizeDataCenter } from "./zoho-token-provider.mjs"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Zoho Auth — Canonical Single Source of Truth
@@ -17,24 +16,16 @@ import { createZohoTokenProvider, cleanEnv as sharedCleanEnv, normalizeDataCente
 let _cachedToken: string | null = null
 let _tokenExpiresAt = 0
 
-const cleanEnv = (value: string | undefined) => sharedCleanEnv(value)
+const cleanEnv = (value: string | undefined) => value?.trim().replace(/^(["'])(.*)\1$/, '$2') || ''
 
-export const ZOHO_DC = normalizeDataCenter(process.env.ZOHO_DC)
+export const ZOHO_DC = cleanEnv(process.env.ZOHO_DC) || 'com'
 
 // Single exported constant — import this everywhere instead of re-declaring
 export const ZOHO_ORGANIZATION_ID = cleanEnv(process.env.ZOHO_ORGANIZATION_ID) || '664670946'
 
 const TOKEN_CACHE_KEY = 'zoho_token_cache'
 
-const provider = createZohoTokenProvider({
-  env: process.env,
-  cache: {
-    read: async (key: string) => prisma.systemSetting.findUnique({ where: { key } }),
-    write: async (key: string, value: { token: string; expiresAt: number }) => prisma.systemSetting.upsert({ where: { key }, update: { value: JSON.stringify(value) }, create: { key, value: JSON.stringify(value) } }),
-  },
-})
-
-export async function getZohoAccessTokenLegacy(forceRefresh = false): Promise<string> {
+export async function getZohoAccessToken(forceRefresh = false): Promise<string> {
   const now = Date.now()
 
   // 1. In-memory cache (avoids DB on warm invocations)
@@ -103,10 +94,6 @@ export async function getZohoAccessTokenLegacy(forceRefresh = false): Promise<st
   }
 
   return _cachedToken
-}
-
-export async function getZohoAccessToken(forceRefresh = false): Promise<string> {
-  return provider.getToken(forceRefresh)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
