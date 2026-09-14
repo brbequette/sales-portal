@@ -6,6 +6,7 @@ param(
   [switch]$ApplyReadyCanary,
   [switch]$ApplyReadyResume,
   [string]$RunDirectory,
+  [string]$CredentialFile,
   [int]$ApplyCanary = 0,
   [string]$Manifest
 )
@@ -15,6 +16,7 @@ $docker = 'C:\Users\titan\Documents\ChatGPT\Titan Diamond\tmp\docker-cli\docker.
 $repo = Split-Path -Parent $PSCommandPath
 $inputs = 'C:\Users\titan\Documents\ChatGPT\Titan Diamond\tmp\Titan_Zoho_Reconciliation_Inputs_2026-09-08'
 $sourceRoot = 'C:\Users\titan\Documents\ChatGPT\Titan Diamond'
+$credentialSource = if ([string]::IsNullOrWhiteSpace($CredentialFile)) { Join-Path $sourceRoot '.env' } else { $CredentialFile }
 $runId = Get-Date -Format 'yyyyMMddHHmmss'
 $work = Join-Path $repo "runtime\runs\$runId"
 $credFile = Join-Path $work 'credentials.env'
@@ -55,6 +57,18 @@ function Normalize-DatabaseUrl([string]$line) {
   if ([string]::IsNullOrWhiteSpace($value)) { return [pscustomobject]@{ Value = $null; Reason = 'DB_URL_EMPTY' } }
   if ($value -match '\$\{[^}]+\}' -or $value -match '<[^>]+>') { return [pscustomobject]@{ Value = $null; Reason = 'DB_URL_UNRESOLVED_TEMPLATE' } }
   return [pscustomobject]@{ Value = $value; Reason = $null }
+}
+
+function Import-ProtectedCredentialEnvironment([string]$path) {
+  $allowed = @('DATABASE_URL','ZOHO_CLIENT_ID','ZOHO_CLIENT_SECRET','ZOHO_REFRESH_TOKEN','ZOHO_ORGANIZATION_ID','ZOHO_DC')
+  $lines = Get-Content -LiteralPath $path
+  foreach ($name in $allowed) {
+    $line = @($lines | Where-Object { $_ -match ('^' + [regex]::Escape($name) + '=') }) | Select-Object -Last 1
+    if ($null -eq $line) { throw "Missing protected credential: $name" }
+    $equals = $line.IndexOf('=')
+    if ($equals -lt 0) { throw "Malformed protected credential: $name" }
+    [Environment]::SetEnvironmentVariable($name, $line.Substring($equals + 1), 'Process')
+  }
 }
 
 function Invoke-Docker {
@@ -129,7 +143,7 @@ if ($DbPreflightOnly) {
   New-Item -ItemType Directory -Path $work -Force | Out-Null
   $network = "titan-reconciliation-db-$runId-net"; $container = "titan-reconciliation-db-$runId"; $networkCreated = $false
   try {
-    $envLine = [string](@(Get-Content -LiteralPath (Join-Path $sourceRoot '.env') | Where-Object { $_ -match '^DATABASE_URL=' })[0])
+    $envLine = [string](@(Get-Content -LiteralPath $credentialSource | Where-Object { $_ -match '^DATABASE_URL=' })[0])
     if (-not $envLine) { throw 'Missing DATABASE_URL.' }
     $normalized = Normalize-DatabaseUrl $envLine
     if ($normalized.Reason) { throw $normalized.Reason }
@@ -146,7 +160,7 @@ if ($DbPreflightOnly) {
 }
 
 if ($ValidateDbConfigOnly) {
-  $envText = Get-Content -LiteralPath (Join-Path $sourceRoot '.env') -Raw
+  $envText = Get-Content -LiteralPath $credentialSource -Raw
   $line = [string](@($envText -split "`r?`n" | Where-Object { $_ -match '^\s*DATABASE_URL=' })[0])
   $normalized = Normalize-DatabaseUrl -line $line
   if ($normalized.Reason) { Write-Output $normalized.Reason; exit 1 }
@@ -155,6 +169,7 @@ if ($ValidateDbConfigOnly) {
 if ($ApplyReadyCanary -or $ApplyReadyResume) {
   if ($Apply) { throw 'APPLY_REMAINS_DISABLED' }
   if ([string]::IsNullOrWhiteSpace($RunDirectory)) { throw 'APPLY_RUN_DIRECTORY_REQUIRED' }
+  Import-ProtectedCredentialEnvironment -path $credentialSource
   $runDirectory = (Resolve-Path -LiteralPath $RunDirectory).Path
   if (-not (Test-Path -LiteralPath (Join-Path $runDirectory 'ready-forward-payload.json'))) { throw 'APPLY_RUN_ARTIFACTS_INCOMPLETE' }
   $mode = if ($ApplyReadyCanary) { 'canary' } else { 'resume' }
@@ -188,11 +203,12 @@ $requiredFiles += 'tests/runtime-single-path.test.mjs'
 $requiredFiles += 'tests/capability-inventory.test.mjs'
 $requiredFiles += 'tests/runtime-orchestration-order.test.mjs'
 $requiredFiles += 'tests/vig-audit-before-gate.test.mjs'
+$requiredFiles += 'tests/apply-gates-credential-contract.test.mjs'
 $missingFiles = @($requiredFiles | Where-Object { -not (Test-Path -LiteralPath (Join-Path $repo $_)) })
 if ($missingFiles.Count -gt 0) { throw ("Missing required reconciliation files: " + ($missingFiles -join ', ')) }
 
 try {
-  $envLines = Get-Content -LiteralPath (Join-Path $sourceRoot '.env')
+  $envLines = Get-Content -LiteralPath $credentialSource
   $required = @('DATABASE_URL','ZOHO_CLIENT_ID','ZOHO_CLIENT_SECRET','ZOHO_REFRESH_TOKEN','ZOHO_ORGANIZATION_ID','ZOHO_DC')
   $pairs = foreach ($name in $required) {
     $line = $envLines | Where-Object { $_ -match "^$name=" } | Select-Object -Last 1

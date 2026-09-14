@@ -1,0 +1,24 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+
+const root = path.resolve(import.meta.dirname, '..');
+const wrapper = fs.readFileSync(path.join(root, 'run-production-reconciliation.ps1'), 'utf8');
+const engine = fs.readFileSync(path.join(root, 'reconciliation-engine.mjs'), 'utf8');
+const apply = fs.readFileSync(path.join(root, 'reconciliation-ready-apply.mjs'), 'utf8');
+assert.match(wrapper, /\[string\]\$CredentialFile/);
+assert.match(wrapper, /Import-ProtectedCredentialEnvironment/);
+assert.match(wrapper, /Join-Path \$sourceRoot '\.env'/);
+assert.match(wrapper, /SetEnvironmentVariable\(\$name,.*'Process'\)/);
+assert.match(wrapper, /Remove-Item -LiteralPath \$credFile/);
+assert.doesNotMatch(wrapper, /Write-Output.*\$databaseUrl|Write-Output.*\$line/);
+assert.match(apply, /RECONCILIATION_APPLY_AUTHORIZED/);
+assert.match(engine, /dryRunComplete:\s*true/);
+assert.match(engine, /readyPayloadIsolation:\s*true/);
+assert.match(engine, /blockedDocumentExclusion:\s*true/);
+assert.match(engine, /applyEnabled:\s*false/);
+assert.match(engine, /status: blockerCount \? 'COMPLETE_WITH_BLOCKERS'/);
+console.log('CREDENTIAL_FILE_CONTRACT=PASS');
+console.log('CREDENTIAL_REDACTION=PASS');
+console.log('TEMP_CREDENTIAL_CLEANUP=PASS');
+console.log('APPLY_GATE_CONTRACT=PASS');

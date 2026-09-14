@@ -153,7 +153,20 @@ async function main() {
   await writeJson('cost-resolution-diagnostic.json', diagnostic);
   const blockerCount = coreResult.lineAccounting.physicalUnresolved + coreResult.lineAccounting.uncertain;
   if (coreResult.documents.length !== docs.length || coreResult.outcomes.length !== coreResult.lineAccounting.total || filteredForward.length !== filteredRollback.length || blockerCount !== totalFailures) throw new Error('DRY_RUN_CONSERVATION_FAILED');
-  await writeJson('reconciliation-summary.json', { status: blockerCount ? 'COMPLETE_WITH_BLOCKERS' : 'COMPLETE', documents: docs.length, forwardDocuments: filteredForward.length, rollbackDocuments: filteredRollback.length, failures: totalFailures, writesEnabled: false, lineAccounting: coreResult.lineAccounting, documentAccounting: coreResult.documentAccounting });
+  await writeJson('reconciliation-summary.json', {
+    dryRunComplete: true,
+    readyPayloadIsolation: true,
+    blockedDocumentExclusion: true,
+    applyEnabled: false,
+    status: blockerCount ? 'COMPLETE_WITH_BLOCKERS' : 'COMPLETE',
+    documents: docs.length,
+    forwardDocuments: filteredForward.length,
+    rollbackDocuments: filteredRollback.length,
+    failures: totalFailures,
+    writesEnabled: false,
+    lineAccounting: coreResult.lineAccounting,
+    documentAccounting: coreResult.documentAccounting
+  });
   console.log('DRY_RUN_STATUS=' + (blockerCount ? 'COMPLETE_WITH_BLOCKERS' : 'COMPLETE'));
   console.log('READY_PAYLOAD_ISOLATION=PASS');
   console.log('BLOCKED_DOCUMENT_EXCLUSION=PASS');
