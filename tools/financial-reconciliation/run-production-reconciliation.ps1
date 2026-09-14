@@ -5,6 +5,7 @@ param(
   [switch]$ValidateDbConfigOnly,
   [switch]$ApplyReadyCanary,
   [switch]$ApplyReadyResume,
+  [switch]$ZohoApplyPreflight,
   [string]$RunDirectory,
   [string]$CredentialFile,
   [int]$ApplyCanary = 0,
@@ -177,6 +178,14 @@ if ($ApplyReadyCanary -or $ApplyReadyResume) {
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   exit 0
 }
+if ($ZohoApplyPreflight) {
+  Import-ProtectedCredentialEnvironment -path $credentialSource
+  $preflightOutput = Join-Path $repo 'runtime\zoho-preflight'
+  & node (Join-Path $repo 'reconciliation-zoho-apply-preflight.mjs')
+  $code = $LASTEXITCODE
+  Write-Output 'APPLY_NOT_EXECUTED=PASS'
+  exit $code
+}
 if (-not (Test-Path -LiteralPath $docker)) { throw "Missing approved Docker CLI." }
 if (-not (Test-Path -LiteralPath $repo)) { throw "Missing isolated repository." }
 if (-not (Test-Path -LiteralPath $inputs)) { throw "Missing reconciliation inputs." }
@@ -188,6 +197,7 @@ $requiredFiles = @(
   'reconciliation-credential-preflight.mjs','reconciliation-db-preflight.mjs',
   'tests/rules.test.mjs','tests/calculations.test.mjs',
   'reconciliation-ready-apply.mjs','reconciliation-zoho-client.mjs','tests/ready-apply.test.mjs','tests/zoho-client.test.mjs',
+  'reconciliation-zoho-apply-preflight.mjs','tests/zoho-token-provider.test.mjs',
   'tests/payload-review.test.mjs','tests/db-structure.test.mjs','tests/db-preflight-diagnostic.test.mjs','tests/db-wrapper-structure.test.mjs','tests/eligibility-canary.test.mjs',
   'tests/cost-fixtures.test.mjs','tests/cost-source-preflight.test.mjs','tests/item-fallback.integration.test.mjs','tests/breakdown-fixtures.test.mjs','tests/breakdown-all-exports.integration.test.mjs','tests/zip-extraction.test.mjs','tests/classification-fixtures.test.mjs','tests/engine-core.integration.test.mjs','tests/runtime-artifact.integration.test.mjs','tests/diagnostic-redaction.test.mjs','reconciliation-engine-core.mjs','reconciliation-diagnostics.mjs','reconciliation-zip-smoke.mjs','reconciliation-cost-sources.mjs'
 )
