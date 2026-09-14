@@ -24,6 +24,7 @@ const authenticatedHandler: Handler = async (event) => {
     const users = await prisma.user.findMany({
       where: {
         AND: [
+          { isSalesperson: true },
           { NOT: { email: { contains: "dummy.titandiamond.com" } } },
           { NOT: { email: { contains: "example.com" } } },
           { NOT: { name: { contains: "test_migration" } } }

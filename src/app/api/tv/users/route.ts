@@ -10,6 +10,7 @@ export async function GET() {
   const [users, settings] = await Promise.all([
     prisma.user.findMany({
       take: 500,
+      where: { isSalesperson: true },
       orderBy: { name: 'asc' },
       select: {
         id: true,

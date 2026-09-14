@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "./auth";
 import { prisma } from "./prisma";
 import { NextResponse } from "next/server";
-import { isAdminRole, isAdministratorRole } from "./roles";
+import { isAdminRole, isAdministratorRole, isMasterAdminRole } from "./roles";
 
 export async function requireAdministrator() {
   const session = await getServerSession(authOptions);
@@ -22,6 +22,14 @@ export async function requireAdministrator() {
   }
 
   return { session, errorResponse: null };
+}
+
+export async function requireMasterAdministrator() {
+  const session = await getServerSession(authOptions)
+  if (!session?.user || !isMasterAdminRole(session.user.role)) {
+    return { session: null, errorResponse: NextResponse.json({ error: "Master administrator access required" }, { status: 403 }) }
+  }
+  return { session, errorResponse: null }
 }
 
 export async function checkAccountOwnership(

@@ -6,6 +6,8 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "build:netlify": "prisma generate && next build --webpack",
+    "auth:provision-master-admin": "node scripts/provision-master-admin.mjs",
+    "auth:rotate-master-admin": "node scripts/rotate-master-admin-password.mjs",
     "start": "next start",
     "lint": "eslint"
   },

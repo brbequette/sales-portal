@@ -43,6 +43,12 @@ model User {
   id                   String                     @id @default(cuid())
   email                String                     @unique
   password             String?
+  authType             String                     @default("ZOHO")
+  mustRotatePassword   Boolean                    @default(false)
+  failedLoginCount     Int                        @default(0)
+  lockedUntil          DateTime?
+  lastLoginAt          DateTime?
+  isSalesperson        Boolean                    @default(true)
   name                 String?
   phone                String?
   title                String?                    @default("Sales Representative")
@@ -1759,4 +1765,37 @@ model PromotionDraft {
   @@index([repId])
   @@index([campaignTemplateId])
   @@index([createdAt])
+}
+
+/// Immutable security audit record. There is intentionally no application update/delete path.
+model AuthAuditEvent {
+  id             String   @id @default(cuid())
+  eventType      String
+  actorUserId    String?
+  subjectUserId  String?
+  reasonCode     String?
+  entityType     String?
+  entityIdHash   String?
+  changedFields  Json?
+  requestId      String?
+  sessionId      String?
+  createdAt      DateTime @default(now())
+
+  @@index([eventType, createdAt])
+  @@index([actorUserId, createdAt])
+}
+
+/// Short-lived actor/subject delegation; never changes historical authorship.
+model DelegatedSession {
+  id            String   @id @default(cuid())
+  actorUserId   String
+  subjectUserId String
+  reason        String
+  startedAt     DateTime @default(now())
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  sessionId     String?
+
+  @@index([actorUserId, expiresAt])
+  @@index([subjectUserId, expiresAt])
 }
