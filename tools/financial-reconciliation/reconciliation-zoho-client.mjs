@@ -1,16 +1,14 @@
+import { createZohoTokenProvider, normalizeDataCenter } from '../../netlify/functions/lib/zoho-token-provider.mjs';
 const endpointFor = type => ({ invoice: 'invoices', quote: 'estimates', sales_order: 'salesorders' }[type] ?? null);
 const json = async response => { const body = await response.json().catch(() => ({})); if (!response.ok) { const error = new Error(`ZOHO_HTTP_${response.status}`); error.status = response.status; throw error; } return body; };
 
-export function createZohoBooksClient({ env = process.env, fetchImpl = fetch } = {}) {
+export function createZohoBooksClient({ env = process.env, fetchImpl = fetch, cache = {} } = {}) {
   const required = ['ZOHO_CLIENT_ID', 'ZOHO_CLIENT_SECRET', 'ZOHO_REFRESH_TOKEN', 'ZOHO_ORGANIZATION_ID'];
   for (const key of required) if (!env[key]) throw new Error('ZOHO_CONFIGURATION_MISSING');
-  const dc = env.ZOHO_DC || 'com'; const organizationId = String(env.ZOHO_ORGANIZATION_ID); let token = null; let verified = false;
+  const dc = normalizeDataCenter(env.ZOHO_DC); const organizationId = String(env.ZOHO_ORGANIZATION_ID); let token = null; let verified = false;
   const base = `https://www.zohoapis.${dc}/books/v3`;
-  async function refresh() {
-    const body = new URLSearchParams({ refresh_token: env.ZOHO_REFRESH_TOKEN, client_id: env.ZOHO_CLIENT_ID, client_secret: env.ZOHO_CLIENT_SECRET, grant_type: 'refresh_token' });
-    const response = await fetchImpl(`https://accounts.zoho.${dc}/oauth/v2/token`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
-    const payload = await json(response); if (!payload.access_token) throw new Error('ZOHO_TOKEN_REFRESH_FAILED'); token = payload.access_token; return token;
-  }
+  const provider = createZohoTokenProvider({ env, fetchImpl, cache });
+  async function refresh() { token = await provider.getToken(); return token; }
   async function request(url, options = {}, retry = true) {
     if (!token) await refresh(); const response = await fetchImpl(url, { ...options, headers: { ...(options.headers || {}), Authorization: `Zoho-oauthtoken ${token}` } });
     if (response.status === 401 && retry) { token = null; await refresh(); return request(url, options, false); } return json(response);
