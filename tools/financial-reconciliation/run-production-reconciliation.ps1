@@ -198,7 +198,7 @@ $requiredFiles = @(
   'tests/rules.test.mjs','tests/calculations.test.mjs',
   'reconciliation-ready-apply.mjs','reconciliation-zoho-client.mjs','tests/ready-apply.test.mjs','tests/zoho-client.test.mjs',
   'reconciliation-zoho-apply-preflight.mjs','tests/zoho-token-provider.test.mjs',
-  'tests/zoho-auth-compatibility.test.mjs','tests/zoho-apply-preflight-contract.test.mjs',
+  'tests/zoho-auth-compatibility.test.mjs','tests/zoho-apply-preflight-contract.test.mjs','tests/zoho-preflight-real-process.test.mjs',
   'tests/payload-review.test.mjs','tests/db-structure.test.mjs','tests/db-preflight-diagnostic.test.mjs','tests/db-wrapper-structure.test.mjs','tests/eligibility-canary.test.mjs',
   'tests/cost-fixtures.test.mjs','tests/cost-source-preflight.test.mjs','tests/item-fallback.integration.test.mjs','tests/breakdown-fixtures.test.mjs','tests/breakdown-all-exports.integration.test.mjs','tests/zip-extraction.test.mjs','tests/classification-fixtures.test.mjs','tests/engine-core.integration.test.mjs','tests/runtime-artifact.integration.test.mjs','tests/diagnostic-redaction.test.mjs','reconciliation-engine-core.mjs','reconciliation-diagnostics.mjs','reconciliation-zip-smoke.mjs','reconciliation-cost-sources.mjs'
 )
