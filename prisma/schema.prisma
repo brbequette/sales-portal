@@ -524,6 +524,7 @@ model ReconciliationArtifactRegistration {
   productionCommit String?
   approvalStatus  String   @default("REGISTERED_UNAPPROVED")
   @@index([uploaderUserId, createdAt])
+}
 
 model SyncJob {
   id               String   @id @default(cuid())

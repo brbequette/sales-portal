@@ -83,7 +83,6 @@ export default function BooksScriptsPage() {
   // ── Auto-load pending counts on mount ────────────────────────────────────
   useEffect(() => {
     fetchPendingCounts()
-    fetchConflicts()
     const existingJob = window.localStorage.getItem('active-full-sync-job')
     if (existingJob) {
       setFullSyncJobId(existingJob)
