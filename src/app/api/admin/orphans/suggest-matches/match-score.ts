@@ -15,7 +15,7 @@ export function computePOMatchScore(po: any, invoice: any) {
   // 2. Customer / Ship-To Name Match (Up to 35 points)
   const shipTo = (po.shipToName || "").toLowerCase().trim()
   const customerName = String(invItems.customer_name || invoice.account?.name || "").toLowerCase().trim()
-  
+
   if (shipTo && customerName) {
     if (shipTo === customerName || customerName.includes(shipTo) || shipTo.includes(customerName)) {
       score += 35
