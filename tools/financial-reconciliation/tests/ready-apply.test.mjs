@@ -25,6 +25,7 @@ assert.equal((await fs.stat(checkpointPath)).isFile(), true);
 const staleClient = { async read() { return { customFields: [{ apiName: 'cf_vig', value: 9 }] }; }, async update() { throw new Error('must not write stale'); } };
 const stale = await executeReadyApply({ plan: { eligible: [one], rollback: [oneBack] }, client: staleClient, outputDir: dir, mode: 'canary', allowlist, checkpointPath: path.join(dir, 'checkpoint-stale.json'), authorization: true });
 assert.equal(stale.skippedStale, 1);
+await assert.rejects(() => executeReadyApply({ plan: { eligible: [one], rollback: [oneBack] }, client: { async read() { return { customFields: [{ apiName: 'cf_vig', value: 0 }, { apiName: 'cf_vig', value: 0 }] }; }, async update() {} }, outputDir: dir, mode: 'canary', allowlist, checkpointPath: path.join(dir, 'checkpoint-duplicate.json'), authorization: true }), /CURRENT_FIELDS_INVALID/);
 await assert.rejects(() => executeReadyApply({ plan: { eligible: [one], rollback: [oneBack] }, client, outputDir: dir, mode: 'resume', allowlist, checkpointPath: path.join(dir, 'checkpoint-resume.json'), authorization: true }), /APPLY_CANARY_VERIFICATION_REQUIRED/);
 await fs.writeFile(path.join(dir, 'canary-verification.json'), JSON.stringify({ status: 'PASS', mode: 'canary' }));
 const resume = await executeReadyApply({ plan: { eligible: [one], rollback: [oneBack] }, client, outputDir: dir, mode: 'resume', allowlist, checkpointPath, canaryVerificationPath: path.join(dir, 'canary-verification.json'), authorization: true });

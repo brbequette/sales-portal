@@ -8,6 +8,7 @@ const asArray = value => Array.isArray(value) ? value : Array.isArray(value?.doc
 const identity = item => `${item.documentType ?? item.type ?? ''}:${item.documentId ?? item.zohoId ?? ''}`;
 const fieldMap = fields => new Map((Array.isArray(fields) ? fields : []).map(field => [field.apiName, field.value]));
 const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const assertFieldShape = fields => { if (!Array.isArray(fields)) throw new Error('CURRENT_FIELDS_INVALID'); const names = fields.map(field => field?.apiName); if (names.some(name => !name) || new Set(names).size !== names.length) throw new Error('CURRENT_FIELDS_INVALID'); return fields; };
 
 export const APPLY_LIMITS = freeze({ canary: 10, batch: 25, retries: 3 });
 
@@ -85,7 +86,9 @@ export async function executeReadyApply({ plan, client, outputDir, mode, allowli
     const key = identity(item); if (mode === 'resume' && checkpoint.verified.includes(key)) continue;
     const before = rollbackById.get(key);
     if (!before) throw new Error('APPLY_ROLLBACK_RECORD_MISSING');
+    assertFieldShape(before.customFields);
     const current = await client.read(item);
+    assertFieldShape(current.customFields);
     if (!equal(current.customFields, before.customFields)) { audit.push(sanitizeAudit({ item, status: 'SKIPPED', attemptCount: 1, reason: 'STALE_SOURCE' })); checkpoint.attempted.push(key); await atomicWrite(checkpointPath, checkpoint); continue; }
     const fields = item.customFields;
     if (fields.some(field => !allowlist.has(field.apiName))) throw new Error('APPLY_FORBIDDEN_FIELD');
