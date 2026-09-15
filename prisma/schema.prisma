@@ -533,6 +533,13 @@ model BoundedBooksImportJob {
   @@index([status, startedAt])
 }
 
+model BoundedBooksImportLock {
+  key       String   @id
+  claimedAt DateTime @default(now())
+  expiresAt DateTime
+  @@index([expiresAt])
+}
+
 model ReconciliationArtifactRegistration {
   id              String   @id @default(cuid())
   artifactId      String   @unique

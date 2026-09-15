@@ -49,7 +49,7 @@ async function localImport(body: Record<string, unknown>, actorId: string) {
     const range = validateBoundedRange(body.startDate, body.endDate)
     if (body.confirmation !== 'IMPORT SEPTEMBER 2026' || body.readOnlyZohoConfirmation !== true) return NextResponse.json({ error: 'IMPORT_CONFIRMATION_REQUIRED' }, { status: 400 })
     const previous = preflightCache.get(keyFor(range))
-    if (!previous || Date.now() - previous.at > 15 * 60_000) return NextResponse.json({ error: 'PREFLIGHT_REQUIRED' }, { status: 409 })
+    if (body.internalScheduled !== true && (!previous || Date.now() - previous.at > 15 * 60_000)) return NextResponse.json({ error: 'PREFLIGHT_REQUIRED' }, { status: 409 })
     const running = await prisma.boundedBooksImportJob.findFirst({ where: { status: 'RUNNING' } })
     if (running) return NextResponse.json({ error: 'IMPORT_ALREADY_RUNNING' }, { status: 409 })
     const job = await prisma.boundedBooksImportJob.create({ data: { actorId, startDate: range.startDate, endDate: range.endDate, status: 'RUNNING', stage: 'READ' } })
