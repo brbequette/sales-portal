@@ -4,6 +4,10 @@ import { extractProfit, extractCommissionAmount, extractVigRate } from '@/lib/cu
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdministratorRole } from '@/lib/roles';
+import { Prisma } from '@prisma/client';
+import { calculateGlobalHeaderMetrics } from '@/lib/global-header-metrics';
+
+export const dynamic = 'force-dynamic';
 
 function getSubTotal(items: any, amount: number) {
   let sub = parseFloat(items.sub_total ?? items.subTotal ?? 0);
@@ -40,69 +44,71 @@ export async function GET(request: Request) {
 
     if (searchParams.get('summary') === 'true') {
       const now = new Date();
-      const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 7));
-      const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 7));
-      const [monthInvoices, monthOrders, invoiceBalances, orderPipeline] = await Promise.all([
-        prisma.invoice.findMany({
-          where: { issueDate: { gte: monthStart, lt: monthEnd } },
-          select: { amount: true, items: true, computedProfit: true, computedUpfront: true, computedFinal: true },
-        }),
-        prisma.salesOrder.findMany({
-          where: { orderDate: { gte: monthStart, lt: monthEnd } },
-          select: { amount: true, items: true },
-        }),
-        prisma.invoice.findMany({
-          where: { balance: { gt: 0 }, status: { notIn: ['Paid', 'paid', 'closed', 'Void', 'void', 'voided', 'Draft', 'draft'] } },
-          select: { balance: true, dueDate: true, status: true },
-        }),
-        prisma.salesOrder.aggregate({
-          where: { status: { notIn: ['Paid', 'paid', 'closed', 'Void', 'void', 'voided', 'Draft', 'draft', 'Invoiced', 'invoiced', 'billed'] } },
-          _sum: { amount: true },
-        }),
-      ]);
-
-      let mtdSales = 0;
-      let mtdProfit = 0;
-      let mtdCommission = 0;
-      const includeRep = (items: any) => {
-        const rep = String(items?.salesorder_salesperson_name || items?.salesperson_name || items?.salesperson || '').toUpperCase();
-        return !(rep.includes('PAUL') && (rep.includes('GENCUSKI') || rep.includes('GENKUSKI')));
-      };
-      for (const invoice of monthInvoices) {
-        const items = (invoice.items as any) || {};
-        if (!includeRep(items)) continue;
-        mtdSales += getSubTotal(items, invoice.amount);
-        mtdProfit += Number(invoice.computedProfit ?? extractProfit(items)) || 0;
-        mtdCommission += Number(
-          invoice.computedUpfront != null || invoice.computedFinal != null
-            ? (invoice.computedUpfront || 0) + (invoice.computedFinal || 0)
-            : extractCommissionAmount(items)
-        ) || 0;
-      }
-      for (const order of monthOrders) {
-        const items = (order.items as any) || {};
-        if (!includeRep(items)) continue;
-        mtdSales += getSubTotal(items, order.amount);
-        mtdProfit += Number(extractProfit(items)) || 0;
-        mtdCommission += Number(extractCommissionAmount(items)) || 0;
-      }
-
-      const invoicePipeline = invoiceBalances.reduce((sum, invoice) => sum + Number(invoice.balance || 0), 0);
-      const overdue = invoiceBalances.reduce((sum, invoice) => {
-        const explicitlyOverdue = String(invoice.status).toLowerCase() === 'overdue';
-        return explicitlyOverdue || (invoice.dueDate && invoice.dueDate < now)
-          ? sum + Number(invoice.balance || 0)
-          : sum;
-      }, 0);
-
-      return NextResponse.json({
-        summary: {
-          mtdSales,
-          mtdProfit,
-          mtdCommission,
-          pipeline: invoicePipeline + Number(orderPipeline._sum.amount || 0),
-          overdue,
+      const recentStart = new Date(now.getTime() - 40 * 86_400_000);
+      const salesOrders = await prisma.salesOrder.findMany({
+        select: {
+          zohoId: true, amount: true, status: true, orderDate: true, items: true,
+          syncConflict: true, pendingZohoFetch: true,
         },
+      });
+      const nonLinkableOrderStatuses = new Set([
+        'paid', 'closed', 'draft', 'void', 'voided', 'declined', 'cancelled', 'canceled',
+        'orphaned', 'deleted', 'invoiced', 'billed', 'partially_invoiced',
+      ]);
+      const linkCandidateOrders = salesOrders.filter(order =>
+        !order.syncConflict && !order.pendingZohoFetch && !nonLinkableOrderStatuses.has(String(order.status || '').trim().toLowerCase()),
+      );
+      const orderIds = linkCandidateOrders.map(order => String(order.zohoId || '')).filter(Boolean);
+      const orderNumbers = linkCandidateOrders.map(order => {
+        const items = order.items && typeof order.items === 'object' && !Array.isArray(order.items)
+          ? order.items as Record<string, unknown>
+          : {};
+        return String(items.salesorder_number || items.salesOrderNumber || '');
+      }).filter(Boolean);
+      const orderIdMatch = orderIds.length
+        ? Prisma.sql`("salesOrderZohoId" IN (${Prisma.join(orderIds)}) OR items->>'salesorder_id' IN (${Prisma.join(orderIds)}) OR items->>'sales_order_id' IN (${Prisma.join(orderIds)}))`
+        : Prisma.sql`FALSE`;
+      const orderNumberMatch = orderNumbers.length
+        ? Prisma.sql`("salesorderNumber" IN (${Prisma.join(orderNumbers)}) OR items->>'salesorder_number' IN (${Prisma.join(orderNumbers)}) OR items->>'salesOrderNumber' IN (${Prisma.join(orderNumbers)}))`
+        : Prisma.sql`FALSE`;
+      const [invoices, invoiceLinks] = await Promise.all([
+        prisma.invoice.findMany({
+          where: { OR: [{ issueDate: { gte: recentStart } }, { balance: { gt: 0 } }] },
+          select: {
+            amount: true, balance: true, status: true, issueDate: true, dueDate: true, items: true,
+            computedProfit: true, computedSalesperson: true, syncConflict: true, pendingZohoFetch: true,
+          },
+        }),
+        prisma.$queryRaw<Array<{
+          salesOrderZohoId: string | null; itemSalesOrderId: string | null; itemSalesOrderIdAlt: string | null;
+          salesorderNumber: string | null; itemSalesOrderNumber: string | null; itemSalesOrderNumberAlt: string | null;
+        }>>(Prisma.sql`
+          SELECT "salesOrderZohoId", "salesorderNumber",
+            items->>'salesorder_id' AS "itemSalesOrderId",
+            items->>'sales_order_id' AS "itemSalesOrderIdAlt",
+            items->>'salesorder_number' AS "itemSalesOrderNumber",
+            items->>'salesOrderNumber' AS "itemSalesOrderNumberAlt"
+          FROM "Invoice"
+          WHERE ${orderIdMatch} OR ${orderNumberMatch}
+        `),
+      ]);
+      const linkedIds = new Set<string>();
+      const linkedNumbers = new Set<string>();
+      for (const link of invoiceLinks) {
+        [link.salesOrderZohoId, link.itemSalesOrderId, link.itemSalesOrderIdAlt].filter(Boolean).forEach(value => linkedIds.add(String(value).toLowerCase()));
+        [link.salesorderNumber, link.itemSalesOrderNumber, link.itemSalesOrderNumberAlt].filter(Boolean).forEach(value => linkedNumbers.add(String(value).toLowerCase()));
+      }
+      const ordersWithLinks = salesOrders.map(order => {
+        const items = order.items && typeof order.items === 'object' && !Array.isArray(order.items)
+          ? order.items as Record<string, unknown>
+          : {};
+        const id = String(order.zohoId || '').toLowerCase();
+        const number = String(items.salesorder_number || items.salesOrderNumber || '').toLowerCase();
+        return { ...order, linkedToInvoice: Boolean((id && linkedIds.has(id)) || (number && linkedNumbers.has(number))) };
+      });
+      const summary = calculateGlobalHeaderMetrics(now, invoices, ordersWithLinks);
+      return NextResponse.json({ summary, asOf: now.toISOString() }, {
+        headers: { 'Cache-Control': 'private, no-store, max-age=0, must-revalidate' },
       });
     }
 
