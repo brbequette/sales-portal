@@ -1,0 +1,6 @@
+ALTER TABLE "BoundedBooksImportJob" ADD COLUMN IF NOT EXISTS "triggerType" TEXT NOT NULL DEFAULT 'MANUAL';
+ALTER TABLE "BoundedBooksImportJob" ADD COLUMN IF NOT EXISTS "enabled" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "BoundedBooksImportJob" ADD COLUMN IF NOT EXISTS "skipReason" TEXT;
+ALTER TABLE "BoundedBooksImportJob" ADD COLUMN IF NOT EXISTS "durationMs" INTEGER;
+ALTER TABLE "BoundedBooksImportJob" ADD COLUMN IF NOT EXISTS "importedCounts" JSONB;
+ALTER TABLE "BoundedBooksImportJob" ADD COLUMN IF NOT EXISTS "pageCounts" JSONB;
