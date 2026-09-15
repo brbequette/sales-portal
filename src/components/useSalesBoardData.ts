@@ -212,20 +212,10 @@ export function useSalesBoardData(): SalesBoardDataReturn {
     }
   }, [])
 
-  // Load local cache immediately on mount so TV screen loads instantly
+  // Never render cached totals as current production data. A stale cache can
+  // survive a deploy and make the board display outdated MTD/YTD values.
   useEffect(() => {
-    try {
-      const cached = typeof window !== "undefined" ? localStorage.getItem("tv_salesboard_cache") : null
-      if (cached) {
-        const parsed = JSON.parse(cached)
-        if (parsed && parsed.reps && parsed.reps.length > 0) {
-          setData(parsed)
-          setLoading(false)
-        }
-      }
-    } catch (e) {
-      console.warn("Failed to load cached TV salesboard data:", e)
-    }
+    try { localStorage.removeItem("tv_salesboard_cache") } catch { /* storage is optional */ }
   }, [])
 
   // Data fetching and processing from local DB endpoints
