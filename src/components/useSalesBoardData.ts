@@ -263,7 +263,7 @@ export function useSalesBoardData(): SalesBoardDataReturn {
             totalPages = Number(payload.totalPages || Math.ceil(Number(payload.total || documents.length) / 100) || 1)
             page += 1
           }
-          return { documents, complete: page - 1 >= totalPages }
+          return { documents, total: documents.length, complete: page - 1 >= totalPages }
         }
 
         const documentParams = `loadAll=false&startDate=${encodeURIComponent(yearStartStr)}`
@@ -759,6 +759,7 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           weekDays,
           weeklyBreakdown,
           missingCostCount: missingCostInvoiceIds.length + missingCostSalesOrderIds.length,
+          dataContract: { dateRange: `${yearStartStr} through present`, timezone: "America/Phoenix", sourcePagesComplete: true },
         }
 
         try {
