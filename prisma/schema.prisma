@@ -511,6 +511,27 @@ model SystemSetting {
   updatedAt        DateTime @updatedAt
 }
 
+model BoundedBooksImportJob {
+  id                  String   @id @default(cuid())
+  actorId             String
+  startDate           String
+  endDate             String
+  status              String
+  stage               String
+  total               Int      @default(0)
+  processed           Int      @default(0)
+  succeeded           Int      @default(0)
+  skipped             Int      @default(0)
+  failed              Int      @default(0)
+  startedAt           DateTime @default(now())
+  heartbeatAt         DateTime @default(now())
+  cancelRequestedAt   DateTime?
+  completedAt         DateTime?
+  errorCategory       String?
+
+  @@index([status, startedAt])
+}
+
 model ReconciliationArtifactRegistration {
   id              String   @id @default(cuid())
   artifactId      String   @unique
