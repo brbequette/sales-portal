@@ -7,6 +7,7 @@ import { detectConflict, updateQuoteRecord } from "../../src/lib/sync-engine"
 
 import { prisma } from "./lib/prisma"
 import { authorizeCostProcessing, hasPrivilegedCostOptions } from "./lib/document-access"
+import { assertSyncJobWritable, recordSyncWriteAttempt } from "../../src/lib/sync-job-control"
 const ZOHO_DC = process.env.ZOHO_DC || "com"
 
 // ── Loop Guard ──
@@ -40,7 +41,7 @@ export const internalHandler: Handler = async (event) => {
   try {
     const sessionUser = await authenticateFunction(event)
     const body = JSON.parse(event.body || "{}")
-    const { estimateNumber, estimateId, vigRate: manualVigRate, commissionPercent: manualCommPct, noVigOverrides, skipLoopGuard } = body
+    const { estimateNumber, estimateId, vigRate: manualVigRate, commissionPercent: manualCommPct, noVigOverrides, skipLoopGuard, syncJobId, writeBack = true } = body
 
     if (!estimateNumber && !estimateId) {
       return { statusCode: 400, headers: cors, body: JSON.stringify({ success: false, error: "Missing estimateNumber or estimateId" }) }
@@ -105,7 +106,9 @@ export const internalHandler: Handler = async (event) => {
 
     // 6. PUT to Zoho Books — only if changes exist
     let zohoUpdateResult: any = null
-    if (fieldsToUpdate.length > 0) {
+    if (fieldsToUpdate.length > 0 && writeBack) {
+      await assertSyncJobWritable(syncJobId)
+      await recordSyncWriteAttempt({ jobId: syncJobId, documentType: "quote", documentId: String(booksEstimateId), status: "ATTEMPTED" })
       markProcessed(booksEstimateId)
       const putRes = await fetch(`${baseUrl}/estimates/${booksEstimateId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
         method: "PUT",
@@ -118,6 +121,7 @@ export const internalHandler: Handler = async (event) => {
         console.error("Zoho Books update failed:", JSON.stringify(putData))
       } else {
         console.log(`✅ Updated ${fieldsToUpdate.length} fields on quote ${estimate.estimate_number} (${changesDetected} changed)`)
+        await recordSyncWriteAttempt({ jobId: syncJobId, documentType: "quote", documentId: String(booksEstimateId), status: "SUCCEEDED" })
       }
     } else {
       console.log(`⏭️ No changes for quote ${estimate.estimate_number} — skipping PUT`)

@@ -51,6 +51,8 @@ export default function BooksScriptsPage() {
     running: false, phase: 'idle', phases: [], log: [], startedAt: null,
   })
   const [fullSyncForce, setFullSyncForce] = useState(true)
+  const [fullSyncWriteBack, setFullSyncWriteBack] = useState(false)
+  const [fullSyncJobId, setFullSyncJobId] = useState<string | null>(null)
 
   // ── Bulk Process state ───────────────────────────────────────────────────
   const [bulkFilter, setBulkFilter] = useState<'unpaid' | 'all' | 'recent' | 'daterange' | 'draft'>('daterange')
@@ -81,7 +83,33 @@ export default function BooksScriptsPage() {
   // ── Auto-load pending counts on mount ────────────────────────────────────
   useEffect(() => {
     fetchPendingCounts()
+    const existingJob = window.localStorage.getItem('active-full-sync-job')
+    if (existingJob) {
+      setFullSyncJobId(existingJob)
+      void refreshFullSyncJob(existingJob)
+    }
   }, [])
+
+  useEffect(() => {
+    if (!fullSyncJobId) return
+    const timer = window.setInterval(() => { void refreshFullSyncJob(fullSyncJobId) }, 5000)
+    return () => window.clearInterval(timer)
+  }, [fullSyncJobId])
+
+  const refreshFullSyncJob = async (jobId: string) => {
+    const res = await fetch(`/api/admin/full-sync/status?jobId=${encodeURIComponent(jobId)}`)
+    if (!res.ok) return
+    const data = await res.json()
+    const job = data.job
+    setFullSync(prev => ({ ...prev, running: ['QUEUED', 'RUNNING', 'CANCELLING'].includes(job.status), phase: job.stage === 'done' ? 'done' : prev.phase, log: [`Job ${job.status}: ${job.processed} processed, ${job.succeeded} succeeded, ${job.skipped} skipped, ${job.failed} failed`] }))
+    if (['COMPLETED', 'CANCELLED_PARTIAL', 'FAILED'].includes(job.status)) window.localStorage.removeItem('active-full-sync-job')
+  }
+
+  const cancelFullSync = async () => {
+    if (!fullSyncJobId) return
+    await fetch('/api/admin/full-sync/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobId: fullSyncJobId }) })
+    await refreshFullSyncJob(fullSyncJobId)
+  }
 
   const fetchPendingCounts = async () => {
     setPendingLoading(true)
@@ -232,6 +260,43 @@ export default function BooksScriptsPage() {
         await fetchPendingCounts()
       }
     )
+  }
+
+  const runControlledFullSync = async () => {
+    const modeWarning = fullSyncWriteBack
+      ? 'Sources: Zoho Books invoices, sales orders, and quotes. This will read all documents and write calculated custom fields to Zoho. Processing is batched and cancellable. Continue only after recent password reauthentication and explicit write-back confirmation.'
+      : 'Sources: Zoho Books invoices, sales orders, and quotes. This run is read-only: it reads and calculates locally and performs no Zoho writes.'
+    toastConfirm(modeWarning, async () => {
+      let reauthToken: string | undefined
+      if (fullSyncWriteBack) {
+        const password = window.prompt('Recent password reauthentication required. Enter your password; it is not stored.')
+        if (!password) return
+        const reauth = await fetch('/api/admin/full-sync/reauth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) })
+        const reauthData = await reauth.json()
+        if (!reauth.ok) { setFullSync(prev => ({ ...prev, phase: 'error', log: ['Reauthentication failed'] })); return }
+        reauthToken = reauthData.reauthToken
+      }
+      const started = await fetch('/api/admin/full-sync/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ writeBack: fullSyncWriteBack, confirmation: fullSyncWriteBack ? 'WRITE BACK TO ZOHO' : undefined, reauthToken }) })
+      const startData = await started.json()
+      if (!started.ok) { setFullSync(prev => ({ ...prev, phase: 'error', log: [startData.error || 'Unable to start Full Sync'] })); return }
+      const jobId = startData.job.id as string
+      setFullSyncJobId(jobId)
+      window.localStorage.setItem('active-full-sync-job', jobId)
+      setFullSync(prev => ({ ...prev, running: true, phase: 'invoices', log: [startData.warning] }))
+      for (const entity of ['invoices', 'salesorders', 'estimates'] as const) {
+        for (let page = 1; page <= 500; page++) {
+          const statusRes = await fetch(`/api/admin/full-sync/status?jobId=${encodeURIComponent(jobId)}`)
+          const statusData = await statusRes.json()
+          if (!statusRes.ok || ['CANCELLING', 'CANCELLED_PARTIAL', 'COMPLETED', 'FAILED'].includes(statusData.job?.status)) break
+          const res = await fetch('/api/admin/books/bulk-process-costs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entity, page, filter: 'all', perPage: 25, force: fullSyncForce, syncJobId: jobId, writeBack: fullSyncWriteBack }) })
+          const data = await res.json()
+          if (data.cancelled || !data.success) break
+          setFullSync(prev => ({ ...prev, phase: entity === 'invoices' ? 'invoices' : entity === 'salesorders' ? 'salesorders' : 'estimates', log: [`${entity} page ${page}: ${data.processed || 0} processed, ${data.skipped || 0} skipped, ${data.errors || 0} failed`] }))
+          if (!data.hasMore) break
+        }
+      }
+      await refreshFullSyncJob(jobId)
+    })
   }
 
   // ── Bulk Process (single entity, single page loop) ───────────────────────
@@ -478,6 +543,10 @@ export default function BooksScriptsPage() {
             />
             <span className={fullSyncForce ? 'text-emerald-400 font-bold' : ''}>Force Recalc</span>
           </label>
+          <label className="flex items-center gap-2 text-xs text-amber-300 cursor-pointer select-none mt-1">
+            <input type="checkbox" checked={fullSyncWriteBack} onChange={e => setFullSyncWriteBack(e.target.checked)} disabled={anyBusy} className="w-3.5 h-3.5 accent-amber-500" />
+            <span>Explicit Zoho write-back (recent reauthentication required)</span>
+          </label>
         </div>
 
         {/* Phase status pills */}
@@ -511,7 +580,7 @@ export default function BooksScriptsPage() {
 
         <button
           disabled={anyBusy}
-          onClick={runFullSync}
+          onClick={runControlledFullSync}
           className="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-50 text-sm"
         >
           {fullSync.running ? <FiLoader className="animate-spin" /> : <FiZap />}
@@ -521,6 +590,9 @@ export default function BooksScriptsPage() {
             ? 'Run Full Sync Again'
             : 'Run Full Data Sync (All Documents)'}
         </button>
+        {fullSync.running && fullSyncJobId && (
+          <button onClick={cancelFullSync} className="w-full border border-red-500/50 text-red-300 hover:bg-red-500/10 font-bold py-2 px-4 rounded-xl text-sm">Cancel Full Sync</button>
+        )}
       </div>
 
       {/* ── Bulk Process Costs (per entity) ── */}
