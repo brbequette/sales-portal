@@ -347,8 +347,8 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           return count
         }
         
-        // Build reps from users with showOnSalesBoard === true (fallback to all active team users)
-        const boardUsers = (usersPayload.users || []).filter((u: any) => u.isSalesperson !== false && !["admin", "administrator", "master_admin", "master administrator"].includes(String(u.role || "").trim().toLowerCase()))
+        // The API returns only users designated for the board and marked as salespeople.
+        const boardUsers = usersPayload.users || []
         
         const monthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`
 
