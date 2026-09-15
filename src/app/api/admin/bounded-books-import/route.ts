@@ -115,5 +115,7 @@ export async function GET(req: NextRequest) {
   if (auth.errorResponse) return auth.errorResponse
   const id = req.nextUrl.searchParams.get('jobId')
   const job = id ? await prisma.boundedBooksImportJob.findUnique({ where: { id } }) : await prisma.boundedBooksImportJob.findFirst({ orderBy: { startedAt: 'desc' } })
-  return NextResponse.json(job ? { jobId: job.id, status: job.status, stage: job.stage, total: job.total, processed: job.processed, succeeded: job.succeeded, skipped: job.skipped, failed: job.failed, cancelRequested: Boolean(job.cancelRequestedAt), errorCategory: job.errorCategory } : { status: 'IDLE' })
+  const recent = await prisma.boundedBooksImportJob.findMany({ orderBy: { startedAt: 'desc' }, take: 25, select: { id: true, triggerType: true, status: true, enabled: true, startDate: true, endDate: true, startedAt: true, heartbeatAt: true, completedAt: true, durationMs: true, total: true, processed: true, succeeded: true, skipped: true, failed: true, importedCounts: true, pageCounts: true, errorCategory: true, skipReason: true } })
+  const enabled = process.env.BOUNDED_BOOKS_AUTO_SYNC_ENABLED === '1'
+  return NextResponse.json({ enabled, schedule: 'Every 15 minutes', current: job ? { jobId: job.id, status: job.status, stage: job.stage, total: job.total, processed: job.processed, succeeded: job.succeeded, skipped: job.skipped, failed: job.failed, cancelRequested: Boolean(job.cancelRequestedAt), errorCategory: job.errorCategory } : null, lastAttempt: recent[0] || null, lastSuccessful: recent.find((item) => item.status === 'COMPLETE') || null, recent })
 }

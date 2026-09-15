@@ -515,6 +515,8 @@ model SystemSetting {
 model BoundedBooksImportJob {
   id                  String   @id @default(cuid())
   actorId             String
+  triggerType         String   @default("MANUAL")
+  enabled             Boolean  @default(false)
   startDate           String
   endDate             String
   status              String
@@ -529,6 +531,10 @@ model BoundedBooksImportJob {
   cancelRequestedAt   DateTime?
   completedAt         DateTime?
   errorCategory       String?
+  skipReason          String?
+  durationMs          Int?
+  importedCounts      Json?
+  pageCounts          Json?
 
   @@index([status, startedAt])
 }
