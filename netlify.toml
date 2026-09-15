@@ -51,3 +51,6 @@
 
 [functions."operational-task-generator"]
   schedule = "*/15 * * * *"
+
+[functions."bounded-books-auto-sync"]
+  schedule = "*/15 * * * *"

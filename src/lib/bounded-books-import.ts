@@ -32,6 +32,19 @@ export interface BoundedCollection {
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const DAY_MS = 86_400_000
 
+export function boundedBooksDateRange(now = new Date(), timeZone = process.env.COMPANY_TIMEZONE || 'America/Phoenix'): BoundedRange {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now)
+  const value = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value])) as Record<string, string>
+  const endDate = `${value.year}-${value.month}-${value.day}`
+  const end = new Date(`${endDate}T12:00:00Z`)
+  const start = Number(value.day) <= 7
+    ? new Date(Date.UTC(Number(value.year), Number(value.month) - 2, 1, 12))
+    : new Date(end.getTime() - 7 * DAY_MS)
+  const startParts = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(start)
+  const startValue = Object.fromEntries(startParts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value])) as Record<string, string>
+  return validateBoundedRange(`${startValue.year}-${startValue.month}-${startValue.day}`, endDate)
+}
+
 export function validateBoundedRange(startDate: unknown, endDate: unknown): BoundedRange {
   if (typeof startDate !== 'string' || typeof endDate !== 'string' || !DATE_RE.test(startDate) || !DATE_RE.test(endDate)) {
     throw new Error('INVALID_DATE_RANGE')
