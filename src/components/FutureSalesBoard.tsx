@@ -82,7 +82,7 @@ export function FutureSalesBoard() {
   }, [data])
 
   if (loading && !data) return <div className={styles.loading}><div className={styles.loader} />Loading live sales data</div>
-  if (!data || !metrics) return <div className={styles.loading}><FiAlertTriangle />Sales data unavailable</div>
+  if (!data || !metrics) return <div className={styles.loading}><FiAlertTriangle />{refreshError ? "Dashboard authorization or complete data unavailable" : "Sales data unavailable"}</div>
 
   const scene = currentScreen === "WEEKLY_GRID" ? "pulse" : currentScreen === "REPS_KPI" ? "reps" : currentScreen === "MTD_STATS" ? "goals" : currentScreen === "YTD_STATS" ? "spotlight" : "facts"
   const goalPct = metrics.target > 0 ? metrics.goalProfit / metrics.target * 100 : 0
@@ -95,7 +95,7 @@ export function FutureSalesBoard() {
   return <div ref={boardRef} className={styles.board}>
     <header className={styles.header}>
       <div className={styles.brand}><img className={styles.fullLogo} src="/images/brand/logo-system/titan-horizontal-light.png" alt="Titan Diamond USA" /><small>SALES COMMAND CENTER</small></div>
-      <div className={styles.live}><i className={refreshError ? styles.warn : ""} />{refreshError ? "STALE — LAST SUCCESSFUL DATA" : "LIVE LOCAL DATA"}<span>UPDATED {updated}</span><small>{data.dataContract?.dateRange} · {data.dataContract?.timezone}</small></div>
+      <div className={styles.live}><i className={refreshError ? styles.warn : ""} />{refreshError ? "STALE / INCOMPLETE DATA" : "LIVE LOCAL DATA"}<span>UPDATED {updated}</span><small>{data.dataContract?.dateRange} · {data.dataContract?.timezone}</small></div>
       <div className={styles.controls}><button onClick={() => setIsPaused(!isPaused)} aria-label={isPaused ? "Resume" : "Pause"}>{isPaused ? <FiPlay /> : <FiPause />}</button><button onClick={toggleFullscreen} aria-label="Fullscreen">{isFullscreen ? <FiMinimize /> : <FiMaximize />}</button></div>
     </header>
 

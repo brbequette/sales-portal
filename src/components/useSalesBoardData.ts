@@ -287,7 +287,7 @@ export function useSalesBoardData(): SalesBoardDataReturn {
         const overduePayload = overduePayloadRaw || { documents: [] }
         const weeklyPayload = weeklyPayloadRaw || { documents: [] }
 
-        if (!usersPayloadRaw || !invoicesPayloadRaw || !salesOrdersPayloadRaw || !quotesPayloadRaw || !overduePayloadRaw || !weeklyPayloadRaw || invoicesPayloadRaw.complete !== true || salesOrdersPayloadRaw.complete !== true || quotesPayloadRaw.complete !== true || overduePayloadRaw.complete !== true) {
+        if (!usersPayloadRaw || !invoicesPayloadRaw || !salesOrdersPayloadRaw || !quotesPayloadRaw || !overduePayloadRaw || !weeklyPayloadRaw || !Array.isArray(usersPayloadRaw.users) || invoicesPayloadRaw.complete !== true || salesOrdersPayloadRaw.complete !== true || quotesPayloadRaw.complete !== true || overduePayloadRaw.complete !== true) {
           throw new Error("Required TV dashboard data was unavailable")
         }
 
@@ -348,13 +348,7 @@ export function useSalesBoardData(): SalesBoardDataReturn {
         }
         
         // Build reps from users with showOnSalesBoard === true (fallback to all active team users)
-        let boardUsers = (usersPayload.users || []).filter((u: any) => u.showOnSalesBoard)
-        if (boardUsers.length === 0) {
-          boardUsers = (usersPayload.users || []).filter((u: any) => {
-            const emailLower = (u.email || "").toLowerCase()
-            return !emailLower.includes("dummy") && !emailLower.includes("example.com") && !emailLower.includes("test_migration")
-          })
-        }
+        const boardUsers = (usersPayload.users || []).filter((u: any) => u.isSalesperson !== false && !["admin", "administrator", "master_admin", "master administrator"].includes(String(u.role || "").trim().toLowerCase()))
         
         const monthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`
 
@@ -782,6 +776,9 @@ export function useSalesBoardData(): SalesBoardDataReturn {
 
       } catch (err) {
         console.error("Sales Board Error:", err)
+        // Never retain an old/partial representative list when the authoritative
+        // user payload is unauthorized or incomplete.
+        setData(null)
         setRefreshError(true)
       } finally {
         setLoading(false)
