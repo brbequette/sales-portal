@@ -8,7 +8,7 @@ export async function GET() {
 
   const [users, settings] = await Promise.all([
     prisma.user.findMany({
-      where: { isSalesperson: true },
+      where: { isSalesperson: true, showOnSalesBoard: true },
       orderBy: { name: 'asc' },
       select: {
         id: true,
@@ -33,7 +33,7 @@ export async function GET() {
 
   return NextResponse.json({
     success: true,
-    users: users.filter(user => !['admin', 'administrator', 'master_admin', 'master administrator'].includes(String(user.role || '').trim().toLowerCase())).map(user => ({
+    users: users.map(user => ({
       ...user,
       dailyProfitGoal: salesTargets[user.id] ?? 1000,
       dailySubtotalGoal: subtotalTargets[user.id] ?? 2000,
