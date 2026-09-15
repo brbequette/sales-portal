@@ -1,21 +1,20 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { hasValidTvSession } from '@/lib/tv-auth'
+import { requireAdministrator } from '@/lib/auth-helpers'
 
 export async function GET() {
-  if (!(await hasValidTvSession())) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
 
   const [users, settings] = await Promise.all([
     prisma.user.findMany({
-      take: 500,
       where: { isSalesperson: true },
       orderBy: { name: 'asc' },
       select: {
         id: true,
         name: true,
         role: true,
+        isSalesperson: true,
         showOnSalesBoard: true,
         payoutStructure: true,
         monthlyVigGoals: {
@@ -34,7 +33,7 @@ export async function GET() {
 
   return NextResponse.json({
     success: true,
-    users: users.map(user => ({
+    users: users.filter(user => !['admin', 'administrator', 'master_admin', 'master administrator'].includes(String(user.role || '').trim().toLowerCase())).map(user => ({
       ...user,
       dailyProfitGoal: salesTargets[user.id] ?? 1000,
       dailySubtotalGoal: subtotalTargets[user.id] ?? 2000,

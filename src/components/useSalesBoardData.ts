@@ -243,7 +243,7 @@ export function useSalesBoardData(): SalesBoardDataReturn {
         
         const fetchSafe = async (url: string) => {
           try {
-            const res = await fetch(url)
+            const res = await fetch(url, { cache: "no-store" })
             if (!res.ok) return null
             const type = res.headers.get("content-type") || ""
             return type.includes("application/json") ? await res.json() : null
@@ -252,13 +252,30 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           }
         }
 
+        const fetchAllDocuments = async (type: string, params: string) => {
+          const documents: any[] = []
+          let page = 1
+          let totalPages = 1
+          while (page <= totalPages && page <= 100) {
+            const payload = await fetchSafe(`/api/get-documents?page=${page}&pageSize=100&type=${type}&${params}`)
+            if (!payload || !Array.isArray(payload.documents)) throw new Error(`TV_${type.toUpperCase()}_PAGE_FAILED`)
+            documents.push(...payload.documents)
+            totalPages = Number(payload.totalPages || Math.ceil(Number(payload.total || documents.length) / 100) || 1)
+            page += 1
+          }
+          return { documents, complete: page - 1 >= totalPages }
+        }
+
+        const documentParams = `loadAll=false&startDate=${encodeURIComponent(yearStartStr)}`
+        const overdueParams = "loadAll=false&status=overdue"
+
         const [usersPayloadRaw, invoicesPayloadRaw, salesOrdersPayloadRaw, quotesPayloadRaw, configPayloadRaw, overduePayloadRaw, weeklyPayloadRaw] = await Promise.all([
           fetchSafe("/api/tv/users"),
-          fetchSafe(`/api/get-documents?pageSize=8000&type=Invoice&loadAll=true&startDate=${yearStartStr}`),
-          fetchSafe(`/api/get-documents?pageSize=8000&type=SalesOrder&loadAll=true&startDate=${yearStartStr}`),
-          Promise.resolve({ documents: [] }),
+          fetchAllDocuments("Invoice", documentParams),
+          fetchAllDocuments("SalesOrder", documentParams),
+          fetchAllDocuments("Quote", documentParams),
           fetchSafe("/api/tv/config"),
-          fetchSafe(`/api/get-documents?pageSize=8000&type=Invoice&loadAll=true&status=overdue`),
+          fetchAllDocuments("Invoice", overdueParams),
           fetchSharedJson<any>("/api/dashboard-weekly-sales").catch(() => null)
         ])
 
@@ -270,7 +287,7 @@ export function useSalesBoardData(): SalesBoardDataReturn {
         const overduePayload = overduePayloadRaw || { documents: [] }
         const weeklyPayload = weeklyPayloadRaw || { documents: [] }
 
-        if (!usersPayloadRaw || !invoicesPayloadRaw || !weeklyPayloadRaw) {
+        if (!usersPayloadRaw || !invoicesPayloadRaw || !salesOrdersPayloadRaw || !quotesPayloadRaw || !overduePayloadRaw || !weeklyPayloadRaw || !Array.isArray(usersPayloadRaw.users) || invoicesPayloadRaw.complete !== true || salesOrdersPayloadRaw.complete !== true || quotesPayloadRaw.complete !== true || overduePayloadRaw.complete !== true) {
           throw new Error("Required TV dashboard data was unavailable")
         }
 
@@ -331,13 +348,7 @@ export function useSalesBoardData(): SalesBoardDataReturn {
         }
         
         // Build reps from users with showOnSalesBoard === true (fallback to all active team users)
-        let boardUsers = (usersPayload.users || []).filter((u: any) => u.showOnSalesBoard)
-        if (boardUsers.length === 0) {
-          boardUsers = (usersPayload.users || []).filter((u: any) => {
-            const emailLower = (u.email || "").toLowerCase()
-            return !emailLower.includes("dummy") && !emailLower.includes("example.com") && !emailLower.includes("test_migration")
-          })
-        }
+        const boardUsers = (usersPayload.users || []).filter((u: any) => u.isSalesperson !== false && !["admin", "administrator", "master_admin", "master administrator"].includes(String(u.role || "").trim().toLowerCase()))
         
         const monthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`
 
@@ -764,6 +775,9 @@ export function useSalesBoardData(): SalesBoardDataReturn {
 
       } catch (err) {
         console.error("Sales Board Error:", err)
+        // Never retain an old/partial representative list when the authoritative
+        // user payload is unauthorized or incomplete.
+        setData(null)
         setRefreshError(true)
       } finally {
         setLoading(false)
