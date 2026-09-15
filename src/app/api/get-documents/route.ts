@@ -4,16 +4,20 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasValidTvSession } from '@/lib/tv-auth'
 import { isAdminRole } from '@/lib/roles'
+import { requireTvAccess } from '@/lib/tv-access'
 
 export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url)
+    const tvRequested = searchParams.get('tv') === '1'
     const session = await getServerSession(authOptions)
     const tvSession = session ? false : await hasValidTvSession()
-    if (!session && !tvSession) {
+    if (tvRequested) {
+      const auth = await requireTvAccess()
+      if (auth.errorResponse) return auth.errorResponse
+    } else if (!session && !tvSession) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    const { searchParams } = new URL(request.url)
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
     const loadAll = searchParams.get('loadAll') === 'true'
     const maxPageSize = loadAll ? 10000 : 100

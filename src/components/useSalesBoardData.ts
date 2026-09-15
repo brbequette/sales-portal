@@ -45,7 +45,7 @@ export interface SalesBoardDataReturn {
   data: any
   loading: boolean
   lastUpdated: Date | null
-  refreshError: boolean
+  refreshError: "unauthorized" | "incomplete" | "network" | null
   currentScreen: ScreenType
   isFullscreen: boolean
   isPaused: boolean
@@ -75,7 +75,7 @@ export function useSalesBoardData(): SalesBoardDataReturn {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
-  const [refreshError, setRefreshError] = useState(false)
+  const [refreshError, setRefreshError] = useState<"unauthorized" | "incomplete" | "network" | null>(null)
   const [currentScreen, setCurrentScreen] = useState<ScreenType>("WEEKLY_GRID")
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
@@ -244,11 +244,15 @@ export function useSalesBoardData(): SalesBoardDataReturn {
         const fetchSafe = async (url: string) => {
           try {
             const res = await fetch(url, { cache: "no-store" })
-            if (!res.ok) return null
+            if (!res.ok) {
+              if (res.status === 401 || res.status === 403) throw new Error("TV_UNAUTHORIZED")
+              throw new Error("TV_NETWORK_FAILURE")
+            }
             const type = res.headers.get("content-type") || ""
             return type.includes("application/json") ? await res.json() : null
-          } catch {
-            return null
+          } catch (error) {
+            if (error instanceof Error && error.message === "TV_UNAUTHORIZED") throw error
+            throw new Error("TV_NETWORK_FAILURE")
           }
         }
 
@@ -257,7 +261,7 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           let page = 1
           let totalPages = 1
           while (page <= totalPages && page <= 100) {
-            const payload = await fetchSafe(`/api/get-documents?page=${page}&pageSize=100&type=${type}&${params}`)
+            const payload = await fetchSafe(`/api/get-documents?page=${page}&pageSize=100&type=${type}&tv=1&${params}`)
             if (!payload || !Array.isArray(payload.documents)) throw new Error(`TV_${type.toUpperCase()}_PAGE_FAILED`)
             documents.push(...payload.documents)
             totalPages = Number(payload.totalPages || Math.ceil(Number(payload.total || documents.length) / 100) || 1)
@@ -288,7 +292,7 @@ export function useSalesBoardData(): SalesBoardDataReturn {
         const weeklyPayload = weeklyPayloadRaw || { documents: [] }
 
         if (!usersPayloadRaw || !invoicesPayloadRaw || !salesOrdersPayloadRaw || !quotesPayloadRaw || !overduePayloadRaw || !weeklyPayloadRaw || !Array.isArray(usersPayloadRaw.users) || invoicesPayloadRaw.complete !== true || salesOrdersPayloadRaw.complete !== true || quotesPayloadRaw.complete !== true || overduePayloadRaw.complete !== true) {
-          throw new Error("Required TV dashboard data was unavailable")
+          throw new Error("TV_INCOMPLETE_DATASET")
         }
 
         const missingCostInvoiceIds: string[] = Array.isArray(weeklyPayload.missingCostInvoiceIds)
@@ -772,14 +776,15 @@ export function useSalesBoardData(): SalesBoardDataReturn {
 
         setData(computedBoardData)
         setLastUpdated(new Date())
-        setRefreshError(false)
+        setRefreshError(null)
 
       } catch (err) {
         console.error("Sales Board Error:", err)
         // Never retain an old/partial representative list when the authoritative
         // user payload is unauthorized or incomplete.
         setData(null)
-        setRefreshError(true)
+        const reason = err instanceof Error ? err.message : "TV_NETWORK_FAILURE"
+        setRefreshError(reason === "TV_UNAUTHORIZED" ? "unauthorized" : reason === "TV_INCOMPLETE_DATASET" ? "incomplete" : "network")
       } finally {
         setLoading(false)
       }

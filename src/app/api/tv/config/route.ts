@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { hasValidTvSession } from '@/lib/tv-auth'
+import { requireTvAccess } from '@/lib/tv-access'
 
 function parseHolidays(value: string | undefined) {
   if (!value) return []
@@ -13,9 +13,8 @@ function parseHolidays(value: string | undefined) {
 }
 
 export async function GET() {
-  if (!(await hasValidTvSession())) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const auth = await requireTvAccess()
+  if (auth.errorResponse) return auth.errorResponse
 
   const settings = await prisma.systemSetting.findMany({
     where: { key: { in: ['holidays', 'company_holidays'] } },
