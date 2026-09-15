@@ -13,8 +13,16 @@ const number = (value: unknown) => {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : 0
 }
-const subtotal = (items: Record<string, unknown>, amount: number) =>
-  number(items.sub_total ?? items.subTotal ?? amount)
+const subtotal = (items: unknown, amount: number) => {
+  if (Array.isArray(items)) {
+    return items.reduce((sum, item) => {
+      const line = item && typeof item === "object" ? item as Record<string, unknown> : {}
+      return sum + number(line.sub_total ?? line.subTotal ?? line.amount ?? 0)
+    }, 0)
+  }
+  const fields = items && typeof items === "object" ? items as Record<string, unknown> : {}
+  return number(fields.sub_total ?? fields.subTotal ?? fields.subtotal ?? amount)
+}
 
 // Arizona does not observe daylight saving time. Derive the Arizona calendar
 // date, but query document dates from UTC midnight because Zoho date-only
