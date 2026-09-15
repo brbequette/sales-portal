@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { hasValidTvSession } from "@/lib/tv-auth"
+import { requireAdministrator } from "@/lib/auth-helpers"
 import { prisma } from "@/lib/prisma"
 import { processInvoiceCostsForSystem } from "../../../../../netlify/functions/process-invoice-costs"
 import { processSalesOrderCostsForSystem } from "../../../../../netlify/functions/process-salesorder-costs"
@@ -13,12 +11,8 @@ export const maxDuration = 120
 const activeDocuments = new Set<string>()
 
 export async function POST(request: Request) {
-  const session = await getServerSession(authOptions)
-  const tvSession = session ? false : await hasValidTvSession()
-  const role = String(session?.user?.role || "").toLowerCase()
-  if (!tvSession && !role.includes("admin") && !role.includes("manager")) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
   const settings = await getSystemSettings(prisma)
   if (settings.pause_mass_zoho_updates) {
     return NextResponse.json({ error: "Automatic Zoho cost updates are paused" }, { status: 503 })

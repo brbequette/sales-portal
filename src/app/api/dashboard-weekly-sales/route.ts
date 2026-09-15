@@ -2,9 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
 import { extractDeadCostTotal, extractDeadProfit } from "@/lib/custom-field-extractor"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { hasValidTvSession } from "@/lib/tv-auth"
+import { requireTvAccess } from "@/lib/tv-access"
 
 const terminalStatuses = new Set(["void", "voided", "declined", "cancelled", "canceled", "orphaned"])
 const excludedPipelineStatuses = new Set([...terminalStatuses, "draft"])
@@ -42,14 +40,11 @@ const weeklyResponseCache = new Map<string, { expiresAt: number; payload: unknow
 const weeklyResponseInFlight = new Map<string, Promise<unknown>>()
 
 export async function GET() {
-  const session = await getServerSession(authOptions)
-  const tvSession = session ? false : await hasValidTvSession()
-  if (!session && !tvSession) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  const role = String(session?.user?.role || "").toLowerCase()
-  const privileged = tvSession || role.includes("admin") || role.includes("manager")
+  const auth = await requireTvAccess()
+  if (auth.errorResponse) return auth.errorResponse
+  const session = auth.session
+  const tvSession = auth.access === "display"
+  const privileged = true
   const cacheKey = privileged ? "privileged" : `rep:${text(session?.user?.name)}`
   const cached = weeklyResponseCache.get(cacheKey)
   if (cached && cached.expiresAt > Date.now()) return NextResponse.json(cached.payload)

@@ -5,8 +5,7 @@ const usersRoute = fs.readFileSync("src/app/api/tv/users/route.ts", "utf8")
 const hook = fs.readFileSync("src/components/useSalesBoardData.ts", "utf8")
 const board = fs.readFileSync("src/components/FutureSalesBoard.tsx", "utf8")
 
-assert.match(usersRoute, /requireAdministrator\(\)/)
-assert.doesNotMatch(usersRoute, /hasValidTvSession/)
+assert.match(usersRoute, /requireTvAccess\(\)/)
 assert.doesNotMatch(usersRoute, /take:\s*500/)
 assert.match(usersRoute, /isSalesperson:\s*true/)
 assert.match(usersRoute, /showOnSalesBoard:\s*true/)
@@ -17,8 +16,8 @@ assert.match(hook, /usersPayloadRaw\.users/)
 assert.match(hook, /const boardUsers = usersPayload\.users \|\| \[\]/)
 assert.doesNotMatch(hook, /Promise\.resolve\(\{ documents: \[\] \}\)/)
 assert.match(hook, /setData\(null\)/)
-assert.match(board, /STALE \/ INCOMPLETE DATA/)
-assert.match(board, /authorization or complete data unavailable/)
+assert.match(board, /STALE \/ \$\{refreshError\.toUpperCase\(\)\}/)
+assert.match(board, /Dashboard authorization required/)
 
 const users = [
   { id: "admin-rep", role: "ADMIN", isSalesperson: true, showOnSalesBoard: true },

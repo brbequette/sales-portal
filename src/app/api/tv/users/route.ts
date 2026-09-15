@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireAdministrator } from '@/lib/auth-helpers'
+import { requireTvAccess } from '@/lib/tv-access'
 
 export async function GET() {
-  const auth = await requireAdministrator()
+  const auth = await requireTvAccess()
   if (auth.errorResponse) return auth.errorResponse
 
   const [users, settings] = await Promise.all([
