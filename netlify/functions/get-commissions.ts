@@ -11,7 +11,7 @@ import { isAdminRole } from "../../src/lib/roles"
 // Statuses where the FINAL half is earned (invoice has been paid)
 const FINAL_PAID_STATUSES = new Set(['Paid', 'paid', 'Closed', 'closed', 'Fulfilled', 'fulfilled'])
 // Statuses where at least the UPFRONT half is earned (invoice created/open)
-const SKIP_STATUSES = new Set(['Void', 'void', 'Draft', 'draft'])
+const SKIP_STATUSES = new Set(['Void', 'void', 'Voided', 'voided', 'Draft', 'draft', 'Written Off', 'written_off', 'write_off', 'Writeoff', 'writeoff', 'Write Off', 'bad debt'])
 
 function getSubTotal(items: any, amount: number) {
   let sub = parseFloat(items?.sub_total ?? items?.subTotal ?? 0)
@@ -59,7 +59,7 @@ const authenticatedHandler: Handler = async (event) => {
     // ── checkOnly mode: fast staleness check without full commission calc ──
     if (checkOnly === 'true') {
       const targetYr = year || 'all'
-      let countWhere: any = { status: { notIn: ['Void', 'void', 'Draft', 'draft'] } }
+      let countWhere: any = { status: { notIn: ['Void', 'void', 'Voided', 'voided', 'Draft', 'draft', 'Written Off', 'written_off', 'write_off', 'Writeoff', 'writeoff', 'Write Off', 'bad debt'] } }
       if (effectiveRepId) countWhere.account = { ownerId: effectiveRepId }
       if (targetYr !== 'all' && !isNaN(parseInt(targetYr))) {
         countWhere.issueDate = { gte: new Date(`${targetYr}-01-01`), lt: new Date(`${parseInt(targetYr)+1}-01-01`) }
@@ -175,7 +175,7 @@ const authenticatedHandler: Handler = async (event) => {
           ORDER BY "isPrimary" DESC NULLS LAST, "createdAt" ASC
           LIMIT 1
         ) c ON true
-        WHERE i.status NOT IN ('Void','void','Draft','draft')
+        WHERE lower(i.status) NOT IN ('void','voided','draft','written_off','writeoff','write_off','written off','bad debt')
         ORDER BY i."issueDate" DESC NULLS LAST
       `).catch(() => []),
       prisma.$queryRaw<any[]>(Prisma.sql`
@@ -991,7 +991,7 @@ const authenticatedHandler: Handler = async (event) => {
       const yearRows = await prisma.$queryRaw<{ y: number }[]>`
         SELECT DISTINCT y FROM (
           SELECT EXTRACT(YEAR FROM "issueDate")::int AS y FROM "Invoice"
-            WHERE "issueDate" IS NOT NULL AND status NOT IN ('Void','void','Draft','draft')
+            WHERE "issueDate" IS NOT NULL AND lower(status) NOT IN ('void','voided','draft','written_off','writeoff','write_off','written off','bad debt')
           UNION
           SELECT EXTRACT(YEAR FROM "closingDate")::int AS y FROM "Deal" WHERE "closingDate" IS NOT NULL
           UNION

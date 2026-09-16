@@ -40,62 +40,63 @@ enum PayoutStructure {
 }
 
 model User {
-  id                   String                     @id @default(cuid())
-  email                String                     @unique
-  password             String?
-  authType             String                     @default("ZOHO")
-  mustRotatePassword   Boolean                    @default(false)
-  failedLoginCount     Int                        @default(0)
-  lockedUntil          DateTime?
-  lastLoginAt          DateTime?
-  isSalesperson        Boolean                    @default(true)
-  name                 String?
-  phone                String?
-  title                String?                    @default("Sales Representative")
-  vcardPhotoUrl        String?
-  vcardCompany         String?                    @default("Titan Diamond USA")
-  vcardWebsite         String?                    @default("https://tdusales.com")
-  zohoId               String?                    @unique
+  id                    String                     @id @default(cuid())
+  email                 String                     @unique
+  password              String?
+  authType              String                     @default("ZOHO")
+  mustRotatePassword    Boolean                    @default(false)
+  failedLoginCount      Int                        @default(0)
+  lockedUntil           DateTime?
+  lastLoginAt           DateTime?
+  isSalesperson         Boolean                    @default(true)
+  name                  String?
+  phone                 String?
+  title                 String?                    @default("Sales Representative")
+  vcardPhotoUrl         String?
+  vcardCompany          String?                    @default("Titan Diamond USA")
+  vcardWebsite          String?                    @default("https://tdusales.com")
+  zohoId                String?                    @unique
   /// @future Use UserRole enum
-  role                 String                     @default("AGENT")
-  autoAttachVCard      Boolean                    @default(false)
-  createdAt            DateTime                   @default(now())
-  updatedAt            DateTime                   @updatedAt
-  constantVigEnabled   Boolean                    @default(false)
-  constantVigValue     Float?                     @default(1.5)
-  canSendCampaigns     Boolean                    @default(false)
-  permissions          Json?
-  showOnSalesBoard     Boolean                    @default(false)
+  role                  String                     @default("AGENT")
+  autoAttachVCard       Boolean                    @default(false)
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+  constantVigEnabled    Boolean                    @default(false)
+  constantVigValue      Float?                     @default(1.5)
+  canSendCampaigns      Boolean                    @default(false)
+  permissions           Json?
+  showOnSalesBoard      Boolean                    @default(false)
   /// @future Use PayoutStructure enum
-  payoutStructure      String                     @default("two_payment")
-  accounts             Account[]
-  campaignBlasts       CampaignBlast[]
-  campaignJobs         CampaignJob[]
-  deals                Deal[]
-  monthlyVigGoals      MonthlyVigGoal[]
-  notes                Note[]
-  payouts              Payout[]
-  tasks                Task[]
-  timeEntries          TimeEntry[]
-  timeChangeRequests   TimeChangeRequest[]
-  smsMessages          SmsMessage[]
-  callLogs             CallLog[]
-  pushSubscriptions    PushSubscription[]
-  notifications        Notification[]
-  advances             Advance[]
-  reimbursements       Reimbursement[]
-  scheduledMessages    ScheduledMessage[]
-  communicationEvents  CommunicationEvent[]
-  salesCommitments     SalesCommitment[]
-  proposedAutomations  AutomationRecommendation[] @relation("AutomationProposer")
-  reviewedAutomations  AutomationRecommendation[] @relation("AutomationReviewer")
-  leads                Lead[]
-  claimedLeads         Lead[]                     @relation("ClaimedLeads")
-  clawbackTransactions ClawbackTransaction[]
-  compensationPlans    CompensationPlan[]
-  basePayEarnings      BasePayEarning[]
-  emailMailboxes       EmailMailbox[]
-  syncJobs             SyncJob[]
+  payoutStructure       String                     @default("two_payment")
+  accounts              Account[]
+  campaignBlasts        CampaignBlast[]
+  campaignJobs          CampaignJob[]
+  deals                 Deal[]
+  monthlyVigGoals       MonthlyVigGoal[]
+  notes                 Note[]
+  payouts               Payout[]
+  tasks                 Task[]
+  timeEntries           TimeEntry[]
+  timeChangeRequests    TimeChangeRequest[]
+  smsMessages           SmsMessage[]
+  callLogs              CallLog[]
+  pushSubscriptions     PushSubscription[]
+  notifications         Notification[]
+  advances              Advance[]
+  reimbursements        Reimbursement[]
+  scheduledMessages     ScheduledMessage[]
+  communicationEvents   CommunicationEvent[]
+  salesCommitments      SalesCommitment[]
+  proposedAutomations   AutomationRecommendation[] @relation("AutomationProposer")
+  reviewedAutomations   AutomationRecommendation[] @relation("AutomationReviewer")
+  leads                 Lead[]
+  claimedLeads          Lead[]                     @relation("ClaimedLeads")
+  clawbackTransactions  ClawbackTransaction[]
+  writeOffRecoveryCases WriteOffRecoveryCase[]     @relation("RecoveryResponsibleRep")
+  compensationPlans     CompensationPlan[]
+  basePayEarnings       BasePayEarning[]
+  emailMailboxes        EmailMailbox[]
+  syncJobs              SyncJob[]
 
   @@index([role])
 }
@@ -374,14 +375,15 @@ model Invoice {
   balance         Float? // Zoho invoice.balance
 
   // Payment records relation
-  payments  Payment[]
-  lineItems LineItem[]
+  payments         Payment[]
+  lineItems        LineItem[]
   financialReviews FinancialReview[]
 
   // Clawback tracking
-  clawbackDate         DateTime?
-  clawbackStatus       String? // null | "approaching" | "clawed" | "collected"
-  clawbackTransactions ClawbackTransaction[]
+  clawbackDate          DateTime?
+  clawbackStatus        String? // null | "approaching" | "clawed" | "collected"
+  clawbackTransactions  ClawbackTransaction[]
+  writeOffRecoveryCases WriteOffRecoveryCase[]
 
   // ── Denormalized computed columns (populated by process-invoice-costs) ──────
   // Storing these as real columns avoids parsing the items JSON blob on every
@@ -423,20 +425,20 @@ model Invoice {
 }
 
 model FinancialReview {
-  id                 String    @id @default(cuid())
-  invoiceId          String?
-  documentType       String
-  documentRef        String
-  reasonCode         String
-  status             String    @default("OPEN")
-  sourceType         String?
-  sourceRecord       String?
-  metadata           Json?
-  createdAt          DateTime  @default(now())
-  resolvedAt         DateTime?
-  resolverId         String?
-  resolutionNotes    String?
-  invoice            Invoice?  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  id              String    @id @default(cuid())
+  invoiceId       String?
+  documentType    String
+  documentRef     String
+  reasonCode      String
+  status          String    @default("OPEN")
+  sourceType      String?
+  sourceRecord    String?
+  metadata        Json?
+  createdAt       DateTime  @default(now())
+  resolvedAt      DateTime?
+  resolverId      String?
+  resolutionNotes String?
+  invoice         Invoice?  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@unique([documentType, documentRef, reasonCode])
   @@index([status])
@@ -513,28 +515,28 @@ model SystemSetting {
 }
 
 model BoundedBooksImportJob {
-  id                  String   @id @default(cuid())
-  actorId             String
-  triggerType         String   @default("MANUAL")
-  enabled             Boolean  @default(false)
-  startDate           String
-  endDate             String
-  status              String
-  stage               String
-  total               Int      @default(0)
-  processed           Int      @default(0)
-  succeeded           Int      @default(0)
-  skipped             Int      @default(0)
-  failed              Int      @default(0)
-  startedAt           DateTime @default(now())
-  heartbeatAt         DateTime @default(now())
-  cancelRequestedAt   DateTime?
-  completedAt         DateTime?
-  errorCategory       String?
-  skipReason          String?
-  durationMs          Int?
-  importedCounts      Json?
-  pageCounts          Json?
+  id                String    @id @default(cuid())
+  actorId           String
+  triggerType       String    @default("MANUAL")
+  enabled           Boolean   @default(false)
+  startDate         String
+  endDate           String
+  status            String
+  stage             String
+  total             Int       @default(0)
+  processed         Int       @default(0)
+  succeeded         Int       @default(0)
+  skipped           Int       @default(0)
+  failed            Int       @default(0)
+  startedAt         DateTime  @default(now())
+  heartbeatAt       DateTime  @default(now())
+  cancelRequestedAt DateTime?
+  completedAt       DateTime?
+  errorCategory     String?
+  skipReason        String?
+  durationMs        Int?
+  importedCounts    Json?
+  pageCounts        Json?
 
   @@index([status, startedAt])
 }
@@ -547,57 +549,57 @@ model BoundedBooksImportLock {
 }
 
 model ReconciliationArtifactRegistration {
-  id              String   @id @default(cuid())
-  artifactId      String   @unique
-  fingerprint     String   @unique
-  aggregate       Json
-  uploaderUserId  String
-  createdAt       DateTime @default(now())
-  finalizedAt     DateTime?
+  id               String    @id @default(cuid())
+  artifactId       String    @unique
+  fingerprint      String    @unique
+  aggregate        Json
+  uploaderUserId   String
+  createdAt        DateTime  @default(now())
+  finalizedAt      DateTime?
   validationStatus String
   productionCommit String?
-  approvalStatus  String   @default("REGISTERED_UNAPPROVED")
+  approvalStatus   String    @default("REGISTERED_UNAPPROVED")
   @@index([uploaderUserId, createdAt])
 }
 
 model SyncJob {
-  id               String   @id @default(cuid())
-  actorId          String
-  requestedScope   Json
-  writeBack        Boolean  @default(false)
-  status           String   @default("QUEUED")
-  stage            String   @default("QUEUED")
-  total            Int      @default(0)
-  processed        Int      @default(0)
-  succeeded        Int      @default(0)
-  skipped          Int      @default(0)
-  failed           Int      @default(0)
-  startedAt        DateTime?
-  heartbeatAt      DateTime?
+  id                String              @id @default(cuid())
+  actorId           String
+  requestedScope    Json
+  writeBack         Boolean             @default(false)
+  status            String              @default("QUEUED")
+  stage             String              @default("QUEUED")
+  total             Int                 @default(0)
+  processed         Int                 @default(0)
+  succeeded         Int                 @default(0)
+  skipped           Int                 @default(0)
+  failed            Int                 @default(0)
+  startedAt         DateTime?
+  heartbeatAt       DateTime?
   cancelRequestedAt DateTime?
-  completedAt      DateTime?
-  errorCategory    String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  actor            User     @relation(fields: [actorId], references: [id])
-  writes           SyncJobWriteAudit[]
+  completedAt       DateTime?
+  errorCategory     String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  actor             User                @relation(fields: [actorId], references: [id])
+  writes            SyncJobWriteAudit[]
 
   @@index([status])
   @@index([actorId, createdAt])
 }
 
 model SyncJobWriteAudit {
-  id             String   @id @default(cuid())
-  jobId          String
-  documentType   String
+  id              String   @id @default(cuid())
+  jobId           String
+  documentType    String
   documentRefHash String
-  status         String
-  attemptCount   Int      @default(1)
-  beforeHash     String?
-  afterHash      String?
-  errorCategory  String?
-  createdAt      DateTime @default(now())
-  job            SyncJob  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  status          String
+  attemptCount    Int      @default(1)
+  beforeHash      String?
+  afterHash       String?
+  errorCategory   String?
+  createdAt       DateTime @default(now())
+  job             SyncJob  @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@index([jobId, status])
   @@unique([jobId, documentType, documentRefHash])
@@ -1166,8 +1168,8 @@ model Lead {
   dispositionNotes String?
   dispositionAt    DateTime?
 
-  owner     User  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  claimedBy User? @relation("ClaimedLeads", fields: [claimedById], references: [id], onDelete: SetNull)
+  owner     User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  claimedBy User?  @relation("ClaimedLeads", fields: [claimedById], references: [id], onDelete: SetNull)
   tasks     Task[]
 
   @@index([ownerId])
@@ -1284,6 +1286,124 @@ model ClawbackTransaction {
   @@index([invoiceId])
   @@index([monthKey])
   @@index([status])
+}
+
+// Manager-approved customer write-off cost recovery. All monetary values are cents.
+model WriteOffRecoveryCase {
+  id                        String                          @id @default(cuid())
+  invoiceId                 String                          @unique
+  responsibleRepId          String
+  status                    String                          @default("DRAFT") // DRAFT | PENDING_APPROVAL | APPROVED | WAIVED | CLOSED
+  version                   Int                             @default(1)
+  responsibilityRateBps     Int                             @default(5000)
+  originalCostCents         Int                             @default(0)
+  recoveryCents             Int                             @default(0)
+  responsibilityChargeCents Int                             @default(0)
+  commissionReversalCents   Int                             @default(0)
+  creditCents               Int                             @default(0)
+  remainingBalanceCents     Int                             @default(0)
+  dryRunHash                String?
+  dryRunAt                  DateTime?
+  reason                    String
+  createdById               String
+  submittedById             String?
+  submittedAt               DateTime?
+  approvedById              String?
+  approvedAt                DateTime?
+  waivedById                String?
+  waivedAt                  DateTime?
+  waiverReason              String?
+  zohoSyncStatus            String                          @default("DISABLED") // DISABLED | REVIEW_REQUIRED | APPROVED | SYNCED | ERROR
+  createdAt                 DateTime                        @default(now())
+  updatedAt                 DateTime                        @updatedAt
+  invoice                   Invoice                         @relation(fields: [invoiceId], references: [id])
+  responsibleRep            User                            @relation("RecoveryResponsibleRep", fields: [responsibleRepId], references: [id])
+  components                WriteOffRecoveryCostComponent[]
+  returnInspections         WriteOffReturnInspection[]
+  ledgerEvents              WriteOffRecoveryLedgerEvent[]
+
+  @@index([responsibleRepId, status])
+  @@index([status, createdAt])
+}
+
+model WriteOffRecoveryCostComponent {
+  id             String               @id @default(cuid())
+  caseId         String
+  version        Int
+  category       String
+  direction      String // COST | RECOVERY
+  amountCents    Int
+  approved       Boolean              @default(false)
+  sourceType     String
+  sourceId       String?
+  idempotencyKey String               @unique
+  evidence       Json?
+  reason         String
+  actorId        String
+  subjectUserId  String
+  occurredAt     DateTime
+  createdAt      DateTime             @default(now())
+  recoveryCase   WriteOffRecoveryCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId, version])
+  @@index([category])
+}
+
+model WriteOffReturnInspection {
+  id                         String               @id @default(cuid())
+  caseId                     String
+  version                    Int
+  idempotencyKey             String               @unique
+  sourceType                 String
+  sourceId                   String?
+  status                     String // RECEIVED | ACCEPTED_RESELLABLE | DAMAGED | MISSING | UNSELLABLE
+  historicalProductCostCents Int
+  acceptedProductCostCents   Int                  @default(0)
+  receivedAt                 DateTime
+  inspectedAt                DateTime?
+  inspectedById              String?
+  actorId                    String
+  subjectUserId              String
+  notes                      String?
+  createdAt                  DateTime             @default(now())
+  recoveryCase               WriteOffRecoveryCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId, version])
+  @@index([status])
+}
+
+// Append-only: posted entries are reversed or adjusted by a new event, never updated.
+model WriteOffRecoveryLedgerEvent {
+  id                 String               @id @default(cuid())
+  caseId             String
+  repId              String
+  version            Int
+  eventType          String // COMMISSION_REVERSAL | COST_RESPONSIBILITY_DEBIT | RETURN_CREDIT | REFUND_CREDIT | WAIVER_CREDIT | ADJUSTMENT
+  direction          String // DEBIT | CREDIT
+  amountCents        Int
+  balanceBeforeCents Int
+  balanceAfterCents  Int
+  idempotencyKey     String               @unique
+  sourceType         String
+  sourceId           String?
+  actorId            String
+  subjectUserId      String
+  reason             String
+  metadata           Json?
+  postedAt           DateTime             @default(now())
+  recoveryCase       WriteOffRecoveryCase @relation(fields: [caseId], references: [id], onDelete: Restrict)
+
+  @@index([caseId, version])
+  @@index([repId, postedAt])
+}
+
+model WriteOffRecoveryPolicy {
+  id                    String   @id @default("default")
+  responsibilityRateBps Int      @default(5000)
+  zohoSyncEnabled       Boolean  @default(false)
+  updatedById           String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 }
 
 // ── Compensation Management ─────────────────────────────────────────
@@ -1847,17 +1967,17 @@ model PromotionDraft {
 
 /// Immutable security audit record. There is intentionally no application update/delete path.
 model AuthAuditEvent {
-  id             String   @id @default(cuid())
-  eventType      String
-  actorUserId    String?
-  subjectUserId  String?
-  reasonCode     String?
-  entityType     String?
-  entityIdHash   String?
-  changedFields  Json?
-  requestId      String?
-  sessionId      String?
-  createdAt      DateTime @default(now())
+  id            String   @id @default(cuid())
+  eventType     String
+  actorUserId   String?
+  subjectUserId String?
+  reasonCode    String?
+  entityType    String?
+  entityIdHash  String?
+  changedFields Json?
+  requestId     String?
+  sessionId     String?
+  createdAt     DateTime @default(now())
 
   @@index([eventType, createdAt])
   @@index([actorUserId, createdAt])
@@ -1865,11 +1985,11 @@ model AuthAuditEvent {
 
 /// Short-lived actor/subject delegation; never changes historical authorship.
 model DelegatedSession {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   actorUserId   String
   subjectUserId String
   reason        String
-  startedAt     DateTime @default(now())
+  startedAt     DateTime  @default(now())
   expiresAt     DateTime
   revokedAt     DateTime?
   sessionId     String?
