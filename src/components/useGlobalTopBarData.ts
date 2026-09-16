@@ -5,7 +5,6 @@ import { useZoho } from "@/components/ZohoProvider"
 import { usePreferences } from "@/components/PreferencesProvider"
 import { GeofenceMonitor, type MonitorStatus } from "@/lib/geofence-monitor"
 import { useCampaignProgress } from "@/components/CampaignProgressProvider"
-import { fetchSharedJson } from "@/lib/shared-api-fetch"
 
 export function useGlobalTopBarData() {
   const router = useRouter()
@@ -73,13 +72,10 @@ export function useGlobalTopBarData() {
 
   const fetchStripStats = useCallback(async () => {
     try {
-      const [res, weekly] = await Promise.all([
-        fetch("/api/zoho-invoices?summary=true"),
-        fetchSharedJson<any>("/api/dashboard-weekly-sales"),
-      ])
+      const res = await fetch("/api/zoho-invoices?summary=true", { cache: "no-store" })
       const json = await res.json()
       if (!json.summary) return
-      const ws = Number(weekly.total) || 0
+      const ws = Number(json.summary.weeklySales) || 0
       const ms = Number(json.summary.mtdSales) || 0
       const mp = Number(json.summary.mtdProfit) || 0
       const mc = Number(json.summary.mtdCommission) || 0
@@ -92,8 +88,12 @@ export function useGlobalTopBarData() {
   useEffect(() => {
     fetchStripStats()
     const handleVisibility = () => { if (document.visibilityState === 'visible') fetchStripStats() }
+    const refresh = window.setInterval(fetchStripStats, 15_000)
     document.addEventListener('visibilitychange', handleVisibility)
-    return () => document.removeEventListener('visibilitychange', handleVisibility)
+    return () => {
+      window.clearInterval(refresh)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
   }, [fetchStripStats])
 
   useEffect(() => {

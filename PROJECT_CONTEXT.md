@@ -1,5 +1,12 @@
 # Titan Diamond — Consolidated Project Context
 
+## Global-header financial metric audit (2026-09-15)
+
+- A read-only production PostgreSQL audit established exact global-header corrections: WEEKLY $4,499.75 unchanged; MTD $74,519.72 to $44,780.89; PROFIT $13,122.12 unchanged; COMM $4,193.52 to $6,561.04; PIPELINE $188,786.42 to $165,175.77; OVERDUE $72,243.18 unchanged.
+- MTD double-counted 11 already-invoiced sales orders totaling $29,738.83. PIPELINE included two orphaned orders totaling $20,460.95 and one invoice-linked partially-invoiced order totaling $3,149.70. COMM incorrectly represented earned upfront/final portions instead of canonical profit-based commission.
+- The corrected header rules include active invoices plus active uninvoiced sales orders for WEEKLY/MTD, exclude estimates and all draft/terminal/orphaned/unresolved/converted records, use authoritative issue/order/due dates, use subtotal for sales, stored profit/commission without approximation, invoice balance for collections, and retain the established Paul Gencuski/Genkuski sales exclusion.
+- All six figures now come from one no-store local-database summary refreshed every 15 seconds and on tab visibility, preventing mixed endpoint/cache snapshots. The audit ran only inside `BEGIN TRANSACTION READ ONLY` and `ROLLBACK`; no Full Sync, reconciliation Apply, Zoho write, or database mutation occurred. Detailed evidence and rules are in `docs/global-header-financial-audit-2026-09-15.md`.
+
 ## Integration review handoff (2026-09-02)
 
 - Integration branch: `integration/titan-release`; its first parent is the exact sales-portal `main` SHA `e9bc9244f7e3d10d6b0ecbfdfca73924fcab1979`.
