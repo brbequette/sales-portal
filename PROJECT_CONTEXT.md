@@ -9,6 +9,7 @@
 - Zoho sync is disabled and no write path exists in this subsystem. A proposed, unapplied Zoho field/custom-module manifest, gap analysis, assumptions, blockers, and dry-run examples are in `docs/write-off-recovery-design-2026-09-15.md`. No production or Zoho mutation was performed.
 - The post-deployment smoke audit found the original calculator did not require a historical-product-cost component. The isolated correction now fails closed unless an approved positive historical product cost is sourced from an invoice line, purchase-order line, or vendor-bill line; catalog fallbacks and aggregate commission snapshots cannot authorize a case.
 - The same smoke audit found recovery events are not yet included in the aggregate commission balance and the supplied reversal amount is not derived from documented invoice earnings. Real approvals remain blocked until separate reversal approval and carry-forward accounting are implemented without retroactive invoice-level payout allocation.
+- Write-off recovery percentage fields use a `50.00%` business default, normalized only at the integration boundary to internal `5000` basis points. Individual overrides require an authorized audit reason and preserve the original policy rate. This contract is isolated from ordinary salesperson commission plans. Zoho field API names remain UNVERIFIED because sandbox metadata was unavailable; sync stays disabled and no production fields were created.
 
 ## Global-header Netlify runtime scope audit (2026-09-15)
 

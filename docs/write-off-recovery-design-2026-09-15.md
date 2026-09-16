@@ -37,36 +37,55 @@ All inputs are non-negative integer cents. Included company costs are historical
 
 `responsibility = round_half_up(max(0, included costs − recoveries) × rate basis points / 10,000)`.
 
+All write-off recovery percentage fields have the business default `50.00%`.
+Zoho-facing decimal percentages are normalized at the integration boundary:
+`50.00` maps to the application's integer `5000` basis points and back to
+`50.00`. This rate is isolated from ordinary salesperson commission plans and
+commission rates. An individual recovery may differ from the policy default
+only when an authorized manager supplies an audit reason; the case stores both
+the original policy rate and the override rate. No approved case rate is edited
+in place.
+
 An accepted returned product reduces responsibility only after receipt and inspection as resellable. At the default 50% rate, its ledger credit is 50% of accepted historical product cost.
 
 ## Proposed Zoho configuration manifest — not applied
 
-Zoho synchronization remains disabled (`zohoSyncEnabled=false`). This manifest must receive a separate review, then be created in a Zoho sandbox/test organization before any production configuration. Zoho may generate custom-module API names; the desired API names below are release requirements and must be verified from the metadata API before enabling sync.
+Zoho synchronization remains disabled (`zohoSyncEnabled=false`). This manifest must receive a separate review, then be created in a Zoho sandbox/test organization before any production configuration. No sandbox metadata credentials were available during implementation. Every API name below is therefore `UNVERIFIED`; no production field may be created and no synchronization may be enabled until the sandbox metadata API returns the actual names.
 
-| Module | Label | Desired API name | Type | Allowed values / validation |
+| Module | Label | API name | Type | Default / validation |
 |---|---|---|---|---|
-| Invoice | Recovery Case ID | `cf_write_off_recovery_case_id` | Text, 100 | Immutable local case ID; blank or one ID |
-| Invoice | Recovery Status | `cf_write_off_recovery_status` | Dropdown | `NONE`, `PENDING_APPROVAL`, `APPROVED`, `WAIVED`, `CLOSED`; forward-only except versioned correction |
-| Invoice | Recovery Charge | `cf_write_off_recovery_charge` | Amount, 2 decimals | ≥ 0; mirrors approved cents only |
-| Invoice | Recovery Balance | `cf_write_off_recovery_balance` | Amount, 2 decimals | ≥ 0; mirrors latest ledger balance |
-| Invoice | Recovery Version | `cf_write_off_recovery_version` | Integer | ≥ 1; must increase |
-| Invoice | Recovery Last Event | `cf_write_off_recovery_last_event_at` | Date-time | UTC posted timestamp |
-| Custom Module: Write-Off Recovery Cases | Case ID | `Write_Off_Recovery_Case_ID` | Auto/Text | Unique, immutable |
-| Custom Module | Invoice ID | `Invoice_ID` | Lookup/Text | Required; unique active case per invoice |
-| Custom Module | Responsible Salesperson ID | `Responsible_Salesperson_ID` | Lookup/Text | Required local/Zoho user mapping |
-| Custom Module | Status | `Recovery_Status` | Dropdown | `DRAFT`, `PENDING_APPROVAL`, `APPROVED`, `WAIVED`, `CLOSED` |
-| Custom Module | Version | `Recovery_Version` | Integer | ≥ 1; monotonic |
-| Custom Module | Responsibility Rate BPS | `Responsibility_Rate_BPS` | Integer | 0–10000; snapshot, default 5000 |
-| Custom Module | Original Cost | `Original_Cost` | Currency | ≥ 0; included documented costs only |
-| Custom Module | Recoveries | `Recovery_Total` | Currency | ≥ 0; documented refunds/accepted cost |
-| Custom Module | Responsibility Charge | `Responsibility_Charge` | Currency | Formula snapshot; ≥ 0 |
-| Custom Module | Credits | `Recovery_Credits` | Currency | ≥ 0; posted credits only |
-| Custom Module | Remaining Balance | `Recovery_Remaining_Balance` | Currency | ≥ 0; latest immutable ledger balance |
-| Custom Module | Dry Run Hash | `Dry_Run_Hash` | Text, 64 | Lowercase SHA-256; required before approval |
-| Custom Module | Approval Actor ID | `Approval_Actor_ID` | Text | Required for approved/waived; cannot equal creator/subject |
-| Custom Module | Approval Timestamp | `Approval_Timestamp` | Date-time | Required for approved/waived |
-| Custom Module | Reason | `Recovery_Reason` | Multi-line | Required; 10–2000 characters |
-| Custom Module | Zoho Sync Status | `Recovery_Sync_Status` | Dropdown | `DISABLED`, `REVIEW_REQUIRED`, `APPROVED`, `SYNCED`, `ERROR`; default `DISABLED` |
+| Write-off recovery | Recovery Percentage | `UNVERIFIED` | Percentage, 2 decimals | `50.00`; 0.00–100.00 |
+| Write-off recovery | Rep Cost Responsibility Percentage | `UNVERIFIED` | Percentage, 2 decimals | `50.00`; 0.00–100.00 |
+| Write-off recovery | Commission Responsibility Percentage | `UNVERIFIED` | Percentage, 2 decimals | `50.00`; 0.00–100.00 |
+| Write-off recovery | Product Cost Responsibility Percentage | `UNVERIFIED` | Percentage, 2 decimals | `50.00`; 0.00–100.00 |
+| Write-off recovery | Approved Additional Cost Responsibility Percentage | `UNVERIFIED` | Percentage, 2 decimals | `50.00`; 0.00–100.00 |
+
+These labels are the requested business labels, not confirmed Zoho API names.
+
+| Module | Label | Unverified proposed API name | Type | Allowed values / validation |
+|---|---|---|---|---|
+| Invoice | Recovery Case ID | `UNVERIFIED` | Text, 100 | Immutable local case ID; blank or one ID |
+| Invoice | Recovery Status | `UNVERIFIED` | Dropdown | `NONE`, `PENDING_APPROVAL`, `APPROVED`, `WAIVED`, `CLOSED`; forward-only except versioned correction |
+| Invoice | Recovery Charge | `UNVERIFIED` | Amount, 2 decimals | ≥ 0; mirrors approved cents only |
+| Invoice | Recovery Balance | `UNVERIFIED` | Amount, 2 decimals | ≥ 0; mirrors latest ledger balance |
+| Invoice | Recovery Version | `UNVERIFIED` | Integer | ≥ 1; must increase |
+| Invoice | Recovery Last Event | `UNVERIFIED` | Date-time | UTC posted timestamp |
+| Custom Module: Write-Off Recovery Cases | Case ID | `UNVERIFIED` | Auto/Text | Unique, immutable |
+| Custom Module | Invoice ID | `UNVERIFIED` | Lookup/Text | Required; unique active case per invoice |
+| Custom Module | Responsible Salesperson ID | `UNVERIFIED` | Lookup/Text | Required local/Zoho user mapping |
+| Custom Module | Status | `UNVERIFIED` | Dropdown | `DRAFT`, `PENDING_APPROVAL`, `APPROVED`, `WAIVED`, `CLOSED` |
+| Custom Module | Version | `UNVERIFIED` | Integer | ≥ 1; monotonic |
+| Custom Module | Responsibility Percentage | `UNVERIFIED` | Percentage, 2 decimals | 0.00–100.00; snapshot, default `50.00` |
+| Custom Module | Original Cost | `UNVERIFIED` | Currency | ≥ 0; included documented costs only |
+| Custom Module | Recoveries | `UNVERIFIED` | Currency | ≥ 0; documented refunds/accepted cost |
+| Custom Module | Responsibility Charge | `UNVERIFIED` | Currency | Formula snapshot; ≥ 0 |
+| Custom Module | Credits | `UNVERIFIED` | Currency | ≥ 0; posted credits only |
+| Custom Module | Remaining Balance | `UNVERIFIED` | Currency | ≥ 0; latest immutable ledger balance |
+| Custom Module | Dry Run Hash | `UNVERIFIED` | Text, 64 | Lowercase SHA-256; required before approval |
+| Custom Module | Approval Actor ID | `UNVERIFIED` | Text | Required for approved/waived; cannot equal creator/subject |
+| Custom Module | Approval Timestamp | `UNVERIFIED` | Date-time | Required for approved/waived |
+| Custom Module | Reason | `UNVERIFIED` | Multi-line | Required; 10–2000 characters |
+| Custom Module | Zoho Sync Status | `UNVERIFIED` | Dropdown | `DISABLED`, `REVIEW_REQUIRED`, `APPROVED`, `SYNCED`, `ERROR`; default `DISABLED` |
 
 Detailed cost components, inspection evidence, idempotency keys, actor metadata, and immutable ledger events remain local because syncing them to invoice custom fields would expose sensitive evidence and exceed a safe denormalized contract.
 

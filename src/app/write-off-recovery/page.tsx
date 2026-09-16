@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { DEFAULT_WRITE_OFF_RESPONSIBILITY_PERCENTAGE } from "@/lib/write-off-recovery"
 
 type RecoveryCase = {
   id: string; status: string; responsibilityRateBps: number; originalCostCents: number; recoveryCents: number
@@ -14,7 +15,7 @@ const money = (cents: number) => new Intl.NumberFormat("en-US", { style: "curren
 export default function WriteOffRecoveryPage() {
   const [cases, setCases] = useState<RecoveryCase[]>([])
   const [scope, setScope] = useState<"management" | "personal">("personal")
-  const [rate, setRate] = useState(5000)
+  const [percentage, setPercentage] = useState(DEFAULT_WRITE_OFF_RESPONSIBILITY_PERCENTAGE)
   const [error, setError] = useState("")
   const load = useCallback(async () => {
     try {
@@ -24,7 +25,7 @@ export default function WriteOffRecoveryPage() {
       ])
       if (!casesResponse.ok || !policyResponse.ok) throw new Error("Recovery data unavailable")
       const [caseData, policyData] = await Promise.all([casesResponse.json(), policyResponse.json()])
-      setCases(caseData.cases || []); setScope(caseData.scope); setRate(policyData.responsibilityRateBps)
+      setCases(caseData.cases || []); setScope(caseData.scope); setPercentage(policyData.responsibilityPercentage || DEFAULT_WRITE_OFF_RESPONSIBILITY_PERCENTAGE)
     } catch (caught) { setError(caught instanceof Error ? caught.message : "Recovery data unavailable") }
   }, [])
   useEffect(() => {
@@ -34,7 +35,7 @@ export default function WriteOffRecoveryPage() {
 
   const saveRate = async () => {
     const response = await fetch("/api/write-off-recovery/policy", {
-      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ responsibilityRateBps: rate }),
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ responsibilityPercentage: percentage }),
     })
     if (!response.ok) setError((await response.json()).error || "Unable to save rate")
   }
@@ -43,8 +44,8 @@ export default function WriteOffRecoveryPage() {
     <div className="mx-auto max-w-7xl space-y-6">
       <div><h1 className="text-2xl font-black">Write-off Recovery</h1><p className="text-sm text-neutral-400">Commission-ledger recovery. Zoho synchronization is disabled pending separate review.</p></div>
       {scope === "management" && <section className="rounded-xl border border-white/10 bg-white/5 p-4">
-        <label className="text-sm text-neutral-300">Default responsibility rate (basis points)</label>
-        <div className="mt-2 flex gap-2"><input className="rounded bg-black px-3 py-2" type="number" min={0} max={10000} value={rate} onChange={event => setRate(Number(event.target.value))} /><button className="rounded bg-orange-600 px-4 py-2 font-bold" onClick={saveRate}>Save</button></div>
+        <label className="text-sm text-neutral-300">Default write-off responsibility percentage</label>
+        <div className="mt-2 flex gap-2"><input className="rounded bg-black px-3 py-2" type="number" min={0} max={100} step="0.01" value={percentage} onChange={event => setPercentage(event.target.value)} /><span className="self-center text-neutral-400">%</span><button className="rounded bg-orange-600 px-4 py-2 font-bold" onClick={saveRate}>Save</button></div>
       </section>}
       {error && <p className="rounded border border-red-500/30 bg-red-500/10 p-3 text-red-300">{error}</p>}
       <div className="overflow-x-auto rounded-xl border border-white/10">

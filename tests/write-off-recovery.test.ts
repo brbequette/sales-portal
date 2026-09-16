@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import {
   applyLedgerEvent, assertApprovalAuthority, calculateResponsibilityShare, calculateWriteOffRecovery, redactRecoveryCase,
+  DEFAULT_WRITE_OFF_RESPONSIBILITY_PERCENTAGE, DEFAULT_WRITE_OFF_RESPONSIBILITY_RATE_BPS,
+  writeOffBpsToPercentage, writeOffPercentageToBps,
   type RecoveryComponent, type ReturnInspection,
 } from "../src/lib/write-off-recovery"
 
@@ -88,5 +90,14 @@ describe("write-off recovery", () => {
       responsibilityRateBps: 5000,
       components: [{ ...cost(10_000), sourceType: "CATALOG_FALLBACK" }],
     })).toThrow(/historical product cost is required/i)
+  })
+
+  it("normalizes the write-off-only 50.00 percent contract at the integration boundary", () => {
+    expect(DEFAULT_WRITE_OFF_RESPONSIBILITY_PERCENTAGE).toBe("50.00")
+    expect(DEFAULT_WRITE_OFF_RESPONSIBILITY_RATE_BPS).toBe(5000)
+    expect(writeOffPercentageToBps("50.00")).toBe(5000)
+    expect(writeOffBpsToPercentage(5000)).toBe("50.00")
+    expect(() => writeOffPercentageToBps("50")).toThrow(/two-decimal format/i)
+    expect(writeOffPercentageToBps("0.50")).toBe(50)
   })
 })
