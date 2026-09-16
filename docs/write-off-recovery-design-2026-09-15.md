@@ -48,46 +48,105 @@ in place.
 
 An accepted returned product reduces responsibility only after receipt and inspection as resellable. At the default 50% rate, its ledger credit is 50% of accepted historical product cost.
 
-## Proposed Zoho configuration manifest — not applied
+## Verified Zoho Books metadata — 2026-09-16, no writes
 
-Zoho synchronization remains disabled (`zohoSyncEnabled=false`). This manifest must receive a separate review, then be created in a Zoho sandbox/test organization before any production configuration. No sandbox metadata credentials were available during implementation. Every API name below is therefore `UNVERIFIED`; no production field may be created and no synchronization may be enabled until the sandbox metadata API returns the actual names.
+The supported read-only Settings Fields API returned metadata successfully for
+`invoice` (26 custom fields), `invoice_item` (1), `creditnote` (0),
+`salesorder` (13), `contact` (9), `purchaseorder` (2), `bill` (0), and `item`
+(21). The same endpoint with advanced-search filtering established which fields
+are searchable. This discovery made GET requests only and emitted no credentials,
+record identifiers, or customer data. The machine-readable evidence contract is
+`docs/write-off-recovery-zoho-metadata-2026-09-16.json`.
 
-| Module | Label | API name | Type | Default / validation |
-|---|---|---|---|---|
-| Write-off recovery | Recovery Percentage | `UNVERIFIED` | Percentage, 2 decimals | `50.00`; 0.00–100.00 |
-| Write-off recovery | Rep Cost Responsibility Percentage | `UNVERIFIED` | Percentage, 2 decimals | `50.00`; 0.00–100.00 |
-| Write-off recovery | Commission Responsibility Percentage | `UNVERIFIED` | Percentage, 2 decimals | `50.00`; 0.00–100.00 |
-| Write-off recovery | Product Cost Responsibility Percentage | `UNVERIFIED` | Percentage, 2 decimals | `50.00`; 0.00–100.00 |
-| Write-off recovery | Approved Additional Cost Responsibility Percentage | `UNVERIFIED` | Percentage, 2 decimals | `50.00`; 0.00–100.00 |
+| Module | Visible label | API name | Type | Limits / values | Search | Books API | Webhook | History | Exists | Confidence |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Invoice | Written Off? | `cf_written_off` | Check Box | Boolean `false`/`true`; length and precision not applicable | Yes | Yes, settings and invoice custom fields | `UNVERIFIED` payload inclusion | `UNVERIFIED` | Yes, active | VERIFIED from live metadata |
+| Invoice line item | `UNVERIFIED` (unrelated field) | `cf_cost_increase_completed` | Check Box | Unrelated and inactive | No | Metadata only; operational exposure not required | `UNVERIFIED` | `UNVERIFIED` | Yes, inactive | API/type/status VERIFIED; label not retained |
 
-These labels are the requested business labels, not confirmed Zoho API names.
+Zoho metadata does not report retained field-history guarantees or webhook body
+membership, so neither is claimed. Five existing webhook definitions were listed
+read-only: active Invoice Sync, Sales Order Sync, Estimate Sync, Vendor Sync, and
+Payments webhooks. Their URLs, IDs, and payloads were not recorded.
 
-| Module | Label | Unverified proposed API name | Type | Allowed values / validation |
-|---|---|---|---|---|
-| Invoice | Recovery Case ID | `UNVERIFIED` | Text, 100 | Immutable local case ID; blank or one ID |
-| Invoice | Recovery Status | `UNVERIFIED` | Dropdown | `NONE`, `PENDING_APPROVAL`, `APPROVED`, `WAIVED`, `CLOSED`; forward-only except versioned correction |
-| Invoice | Recovery Charge | `UNVERIFIED` | Amount, 2 decimals | ≥ 0; mirrors approved cents only |
-| Invoice | Recovery Balance | `UNVERIFIED` | Amount, 2 decimals | ≥ 0; mirrors latest ledger balance |
-| Invoice | Recovery Version | `UNVERIFIED` | Integer | ≥ 1; must increase |
-| Invoice | Recovery Last Event | `UNVERIFIED` | Date-time | UTC posted timestamp |
-| Custom Module: Write-Off Recovery Cases | Case ID | `UNVERIFIED` | Auto/Text | Unique, immutable |
-| Custom Module | Invoice ID | `UNVERIFIED` | Lookup/Text | Required; unique active case per invoice |
-| Custom Module | Responsible Salesperson ID | `UNVERIFIED` | Lookup/Text | Required local/Zoho user mapping |
-| Custom Module | Status | `UNVERIFIED` | Dropdown | `DRAFT`, `PENDING_APPROVAL`, `APPROVED`, `WAIVED`, `CLOSED` |
-| Custom Module | Version | `UNVERIFIED` | Integer | ≥ 1; monotonic |
-| Custom Module | Responsibility Percentage | `UNVERIFIED` | Percentage, 2 decimals | 0.00–100.00; snapshot, default `50.00` |
-| Custom Module | Original Cost | `UNVERIFIED` | Currency | ≥ 0; included documented costs only |
-| Custom Module | Recoveries | `UNVERIFIED` | Currency | ≥ 0; documented refunds/accepted cost |
-| Custom Module | Responsibility Charge | `UNVERIFIED` | Currency | Formula snapshot; ≥ 0 |
-| Custom Module | Credits | `UNVERIFIED` | Currency | ≥ 0; posted credits only |
-| Custom Module | Remaining Balance | `UNVERIFIED` | Currency | ≥ 0; latest immutable ledger balance |
-| Custom Module | Dry Run Hash | `UNVERIFIED` | Text, 64 | Lowercase SHA-256; required before approval |
-| Custom Module | Approval Actor ID | `UNVERIFIED` | Text | Required for approved/waived; cannot equal creator/subject |
-| Custom Module | Approval Timestamp | `UNVERIFIED` | Date-time | Required for approved/waived |
-| Custom Module | Reason | `UNVERIFIED` | Multi-line | Required; 10–2000 characters |
-| Custom Module | Zoho Sync Status | `UNVERIFIED` | Dropdown | `DISABLED`, `REVIEW_REQUIRED`, `APPROVED`, `SYNCED`, `ERROR`; default `DISABLED` |
+### Minimal Zoho footprint — proposed, not applied
 
-Detailed cost components, inspection evidence, idempotency keys, actor metadata, and immutable ledger events remain local because syncing them to invoice custom fields would expose sensitive evidence and exceed a safe denormalized contract.
+Reuse the existing `Written Off?` checkbox. If sandbox validation proves an
+operational need, add only these two invoice fields; Zoho assigns their API names,
+so the names remain `UNVERIFIED` until post-creation sandbox metadata is read.
+
+| Module | Visible label | API name | Type | Allowed values / validation | Purpose |
+|---|---|---|---|---|---|
+| Invoice | Recovery Case ID | `UNVERIFIED` | Text | Exact maximum length `UNVERIFIED`; one opaque application ID | Link to the authoritative application case |
+| Invoice | Recovery Status | `UNVERIFIED` | Dropdown | `BLOCKED_EVIDENCE`, `PENDING_APPROVAL`, `APPROVED`, `WAIVED`, `CLOSED`, `REVIEW_REQUIRED` | Concise operational reporting only |
+
+All requested percentage labels—Recovery Percentage, Rep Cost Responsibility
+Percentage, Commission Responsibility Percentage, Product Cost Responsibility
+Percentage, and Approved Additional Cost Responsibility Percentage—remain
+application-only. Their business value is `50.00%`, normalized to `5000` basis
+points at the application boundary. Creating five Zoho copies would invite drift
+and could be confused with ordinary commission plans.
+
+The following also remain exclusively in the immutable application recovery
+record: Written Off At, Written Off By, Write-Off Reason, Responsibility Rate,
+Original Responsibility Rate, Responsibility Override Reason, Historical Cost
+Status/Snapshot, Commission Reversal Status, Cost Responsibility Status, Return
+Status, Accepted Return Value, Waiver Amount, Recovery Balance, Recovery Version,
+and Last Recovery Calculation Hash. Zoho custom fields must not become an approval,
+calculation, evidence, inspection, audit, or ledger authority.
+
+### Trigger contract and current gap
+
+The exact trigger is an invoice transition from `cf_written_off=false` (or absent)
+to boolean `true`. A webhook is only a hint: the future handler must perform a
+targeted GET of that invoice, confirm `true`, then create one local `DRAFT` case
+blocked from approval while authoritative cost is missing. A bounded read pass may
+query the same searchable field to recover missed events.
+
+Use `zoho-books:invoice:{invoice-id}:cf_written_off:true` as the event idempotency
+key and the existing unique invoice-case relationship as a second guard. Replays
+return the existing case and never post ledger entries. A transition back to
+`false` never deletes history or reverses money automatically; it records a local
+review-required transition, blocks further posting, and requires a separately
+approved versioned correction if anything was already posted.
+
+Current trigger viability is **FAIL**: the Books webhook mapper recognizes
+`cf_written_off`, but no webhook or bounded-sync path creates the blocked recovery
+case. Webhook payload inclusion also remains unverified. This is planned missing
+functionality, not a reason to enable synchronization during metadata discovery.
+
+### Historical-cost and return evidence
+
+| Evidence | Exact Books exposure | Authority decision |
+|---|---|---|
+| Invoice line | `line_item_id`, `item_id`, quantity, rate and total | Identifies sold items; sales rate is not product cost |
+| Invoice custom cost | `cf_dead_cost_total`, `cf_dead_cost_no_vig`, related active amount fields | Aggregate corroboration only; not an invoice-line historical-cost source |
+| Purchase order line | `line_item_id`, `item_id`, quantity and purchase rate | Candidate historical source when explicitly linked and date/quantity matched |
+| Vendor bill line | `line_item_id`, `purchaseorder_item_id`, `item_id`, quantity and rate; bill/PO relationships | Candidate historical source when explicitly linked and date/quantity matched |
+| Item/catalog | Current purchase-rate and custom cost fields | Fallback only; never authoritative invoice-date cost |
+| Credit note | Invoice relationship plus line `item_id`, quantity and rate | Return quantity/credit relationship only; does not prove receipt, condition, or resellable acceptance |
+
+Zoho metadata contains no verified invoice-line historical-cost field and no
+return-inspection acceptance field. A real recovery therefore remains blocked
+unless the application already holds an authoritative invoice-line, linked PO-line,
+or linked vendor-bill-line historical snapshot.
+
+### Safe sandbox sequence and rollback
+
+1. Export/read the sandbox field metadata baseline; do not recreate `Written Off?`.
+2. Create only Recovery Case ID and Recovery Status in sandbox, then read metadata
+   again to capture Zoho-assigned API names, lengths, values, searchability, PDF,
+   API, webhook, and history behavior.
+3. Configure a sandbox-only workflow/webhook and prove a checkbox transition with
+   a synthetic invoice. Confirm the webhook using a targeted GET and replay it.
+4. Exercise false→true, duplicate true, true→false, missing-cost, and delayed
+   bounded-read scenarios. Assert that only a blocked case is proposed and no
+   ledger entry is posted.
+5. Keep `zohoSyncEnabled=false`; separately review any writer before promotion.
+
+Rollback is to disable the sandbox workflow/webhook and deactivate the two new
+sandbox fields. Preserve application audit history and test cases; do not delete
+or rewrite ledger events. Production receives no configuration until the exact
+sandbox-generated API names and behavior have been reviewed.
 
 ## Dry-run examples
 
