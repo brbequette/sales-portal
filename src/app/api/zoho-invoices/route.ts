@@ -5,7 +5,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdministratorRole } from '@/lib/roles';
 import { Prisma } from '@prisma/client';
-import { calculateGlobalHeaderMetrics } from '@/lib/global-header-metrics';
+import { calculateGlobalHeaderMetrics, resolveGlobalHeaderScope, scopeGlobalHeaderDocuments } from '@/lib/global-header-metrics';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,11 +44,14 @@ export async function GET(request: Request) {
 
     if (searchParams.get('summary') === 'true') {
       const now = new Date();
+      const scope = resolveGlobalHeaderScope(session.user.role);
+      const identity = { id: actorId, name: session.user.name, role: session.user.role };
       const recentStart = new Date(now.getTime() - 40 * 86_400_000);
       const salesOrders = await prisma.salesOrder.findMany({
         select: {
           zohoId: true, amount: true, status: true, orderDate: true, items: true,
           syncConflict: true, pendingZohoFetch: true,
+          account: { select: { ownerId: true } },
         },
       });
       const nonLinkableOrderStatuses = new Set([
@@ -77,6 +80,7 @@ export async function GET(request: Request) {
           select: {
             amount: true, balance: true, status: true, issueDate: true, dueDate: true, items: true,
             computedProfit: true, computedSalesperson: true, syncConflict: true, pendingZohoFetch: true,
+            account: { select: { ownerId: true } },
           },
         }),
         prisma.$queryRaw<Array<{
@@ -98,16 +102,25 @@ export async function GET(request: Request) {
         [link.salesOrderZohoId, link.itemSalesOrderId, link.itemSalesOrderIdAlt].filter(Boolean).forEach(value => linkedIds.add(String(value).toLowerCase()));
         [link.salesorderNumber, link.itemSalesOrderNumber, link.itemSalesOrderNumberAlt].filter(Boolean).forEach(value => linkedNumbers.add(String(value).toLowerCase()));
       }
+      const invoicesWithOwners = invoices.map(invoice => ({
+        ...invoice,
+        accountOwnerId: invoice.account.ownerId,
+      }));
       const ordersWithLinks = salesOrders.map(order => {
         const items = order.items && typeof order.items === 'object' && !Array.isArray(order.items)
           ? order.items as Record<string, unknown>
           : {};
         const id = String(order.zohoId || '').toLowerCase();
         const number = String(items.salesorder_number || items.salesOrderNumber || '').toLowerCase();
-        return { ...order, linkedToInvoice: Boolean((id && linkedIds.has(id)) || (number && linkedNumbers.has(number))) };
+        return {
+          ...order,
+          accountOwnerId: order.account.ownerId,
+          linkedToInvoice: Boolean((id && linkedIds.has(id)) || (number && linkedNumbers.has(number))),
+        };
       });
-      const summary = calculateGlobalHeaderMetrics(now, invoices, ordersWithLinks);
-      return NextResponse.json({ summary, asOf: now.toISOString() }, {
+      const scoped = scopeGlobalHeaderDocuments(scope, identity, invoicesWithOwners, ordersWithLinks);
+      const summary = calculateGlobalHeaderMetrics(now, scoped.invoices, scoped.salesOrders);
+      return NextResponse.json({ summary, scope, asOf: now.toISOString() }, {
         headers: { 'Cache-Control': 'private, no-store, max-age=0, must-revalidate' },
       });
     }
@@ -308,6 +321,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ invoices: combined });
   } catch (err: any) {
     console.error('zoho-invoices DB error:', err);
+    if (new URL(request.url).searchParams.get('summary') === 'true') {
+      return NextResponse.json({ error: 'Global header summary unavailable' }, {
+        status: 500,
+        headers: { 'Cache-Control': 'private, no-store, max-age=0, must-revalidate' },
+      });
+    }
     return NextResponse.json({ invoices: [], error: err.message });
   }
 }

@@ -1,5 +1,12 @@
 # Titan Diamond — Consolidated Project Context
 
+## Global-header Netlify runtime scope audit (2026-09-15)
+
+- Post-PR #58 visual verification exposed that the earlier evidence came from local Docker while the live browser used Netlify production. A new Netlify `DATABASE_URL` audit ran only in `BEGIN TRANSACTION READ ONLY`/`ROLLBACK` and found: WEEKLY $4,499.75 (4 documents), MTD $44,780.89 (15 invoices + 2 active uninvoiced orders), PROFIT $14,922.00, COMM $7,460.99, PIPELINE $166,054.33 (68 invoices + 2 orders), and OVERDUE $79,138.92 (42 invoices). There are zero sync-conflict/pending-fetch invoices or orders.
+- The deployed $37,292 header MTD dropped September 1 date-only records by starting the month at 07:00 UTC. The former $40,281.14 dashboard card was invoice-only; it now consumes the same scoped invoice-plus-active-uninvoiced-order summary as the header and returns $44,780.89 for current administrators. Currency-formatted stored commission/profit values also parsed as zero in the header.
+- Header scope is now explicit and atomic: MASTER_ADMIN, ADMIN/administrator, manager, and collections roles receive consistently company-wide values labeled `Company`; ordinary salespeople receive only owned/assigned documents labeled `My`. The dashboard MTD Sales card uses that identical scope and calculation contract.
+- Header and dashboard financial reads are no-store. Invalid/non-2xx/unscoped header responses clear displayed totals rather than retaining stale values. No production data, sync, Full Sync, reconciliation Apply, Zoho write, or deployment mutation was performed. Full evidence and rules are in `docs/global-header-runtime-audit-2026-09-15.md`.
+
 ## Global-header financial metric audit (2026-09-15)
 
 - A read-only production PostgreSQL audit established exact global-header corrections: WEEKLY $4,499.75 unchanged; MTD $74,519.72 to $44,780.89; PROFIT $13,122.12 unchanged; COMM $4,193.52 to $6,561.04; PIPELINE $188,786.42 to $165,175.77; OVERDUE $72,243.18 unchanged.
