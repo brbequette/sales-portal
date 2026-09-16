@@ -5,7 +5,7 @@ import {
 } from "../src/lib/write-off-recovery"
 
 const cost = (amountCents: number, key = "cost-1", category = "HISTORICAL_PRODUCT_COST"): RecoveryComponent => ({
-  category, direction: "COST", amountCents, approved: true, sourceType: "INVOICE_SNAPSHOT",
+  category, direction: "COST", amountCents, approved: true, sourceType: "INVOICE_LINE_HISTORICAL_COST",
   sourceId: "invoice-1", idempotencyKey: key, reason: "Documented historical company cost",
 })
 const inspection = (status: ReturnInspection["status"], acceptedProductCostCents: number, key = "return-1"): ReturnInspection => ({
@@ -73,5 +73,20 @@ describe("write-off recovery", () => {
 
   it("requires auditable source and reason fields", () => {
     expect(() => calculateWriteOffRecovery({ responsibilityRateBps: 5000, components: [{ ...cost(100), reason: "" }] })).toThrow(/source and reason/i)
+  })
+
+  it("fails closed without approved authoritative historical product cost", () => {
+    expect(() => calculateWriteOffRecovery({
+      responsibilityRateBps: 5000,
+      components: [{ ...cost(10_000), category: "OUTBOUND_FREIGHT" }],
+    })).toThrow(/historical product cost is required/i)
+    expect(() => calculateWriteOffRecovery({
+      responsibilityRateBps: 5000,
+      components: [{ ...cost(10_000), approved: false }],
+    })).toThrow(/historical product cost is required/i)
+    expect(() => calculateWriteOffRecovery({
+      responsibilityRateBps: 5000,
+      components: [{ ...cost(10_000), sourceType: "CATALOG_FALLBACK" }],
+    })).toThrow(/historical product cost is required/i)
   })
 })

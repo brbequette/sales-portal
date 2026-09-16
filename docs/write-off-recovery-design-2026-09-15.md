@@ -16,9 +16,20 @@ The production audit ran in a serializable PostgreSQL transaction after `SET TRA
 
 `WriteOffRecoveryCase` is the versioned approval aggregate. `WriteOffRecoveryCostComponent` stores evidenced costs and recoveries with unique event keys. `WriteOffReturnInspection` proves receipt, inspection, condition, historical cost, and accepted resellable cost. `WriteOffRecoveryLedgerEvent` is append-only; corrections, refunds, accepted returns, and waivers create later versions instead of editing posted entries. `WriteOffRecoveryPolicy` stores the manager-configured basis-point rate and keeps Zoho sync disabled.
 
+Approval and dry-run calculation fail closed unless an approved, positive
+`HISTORICAL_PRODUCT_COST` component cites an invoice-line, purchase-order-line,
+or vendor-bill-line historical source. Catalog fallback and aggregate commission
+snapshots are not authoritative approval sources.
+
 The legacy direct write-off endpoint now fails closed. Approval requires a current dry-run hash and an independent manager who is neither creator, submitter, nor responsible salesperson. Approval retains the existing invoice `written_off`/goal-removal behavior and the commission query excludes written-off statuses. A salesperson can read only their cases and receives redacted provider evidence/actor identifiers.
 
-Known blocker: historical product cost is available only where the invoice line-item/cost snapshot is complete. A case must remain unapproved when a component lacks documentary evidence. Previously paid commission cannot be derived per invoice from aggregate payouts; management must supply an evidenced invoice allocation, or post no commission reversal. This does not block the separate cost-responsibility debit.
+Known blockers: historical product cost is available only where the invoice-line,
+purchase-order-line, or vendor-bill-line snapshot is complete. A case must remain
+unapproved when that evidence is absent. Commission payouts are aggregate ledger
+transactions and must not be retroactively allocated to invoices. The deployed
+recovery ledger is not yet included in the aggregate commission balance, so the
+commission-reversal/carry-forward policy requires a separate correction before a
+real recovery can be approved safely.
 
 ## Calculation contract
 

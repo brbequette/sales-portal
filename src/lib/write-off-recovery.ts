@@ -47,6 +47,11 @@ export type RecoveryDryRun = {
 const costCategories = new Set<string>(RECOVERY_COST_CATEGORIES)
 const recoveryCategories = new Set<string>(RECOVERY_CREDIT_CATEGORIES)
 const excludedCategories = new Set<string>(EXCLUDED_RECOVERY_CATEGORIES)
+const authoritativeHistoricalProductCostSources = new Set([
+  "INVOICE_LINE_HISTORICAL_COST",
+  "PURCHASE_ORDER_LINE",
+  "VENDOR_BILL_LINE",
+])
 
 function assertCents(value: number, label: string) {
   if (!Number.isSafeInteger(value) || value < 0) throw new Error(`${label} must be a non-negative integer-cent value`)
@@ -86,6 +91,7 @@ export function calculateWriteOffRecovery(input: {
   let originalCostCents = 0
   let recoveryCents = 0
   let excludedCents = 0
+  let hasAuthoritativeHistoricalProductCost = false
   for (const component of input.components) {
     assertCents(component.amountCents, "Component amount")
     if (!component.idempotencyKey || keys.has(component.idempotencyKey)) throw new Error("Every component requires a unique idempotency key")
@@ -93,9 +99,18 @@ export function calculateWriteOffRecovery(input: {
     if (!component.reason.trim() || !component.sourceType.trim() || (!component.sourceId && component.evidence == null)) throw new Error("Every component requires documentary source and reason")
     if (excludedCategories.has(component.category)) { excludedCents += component.amountCents; continue }
     if ((component.category === "INSURANCE" || component.category === "APPROVED_ADDITIONAL_COST") && !component.approved) { excludedCents += component.amountCents; continue }
-    if (component.direction === "COST" && costCategories.has(component.category)) originalCostCents += component.amountCents
+    if (component.direction === "COST" && costCategories.has(component.category)) {
+      originalCostCents += component.amountCents
+      if (component.category === "HISTORICAL_PRODUCT_COST" && component.approved && component.amountCents > 0
+        && authoritativeHistoricalProductCostSources.has(component.sourceType.trim().toUpperCase())) {
+        hasAuthoritativeHistoricalProductCost = true
+      }
+    }
     else if (component.direction === "RECOVERY" && recoveryCategories.has(component.category)) recoveryCents += component.amountCents
     else throw new Error(`Unsupported category/direction: ${component.category}/${component.direction}`)
+  }
+  if (!hasAuthoritativeHistoricalProductCost) {
+    throw new Error("Authoritative invoice-line, purchase-order-line, or vendor-bill-line historical product cost is required")
   }
 
   let acceptedReturnCreditCents = 0

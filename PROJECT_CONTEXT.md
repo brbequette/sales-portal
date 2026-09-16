@@ -7,6 +7,8 @@
 - Included costs and recoveries follow the documented 50% rule. Accepted returns require receipt plus independent inspection as resellable; damaged/missing/unsellable items receive no automatic credit. Previously paid commission reversal and cost-responsibility debit are separate ledger entries.
 - Direct legacy write-off is disabled in favor of dry-run plus independent manager approval. Written-off invoices remain excluded from goals and commission earnings. Manager views are company-wide; salesperson views are self-scoped and redact evidence/provider/actor identifiers.
 - Zoho sync is disabled and no write path exists in this subsystem. A proposed, unapplied Zoho field/custom-module manifest, gap analysis, assumptions, blockers, and dry-run examples are in `docs/write-off-recovery-design-2026-09-15.md`. No production or Zoho mutation was performed.
+- The post-deployment smoke audit found the original calculator did not require a historical-product-cost component. The isolated correction now fails closed unless an approved positive historical product cost is sourced from an invoice line, purchase-order line, or vendor-bill line; catalog fallbacks and aggregate commission snapshots cannot authorize a case.
+- The same smoke audit found recovery events are not yet included in the aggregate commission balance and the supplied reversal amount is not derived from documented invoice earnings. Real approvals remain blocked until separate reversal approval and carry-forward accounting are implemented without retroactive invoice-level payout allocation.
 
 ## Global-header Netlify runtime scope audit (2026-09-15)
 
