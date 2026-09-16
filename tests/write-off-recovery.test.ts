@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest"
 import {
   applyLedgerEvent, assertApprovalAuthority, calculateResponsibilityShare, calculateWriteOffRecovery, redactRecoveryCase,
-  DEFAULT_WRITE_OFF_RESPONSIBILITY_PERCENTAGE, DEFAULT_WRITE_OFF_RESPONSIBILITY_RATE_BPS,
-  writeOffBpsToPercentage, writeOffPercentageToBps,
   type RecoveryComponent, type ReturnInspection,
 } from "../src/lib/write-off-recovery"
+import {
+  DEFAULT_WRITE_OFF_RESPONSIBILITY_PERCENTAGE, DEFAULT_WRITE_OFF_RESPONSIBILITY_RATE_BPS,
+  writeOffBpsToPercentage, writeOffPercentageToBps,
+} from "../src/lib/write-off-recovery-shared"
 
 const cost = (amountCents: number, key = "cost-1", category = "HISTORICAL_PRODUCT_COST"): RecoveryComponent => ({
   category, direction: "COST", amountCents, approved: true, sourceType: "INVOICE_LINE_HISTORICAL_COST",

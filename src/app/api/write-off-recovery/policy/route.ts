@@ -2,7 +2,8 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { DEFAULT_WRITE_OFF_RESPONSIBILITY_RATE_BPS, isRecoveryManagerRole, writeOffBpsToPercentage, writeOffPercentageToBps } from "@/lib/write-off-recovery"
+import { isRecoveryManagerRole } from "@/lib/write-off-recovery"
+import { DEFAULT_WRITE_OFF_RESPONSIBILITY_RATE_BPS, writeOffBpsToPercentage, writeOffPercentageToBps } from "@/lib/write-off-recovery-shared"
 
 const noStore = { "Cache-Control": "private, no-store, max-age=0, must-revalidate" }
 

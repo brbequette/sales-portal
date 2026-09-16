@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { DEFAULT_WRITE_OFF_RESPONSIBILITY_PERCENTAGE } from "@/lib/write-off-recovery"
+import { DEFAULT_WRITE_OFF_RESPONSIBILITY_PERCENTAGE, formatRecoveryMoney } from "@/lib/write-off-recovery-shared"
 
 type RecoveryCase = {
   id: string; status: string; responsibilityRateBps: number; originalCostCents: number; recoveryCents: number
@@ -9,8 +9,6 @@ type RecoveryCase = {
   invoice: { invoiceNumber: string | null; zohoId: string; account: { name: string } }
   responsibleRep: { name: string | null }
 }
-
-const money = (cents: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100)
 
 export default function WriteOffRecoveryPage() {
   const [cases, setCases] = useState<RecoveryCase[]>([])
@@ -50,7 +48,7 @@ export default function WriteOffRecoveryPage() {
       {error && <p className="rounded border border-red-500/30 bg-red-500/10 p-3 text-red-300">{error}</p>}
       <div className="overflow-x-auto rounded-xl border border-white/10">
         <table className="w-full text-left text-sm"><thead className="bg-white/5 text-neutral-400"><tr><th className="p-3">Invoice / Customer</th><th>Salesperson</th><th>Original cost</th><th>Recoveries</th><th>Charge</th><th>Credits</th><th>Remaining</th><th>Status</th></tr></thead>
-          <tbody>{cases.map(item => <tr key={item.id} className="border-t border-white/10"><td className="p-3">{item.invoice.invoiceNumber || item.invoice.zohoId}<div className="text-xs text-neutral-500">{item.invoice.account.name}</div></td><td>{item.responsibleRep.name || "Unassigned"}</td><td>{money(item.originalCostCents)}</td><td>{money(item.recoveryCents)}</td><td>{money(item.responsibilityChargeCents)}</td><td>{money(item.creditCents)}</td><td className="font-bold">{money(item.remainingBalanceCents)}</td><td>{item.status}</td></tr>)}</tbody>
+          <tbody>{cases.map(item => <tr key={item.id} className="border-t border-white/10"><td className="p-3">{item.invoice.invoiceNumber || item.invoice.zohoId}<div className="text-xs text-neutral-500">{item.invoice.account.name}</div></td><td>{item.responsibleRep.name || "Unassigned"}</td><td>{formatRecoveryMoney(item.originalCostCents)}</td><td>{formatRecoveryMoney(item.recoveryCents)}</td><td>{formatRecoveryMoney(item.responsibilityChargeCents)}</td><td>{formatRecoveryMoney(item.creditCents)}</td><td className="font-bold">{formatRecoveryMoney(item.remainingBalanceCents)}</td><td>{item.status}</td></tr>)}</tbody>
         </table>
       </div>
     </div>
