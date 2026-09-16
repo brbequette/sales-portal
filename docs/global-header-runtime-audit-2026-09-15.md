@@ -33,13 +33,13 @@ The corrected company header totals are therefore WEEKLY $4,499.75, MTD $44,780.
 | COMM | $899.95 | $7,460.99 |
 | PIPELINE | $166,054.33 | $166,054.33 |
 | OVERDUE | $79,138.92 | $79,138.92 |
-| Dashboard MTD | $40,281.14, labeled Company MTD Sales | $40,281.14, explicitly labeled Company MTD Invoiced Sales |
+| Dashboard MTD | $40,281.14, invoice-only | $44,780.89 from the shared header contract |
 
 ## Root causes of the three MTD figures
 
 - PR #58’s $44,780.89 MTD happened to remain the correct Netlify company sales total, but its supporting audit came from the wrong production database (local Docker) and cannot substantiate Netlify profit, commission, pipeline, or overdue values.
 - The deployed global-header $37,292.00 used a 07:00 UTC month boundary. Zoho document dates are date-only values stored at UTC midnight or noon, so valid September 1 midnight records were omitted. It did correctly include $4,499.75 of active uninvoiced orders.
-- The dashboard $40,281.14 card is the 15 eligible invoices only. It intentionally does not include the two active sales orders, but the label did not disclose “Invoiced.” It uses a midnight month boundary and therefore included the September 1 records omitted by the header.
+- The dashboard $40,281.14 card was the 15 eligible invoices only. The corrected business rule requires the same two active uninvoiced sales orders as the header, so both surfaces now consume the shared $44,780.89 scoped summary. Its prior invoice query used a midnight month boundary and therefore included the September 1 records omitted by the deployed header.
 
 Browser rounding explains cents only. Browser/server cache does not explain the numerical differences. There were no eligible quotes and quotes are excluded by contract. The differences came from data-environment mismatch, the 07:00 MTD boundary, invoice-only versus invoice-plus-order semantics, currency-formatted financial fields, and ambiguous/role-dependent labels.
 
@@ -51,4 +51,4 @@ WEEKLY and MTD use active invoices plus active uninvoiced sales orders. PROFIT a
 
 Draft, void/voided, declined, cancelled/canceled, orphaned, deleted, invoiced, billed, partially invoiced, invoice-linked, sync-conflict, and pending-fetch documents are excluded as applicable. Quotes are excluded. Invoice `issueDate`, order `orderDate`, and invoice `dueDate` are authoritative; `createdAt` is never substituted. Zoho date-only month/week boundaries start at UTC midnight. Currency-formatted stored values are parsed without approximation.
 
-Both header and dashboard reads are `no-store`. The server response sets `Cache-Control: private, no-store`. If the header request fails, is non-2xx, is malformed, or lacks an explicit scope, the header stats are cleared instead of retaining stale values.
+Both header and dashboard reads are `no-store`. The dashboard MTD card consumes the same validated summary response as the global header, including active uninvoiced sales orders, and rejects a response whose role scope differs from rep stats. The server response sets `Cache-Control: private, no-store`. If the header request fails, is non-2xx, is malformed, or lacks an explicit scope, the header stats are cleared instead of retaining stale values.

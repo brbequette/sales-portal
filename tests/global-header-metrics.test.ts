@@ -60,6 +60,21 @@ describe("global header financial rules", () => {
     expect(result).toMatchObject({ weeklySales: 1_350, mtdSales: 1_350, mtdProfit: 400, mtdCommission: 200 })
   })
 
+  it("excludes converted and invoice-linked sales orders to prevent duplication", () => {
+    const result = calculateGlobalHeaderMetrics(now, [invoice()], [
+      order({ status: "invoiced" }),
+      order({ status: "converted" }),
+      order({ linkedToInvoice: true }),
+    ])
+    expect(result.mtdSales).toBe(900)
+  })
+
+  it("excludes every terminal sales-order status", () => {
+    const terminalOrders = ["draft", "void", "voided", "cancelled", "canceled", "deleted", "declined", "orphaned"]
+      .map(status => order({ status }))
+    expect(calculateGlobalHeaderMetrics(now, [], terminalOrders).mtdSales).toBe(0)
+  })
+
   it("excludes draft, terminal, orphaned, conflicted, and pending-fetch documents", () => {
     const invalidInvoices = [
       invoice({ status: "draft" }), invoice({ status: "void" }), invoice({ status: "orphaned" }),

@@ -82,12 +82,12 @@ export function useGlobalTopBarData() {
         return
       }
       setStripStats({
-        weeklySales: Math.round(summary.weeklySales),
-        mtdSales: Math.round(summary.mtdSales),
-        mtdProfit: Math.round(summary.mtdProfit),
-        mtdCommission: Math.round(summary.mtdCommission),
-        pipeline: Math.round(summary.pipeline),
-        overdue: Math.round(summary.overdue),
+        weeklySales: summary.weeklySales,
+        mtdSales: summary.mtdSales,
+        mtdProfit: summary.mtdProfit,
+        mtdCommission: summary.mtdCommission,
+        pipeline: summary.pipeline,
+        overdue: summary.overdue,
         scope: summary.scope,
       })
     } catch {

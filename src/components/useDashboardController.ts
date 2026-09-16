@@ -389,7 +389,6 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
     if (!rawData || !rawData.success) return null
 
     try {
-      const companyTotalsKpi = rawData.companyTotals || rawData.totals || {}
       const repTotalsKpi = rawData.totals || {}
       const companyRepsList = rawData.companyReps || rawData.reps || []
       const scopedReps = rawData.reps || []
@@ -523,8 +522,10 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
       const monthlyCommission = repTotalsKpi.invoiceCommission || 0
       const monthlyDeals = repTotalsKpi.invoiceCount || 0
 
-      const companyWeeklyTotal = weeklyLifecycleDocs.reduce((sum, doc) => sum + (Number(doc.subtotal) || 0), 0)
-      const companyMonthlyTotal = companyTotalsKpi.invoiceSubtotal || 0
+      // The dashboard banner and global header consume the same validated,
+      // role-scoped invoice + active-uninvoiced-order calculation contract.
+      const companyWeeklyTotal = rawData.globalHeaderSummary.weeklySales
+      const companyMonthlyTotal = rawData.globalHeaderSummary.mtdSales
 
       // Pipeline and overdue from current rep scope
       let pipelineValue = 0, pipelineCount = 0, overdueCount = 0, overdueBalance = 0
@@ -544,8 +545,8 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
 
       return {
         scope: rawData.scope === "company" ? "company" : "personal",
-        companyWeeklyTotal: Math.round(companyWeeklyTotal),
-        companyMonthlyTotal: Math.round(companyMonthlyTotal),
+        companyWeeklyTotal,
+        companyMonthlyTotal,
         weeklyTotal: Math.round(weeklyTotal),
         weeklyTarget: 64000,
         monthlyTotal: Math.round(monthlyTotal),

@@ -3,7 +3,7 @@ import { extractCustomFieldValue } from "@/lib/custom-field-extractor"
 export const HEADER_TERMINAL_STATUSES = new Set([
   "draft", "void", "voided", "declined", "cancelled", "canceled", "orphaned", "deleted",
 ])
-export const HEADER_CONVERTED_ORDER_STATUSES = new Set(["invoiced", "billed", "partially_invoiced"])
+export const HEADER_CONVERTED_ORDER_STATUSES = new Set(["converted", "invoiced", "billed", "partially_invoiced"])
 export const HEADER_CLOSED_INVOICE_STATUSES = new Set(["paid", "closed"])
 
 type JsonFields = Record<string, unknown>
