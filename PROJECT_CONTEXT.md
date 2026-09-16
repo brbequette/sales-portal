@@ -1,5 +1,13 @@
 # Titan Diamond — Consolidated Project Context
 
+## Manager-controlled write-off recovery design (2026-09-15)
+
+- A read-only Netlify production audit found zero written-off invoices and zero clawback rows. The legacy direct write-off route guessed cost, used floating-point mutable invoice fields, and lacked dry-run, idempotency, return inspection, independent approval, and an immutable commission ledger.
+- The additive recovery subsystem stores integer-cent `WriteOffRecoveryCase`, cost/recovery components, return inspections, append-only ledger events, and a default 5000-basis-point policy. Database triggers prohibit ledger update/delete; corrections, refunds, returns, and waivers are new versioned events.
+- Included costs and recoveries follow the documented 50% rule. Accepted returns require receipt plus independent inspection as resellable; damaged/missing/unsellable items receive no automatic credit. Previously paid commission reversal and cost-responsibility debit are separate ledger entries.
+- Direct legacy write-off is disabled in favor of dry-run plus independent manager approval. Written-off invoices remain excluded from goals and commission earnings. Manager views are company-wide; salesperson views are self-scoped and redact evidence/provider/actor identifiers.
+- Zoho sync is disabled and no write path exists in this subsystem. A proposed, unapplied Zoho field/custom-module manifest, gap analysis, assumptions, blockers, and dry-run examples are in `docs/write-off-recovery-design-2026-09-15.md`. No production or Zoho mutation was performed.
+
 ## Global-header Netlify runtime scope audit (2026-09-15)
 
 - Post-PR #58 visual verification exposed that the earlier evidence came from local Docker while the live browser used Netlify production. A new Netlify `DATABASE_URL` audit ran only in `BEGIN TRANSACTION READ ONLY`/`ROLLBACK` and found: WEEKLY $4,499.75 (4 documents), MTD $44,780.89 (15 invoices + 2 active uninvoiced orders), PROFIT $14,922.00, COMM $7,460.99, PIPELINE $166,054.33 (68 invoices + 2 orders), and OVERDUE $79,138.92 (42 invoices). There are zero sync-conflict/pending-fetch invoices or orders.

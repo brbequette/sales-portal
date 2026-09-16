@@ -248,7 +248,7 @@ const authenticatedHandler: Handler = async (event) => {
         FROM "Invoice" i
         JOIN "Account" a ON a.id = i."accountId"
         WHERE i."issueDate" >= ${rangeStart} AND i."issueDate" <= ${rangeEnd}
-          AND i.status NOT IN ('Void','void','Draft','draft')
+          AND lower(i.status) NOT IN ('void','voided','draft','written_off','writeoff','write_off','written off','bad debt')
           ${invoiceRepFilterSql}
         ORDER BY i."issueDate" DESC
       `).catch(() => []),
