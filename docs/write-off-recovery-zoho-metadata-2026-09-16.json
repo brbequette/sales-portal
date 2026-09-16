@@ -1,0 +1,55 @@
+{
+  "observedAt": "2026-09-16",
+  "mode": "read-only",
+  "zohoSyncEnabled": false,
+  "verifiedTrigger": {
+    "module": "invoice",
+    "visibleLabel": "Written Off?",
+    "apiName": "cf_written_off",
+    "dataType": "check_box",
+    "active": true,
+    "searchable": true,
+    "allowedValues": [false, true],
+    "maxLength": null,
+    "precision": null,
+    "booksApiMetadata": true,
+    "webhookPayload": "UNVERIFIED",
+    "fieldHistory": "UNVERIFIED",
+    "alreadyExists": true
+  },
+  "minimalProposedFields": [
+    {
+      "module": "invoice",
+      "visibleLabel": "Recovery Case ID",
+      "apiName": null,
+      "status": "UNVERIFIED",
+      "dataType": "string"
+    },
+    {
+      "module": "invoice",
+      "visibleLabel": "Recovery Status",
+      "apiName": null,
+      "status": "UNVERIFIED",
+      "dataType": "dropdown",
+      "allowedValues": ["BLOCKED_EVIDENCE", "PENDING_APPROVAL", "APPROVED", "WAIVED", "CLOSED", "REVIEW_REQUIRED"]
+    }
+  ],
+  "applicationOnlyFields": [
+    "Written Off At",
+    "Written Off By",
+    "Write-Off Reason",
+    "Responsibility Rate",
+    "Original Responsibility Rate",
+    "Responsibility Override Reason",
+    "Historical Cost Status",
+    "Historical Cost Snapshot",
+    "Commission Reversal Status",
+    "Cost Responsibility Status",
+    "Return Status",
+    "Accepted Return Value",
+    "Waiver Amount",
+    "Recovery Balance",
+    "Recovery Version",
+    "Last Recovery Calculation Hash"
+  ]
+}
