@@ -1295,7 +1295,9 @@ model WriteOffRecoveryCase {
   responsibleRepId          String
   status                    String                          @default("DRAFT") // DRAFT | PENDING_APPROVAL | APPROVED | WAIVED | CLOSED
   version                   Int                             @default(1)
+  originalResponsibilityRateBps Int                         @default(5000)
   responsibilityRateBps     Int                             @default(5000)
+  responsibilityRateOverrideReason String?
   originalCostCents         Int                             @default(0)
   recoveryCents             Int                             @default(0)
   responsibilityChargeCents Int                             @default(0)

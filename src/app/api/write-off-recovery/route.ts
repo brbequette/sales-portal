@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
 import { calculateWriteOffRecovery, isRecoveryManagementViewer, isRecoveryManagerRole, type RecoveryComponent, type ReturnInspection } from "@/lib/write-off-recovery"
+import { DEFAULT_WRITE_OFF_RESPONSIBILITY_RATE_BPS } from "@/lib/write-off-recovery-shared"
 
 export const dynamic = "force-dynamic"
 const noStore = { "Cache-Control": "private, no-store, max-age=0, must-revalidate" }
@@ -48,10 +49,15 @@ export async function POST(request: Request) {
   try {
     const body = await request.json() as {
       mode?: "DRY_RUN" | "CREATE_DRAFT"; invoiceId: string; responsibleRepId: string; reason: string
-      responsibilityRateBps?: number; previouslyPaidCommissionCents?: number; components: RecoveryComponent[]; inspections?: Array<Omit<ReturnInspection, "receivedAt" | "inspectedAt"> & { receivedAt: string; inspectedAt?: string | null }>
+      responsibilityRateBps?: number; responsibilityRateOverrideReason?: string; previouslyPaidCommissionCents?: number; components: RecoveryComponent[]; inspections?: Array<Omit<ReturnInspection, "receivedAt" | "inspectedAt"> & { receivedAt: string; inspectedAt?: string | null }>
     }
     const policy = await prisma.writeOffRecoveryPolicy.findUnique({ where: { id: "default" } })
-    const responsibilityRateBps = body.responsibilityRateBps ?? policy?.responsibilityRateBps ?? 5000
+    const responsibilityRateBps = body.responsibilityRateBps ?? policy?.responsibilityRateBps ?? DEFAULT_WRITE_OFF_RESPONSIBILITY_RATE_BPS
+    const originalResponsibilityRateBps = policy?.responsibilityRateBps ?? DEFAULT_WRITE_OFF_RESPONSIBILITY_RATE_BPS
+    const overrideReason = body.responsibilityRateOverrideReason?.trim() || null
+    if (responsibilityRateBps !== originalResponsibilityRateBps && (!overrideReason || overrideReason.length < 10)) {
+      throw new Error("An authorized individual responsibility-rate override requires an audit reason of at least 10 characters")
+    }
     const inspections: ReturnInspection[] = (body.inspections || []).map(item => ({
       ...item, receivedAt: new Date(item.receivedAt), inspectedAt: item.inspectedAt ? new Date(item.inspectedAt) : null,
     }))
@@ -63,7 +69,8 @@ export async function POST(request: Request) {
     const recoveryCase = await prisma.writeOffRecoveryCase.create({
       data: {
         invoiceId: invoice.id, responsibleRepId: body.responsibleRepId, reason: body.reason.trim(), createdById: user.id,
-        responsibilityRateBps, originalCostCents: dryRun.originalCostCents, recoveryCents: dryRun.recoveryCents,
+        originalResponsibilityRateBps, responsibilityRateBps, responsibilityRateOverrideReason: overrideReason,
+        originalCostCents: dryRun.originalCostCents, recoveryCents: dryRun.recoveryCents,
         responsibilityChargeCents: dryRun.responsibilityChargeCents, commissionReversalCents: dryRun.commissionReversalCents, remainingBalanceCents: dryRun.responsibilityChargeCents,
         dryRunHash: dryRun.dryRunHash, dryRunAt: new Date(), status: "PENDING_APPROVAL", submittedById: user.id, submittedAt: new Date(),
         components: { create: body.components.map(({ evidence, ...component }) => ({
