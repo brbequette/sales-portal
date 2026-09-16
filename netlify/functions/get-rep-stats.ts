@@ -1,50 +1,12 @@
 import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
-import { getSystemSettings } from "./lib/settings"
 import { prisma, Prisma } from "./lib/prisma"
+import { financialNumber, headerCommission } from "../../src/lib/global-header-metrics"
+import { isAdminRole } from "../../src/lib/roles"
 
-// Workday calculation helpers
-function getWorkdaysCount(startDate: Date, endDate: Date, holidays: any[]): number {
-  let count = 0;
-  const cur = new Date(startDate);
-  cur.setHours(0,0,0,0);
-  const targetEnd = new Date(endDate);
-  targetEnd.setHours(0,0,0,0);
-  
-  const holidayStrings = holidays.map(h => typeof h === 'string' ? h : h.date);
-  const holidaySet = new Set(holidayStrings);
-
-  while (cur <= targetEnd) {
-    const day = cur.getDay();
-    if (day !== 0 && day !== 6) {
-      const dateStr = cur.toISOString().split('T')[0];
-      if (!holidaySet.has(dateStr)) {
-        count++;
-      }
-    }
-    cur.setDate(cur.getDate() + 1);
-  }
-  return count;
-}
-
-function getWorkdaysInMonth(year: number, month: number, holidays: any[]): number {
-  const startDate = new Date(year, month, 1);
-  const endDate = new Date(year, month + 1, 0);
-  return getWorkdaysCount(startDate, endDate, holidays);
-}
-
-function getWorkdaysInWeek(date: Date, holidays: any[]): number {
-  const monday = new Date(date);
-  const day = monday.getDay();
-  const diff = monday.getDate() - day + (day === 0 ? -6 : 1);
-  monday.setDate(diff);
-  monday.setHours(0,0,0,0);
-  
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  sunday.setHours(23, 59, 59, 999);
-  
-  return getWorkdaysCount(monday, sunday, holidays);
+function hasStoredCommission(items: Record<string, unknown>): boolean {
+  return [items.salesCommission, items.commission, items.cf_commission_amount, items.cf_commision_amount, items.cf_commission_amount_unformatted]
+    .some(value => value !== undefined && value !== null && value !== '')
 }
 
 const authenticatedHandler: Handler = async (event) => {
@@ -71,8 +33,7 @@ const authenticatedHandler: Handler = async (event) => {
     const monthParam = params.month
     const dateParam = params.date
     let repIdFilter = params.repId || params.user || "all"
-    const role = String(authenticatedUser.role || "").toLowerCase()
-    const privileged = role.includes("admin") || role.includes("manager")
+    const privileged = isAdminRole(authenticatedUser.role)
     const authenticatedRepId = authenticatedUser.dbId || authenticatedUser.userId
     if (!privileged && repIdFilter !== "all" && repIdFilter !== authenticatedRepId) {
       return { statusCode: 403, headers: cors, body: JSON.stringify({ success: false, error: "Forbidden" }) }
@@ -167,13 +128,10 @@ const authenticatedHandler: Handler = async (event) => {
       : repIdFilter !== 'all' ? Prisma.sql`AND a."ownerId" = ${repIdFilter}` : Prisma.empty
 
     const [
-      settings,
       users,
       allInvoices,
-      allSalesOrders,
-      vigSettingRow
-    ]: [any[], any[], any[], any[], any] = await Promise.all([
-      prisma.systemSetting.findMany().catch(() => []),
+      allSalesOrders
+    ]: [any[], any[], any[]] = await Promise.all([
       prisma.user.findMany({
         where: {
           AND: [
@@ -243,6 +201,8 @@ const authenticatedHandler: Handler = async (event) => {
             'profit',                 i.items->>'profit',
             'commission',             i.items->>'commission',
             'salesCommission',        i.items->>'salesCommission',
+            'cf_commission_amount',   i.items->>'cf_commission_amount',
+            'cf_commision_amount',    i.items->>'cf_commision_amount',
             'cf_commission_amount_unformatted', i.items->>'cf_commission_amount_unformatted'
           ) AS items
         FROM "Invoice" i
@@ -275,6 +235,13 @@ const authenticatedHandler: Handler = async (event) => {
             'subTotal',        s.items->>'subTotal',
             'deadCostTotal',   s.items->>'deadCostTotal',
             'dead_cost_total', s.items->>'dead_cost_total',
+            'deadProfitActual', s.items->>'deadProfitActual',
+            'profit',          s.items->>'profit',
+            'commission',      s.items->>'commission',
+            'salesCommission', s.items->>'salesCommission',
+            'cf_commission_amount', s.items->>'cf_commission_amount',
+            'cf_commision_amount', s.items->>'cf_commision_amount',
+            'cf_commission_amount_unformatted', s.items->>'cf_commission_amount_unformatted',
             'additionalCosts', s.items->>'additionalCosts',
             'gifts',           s.items->>'gifts',
             'gifts_cost',      s.items->>'gifts_cost',
@@ -285,67 +252,28 @@ const authenticatedHandler: Handler = async (event) => {
         JOIN "Account" a ON a.id = s."accountId"
         WHERE s."orderDate" >= ${rangeStart} AND s."orderDate" <= ${rangeEnd}
           ${soExcludedSql}
+          AND NOT EXISTS (
+            SELECT 1 FROM "Invoice" linked
+            WHERE (
+              NULLIF(lower(s."zohoId"), '') IS NOT NULL
+              AND lower(s."zohoId") IN (
+                lower(COALESCE(linked."salesOrderZohoId", '')),
+                lower(COALESCE(linked.items->>'salesorder_id', '')),
+                lower(COALESCE(linked.items->>'sales_order_id', ''))
+              )
+            ) OR (
+              NULLIF(lower(COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber', '')), '') IS NOT NULL
+              AND lower(COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber', '')) IN (
+                lower(COALESCE(linked."salesorderNumber", '')),
+                lower(COALESCE(linked.items->>'salesorder_number', '')),
+                lower(COALESCE(linked.items->>'salesOrderNumber', ''))
+              )
+            )
+          )
           ${salesOrderRepFilterSql}
         ORDER BY s."orderDate" DESC
-      `).catch(() => []),
-
-      prisma.systemSetting.findUnique({ where: { key: 'vig_settings' } }).catch(() => null)
+      `).catch(() => [])
     ])
-
-    // BUG-003 fix: build per-user VIG goal map from vig_settings (same structure as get-commissions)
-    const vigSettingsAll: Record<string, any> = vigSettingRow ? JSON.parse(vigSettingRow.value) : {}
-
-    /**
-     * Resolves the VIG rate for a document — mirrors the priority chain in cost-calculations.ts:
-     * 1. Pre-2025 or Montgomery → fixed rate (1.3 or 1.0)
-     * 2. constantVigEnabled on user → user.constantVigValue
-     * 3. monthlyVigGoal.manualVigRate for docMonth → that rate
-     * 4. monthlyVigGoal.status === 'MISSED' in prior month → 1.5 penalty
-     * 5. cf_salesperson_vig from the stored document
-     * 6. Default 1.3
-     */
-    function resolveVigRateSync(
-      docDate: Date,
-      salespersonName: string,
-      matchedUserId: string | null,
-      docVigField: string | undefined
-    ): number {
-      const year = docDate.getFullYear()
-      const isMontgomery = salespersonName.toLowerCase().includes('montgomery') || salespersonName.toLowerCase().includes('morgan')
-
-      // 1. Pre-2025 fixed rates
-      if (year <= 2024) return isMontgomery ? 1.0 : 1.3
-      if (isMontgomery) return 1.0
-
-      // 2. constantVigEnabled override
-      if (matchedUserId) {
-        const u = users.find((x: any) => x.id === matchedUserId)
-        if (u?.constantVigEnabled && u.constantVigValue !== null && u.constantVigValue !== undefined) {
-          return u.constantVigValue
-        }
-
-        // 3. monthlyVigGoal.manualVigRate for this specific month
-        const userVig = vigSettingsAll[matchedUserId]
-        const monthKey = docDate.toISOString().substring(0, 7)
-        const monthlyGoal = (userVig?.monthlyVigGoals || []).find((g: any) => g.monthKey === monthKey)
-        if (monthlyGoal?.manualVigRate !== null && monthlyGoal?.manualVigRate !== undefined) {
-          return monthlyGoal.manualVigRate
-        }
-
-        // 4. Prior month MISSED → penalty 1.5
-        const priorMonth = new Date(docDate.getFullYear(), docDate.getMonth() - 1, 1)
-        const priorMonthKey = priorMonth.toISOString().substring(0, 7)
-        const priorGoal = (userVig?.monthlyVigGoals || []).find((g: any) => g.monthKey === priorMonthKey)
-        if (priorGoal?.status === 'MISSED') return 1.5
-      }
-
-      // 5. cf_salesperson_vig from the stored document
-      const docVig = parseFloat(docVigField ?? '')
-      if (!isNaN(docVig) && docVig > 0) return docVig
-
-      // 6. Default
-      return 1.3
-    }
 
     const userNameToIdMap: Record<string, string> = {}
     users.forEach(u => {
@@ -435,79 +363,25 @@ const authenticatedHandler: Handler = async (event) => {
 
       // ── FAST PATH: use pre-computed scalar columns when available ──────────
       const hasComputed = inv.computedProfit !== null && inv.computedProfit !== undefined
-      let profit: number, deadProfit: number, deadCost: number, vigRate: number, commission: number
+        && inv.computedDeadProfit !== null && inv.computedDeadProfit !== undefined
+        && inv.computedDeadCost !== null && inv.computedDeadCost !== undefined
+        && hasStoredCommission(items)
+      let profit: number, deadProfit: number, commission: number
       let salespersonName: string
       let matchedUserId: string | null = null
 
       if (hasComputed) {
         profit      = parseFloat(inv.computedProfit)     || 0
         deadProfit  = parseFloat(inv.computedDeadProfit) || 0
-        deadCost    = parseFloat(inv.computedDeadCost)   || 0
-        vigRate     = parseFloat(inv.computedVigRate)    || 1.3
-        const storedCommission = parseFloat(items.salesCommission)
-        const legacyCommission = parseFloat(items.commission)
-        const computedUpfront = parseFloat(inv.computedUpfront)
-        const plannedCommission = Number.isFinite(storedCommission)
-          ? storedCommission
-          : Number.isFinite(legacyCommission)
-            ? legacyCommission
-            : Number.isFinite(computedUpfront)
-              ? computedUpfront * 2
-              : profit * 0.50
-        commission = (inv.status || '').toLowerCase() === 'paid'
-          ? plannedCommission
-          : plannedCommission * 0.50
+        commission = headerCommission(items)
         salespersonName = inv.computedSalesperson || items.salesperson || ''
       } else {
-        // ── FALLBACK: parse from extracted JSON scalar fields ─────────────────
+        // Missing authoritative stored costs fail closed. Financial reads do not
+        // invent cost, profit, VIG, or commission values.
         salespersonName = items.salesperson || ''
-
-        // BUG-004 fix: prefer stored VIG-split buckets
-        let deadCostSubjectToVig = parseFloat(items.deadCostSubjectToVig || 'NaN')
-        let deadCostNoVig        = parseFloat(items.deadCostNoVig        || 'NaN')
-        deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || items.deadCost || 'NaN')
-
-        if (!isNaN(deadCostSubjectToVig) && !isNaN(deadCostNoVig)) {
-          deadCost = deadCostSubjectToVig + deadCostNoVig
-        } else {
-          if (isNaN(deadCost)) deadCost = 0
-          deadCostSubjectToVig = deadCost
-          deadCostNoVig = 0
-        }
-        if (isNaN(deadCost)) deadCost = 0
-
-        const docDate = inv.issueDate ? new Date(inv.issueDate) : new Date()
-        if (salespersonName) {
-          const normalized = salespersonName.replace(/\s+/g, ' ').trim().toLowerCase()
-          matchedUserId = userNameToIdMap[normalized] || userNameToIdMap[salespersonName.toLowerCase().trim()] || null
-        }
-        if (!matchedUserId) matchedUserId = inv.accountOwnerId || null
-
-        // BUG-003 fix: full VIG priority chain
-        vigRate = resolveVigRateSync(docDate, salespersonName, matchedUserId,
-          items.cf_salesperson_vig ?? items.cf_salesperson_vig_unformatted)
-
-        const deadCostPlusVig = parseFloat(items.deadCostPlusVig || 'NaN') ||
-          ((deadCostSubjectToVig * vigRate) + deadCostNoVig)
-
-        const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || 0) || 0
-        const ccFees          = parseFloat(items.ccFees          || items.cc_fees          || 0) || 0
-
-        deadProfit = amount - deadCost - additionalCosts - ccFees
-        profit     = amount - deadCostPlusVig - additionalCosts - ccFees
-        const storedCommission = parseFloat(items.salesCommission)
-        const legacyCommission = parseFloat(items.commission)
-        const customCommission = parseFloat(items.cf_commission_amount_unformatted)
-        const plannedCommission = Number.isFinite(storedCommission)
-          ? storedCommission
-          : Number.isFinite(legacyCommission)
-            ? legacyCommission
-            : Number.isFinite(customCommission)
-              ? customCommission
-              : profit * 0.50
-        commission = (inv.status || '').toLowerCase() === 'paid'
-          ? plannedCommission
-          : plannedCommission * 0.50
+        profit = 0
+        deadProfit = 0
+        commission = 0
       }
 
       // Resolve repId from salesperson name or account owner
@@ -541,6 +415,7 @@ const authenticatedHandler: Handler = async (event) => {
           deadProfit,
           profit,
           commission,
+          costQuality: hasComputed ? 'AUTHORITATIVE_STORED' : 'BLOCKED_MISSING_COST',
           status: inv.status || 'Paid'
         })
       }
@@ -552,13 +427,7 @@ const authenticatedHandler: Handler = async (event) => {
       const items = so.items as any || {}
       const amount = parseFloat(items.sub_total || items.subTotal) || parseFloat(so.amount as any) || 0
 
-      const deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || items.deadCost || 0) || 0
-
-      // BUG-010 fix: subtract additionalCosts, giftsCost, and ccFees from SO deadProfit
-      const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || 0) || 0
-      const giftsCost       = parseFloat(items.gifts || items.gifts_cost || 0) || 0
-      const ccFees          = parseFloat(items.ccFees || items.cc_fees || 0) || 0
-
+      const costReady = items.deadCostTotal != null && items.deadProfitActual != null && items.profit != null && hasStoredCommission(items)
       const salespersonName = items.salesperson || ''
 
       // NEW-002 fix: resolve rep and apply VIG rate to SO (same as invoice loop above)
@@ -570,24 +439,9 @@ const authenticatedHandler: Handler = async (event) => {
       }
       if (repId === unassignedId) repId = so.accountOwnerId || unassignedId
 
-      const soDate = so.orderDate ? new Date(so.orderDate) : new Date(so.createdAt)
-      const docVigField = items.cf_salesperson_vig || items.salesperson_vig
-
-      let deadCostSubjectToVig = parseFloat(items.deadCostSubjectToVig || 'NaN')
-      let deadCostNoVig        = parseFloat(items.deadCostNoVig        || 'NaN')
-      if (isNaN(deadCostSubjectToVig) || isNaN(deadCostNoVig)) {
-        // No VIG split stored — treat all dead cost as subject to VIG
-        deadCostSubjectToVig = deadCost
-        deadCostNoVig = 0
-      }
-
-      const vigRate        = resolveVigRateSync(soDate, salespersonName, repId !== unassignedId ? repId : null, docVigField)
-      const deadCostPlusVig = parseFloat(items.deadCostPlusVig || 'NaN') ||
-        ((deadCostSubjectToVig * vigRate) + deadCostNoVig)
-
-      const deadProfit    = amount - deadCost - additionalCosts - giftsCost - ccFees
-      const profit        = amount - deadCostPlusVig - additionalCosts - giftsCost - ccFees
-      const estCommission = profit * 0.50
+      const deadProfit    = costReady ? financialNumber(items.deadProfitActual) : 0
+      const profit        = costReady ? financialNumber(items.profit) : 0
+      const estCommission = costReady ? headerCommission(items) : 0
 
       const soStatusLower = (so.status || '').toLowerCase()
       if (repStatsMap[repId] && soStatusLower !== 'void' && soStatusLower !== 'draft') {
@@ -606,6 +460,8 @@ const authenticatedHandler: Handler = async (event) => {
           subtotal: amount,
           deadProfit: deadProfit,
           estCommission: estCommission,
+          profit,
+          costQuality: costReady ? 'AUTHORITATIVE_STORED' : 'BLOCKED_MISSING_COST',
           status: so.status || "Confirmed"
         })
       }
@@ -716,7 +572,13 @@ const authenticatedHandler: Handler = async (event) => {
           salesOrderCount: totalSalesOrderCount,
           salesOrderSubtotal: totalSalesOrderSubtotal,
           salesOrderDeadProfit: totalSalesOrderDeadProfit,
-          salesOrderEstCommission: totalSalesOrderEstCommission
+          salesOrderEstCommission: totalSalesOrderEstCommission,
+          mtdSales: totalInvoiceSubtotal + totalSalesOrderSubtotal,
+          mtdProfit: totalInvoiceNetProfit + repsList.reduce((sum: number, rep: any) => sum + (rep.salesOrders || []).reduce((inner: number, order: any) => inner + (order.profit || 0), 0), 0),
+          mtdCommission: totalInvoiceCommission + totalSalesOrderEstCommission,
+          qualityBlockedCount: repsList.reduce((sum: number, rep: any) => sum
+            + (rep.invoices || []).filter((doc: any) => doc.costQuality !== 'AUTHORITATIVE_STORED').length
+            + (rep.salesOrders || []).filter((doc: any) => doc.costQuality !== 'AUTHORITATIVE_STORED').length, 0)
         }
       })
     }

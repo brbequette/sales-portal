@@ -5,7 +5,6 @@ import { useZoho } from "@/components/ZohoProvider"
 import { MetricDerivationInfo } from "@/components/MetricDerivationModal"
 import { extractProfit, extractCommissionAmount, extractVigRate, extractDeadCostTotal, extractCustomFieldValue } from "@/lib/custom-field-extractor"
 import { useDashboardData as useRawDashboardData } from '@/hooks/useDashboardData'
-import { clearSharedJson, fetchSharedJson } from "@/lib/shared-api-fetch"
 
 export interface DashboardData {
   scope: "company" | "personal"
@@ -185,7 +184,6 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
   const [clockLoading, setClockLoading] = useState(false)
   const [selectedMetricInfo, setSelectedMetricInfo] = useState<MetricDerivationInfo | null>(null)
   const [rawInvoicesList, setRawInvoicesList] = useState<any[]>([])
-  const [weeklyLifecycleDocs, setWeeklyLifecycleDocs] = useState<any[]>([])
 
   const [repWidgets, setRepWidgets] = useState<RepWidgetConfig[]>(DEFAULT_REP_DASHBOARD_LAYOUT)
   const [isRepCustomizerOpen, setIsRepCustomizerOpen] = useState(false)
@@ -229,13 +227,6 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
   
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
-
-  useEffect(() => {
-    if (refreshTrigger > 0) clearSharedJson("/api/dashboard-weekly-sales")
-    fetchSharedJson<any>("/api/dashboard-weekly-sales")
-      .then(result => setWeeklyLifecycleDocs(Array.isArray(result.documents) ? result.documents : []))
-      .catch(error => console.error("Failed to load lifecycle-aware weekly sales", error))
-  }, [refreshTrigger])
 
   const checkForUpdates = useCallback(async (sig: string, url: string) => {
     try {
@@ -499,10 +490,10 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
       const allRepData = companyRepsList.map((r: any) => ({
         name: r.repName,
         weeklySales: Math.round(r.weeklyRevenue || 0),
-        mtdSales: Math.round(r.revenue || 0),
-        mtdProfit: Math.round(r.profit || 0),
-        mtdCommission: Math.round(r.commissions || 0),
-        deals: r.invoiceCount || 0,
+        mtdSales: Math.round((r.revenue || 0) + (r.salesOrderSubtotal || 0)),
+        mtdProfit: Math.round((r.profit || 0) + (r.salesOrders || []).reduce((sum: number, order: any) => sum + (order.profit || 0), 0)),
+        mtdCommission: Math.round((r.commissions || 0) + (r.salesOrderEstCommission || 0)),
+        deals: (r.invoiceCount || 0) + (r.salesOrderCount || 0),
       })).sort((a: { mtdSales: number }, b: { mtdSales: number }) => b.mtdSales - a.mtdSales)
 
       const avgDealSize = totalDealsWon > 0 ? Math.round(totalDealsRevenue / totalDealsWon) : 0
@@ -513,14 +504,11 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
       const avgDealSizeTrend = revenueByMonth.map(m => ({ month: m.month, avgSize: m.revenue > 0 ? Math.round(m.revenue / Math.max(1, topReps.length)) : 0 }))
 
       // Use rep-scoped totals for the individual KPI cards
-      const scopedWeeklyDocs = weeklyLifecycleDocs.filter(doc =>
-        matchesRep(doc.salesperson || "", filterRepName, repEmail)
-      )
-      const weeklyTotal = scopedWeeklyDocs.reduce((sum, doc) => sum + (Number(doc.subtotal) || 0), 0)
-      const monthlyTotal = repTotalsKpi.invoiceSubtotal || 0
-      const monthlyProfit = repTotalsKpi.invoiceNetProfit || 0
-      const monthlyCommission = repTotalsKpi.invoiceCommission || 0
-      const monthlyDeals = repTotalsKpi.invoiceCount || 0
+      const weeklyTotal = rawData.globalHeaderSummary.weeklySales
+      const monthlyTotal = rawData.globalHeaderSummary.mtdSales
+      const monthlyProfit = rawData.globalHeaderSummary.mtdProfit
+      const monthlyCommission = rawData.globalHeaderSummary.mtdCommission
+      const monthlyDeals = (repTotalsKpi.invoiceCount || 0) + (repTotalsKpi.salesOrderCount || 0)
 
       // The dashboard banner and global header consume the same validated,
       // role-scoped invoice + active-uninvoiced-order calculation contract.
@@ -528,17 +516,15 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
       const companyMonthlyTotal = rawData.globalHeaderSummary.mtdSales
 
       // Pipeline and overdue from current rep scope
-      let pipelineValue = 0, pipelineCount = 0, overdueCount = 0, overdueBalance = 0
+      let pipelineCount = 0, overdueCount = 0
       for (const rep of scopedReps) {
         for (const inv of (rep.invoices || [])) {
           const status = (inv.status || "").toLowerCase()
           if (status !== "paid" && status !== "void" && status !== "draft") {
-            pipelineValue += inv.subtotal || 0
             pipelineCount++
           }
           if (status === "overdue") {
             overdueCount++
-            overdueBalance += inv.subtotal || 0
           }
         }
       }
@@ -547,20 +533,20 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
         scope: rawData.scope === "company" ? "company" : "personal",
         companyWeeklyTotal,
         companyMonthlyTotal,
-        weeklyTotal: Math.round(weeklyTotal),
+        weeklyTotal,
         weeklyTarget: 64000,
-        monthlyTotal: Math.round(monthlyTotal),
-        monthlyProfit: Math.round(monthlyProfit),
-        monthlyCommission: Math.round(monthlyCommission),
+        monthlyTotal,
+        monthlyProfit,
+        monthlyCommission,
         monthlyDeals,
         monthlyProfitGoal: repProfitGoal,
         monthlySubtotalGoal: repSubtotalGoal,
         currentVigRate: repVigRate,
         monthlyVigPenaltyLoss,
-        pipelineValue: Math.round(pipelineValue),
+        pipelineValue: rawData.globalHeaderSummary.pipeline,
         pipelineCount,
         overdueCount,
-        overdueBalance: Math.round(overdueBalance),
+        overdueBalance: rawData.globalHeaderSummary.overdue,
         revenueByMonth,
         weeklyTrend,
         dealsByStatus,
@@ -577,7 +563,7 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
       console.error("Dashboard data transformation error:", err)
       return null
     }
-  }, [rawData, weeklyLifecycleDocs, filterRepName, repEmail])
+  }, [rawData, filterRepName, repEmail])
 
   useEffect(() => {
     const handleGlobalMetricEvent = (e: any) => {
@@ -781,6 +767,8 @@ export function buildMetricInfo(
     }
     case "totalRevenue": {
       const matchingDocs = repInvoices.filter(inv => {
+        const status = String(inv.status || "").toLowerCase()
+        if (["draft","void","voided","declined","cancelled","canceled","orphaned","deleted","converted","invoiced","billed","partially_invoiced","written_off","writeoff","write_off","bad debt"].includes(status)) return false
         const dateStr = inv.salesorder_date || inv.date || ""
         const invDate = parseLocalDate(dateStr)
         return invDate && invDate.getMonth() === currentMonth && invDate.getFullYear() === currentYear
@@ -790,9 +778,9 @@ export function buildMetricInfo(
         value: `$${data.monthlyTotal.toLocaleString()}`,
         subtitle: `Total sales generated in current month (${data.monthlyDeals} completed deals)`,
         color: CHART_COLORS.primary,
-        formula: "MTD Revenue = Σ (Invoice Subtotal) for all active invoices issued in current calendar month",
-        explanation: "Total gross revenue generated by confirmed invoices during the current calendar month. Excludes tax, shipping, and voided/cancelled documents.",
-        dataSource: "Prisma `Invoice` table, filtered by `issueDate` within current month.",
+        formula: "MTD Sales = Σ eligible invoice subtotals + Σ eligible uninvoiced sales-order subtotals",
+        explanation: "Company-local month-to-date booked sales. Converted or invoice-linked orders, terminal documents, unresolved sync records, tax, and shipping are excluded.",
+        dataSource: "Shared global-header contract over Prisma `Invoice` and `SalesOrder` records.",
         calculationDetails: [
           { label: "MTD Gross Subtotal", value: `$${data.monthlyTotal.toLocaleString()}`, description: "Sum of items subtotal before VIG or deductions" },
           { label: "Completed Deals", value: `${data.monthlyDeals}`, description: "Number of active invoices/orders this month" },
@@ -822,6 +810,22 @@ export function buildMetricInfo(
         ],
         notes: isAdmin ? "Montgomery Morgan invoices enforce a 1.0 VIG multiplier. Insurance items are retained as company revenue and not deducted from rep profit." : undefined,
         documents: matchingDocs
+      }
+    }
+    case "monthlyCommission": {
+      const info = buildMetricInfo("monthlyProfit", data, timeEntry, repName, repEmail, invoices, isAdmin)
+      if (!info) return null
+      return {
+        ...info,
+        title: "Month-to-Date Commission",
+        value: `$${data.monthlyCommission.toLocaleString()}`,
+        subtitle: `Stored commission for ${repLabel}`,
+        formula: "MTD Commission = Σ stored commission on eligible invoices + Σ stored commission on eligible uninvoiced sales orders",
+        explanation: "Uses persisted document commission values only. Missing authoritative cost or commission evidence contributes zero and is flagged for review; no percentage estimate is substituted.",
+        calculationDetails: [
+          { label: "MTD Commission", value: `$${data.monthlyCommission.toLocaleString()}`, description: "Cent-normalized stored commission" },
+          { label: "MTD Sales", value: `$${data.monthlyTotal.toLocaleString()}`, description: "Sales under the same role and document scope" }
+        ]
       }
     }
     case "timeclock": {
@@ -952,6 +956,24 @@ export function buildMetricInfo(
           { label: "Overdue Balance", value: `$${data.overdueBalance.toLocaleString()}`, description: "Past due collection amount" }
         ],
         documents: matchingDocs
+      }
+    }
+    case "overdue": {
+      const info = buildMetricInfo("activePipeline", data, timeEntry, repName, repEmail, invoices, isAdmin)
+      if (!info) return null
+      const overdueDocs = info.documents?.filter((doc: any) => String(doc.status || "").toLowerCase() === "overdue")
+      return {
+        ...info,
+        title: "Overdue Receivables",
+        value: `$${data.overdueBalance.toLocaleString()}`,
+        subtitle: `${data.overdueCount} overdue invoices`,
+        formula: "Overdue = Σ outstanding balance for eligible invoices past their due date",
+        explanation: "Includes only positive, outstanding invoice balances whose due date is before the company-local current date.",
+        calculationDetails: [
+          { label: "Overdue Invoices", value: `${data.overdueCount}`, description: "Past-due eligible invoices" },
+          { label: "Overdue Balance", value: `$${data.overdueBalance.toLocaleString()}`, description: "Cent-normalized outstanding balance" }
+        ],
+        documents: overdueDocs
       }
     }
     default:
