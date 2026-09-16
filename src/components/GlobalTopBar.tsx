@@ -634,7 +634,7 @@ export function GlobalTopBar() {
           </div>
           <div className="w-px h-3.5 bg-white/[0.08]"></div>
           <div 
-            onClick={() => window.dispatchEvent(new CustomEvent("open-metric-derivation", { detail: { key: "monthlyProfit" } }))}
+            onClick={() => window.dispatchEvent(new CustomEvent("open-metric-derivation", { detail: { key: "monthlyCommission" } }))}
             className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
             title="Click to view Monthly Profit calculation formula"
           >
@@ -663,7 +663,7 @@ export function GlobalTopBar() {
             <>
               <div className="w-px h-3.5 bg-white/[0.08]"></div>
               <div 
-                onClick={() => window.dispatchEvent(new CustomEvent("open-metric-derivation", { detail: { key: "activePipeline" } }))}
+                onClick={() => window.dispatchEvent(new CustomEvent("open-metric-derivation", { detail: { key: "overdue" } }))}
                 className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
                 title="Click to view Overdue balance calculation formula"
               >

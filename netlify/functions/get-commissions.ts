@@ -1,18 +1,13 @@
 import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
-import { PrismaClient, Prisma } from "@prisma/client"
+import { Prisma } from "@prisma/client"
 import { prisma } from "./lib/prisma"
-import { isNoVigItem, calculateDocumentCosts } from "./lib/cost-calculations"
-import { extractDeadCostTotal, extractCcFees, extractAdditionalCosts } from "../../src/lib/custom-field-extractor"
-import { getSystemSettings } from "../../src/lib/settings"
 import { isAdminRole } from "../../src/lib/roles"
+import { financialNumber, headerCommission } from "../../src/lib/global-header-metrics"
 
 
 // Statuses where the FINAL half is earned (invoice has been paid)
 const FINAL_PAID_STATUSES = new Set(['Paid', 'paid', 'Closed', 'closed', 'Fulfilled', 'fulfilled'])
-// Statuses where at least the UPFRONT half is earned (invoice created/open)
-const SKIP_STATUSES = new Set(['Void', 'void', 'Voided', 'voided', 'Draft', 'draft', 'Written Off', 'written_off', 'write_off', 'Writeoff', 'writeoff', 'Write Off', 'bad debt'])
-
 function getSubTotal(items: any, amount: number) {
   let sub = parseFloat(items?.sub_total ?? items?.subTotal ?? 0)
   if (isNaN(sub) || sub === 0) {
@@ -32,8 +27,21 @@ function getSubTotal(items: any, amount: number) {
   return sub
 }
 
+function hasStoredValue(value: unknown): boolean {
+  return value !== undefined && value !== null && value !== ''
+}
+
+function hasAuthoritativeFinancials(items: Record<string, unknown>): boolean {
+  const hasCost = hasStoredValue(items.deadCostTotal ?? items.dead_cost_total ?? items.deadCost ?? items.cf_dead_cost_total ?? items.cf_dead_cost_total_unformatted)
+  const hasProfit = hasStoredValue(items.profit)
+  const hasDeadProfit = hasStoredValue(items.deadProfitActual)
+  const hasCommission = [items.salesCommission, items.commission, items.cf_commission_amount, items.cf_commision_amount, items.cf_commission_amount_unformatted]
+    .some(hasStoredValue)
+  return hasCost && hasProfit && hasDeadProfit && hasCommission
+}
+
 const authenticatedHandler: Handler = async (event) => {
-  const cors = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+  const cors = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "Cache-Control": "private, no-store, max-age=0, must-revalidate" }
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: cors, body: "" }
 
   try {
@@ -51,7 +59,6 @@ const authenticatedHandler: Handler = async (event) => {
       return { statusCode: 403, headers: cors, body: JSON.stringify({ error: "Signed-in user is not linked to a local user record" }) }
     }
     const sessionIsAdmin = isAdminRole(sessionUser.role)
-    const settings = await getSystemSettings()
     const { repId, year, includeHidden, checkOnly } = event.queryStringParameters || {}
     const effectiveRepId = sessionIsAdmin && repId ? repId : (sessionIsAdmin ? undefined : sessionUser.id)
     const showHidden = sessionIsAdmin && includeHidden === 'true'
@@ -232,6 +239,16 @@ const authenticatedHandler: Handler = async (event) => {
         FROM "SalesOrder" s
         LEFT JOIN "Account" a ON a.id = s."accountId"
         WHERE s.status NOT IN ('Void','void','Draft','draft','Cancelled','cancelled','Invoiced','invoiced','Converted','converted')
+        AND NOT EXISTS (
+          SELECT 1 FROM "Invoice" linked
+          WHERE (
+            NULLIF(lower(s."zohoId"), '') IS NOT NULL
+            AND lower(s."zohoId") IN (lower(COALESCE(linked."salesOrderZohoId", '')), lower(COALESCE(linked.items->>'salesorder_id', '')), lower(COALESCE(linked.items->>'sales_order_id', '')))
+          ) OR (
+            NULLIF(lower(COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber', '')), '') IS NOT NULL
+            AND lower(COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber', '')) IN (lower(COALESCE(linked."salesorderNumber", '')), lower(COALESCE(linked.items->>'salesorder_number', '')), lower(COALESCE(linked.items->>'salesOrderNumber', '')))
+          )
+        )
         ${soDateSql}
         ORDER BY s."orderDate" DESC NULLS LAST
       `).catch(() => []),
@@ -448,7 +465,6 @@ const authenticatedHandler: Handler = async (event) => {
     // Account owner is a CRM assignment only and does NOT drive commissions.
     const allInvoiceRecords = await Promise.all(invoices.map(async (inv) => {
       const items = inv.items as any || {}
-      const cfs = items.custom_fields || []
       const salespersonName = (items.salesperson_name || items.salesperson) as string | null
       const subTotal = getSubTotal(items, inv.amount)
       const invoiceNumber = items.invoiceNumber || items.invoice_number || null
@@ -469,94 +485,36 @@ const authenticatedHandler: Handler = async (event) => {
         !!isMontgomery
       )
 
-      // ── PREFER STORED VALUES FROM calculateDocumentCosts ───
+      // ── PREFER STORED VALUES FROM THE AUTHORITATIVE COST PROCESSOR ───
       // If the invoice has been processed (has stored profit), use stored values directly.
       // This ensures the sales sheet matches the invoice detail modal exactly.
-      const hasStoredCosts = items.profit !== undefined && items.profit !== null && items.profit !== ''
+      const hasStoredCosts = hasAuthoritativeFinancials(items)
       
       let deadCost: number
       let deadCostPlusVig: number
       let profit: number
       let deadProfit: number
       let salesCommission: number
-      let commissionPct: number
       let usedFallbackCost = false
 
       if (hasStoredCosts) {
         // ── USE STORED VALUES (source of truth from cost-calculations.ts) ──
-        deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || items.deadCost || items.cf_dead_cost_total || items.cf_dead_cost_total_unformatted || 0) || 0
-        deadCostPlusVig = parseFloat(items.deadCostPlusVig || 0) || (deadCost * vigRate)
-        profit = parseFloat(items.profit) || 0
-        deadProfit = parseFloat(items.deadProfitActual || 0) || (subTotal - deadCost)
-        salesCommission = parseFloat(
-          items.salesCommission
-          ?? items.commission
-          ?? items.sales_commission
-          ?? items.cf_sales_commission
-          ?? items.cf_commission_amount_unformatted
-          ?? 0
-        ) || 0
-        commissionPct = parseFloat(items.commissionPct ?? items.commissionPercent ?? items.commission_pct ?? 50)
+        deadCost = financialNumber(items.deadCostTotal ?? items.dead_cost_total ?? items.deadCost ?? items.cf_dead_cost_total ?? items.cf_dead_cost_total_unformatted)
+        deadCostPlusVig = items.deadCostPlusVig != null ? financialNumber(items.deadCostPlusVig) : deadCost * vigRate
+        profit = financialNumber(items.profit)
+        deadProfit = items.deadProfitActual != null ? financialNumber(items.deadProfitActual) : subTotal - deadCost
+        salesCommission = headerCommission(items)
         usedFallbackCost = items.usedFallbackCost === true || items.usedFallbackCost === 'true'
       } else {
-        // ── AUTO-PROCESS: run calculateDocumentCosts and persist results ──
-        try {
-          const docForCalc = {
-            ...items,
-            line_items: items.line_items || items.items || [],
-            custom_fields: items.custom_fields || items.custom_field_hash || [],
-            sub_total: subTotal,
-            total: inv.amount || subTotal,
-            status: inv.status,
-          }
-          const calc = await calculateDocumentCosts(docForCalc)
-          deadCost = calc.deadCostTotal
-          deadCostPlusVig = calc.deadCostPlusVig
-          profit = calc.profit
-          deadProfit = calc.deadProfitActual
-          salesCommission = calc.salesCommission
-          commissionPct = calc.commissionPct
-          usedFallbackCost = calc.usedFallbackCost
-
-          // Persist to DB so next load uses stored values
-          const existingItems = items || {}
-          const updatedItems = {
-            ...existingItems,
-            deadCostTotal: calc.deadCostTotal,
-            deadCostSubjectToVig: calc.deadCostSubjectToVig,
-            deadCostNoVig: calc.deadCostNoVig,
-            deadCostPlusVig: calc.deadCostPlusVig,
-            deadProfitActual: calc.deadProfitActual,
-            profit: calc.profit,
-            marginPercent: calc.marginPercent,
-            subTotal: calc.subTotal,
-            vigRate: calc.vigRate,
-            ccFees: calc.ccFees,
-            additionalCosts: calc.additionalCosts,
-            insurance: calc.insurance,
-            commissionPct: calc.commissionPct,
-            salesCommission: calc.salesCommission,
-            isPaid: calc.isPaid,
-            lineItemBreakdownStrings: calc.lineItemBreakdownStrings,
-            usedFallbackCost: calc.usedFallbackCost,
-            costsCalculatedAt: new Date().toISOString(),
-          }
-          // Fire-and-forget DB update — don't block the response
-          prisma.invoice.update({
-            where: { id: inv.id },
-            data: { items: updatedItems as any, costsCalculatedAt: new Date() },
-          }).catch(e => console.error(`Auto-process invoice ${inv.id} save failed:`, e))
-        } catch (calcErr) {
-          console.error(`Auto-process invoice ${inv.id} failed:`, calcErr)
-          // Ultimate fallback if calculateDocumentCosts errors
-          deadCost = subTotal * (settings.dead_cost_fallback_pct / 100)
-          deadCostPlusVig = deadCost * vigRate
-          profit = subTotal - deadCostPlusVig
-          deadProfit = subTotal - deadCost
-          commissionPct = settings.commission_rate_pct
-          salesCommission = profit > 0 ? profit * (commissionPct / 100) : 0
-          usedFallbackCost = true
-        }
+        // Financial reads never calculate, persist, or approximate missing costs.
+        // The record remains visible with an explicit quality blocker and contributes
+        // no profit or commission until the authoritative cost processor completes.
+        deadCost = 0
+        deadCostPlusVig = 0
+        profit = 0
+        deadProfit = 0
+        salesCommission = 0
+        usedFallbackCost = true
       }
 
       if (isNaN(profit)) profit = 0
@@ -656,7 +614,6 @@ const authenticatedHandler: Handler = async (event) => {
 
     const salesOrderRecords = (await Promise.all(rawSalesOrders.map(async (so) => {
       const items = (so.items as any) || {}
-      const cfs = items.custom_fields || []
       const salespersonName = items.salesperson as string | null
       const subTotal = getSubTotal(items, so.amount)
 
@@ -676,80 +633,26 @@ const authenticatedHandler: Handler = async (event) => {
       )
 
       // ── PREFER STORED VALUES ────────────────────────────────
-      const hasStoredCosts = items.profit !== undefined && items.profit !== null && items.profit !== ''
+      const hasStoredCosts = hasAuthoritativeFinancials(items)
 
       let deadCost: number
-      let deadCostPlusVig: number
       let profit: number
       let deadProfit: number
       let salesCommission: number
       let usedFallbackCost = false
 
       if (hasStoredCosts) {
-        deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || items.deadCost || items.cf_dead_cost_total || items.cf_dead_cost_total_unformatted || 0) || 0
-        deadCostPlusVig = parseFloat(items.deadCostPlusVig || 0) || (deadCost * vigRate)
-        profit = parseFloat(items.profit) || 0
-        deadProfit = parseFloat(items.deadProfitActual || 0) || (subTotal - deadCost)
-        salesCommission = parseFloat(
-          items.salesCommission
-          ?? items.commission
-          ?? items.sales_commission
-          ?? items.cf_sales_commission
-          ?? items.cf_commission_amount_unformatted
-          ?? 0
-        ) || 0
+        deadCost = financialNumber(items.deadCostTotal ?? items.dead_cost_total ?? items.deadCost ?? items.cf_dead_cost_total ?? items.cf_dead_cost_total_unformatted)
+        profit = financialNumber(items.profit)
+        deadProfit = items.deadProfitActual != null ? financialNumber(items.deadProfitActual) : subTotal - deadCost
+        salesCommission = headerCommission(items)
         usedFallbackCost = items.usedFallbackCost === true || items.usedFallbackCost === 'true'
       } else {
-        // ── AUTO-PROCESS: run calculateDocumentCosts and persist results ──
-        try {
-          const docForCalc = {
-            ...items,
-            line_items: items.line_items || items.items || [],
-            custom_fields: items.custom_fields || items.custom_field_hash || [],
-            sub_total: subTotal,
-            total: so.amount || subTotal,
-            status: so.status,
-          }
-          const calc = await calculateDocumentCosts(docForCalc)
-          deadCost = calc.deadCostTotal
-          deadCostPlusVig = calc.deadCostPlusVig
-          profit = calc.profit
-          deadProfit = calc.deadProfitActual
-          salesCommission = calc.salesCommission
-          usedFallbackCost = calc.usedFallbackCost
-
-          // Persist to DB
-          const updatedItems = {
-            ...items,
-            deadCostTotal: calc.deadCostTotal,
-            deadCostSubjectToVig: calc.deadCostSubjectToVig,
-            deadCostNoVig: calc.deadCostNoVig,
-            deadCostPlusVig: calc.deadCostPlusVig,
-            deadProfitActual: calc.deadProfitActual,
-            profit: calc.profit,
-            marginPercent: calc.marginPercent,
-            subTotal: calc.subTotal,
-            vigRate: calc.vigRate,
-            ccFees: calc.ccFees,
-            additionalCosts: calc.additionalCosts,
-            commissionPct: calc.commissionPct,
-            salesCommission: calc.salesCommission,
-            usedFallbackCost: calc.usedFallbackCost,
-            costsCalculatedAt: new Date().toISOString(),
-          }
-          prisma.salesOrder.update({
-            where: { id: so.id },
-            data: { items: updatedItems as any, costsCalculatedAt: new Date() },
-          }).catch(e => console.error(`Auto-process SO ${so.id} save failed:`, e))
-        } catch (calcErr) {
-          console.error(`Auto-process SO ${so.id} failed:`, calcErr)
-          deadCost = subTotal * (settings.dead_cost_fallback_pct / 100)
-          deadCostPlusVig = deadCost * vigRate
-          profit = subTotal - deadCostPlusVig
-          deadProfit = subTotal - deadCost
-          salesCommission = profit > 0 ? profit * (settings.commission_rate_pct / 100) : 0
-          usedFallbackCost = true
-        }
+        deadCost = 0
+        profit = 0
+        deadProfit = 0
+        salesCommission = 0
+        usedFallbackCost = true
       }
 
       if (isNaN(profit)) profit = 0

@@ -11,7 +11,6 @@ import {
   FiChevronDown, FiChevronRight, FiCalendar, FiFilter, FiExternalLink, FiGrid, FiPrinter
 } from "react-icons/fi"
 import { classifyAtRiskInvoices, DEFAULT_CLAWBACK_SETTINGS, type AtRiskInvoice, type ClawbackSettings } from '@/lib/clawback-calculator'
-import { sessionGet, sessionSet, TTL } from "@/lib/dataCache"
 import { UpdateBanner } from '@/lib/useStaleCheck'
 import { isAdminRole } from "@/lib/roles"
 
@@ -22,6 +21,15 @@ function fmt(n: number) {
 function fmtDate(s: string | null) {
   if (!s) return "--"
   return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+}
+
+async function readJsonResponse(response: Response) {
+  const body = await response.text()
+  try {
+    return JSON.parse(body)
+  } catch {
+    throw new Error(`Commission service unavailable (HTTP ${response.status}). No financial data was displayed.`)
+  }
 }
 
 // Snap any date to its Monday (week start)
@@ -80,7 +88,7 @@ export default function CommissionsPage() {
     try {
       const separator = url.includes('?') ? '&' : '?'
       const res = await fetch(`${url}${separator}checkOnly=true`)
-      const data = await res.json()
+      const data = await readJsonResponse(res)
       if (!data.checkOnly) return
       const remoteSig = `${data.count}`
       if (remoteSig !== sig) setUpdateAvailable(true)
@@ -89,20 +97,8 @@ export default function CommissionsPage() {
 
   const isAdmin = isAdminRole(user?.role)
 
-  const fetchCommissions = async (force = false) => {
+  const fetchCommissions = async () => {
     if (!user?.id && !user?.email) return
-    const cacheKey = `commissions-${selectedYear}-${user?.id || user?.email}`
-    if (!force) {
-      const cached = sessionGet<any>(cacheKey, TTL.FIFTEEN_MIN)
-      if (cached) { 
-        setByRep(cached.byRep); 
-        setAvailableYears(cached.years); 
-        setSelectedRepId(cached.selectedRepId); 
-        if (cached.clawbackSettings) setApiClawbackSettings(cached.clawbackSettings);
-        setClawbackByRep(cached.clawbackByRep || {});
-        return 
-      }
-    }
     // First load with no data: full spinner. Subsequent refreshes: subtle bar
     if (Object.keys(byRep).length === 0) setLoading(true)
     else setRefreshing(true)
@@ -114,8 +110,9 @@ export default function CommissionsPage() {
         userId: user?.id || "",
         userEmail: user?.email || "",
       })
-      const res = await fetch(`/api/get-commissions?${queryParams.toString()}`)
-      const data = await res.json()
+      const res = await fetch(`/api/get-commissions?${queryParams.toString()}`, { cache: "no-store" })
+      const data = await readJsonResponse(res)
+      if (!res.ok) throw new Error(data.error || `Commission service unavailable (HTTP ${res.status})`)
       if (data.success) {
         setByRep(data.byRep || {})
         if (data.years && data.years.length > 0) setAvailableYears(data.years)
@@ -134,8 +131,6 @@ export default function CommissionsPage() {
                        repsList[0]
           setSelectedRepId(matchedRep)
         }
-        sessionSet(cacheKey, { byRep: data.byRep || {}, years: data.years || [], selectedRepId: matchedRep, clawbackSettings: data.clawbackSettings, clawbackByRep: data.clawbackByRep || {} })
-        
         // Staleness check: sig = invoice count (matches checkOnly response)
         const sig = `${data.stats?.totalInvoices ?? 0}`
         setUpdateAvailable(false)
@@ -166,6 +161,7 @@ export default function CommissionsPage() {
     }
     return byRep[selectedRepId]
   }, [byRep, selectedRepId])
+  const qualityBlockedCount = useMemo(() => (currentRepData?.invoices || []).filter((invoice: any) => invoice.usedFallbackCost).length, [currentRepData])
 
   // Group current rep's invoices into Pay Period Weeks
   const weeklyGroups = useMemo<WeeklyGroup[]>(() => {
@@ -370,6 +366,12 @@ export default function CommissionsPage() {
   return (
     <div className="page-content">
       <UpdateBanner show={updateAvailable} onUpdate={() => { setUpdateAvailable(false); setRefreshTrigger(n => n + 1) }} accentColor="indigo" label="Commission data updated" />
+      {qualityBlockedCount > 0 && (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <FiAlertCircle className="mr-2 inline" />
+          {qualityBlockedCount} document{qualityBlockedCount === 1 ? " is" : "s are"} blocked from profit and commission because authoritative stored cost data is missing. No estimate or fallback is included.
+        </div>
+      )}
 
       {/* ─── Header ─────────────────────────────────── */}
       <div className="page-header">
@@ -408,7 +410,7 @@ export default function CommissionsPage() {
             ))}
             <option value="all">All Time</option>
           </select>
-          <button onClick={() => fetchCommissions(true)} className="td-btn td-btn-ghost td-btn-sm" title="Refresh">
+          <button onClick={() => fetchCommissions()} className="td-btn td-btn-ghost td-btn-sm" title="Refresh">
             <FiRefreshCw className={loading ? "animate-spin" : ""} size={14} />
           </button>
           {currentRepData && (

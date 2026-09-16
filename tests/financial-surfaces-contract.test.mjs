@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+
+const repStats = fs.readFileSync('netlify/functions/get-rep-stats.ts', 'utf8')
+const commissions = fs.readFileSync('netlify/functions/get-commissions.ts', 'utf8')
+const dashboard = fs.readFileSync('src/components/useDashboardController.ts', 'utf8')
+const executive = fs.readFileSync('src/components/ExecutiveRepStats.tsx', 'utf8')
+const commissionsPage = fs.readFileSync('src/app/commissions/page.tsx', 'utf8')
+
+assert.match(repStats, /mtdSales: totalInvoiceSubtotal \+ totalSalesOrderSubtotal/)
+assert.match(repStats, /mtdCommission: totalInvoiceCommission \+ totalSalesOrderEstCommission/)
+assert.match(repStats, /headerCommission\(items\)/)
+assert.match(repStats, /NOT EXISTS \(\s*SELECT 1 FROM "Invoice" linked/)
+assert.match(repStats, /BLOCKED_MISSING_COST/)
+assert.match(repStats, /hasStoredCommission/)
+assert.match(repStats, /isAdminRole\(authenticatedUser\.role\)/)
+assert.doesNotMatch(repStats, /profit \* 0\.50/)
+
+assert.match(dashboard, /monthlyTotal = rawData\.globalHeaderSummary\.mtdSales/)
+assert.match(dashboard, /monthlyProfit = rawData\.globalHeaderSummary\.mtdProfit/)
+assert.match(dashboard, /monthlyCommission = rawData\.globalHeaderSummary\.mtdCommission/)
+assert.match(executive, /MetricDerivationModal/)
+assert.match(executive, /MTD Sales/)
+assert.match(executive, /minimumFractionDigits:2/)
+assert.match(executive, /setSnapshots\(\{\}\)/)
+assert.doesNotMatch(executive, /Showing the last successful data/)
+
+assert.doesNotMatch(commissions, /prisma\.(invoice|salesOrder)\.update\(/)
+assert.doesNotMatch(commissions, /from ["'].+cost-calculations|await calculateDocumentCosts/)
+assert.doesNotMatch(commissions, /dead_cost_fallback_pct|commission_rate_pct/)
+assert.match(commissions, /Cache-Control.*no-store/)
+assert.match(commissions, /hasAuthoritativeFinancials/)
+assert.match(commissionsPage, /cache: "no-store"/)
+assert.match(commissionsPage, /No financial data was displayed/)
+assert.doesNotMatch(commissionsPage, /sessionGet|sessionSet|TTL\.FIFTEEN_MIN/)
+
+console.log('FINANCIAL_SURFACES_CONTRACT=PASS')

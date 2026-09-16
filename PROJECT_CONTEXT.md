@@ -1,5 +1,11 @@
 # Titan Diamond — Consolidated Project Context
 
+## Financial dashboard and commission surface correction (2026-09-16)
+
+- Executive Dashboard and home-dashboard MTD sales now consume the same role-scoped invoice-plus-eligible-uninvoiced-sales-order contract as the global header. The previously displayed $40,281.14 was invoice-only; the verified production contract is 15 invoices plus 2 uninvoiced orders totaling $44,780.89.
+- Executive totals use stored authoritative dead cost, dead profit, net profit, and canonical planned commission. Missing cost snapshots fail closed and are explicitly counted as blocked; financial reads no longer invent a percentage cost or commission. Converted or invoice-linked sales orders are excluded.
+- Executive metric tiles are clickable and show the contributing document set. The commissions GET path no longer calculates or persists costs, no longer applies fallback percentages, returns no-store responses, and the commissions page no longer retains a 15-minute session-cache snapshot.
+
 ## Manager-controlled write-off recovery design (2026-09-15)
 
 - A 2026-09-16 read-only Zoho Books metadata audit verified the existing active invoice checkbox as visible label `Written Off?`, API name `cf_written_off`, type `check_box`, and searchable. Webhook payload inclusion and field-history retention remain UNVERIFIED. The minimal proposed Zoho footprint is this existing trigger plus optional sandbox-only Recovery Case ID and Recovery Status fields whose Zoho-assigned API names remain UNVERIFIED.
