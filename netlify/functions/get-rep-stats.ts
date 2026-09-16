@@ -50,6 +50,7 @@ function getWorkdaysInWeek(date: Date, holidays: any[]): number {
 const authenticatedHandler: Handler = async (event) => {
   const cors = {
     "Content-Type": "application/json",
+    "Cache-Control": "private, no-store, max-age=0, must-revalidate",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type"
   }
@@ -698,6 +699,7 @@ const authenticatedHandler: Handler = async (event) => {
       headers: cors,
       body: JSON.stringify({
         success: true,
+        scope: repIdFilter === 'all' ? 'company' : 'personal',
         period: periodParam,
         dateRange: {
           start: rangeStart.toISOString(),

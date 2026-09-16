@@ -217,7 +217,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
               <FiTarget size={18} />
             </div>
             <div>
-              <p className="text-xs text-neutral-500 font-medium tracking-wider uppercase">Company Weekly Sales</p>
+              <p className="text-xs text-neutral-500 font-medium tracking-wider uppercase">{data.scope === "company" ? "Company Weekly Sales" : "My Weekly Sales"}</p>
               <p className="text-xl font-bold text-white">${data.companyWeeklyTotal.toLocaleString()} <span className="text-sm font-normal text-neutral-400">/ ${data.weeklyTarget.toLocaleString()}</span></p>
             </div>
           </div>
@@ -234,7 +234,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
               <FiDollarSign size={18} />
             </div>
             <div>
-              <p className="text-xs text-neutral-500 font-medium tracking-wider uppercase">Company MTD Sales</p>
+              <p className="text-xs text-neutral-500 font-medium tracking-wider uppercase">{data.scope === "company" ? "Company MTD Invoiced Sales" : "My MTD Invoiced Sales"}</p>
               <p className="text-xl font-bold text-white">${data.companyMonthlyTotal.toLocaleString()}</p>
             </div>
           </div>

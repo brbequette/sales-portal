@@ -620,7 +620,7 @@ export function GlobalTopBar() {
             className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
             title="Click to view Weekly Goal calculation formula"
           >
-            <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider">Weekly</span>
+            <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider">{stripStats.scope === "company" ? "Company Weekly" : "My Weekly"}</span>
             <span className="text-xs font-black text-white">${stripStats.weeklySales.toLocaleString()}</span>
           </div>
           <div className="w-px h-3.5 bg-white/[0.08]"></div>
@@ -629,7 +629,7 @@ export function GlobalTopBar() {
             className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
             title="Click to view Total Revenue calculation formula"
           >
-            <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider">MTD</span>
+            <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider">{stripStats.scope === "company" ? "Company MTD" : "My MTD"}</span>
             <span className="text-xs font-black text-white">${stripStats.mtdSales.toLocaleString()}</span>
           </div>
           <div className="w-px h-3.5 bg-white/[0.08]"></div>
@@ -638,7 +638,7 @@ export function GlobalTopBar() {
             className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
             title="Click to view Monthly Profit calculation formula"
           >
-            <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider">Profit</span>
+            <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider">{stripStats.scope === "company" ? "Company Profit" : "My Profit"}</span>
             <span className="text-xs font-black text-emerald-400">${stripStats.mtdProfit.toLocaleString()}</span>
           </div>
           <div className="w-px h-3.5 bg-white/[0.08]"></div>
@@ -647,7 +647,7 @@ export function GlobalTopBar() {
             className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
             title="Click to view Commission calculation formula"
           >
-            <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider">Comm</span>
+            <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider">{stripStats.scope === "company" ? "Company Comm" : "My Comm"}</span>
             <span className="text-xs font-black text-purple-400">${stripStats.mtdCommission.toLocaleString()}</span>
           </div>
           <div className="w-px h-3.5 bg-white/[0.08]"></div>
@@ -656,7 +656,7 @@ export function GlobalTopBar() {
             className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
             title="Click to view Pipeline calculation formula"
           >
-            <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider">Pipeline</span>
+            <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider">{stripStats.scope === "company" ? "Company Pipeline" : "My Pipeline"}</span>
             <span className="text-xs font-black text-sky-400">${stripStats.pipeline.toLocaleString()}</span>
           </div>
           {stripStats.overdue > 0 && (
@@ -668,7 +668,7 @@ export function GlobalTopBar() {
                 title="Click to view Overdue balance calculation formula"
               >
                 <FiAlertCircle size={10} className="text-red-400" />
-                <span className="text-[10px] text-red-400/70 font-medium uppercase tracking-wider">Overdue</span>
+                <span className="text-[10px] text-red-400/70 font-medium uppercase tracking-wider">{stripStats.scope === "company" ? "Company Overdue" : "My Overdue"}</span>
                 <span className="text-xs font-black text-red-400">${stripStats.overdue.toLocaleString()}</span>
               </div>
             </>

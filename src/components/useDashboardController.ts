@@ -8,6 +8,7 @@ import { useDashboardData as useRawDashboardData } from '@/hooks/useDashboardDat
 import { clearSharedJson, fetchSharedJson } from "@/lib/shared-api-fetch"
 
 export interface DashboardData {
+  scope: "company" | "personal"
   companyWeeklyTotal: number
   companyMonthlyTotal: number
   weeklyTotal: number
@@ -268,7 +269,7 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
         if (repStatsEndDate) params.set("endDate", repStatsEndDate)
       }
 
-      const res = await fetch(`/api/get-rep-stats?${params.toString()}`)
+      const res = await fetch(`/api/get-rep-stats?${params.toString()}`, { cache: "no-store" })
       const d = await res.json()
       if (d.success) {
         setRepStatsReps(d.reps || [])
@@ -295,7 +296,7 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
         if (repStatsStartDate) params.set("startDate", repStatsStartDate)
         if (repStatsEndDate) params.set("endDate", repStatsEndDate)
       }
-      const res = await fetch(`/api/get-rep-stats?${params.toString()}`)
+      const res = await fetch(`/api/get-rep-stats?${params.toString()}`, { cache: "no-store" })
       const d = await res.json()
       if (d.success) {
         setCompanyReps(d.reps || [])
@@ -542,6 +543,7 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
       }
 
       return {
+        scope: rawData.scope === "company" ? "company" : "personal",
         companyWeeklyTotal: Math.round(companyWeeklyTotal),
         companyMonthlyTotal: Math.round(companyMonthlyTotal),
         weeklyTotal: Math.round(weeklyTotal),

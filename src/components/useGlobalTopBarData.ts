@@ -5,6 +5,7 @@ import { useZoho } from "@/components/ZohoProvider"
 import { usePreferences } from "@/components/PreferencesProvider"
 import { GeofenceMonitor, type MonitorStatus } from "@/lib/geofence-monitor"
 import { useCampaignProgress } from "@/components/CampaignProgressProvider"
+import { parseGlobalHeaderSummary, type GlobalHeaderScope } from "@/lib/global-header-metrics"
 
 export function useGlobalTopBarData() {
   const router = useRouter()
@@ -68,21 +69,30 @@ export function useGlobalTopBarData() {
   const [stripStats, setStripStats] = useState<{
     weeklySales: number; mtdSales: number; mtdProfit: number;
     mtdCommission: number; pipeline: number; overdue: number;
+    scope: GlobalHeaderScope;
   } | null>(null)
 
   const fetchStripStats = useCallback(async () => {
     try {
       const res = await fetch("/api/zoho-invoices?summary=true", { cache: "no-store" })
       const json = await res.json()
-      if (!json.summary) return
-      const ws = Number(json.summary.weeklySales) || 0
-      const ms = Number(json.summary.mtdSales) || 0
-      const mp = Number(json.summary.mtdProfit) || 0
-      const mc = Number(json.summary.mtdCommission) || 0
-      const pv = Number(json.summary.pipeline) || 0
-      const ov = Number(json.summary.overdue) || 0
-      setStripStats({ weeklySales: Math.round(ws), mtdSales: Math.round(ms), mtdProfit: Math.round(mp), mtdCommission: Math.round(mc), pipeline: Math.round(pv), overdue: Math.round(ov) })
-    } catch {}
+      const summary = res.ok ? parseGlobalHeaderSummary(json) : null
+      if (!summary) {
+        setStripStats(null)
+        return
+      }
+      setStripStats({
+        weeklySales: Math.round(summary.weeklySales),
+        mtdSales: Math.round(summary.mtdSales),
+        mtdProfit: Math.round(summary.mtdProfit),
+        mtdCommission: Math.round(summary.mtdCommission),
+        pipeline: Math.round(summary.pipeline),
+        overdue: Math.round(summary.overdue),
+        scope: summary.scope,
+      })
+    } catch {
+      setStripStats(null)
+    }
   }, [])
 
   useEffect(() => {
