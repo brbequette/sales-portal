@@ -25,6 +25,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       if (existing) return { event: existing, idempotent: true }
       const recoveryCase = await tx.writeOffRecoveryCase.findUnique({ where: { id } })
       if (!recoveryCase) throw new Error("Recovery case not found")
+      if (!recoveryCase.responsibleRepId) throw new Error("Salesperson snapshot is required before adjustments")
+      const responsibleRepId = recoveryCase.responsibleRepId
       if (recoveryCase.status !== "APPROVED" && recoveryCase.status !== "WAIVED") throw new Error("Only approved cases may be adjusted")
       if (recoveryCase.responsibleRepId === session.user.id) throw new Error("Responsible salesperson cannot approve an adjustment")
       let amountCents = body.amountCents
@@ -42,7 +44,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           sourceType: body.sourceType, sourceId: body.sourceId, status: inspection.status,
           historicalProductCostCents: inspection.historicalProductCostCents, acceptedProductCostCents: inspection.acceptedProductCostCents,
           receivedAt: new Date(inspection.receivedAt), inspectedAt: new Date(inspection.inspectedAt), inspectedById: session.user.id,
-          actorId: session.user.id, subjectUserId: recoveryCase.responsibleRepId, notes: inspection.notes,
+          actorId: session.user.id, subjectUserId: responsibleRepId, notes: inspection.notes,
         } })
       }
       if (!Number.isSafeInteger(amountCents) || (amountCents as number) < 0) throw new Error("Adjustment amount must be integer cents")
@@ -54,10 +56,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       const after = applyLedgerEvent(recoveryCase.remainingBalanceCents, direction, amountCents as number)
       const version = recoveryCase.version + 1
       const event = await tx.writeOffRecoveryLedgerEvent.create({ data: {
-        caseId: id, repId: recoveryCase.responsibleRepId, version, eventType: body.eventType,
+        caseId: id, repId: responsibleRepId, version, eventType: body.eventType,
         direction, amountCents: amountCents as number, balanceBeforeCents: recoveryCase.remainingBalanceCents,
         balanceAfterCents: after, idempotencyKey: body.idempotencyKey, sourceType: body.sourceType,
-        sourceId: body.sourceId, actorId: session.user.id, subjectUserId: recoveryCase.responsibleRepId, reason: body.reason.trim(),
+        sourceId: body.sourceId, actorId: session.user.id, subjectUserId: responsibleRepId, reason: body.reason.trim(),
       } })
       const status = body.eventType === "WAIVER_CREDIT" && after === 0 ? "WAIVED" : recoveryCase.status
       await tx.writeOffRecoveryCase.update({ where: { id }, data: {

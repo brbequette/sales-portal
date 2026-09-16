@@ -64,11 +64,13 @@ export async function POST(request: Request) {
     const dryRun = calculateWriteOffRecovery({ responsibilityRateBps, previouslyPaidCommissionCents: body.previouslyPaidCommissionCents, components: body.components || [], inspections })
     if (body.mode !== "CREATE_DRAFT") return NextResponse.json({ dryRun, persisted: false }, { headers: noStore })
     if (!body.invoiceId || !body.responsibleRepId || !body.reason?.trim()) throw new Error("Invoice, responsible salesperson, and reason are required")
-    const invoice = await prisma.invoice.findFirst({ where: { OR: [{ id: body.invoiceId }, { zohoId: body.invoiceId }] }, select: { id: true } })
+    const invoice = await prisma.invoice.findFirst({ where: { OR: [{ id: body.invoiceId }, { zohoId: body.invoiceId }] }, select: { id: true, zohoId: true } })
     if (!invoice) return NextResponse.json({ error: "Invoice not found" }, { status: 404, headers: noStore })
     const recoveryCase = await prisma.writeOffRecoveryCase.create({
       data: {
         invoiceId: invoice.id, responsibleRepId: body.responsibleRepId, reason: body.reason.trim(), createdById: user.id,
+        triggerSourceField: "MANUAL", triggerZohoInvoiceId: invoice.zohoId, triggerDetectedAt: new Date(),
+        evidenceStatus: "READY_FOR_DRY_RUN", missingRequirements: [],
         originalResponsibilityRateBps, responsibilityRateBps, responsibilityRateOverrideReason: overrideReason,
         originalCostCents: dryRun.originalCostCents, recoveryCents: dryRun.recoveryCents,
         responsibilityChargeCents: dryRun.responsibilityChargeCents, commissionReversalCents: dryRun.commissionReversalCents, remainingBalanceCents: dryRun.responsibilityChargeCents,

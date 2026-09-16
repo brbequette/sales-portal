@@ -3,6 +3,7 @@ import { requireAdministrator } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from '@/lib/zoho-auth'
 import { collectBoundedBooks, redactedCounts, validateBoundedRange, type BoundedRange, type ReadTransport } from '@/lib/bounded-books-import'
+import { persistBoundedImportedInvoices } from '@/lib/write-off-recovery-trigger'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -56,18 +57,8 @@ async function localImport(body: Record<string, unknown>, actorId: string) {
     activeJobId = job.id
     const collection = await collectBoundedBooks(transport(), range, async (event) => { await prisma.boundedBooksImportJob.update({ where: { id: job.id }, data: { stage: event.stage, heartbeatAt: new Date() } }) }, { cancelled: async () => Boolean((await prisma.boundedBooksImportJob.findUnique({ where: { id: job.id }, select: { cancelRequestedAt: true } }))?.cancelRequestedAt) })
     const ensureActive = async () => { if ((await prisma.boundedBooksImportJob.findUnique({ where: { id: job.id }, select: { cancelRequestedAt: true } }))?.cancelRequestedAt) throw new Error('CANCELLED') }
-    let processed = 0
-    for (const row of collection.records.invoices) {
-      await ensureActive()
-      const id = String(row.invoice_id || '')
-      if (!id) continue
-      // Account linkage is intentionally not guessed. Unmatched records are quarantined by the existing sync rules.
-      const existing = await prisma.invoice.findUnique({ where: { zohoId: id }, select: { accountId: true } })
-      const account = existing?.accountId ? { id: existing.accountId } : (row.customer_id ? await prisma.account.findUnique({ where: { zohoId: String(row.customer_id) }, select: { id: true } }) : null)
-      if (!account?.id) continue
-      await prisma.invoice.upsert({ where: { zohoId: id }, update: { status: String(row.status || 'draft'), amount: Number(row.total) || 0, balance: Number(row.balance) || 0, issueDate: row.date ? new Date(String(row.date)) : undefined, items: row as object }, create: { zohoId: id, accountId: account.id, status: String(row.status || 'draft'), amount: Number(row.total) || 0, balance: Number(row.balance) || 0, issueDate: row.date ? new Date(String(row.date)) : new Date(), items: row as object } })
-      processed += 1
-    }
+    const invoiceImport = await persistBoundedImportedInvoices(prisma, collection.records.invoices, `bounded-books-import:${job.id}`, ensureActive)
+    let processed = invoiceImport.processed
     for (const row of collection.records.salesOrders) {
       await ensureActive()
       const id = String(row.salesorder_id || '')
@@ -96,7 +87,7 @@ async function localImport(body: Record<string, unknown>, actorId: string) {
       processed += 1
     }
     await prisma.boundedBooksImportJob.update({ where: { id: job.id }, data: { status: 'COMPLETE', stage: 'COMPLETE', processed, succeeded: processed, total: Object.values(collection.counts).reduce((a, b) => a + b, 0), completedAt: new Date(), heartbeatAt: new Date() } })
-    return NextResponse.json({ status: 'COMPLETE', jobId: job.id, counts: redactedCounts(collection) })
+    return NextResponse.json({ status: 'COMPLETE', jobId: job.id, counts: redactedCounts(collection), instrumentation: { writeOffTriggerZohoCalls: invoiceImport.writeOffTriggerZohoCalls, writeOffParseAnomalyFailures: invoiceImport.writeOffParseAnomalyFailures } })
   } catch (error) {
     if (activeJobId) await prisma.boundedBooksImportJob.update({ where: { id: activeJobId }, data: { status: safeError(error) === 'CANCELLED' ? 'CANCELLED_PARTIAL' : 'FAILED', errorCategory: safeError(error), completedAt: new Date(), heartbeatAt: new Date() } }).catch(() => undefined)
     return NextResponse.json({ status: safeError(error) === 'CANCELLED' ? 'CANCELLED_PARTIAL' : 'IMPORT_FAILED', errorCategory: safeError(error) }, { status: 422 })
