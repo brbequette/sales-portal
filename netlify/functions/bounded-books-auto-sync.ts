@@ -2,6 +2,7 @@ import { schedule } from '@netlify/functions'
 import { prisma } from '../../src/lib/prisma'
 import { boundedBooksDateRange, collectBoundedBooks, redactedCounts, type ReadTransport } from '../../src/lib/bounded-books-import'
 import { getZohoAccessToken, ZOHO_DC, ZOHO_ORGANIZATION_ID } from '../../src/lib/zoho-auth'
+import { persistBoundedImportedInvoices } from '../../src/lib/write-off-recovery-trigger'
 
 const AUTO_KEY = 'BOUNDED_BOOKS_AUTO_SYNC_ENABLED'
 const LOCK_TIMEOUT_MS = 45 * 60 * 1000
@@ -33,10 +34,11 @@ export async function runBoundedBooksAutoSync(now = new Date()) {
   const run = await prisma.boundedBooksImportJob.create({ data: { actorId: 'scheduled', triggerType: 'SCHEDULED', enabled: true, startDate: range.startDate, endDate: range.endDate, status: 'RUNNING', stage: 'READ' } })
   try {
     const collection = await collectBoundedBooks(transport(), range)
+    const invoiceImport = await persistBoundedImportedInvoices(prisma, collection.records.invoices, `bounded-books-auto-sync:${run.id}`)
     const durationMs = Date.now() - nowMs
     await prisma.boundedBooksImportJob.update({ where: { id: run.id }, data: { status: 'COMPLETE', stage: 'COMPLETE', completedAt: new Date(), heartbeatAt: new Date(), durationMs, importedCounts: collection.counts, pageCounts: collection.pages, total: Object.values(collection.counts).reduce((sum, value) => sum + value, 0), processed: Object.values(collection.counts).reduce((sum, value) => sum + value, 0), succeeded: Object.values(collection.counts).reduce((sum, value) => sum + value, 0) } })
-    console.log(`BOUNDED_BOOKS_AUTO_SYNC_COMPLETE runId=${run.id} range=${range.startDate}:${range.endDate} durationMs=${durationMs} counts=${JSON.stringify(redactedCounts(collection))}`)
-    return { status: 'COMPLETE', range, counts: redactedCounts(collection), zohoCalls: Object.values(collection.pages).reduce((total, pages) => total + pages, 0), databaseWrites: 1 }
+    console.log(`BOUNDED_BOOKS_AUTO_SYNC_COMPLETE runId=${run.id} range=${range.startDate}:${range.endDate} durationMs=${durationMs} counts=${JSON.stringify(redactedCounts(collection))} writeOffTriggerZohoCalls=${invoiceImport.writeOffTriggerZohoCalls} writeOffParseAnomalyFailures=${invoiceImport.writeOffParseAnomalyFailures}`)
+    return { status: 'COMPLETE', range, counts: redactedCounts(collection), zohoCalls: Object.values(collection.pages).reduce((total, pages) => total + pages, 0), writeOffTriggerZohoCalls: invoiceImport.writeOffTriggerZohoCalls, writeOffParseAnomalyFailures: invoiceImport.writeOffParseAnomalyFailures, databaseWrites: invoiceImport.processed + 1 }
   } catch (error) {
     const reason = error instanceof Error ? error.message.replace(/[^A-Z0-9_]/g, '').slice(0, 64) || 'IMPORT_FAILED' : 'IMPORT_FAILED'
     await prisma.boundedBooksImportJob.update({ where: { id: run.id }, data: { status: 'FAILED', stage: 'FAILED', errorCategory: reason, completedAt: new Date(), durationMs: Date.now() - nowMs } }).catch(() => undefined)

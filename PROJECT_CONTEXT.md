@@ -1,5 +1,14 @@
 # Titan Diamond — Consolidated Project Context
 
+## Automatic write-off recovery trigger (2026-09-16)
+
+- The existing bounded Books invoice import now consumes the already-fetched Boolean `cf_written_off` field and creates one local `DRAFT` / `PENDING_EVIDENCE` recovery case on either false-to-true or first-observed true. The case snapshots 5000 basis points and never posts a charge, reversal, ledger event, wage change, payout change, or Zoho write.
+- Case identity is unique by both local invoice and `(cf_written_off, Zoho invoice id)`. Sanitized transition evidence has a unique idempotency key and a database-enforced append-only trigger. True-to-false preserves the case and flags manager review.
+- Missing historical cost, salesperson snapshot, or commission evidence is stored as a blocker; approval and adjustment paths reject incomplete evidence or a missing salesperson before ledger activity.
+- Both the authenticated bounded import and the existing disabled-by-default 15-minute bounded job use the shared local persistence boundary. The trigger adds zero Zoho calls, expands no range/page/resource, and recovery pages remain local-PostgreSQL-only. The repository-wide provider-call inventory and API conservation findings are documented in `docs/write-off-recovery-trigger-and-zoho-api-audit-2026-09-16.md`.
+- The optional checkbox is ingestion-safe: missing values leave state unobserved, while non-Boolean values persist the invoice and append sanitized local parse-anomaly evidence without coercion, customer data, a recovery case, or another Zoho request. Valid Boolean observations remain atomic with the invoice upsert.
+- The shared trigger intentionally has no Next.js `server-only` marker because the bounded Netlify function imports it directly. Contract tests enforce trusted server entrypoints and prohibit client-component imports; the module retains Node hashing and no browser-facing dependency path.
+
 ## Financial dashboard and commission surface correction (2026-09-16)
 
 - Executive Dashboard and home-dashboard MTD sales now consume the same role-scoped invoice-plus-eligible-uninvoiced-sales-order contract as the global header. The previously displayed $40,281.14 was invoice-only; the verified production contract is 15 invoices plus 2 uninvoiced orders totaling $44,780.89.

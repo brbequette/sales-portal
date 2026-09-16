@@ -19,7 +19,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       })
       if (!recoveryCase) throw new Error("Recovery case not found")
       if (recoveryCase.status !== "PENDING_APPROVAL") throw new Error("Only pending cases may be approved")
-      assertApprovalAuthority({ role: session.user.role, actorId: session.user.id, creatorId: recoveryCase.createdById, submittedById: recoveryCase.submittedById, responsibleRepId: recoveryCase.responsibleRepId })
+      if (recoveryCase.evidenceStatus !== "READY_FOR_DRY_RUN" || (Array.isArray(recoveryCase.missingRequirements) && recoveryCase.missingRequirements.length > 0)) {
+        throw new Error("Required recovery evidence is incomplete")
+      }
+      if (!recoveryCase.responsibleRepId) throw new Error("Salesperson snapshot is required before approval")
+      const responsibleRepId = recoveryCase.responsibleRepId
+      assertApprovalAuthority({ role: session.user.role, actorId: session.user.id, creatorId: recoveryCase.createdById, submittedById: recoveryCase.submittedById, responsibleRepId })
       const components: RecoveryComponent[] = recoveryCase.components.map(c => ({ ...c, direction: c.direction as "COST" | "RECOVERY" }))
       const inspections: ReturnInspection[] = recoveryCase.returnInspections.map(i => ({ ...i, status: i.status as ReturnInspection["status"] }))
       const dryRun = calculateWriteOffRecovery({ responsibilityRateBps: recoveryCase.responsibilityRateBps, previouslyPaidCommissionCents: recoveryCase.commissionReversalCents, components, inspections })
@@ -32,11 +37,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       const paidCommission = recoveryCase.commissionReversalCents
       if (paidCommission > 0) {
         const after = applyLedgerEvent(balance, "DEBIT", paidCommission)
-        events.push({ caseId: id, repId: recoveryCase.responsibleRepId, version: recoveryCase.version, eventType: "COMMISSION_REVERSAL", direction: "DEBIT", amountCents: paidCommission, balanceBeforeCents: balance, balanceAfterCents: after, idempotencyKey: `${body.approvalIdempotencyKey}:commission`, sourceType: "MANAGER_APPROVAL", actorId: session.user.id, subjectUserId: recoveryCase.responsibleRepId, reason: body.reason.trim(), postedAt: now })
+        events.push({ caseId: id, repId: responsibleRepId, version: recoveryCase.version, eventType: "COMMISSION_REVERSAL", direction: "DEBIT", amountCents: paidCommission, balanceBeforeCents: balance, balanceAfterCents: after, idempotencyKey: `${body.approvalIdempotencyKey}:commission`, sourceType: "MANAGER_APPROVAL", actorId: session.user.id, subjectUserId: responsibleRepId, reason: body.reason.trim(), postedAt: now })
         balance = after
       }
       const after = applyLedgerEvent(balance, "DEBIT", dryRun.responsibilityChargeCents)
-      events.push({ caseId: id, repId: recoveryCase.responsibleRepId, version: recoveryCase.version, eventType: "COST_RESPONSIBILITY_DEBIT", direction: "DEBIT", amountCents: dryRun.responsibilityChargeCents, balanceBeforeCents: balance, balanceAfterCents: after, idempotencyKey: body.approvalIdempotencyKey, sourceType: "MANAGER_APPROVAL", actorId: session.user.id, subjectUserId: recoveryCase.responsibleRepId, reason: body.reason.trim(), postedAt: now })
+      events.push({ caseId: id, repId: responsibleRepId, version: recoveryCase.version, eventType: "COST_RESPONSIBILITY_DEBIT", direction: "DEBIT", amountCents: dryRun.responsibilityChargeCents, balanceBeforeCents: balance, balanceAfterCents: after, idempotencyKey: body.approvalIdempotencyKey, sourceType: "MANAGER_APPROVAL", actorId: session.user.id, subjectUserId: responsibleRepId, reason: body.reason.trim(), postedAt: now })
       await tx.writeOffRecoveryLedgerEvent.createMany({ data: events })
       await tx.invoice.update({ where: { id: recoveryCase.invoiceId }, data: { status: "written_off", isWrittenOff: true, writtenOffAt: now, writtenOffCostDeduction: dryRun.responsibilityChargeCents / 100 } })
       const updated = await tx.writeOffRecoveryCase.update({ where: { id }, data: { status: "APPROVED", approvedById: session.user.id, approvedAt: now, responsibilityChargeCents: dryRun.responsibilityChargeCents, remainingBalanceCents: dryRun.responsibilityChargeCents } })
