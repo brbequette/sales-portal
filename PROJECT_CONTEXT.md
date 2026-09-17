@@ -2,6 +2,9 @@
 
 ## Automatic write-off recovery trigger (2026-09-16)
 
+- New malformed-checkbox observations carry nullable, sanitized `SANITIZED_V1` evidence: fixed field-path/type/shape/token categories, one-way source-invoice and payload fingerprints, and the source modification timestamp already present in the bounded payload. Existing rows remain physically untouched and are reported as `LEGACY_UNKNOWN`; no raw malformed value or customer/document content is stored. Exact source-version replays remain idempotent while a changed source modification timestamp is retained as a distinct observation.
+- The no-store MASTER_ADMIN-only health response now adds aggregate anomaly reason/path/type/token counts, legacy count, distinct and repeated fingerprint counts, exact-replay duplicates, observation bounds, and a checkbox-like-string evidence flag. It remains a local PostgreSQL read with no Zoho calls or mutation.
+
 - A no-store `GET /api/admin/write-off-recovery/health` endpoint allows MASTER_ADMIN, ADMIN, and Administrator roles while denying managers, collections, salespeople, and unauthenticated users. It reports catalog booleans, aggregate recovery safety counts, and fail-closed readiness from local PostgreSQL only, with no writes, repairs, synchronization, provider calls, or identifier disclosure; missing schema returns HTTP 503 with `syntheticTestReady=false`.
 
 - The existing bounded Books invoice import now consumes the already-fetched Boolean `cf_written_off` field and creates one local `DRAFT` / `PENDING_EVIDENCE` recovery case on either false-to-true or first-observed true. The case snapshots 5000 basis points and never posts a charge, reversal, ledger event, wage change, payout change, or Zoho write.

@@ -4,6 +4,7 @@ import { Prisma, type PrismaClient } from "@prisma/client"
 export const WRITE_OFF_SOURCE_FIELD = "cf_written_off"
 export const AUTOMATIC_RECOVERY_RATE_BPS = 5000
 export const WRITE_OFF_TRIGGER_ZOHO_CALLS = 0
+export const ANOMALY_SCHEMA_VERSION = "SANITIZED_V1"
 
 type JsonRecord = Record<string, unknown>
 
@@ -24,15 +25,43 @@ function record(value: unknown): JsonRecord | null {
   return value && typeof value === "object" && !Array.isArray(value) ? value as JsonRecord : null
 }
 
-function sourceFieldValue(payload: unknown): { present: boolean; value?: unknown } {
+type ObservedFieldPath = "TOP_LEVEL" | "CUSTOM_FIELD_HASH" | "CUSTOM_FIELDS_ARRAY"
+
+function sourceFieldValue(payload: unknown): { present: boolean; value?: unknown; path?: ObservedFieldPath } {
   const root = record(payload)
   if (!root) return { present: false }
-  if (Object.prototype.hasOwnProperty.call(root, WRITE_OFF_SOURCE_FIELD)) return { present: true, value: root[WRITE_OFF_SOURCE_FIELD] }
+  if (Object.prototype.hasOwnProperty.call(root, WRITE_OFF_SOURCE_FIELD)) return { present: true, value: root[WRITE_OFF_SOURCE_FIELD], path: "TOP_LEVEL" }
   const hash = record(root.custom_field_hash)
-  if (hash && Object.prototype.hasOwnProperty.call(hash, WRITE_OFF_SOURCE_FIELD)) return { present: true, value: hash[WRITE_OFF_SOURCE_FIELD] }
+  if (hash && Object.prototype.hasOwnProperty.call(hash, WRITE_OFF_SOURCE_FIELD)) return { present: true, value: hash[WRITE_OFF_SOURCE_FIELD], path: "CUSTOM_FIELD_HASH" }
   const fields = Array.isArray(root.custom_fields) ? root.custom_fields : []
   const field = fields.map(record).find(item => item?.api_name === WRITE_OFF_SOURCE_FIELD)
-  return field ? { present: true, value: field.value } : { present: false }
+  return field ? { present: true, value: field.value, path: "CUSTOM_FIELDS_ARRAY" } : { present: false }
+}
+
+function anomalyDiagnostics(payload: unknown, zohoInvoiceId: string) {
+  const found = sourceFieldValue(payload)
+  const value = found.value
+  const observedJsonType = value === null ? "NULL" : Array.isArray(value) ? "ARRAY" :
+    typeof value === "string" ? "STRING" : typeof value === "number" ? "NUMBER" :
+      typeof value === "object" ? "OBJECT" : "UNKNOWN"
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : null
+  const checkboxTokenClass = value === null ? "NULL" : Array.isArray(value) ? "ARRAY" :
+    typeof value === "object" ? "OBJECT" : typeof value === "number" ? "NUMBER" :
+      typeof value !== "string" ? "UNKNOWN" : normalized === "true" ? "STRING_TRUE" :
+        normalized === "false" ? "STRING_FALSE" : normalized === "yes" || normalized === "no" ? "STRING_YES_NO" :
+          normalized === "1" || normalized === "0" ? "STRING_ONE_ZERO" : "OTHER_STRING"
+  const sanitizedStructuralShape = Array.isArray(value) ?
+    (value.length === 0 ? "ARRAY_EMPTY" : value.length <= 5 ? "ARRAY_LENGTH_1_5" : "ARRAY_LENGTH_6_PLUS") :
+    value && typeof value === "object" ?
+      (Object.keys(value).length === 0 ? "OBJECT_EMPTY" : Object.keys(value).length <= 5 ? "OBJECT_KEYS_1_5" : "OBJECT_KEYS_6_PLUS") :
+      value === null ? "NULL" : "SCALAR"
+  return {
+    observedFieldPath: found.path || "TOP_LEVEL",
+    observedJsonType,
+    sanitizedStructuralShape,
+    checkboxTokenClass,
+    sourceInvoiceFingerprint: fingerprint({ sourceField: WRITE_OFF_SOURCE_FIELD, zohoInvoiceId }),
+  }
 }
 
 export function parseWrittenOffObservation(payload: unknown): WriteOffObservation {
@@ -80,8 +109,8 @@ function transitionKey(zohoInvoiceId: string, previousValue: boolean | null, new
   return fingerprint({ sourceField: WRITE_OFF_SOURCE_FIELD, zohoInvoiceId, previousValue, newValue, sourceTimestamp: observedSourceTimestamp?.toISOString() || null })
 }
 
-function anomalyKey(zohoInvoiceId: string, observedSourceTimestamp: Date | null): string {
-  return fingerprint({ sourceField: WRITE_OFF_SOURCE_FIELD, zohoInvoiceId, anomalyCode: "NON_BOOLEAN_VALUE", sourceTimestamp: observedSourceTimestamp?.toISOString() || null })
+function anomalyKey(payloadFingerprint: string): string {
+  return fingerprint({ anomalySchemaVersion: ANOMALY_SCHEMA_VERSION, payloadFingerprint })
 }
 
 export function writeOffTriggerDryRun(rows: Array<{ invoice_id?: unknown; payload: unknown }>) {
@@ -111,13 +140,19 @@ export async function observeImportedInvoiceWriteOff(
   if (next.anomalyCode) {
     const detectedAt = input.ingestedAt || new Date()
     const observedSourceTimestamp = sourceTimestamp(input.incomingPayload)
+    const diagnostics = anomalyDiagnostics(input.incomingPayload, input.invoice.zohoId)
     const sanitizedEvidence = {
-      localInvoiceId: input.invoice.id,
-      zohoInvoiceId: input.invoice.zohoId,
+      anomalySchemaVersion: ANOMALY_SCHEMA_VERSION,
+      sourceInvoiceFingerprint: diagnostics.sourceInvoiceFingerprint,
       sourceField: WRITE_OFF_SOURCE_FIELD,
       sourceTimestamp: observedSourceTimestamp?.toISOString() || null,
       anomalyCode: next.anomalyCode,
+      observedFieldPath: diagnostics.observedFieldPath,
+      observedJsonType: diagnostics.observedJsonType,
+      sanitizedStructuralShape: diagnostics.sanitizedStructuralShape,
+      checkboxTokenClass: diagnostics.checkboxTokenClass,
     }
+    const payloadFingerprint = fingerprint(sanitizedEvidence)
     try {
       await tx.writeOffRecoveryTriggerRecord.create({ data: {
         caseId: null,
@@ -130,8 +165,11 @@ export async function observeImportedInvoiceWriteOff(
         anomalyCode: next.anomalyCode,
         sourceTimestamp: observedSourceTimestamp,
         ingestedAt: detectedAt,
-        idempotencyKey: anomalyKey(input.invoice.zohoId, observedSourceTimestamp),
-        payloadFingerprint: fingerprint(sanitizedEvidence),
+        idempotencyKey: anomalyKey(payloadFingerprint),
+        payloadFingerprint,
+        ...diagnostics,
+        sourceModificationTimestamp: observedSourceTimestamp,
+        anomalySchemaVersion: ANOMALY_SCHEMA_VERSION,
         missingRequirements: ["VALID_WRITE_OFF_BOOLEAN"],
       } })
     } catch (error) {

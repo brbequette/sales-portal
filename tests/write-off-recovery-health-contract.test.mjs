@@ -5,7 +5,7 @@ const route = fs.readFileSync("src/app/api/admin/write-off-recovery/health/route
 const health = fs.readFileSync("src/lib/write-off-recovery-health.ts", "utf8")
 const proxy = fs.readFileSync("src/proxy.ts", "utf8")
 
-assert.match(route, /requireAdministrator\(\)/)
+assert.match(route, /requireMasterAdministrator\(\)/)
 assert.match(route, /Cache-Control", "no-store, max-age=0"/)
 assert.match(route, /readWriteOffRecoveryHealth\(prisma\)/)
 assert.doesNotMatch(route + health, /fetch\(|getZohoAccessToken|zohoapis|ZOHO_/i)
@@ -18,6 +18,8 @@ for (const statement of statements) {
 }
 assert.match(health, /automaticRecoveryCases/)
 assert.match(health, /syntheticTestReady/)
+assert.match(health, /legacyUnknownCount/)
+assert.match(health, /checkboxLikeStringRepresentationProven/)
 assert.match(health, /if \(!schemaReady\) return failClosed\(schema\)/)
 assert.match(proxy, /WRITE_OFF_RECOVERY_HEALTH_PATH = '\/api\/admin\/write-off-recovery\/health'/)
 assert.match(proxy, /pathname === WRITE_OFF_RECOVERY_HEALTH_PATH/)

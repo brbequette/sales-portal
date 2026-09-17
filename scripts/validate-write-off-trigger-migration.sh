@@ -31,6 +31,12 @@ index_count=$(docker exec "$pg_id" psql -U tdgpt_dev -d "$validation_db" -Atc \
   "SELECT count(*) FROM pg_indexes WHERE indexname IN ('WriteOffRecoveryCase_triggerSourceField_triggerZohoInvoiceId_key','WriteOffRecoveryTriggerRecord_idempotencyKey_key');")
 trigger_count=$(docker exec "$pg_id" psql -U tdgpt_dev -d "$validation_db" -Atc \
   "SELECT count(*) FROM pg_trigger WHERE tgname='WriteOffRecoveryTriggerRecord_immutable' AND NOT tgisinternal;")
+observability_column_count=$(docker exec "$pg_id" psql -U tdgpt_dev -d "$validation_db" -Atc \
+  "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='WriteOffRecoveryTriggerRecord' AND column_name IN ('observedFieldPath','observedJsonType','sanitizedStructuralShape','checkboxTokenClass','sourceInvoiceFingerprint','sourceModificationTimestamp','anomalySchemaVersion');")
+observability_index_count=$(docker exec "$pg_id" psql -U tdgpt_dev -d "$validation_db" -Atc \
+  "SELECT count(*) FROM pg_indexes WHERE indexname IN ('WriteOffRecoveryTriggerRecord_observationKind_anomalySchemaVersion_idx','WriteOffRecoveryTriggerRecord_sourceInvoiceFingerprint_idx');")
 test "$index_count" = "2"
 test "$trigger_count" = "1"
-echo "DISPOSABLE_TRIGGER_MIGRATION=PASS indexes=$index_count immutable_triggers=$trigger_count"
+test "$observability_column_count" = "7"
+test "$observability_index_count" = "2"
+echo "DISPOSABLE_TRIGGER_MIGRATION=PASS indexes=$index_count immutable_triggers=$trigger_count observability_columns=$observability_column_count observability_indexes=$observability_index_count"
