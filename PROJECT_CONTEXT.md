@@ -2,7 +2,7 @@
 
 ## Automatic write-off recovery trigger (2026-09-16)
 
-- A MASTER_ADMIN-only, no-store `GET /api/admin/write-off-recovery/health` endpoint reports catalog booleans, aggregate recovery safety counts, and fail-closed readiness from local PostgreSQL only. It performs no writes, repairs, synchronization, provider calls, or identifier disclosure; missing schema returns HTTP 503 with `syntheticTestReady=false`.
+- A no-store `GET /api/admin/write-off-recovery/health` endpoint allows MASTER_ADMIN, ADMIN, and Administrator roles while denying managers, collections, salespeople, and unauthenticated users. It reports catalog booleans, aggregate recovery safety counts, and fail-closed readiness from local PostgreSQL only, with no writes, repairs, synchronization, provider calls, or identifier disclosure; missing schema returns HTTP 503 with `syntheticTestReady=false`.
 
 - The existing bounded Books invoice import now consumes the already-fetched Boolean `cf_written_off` field and creates one local `DRAFT` / `PENDING_EVIDENCE` recovery case on either false-to-true or first-observed true. The case snapshots 5000 basis points and never posts a charge, reversal, ledger event, wage change, payout change, or Zoho write.
 - Case identity is unique by both local invoice and `(cf_written_off, Zoho invoice id)`. Sanitized transition evidence has a unique idempotency key and a database-enforced append-only trigger. True-to-false preserves the case and flags manager review.

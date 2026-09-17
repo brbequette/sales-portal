@@ -94,6 +94,16 @@ function isAdminApi(pathname: string): boolean {
 }
 
 const AUTH_SECRET = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
+const WRITE_OFF_RECOVERY_HEALTH_PATH = '/api/admin/write-off-recovery/health';
+
+function apiDenial(pathname: string, body: { error: string }, status: number) {
+  const response = NextResponse.json(body, { status });
+  if (pathname === WRITE_OFF_RECOVERY_HEALTH_PATH) {
+    response.headers.set('Cache-Control', 'no-store, max-age=0');
+  }
+  return response;
+}
+
 if (!AUTH_SECRET) {
   console.error('[proxy] NEXTAUTH_SECRET is not set — sessions will not be verifiable');
 }
@@ -173,12 +183,12 @@ export async function proxy(req: NextRequest) {
     }
 
     if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiDenial(pathname, { error: 'Unauthorized' }, 401);
     }
 
     // Admin API routes require admin role
     if (isAdminApi(pathname) && !isAdminRole(token.role as string | undefined)) {
-      return NextResponse.json({ error: 'Forbidden: Admin required' }, { status: 403 });
+      return apiDenial(pathname, { error: 'Forbidden: Admin required' }, 403);
     }
 
     return NextResponse.next();

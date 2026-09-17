@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const requireMasterAdministrator = vi.fn()
+const requireAdministrator = vi.fn()
 const readWriteOffRecoveryHealth = vi.fn()
-vi.mock("@/lib/auth-helpers", () => ({ requireMasterAdministrator }))
+vi.mock("@/lib/auth-helpers", () => ({ requireAdministrator }))
 vi.mock("@/lib/write-off-recovery-health", () => ({ readWriteOffRecoveryHealth }))
 vi.mock("@/lib/prisma", () => ({ prisma: { marker: "local-postgres" } }))
 
@@ -15,8 +15,8 @@ const safeHealth = {
 describe("write-off recovery production health route", () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it.each(["unauthenticated", "salesperson", "manager", "collections", "administrator"])("denies %s access", async () => {
-    requireMasterAdministrator.mockResolvedValue({ session: null, errorResponse: Response.json({ error: "denied" }, { status: 403 }) })
+  it.each(["unauthenticated", "salesperson", "manager", "collections"])("denies %s access", async () => {
+    requireAdministrator.mockResolvedValue({ session: null, errorResponse: Response.json({ error: "denied" }, { status: 403 }) })
     const { GET } = await import("../src/app/api/admin/write-off-recovery/health/route")
     const response = await GET()
     expect(response.status).toBe(403)
@@ -24,8 +24,8 @@ describe("write-off recovery production health route", () => {
     expect(readWriteOffRecoveryHealth).not.toHaveBeenCalled()
   })
 
-  it("returns aggregate-only health to a master administrator", async () => {
-    requireMasterAdministrator.mockResolvedValue({ session: { user: { role: "MASTER_ADMIN" } }, errorResponse: null })
+  it.each(["MASTER_ADMIN", "ADMIN", "Administrator"])("returns aggregate-only health to %s", async role => {
+    requireAdministrator.mockResolvedValue({ session: { user: { role } }, errorResponse: null })
     readWriteOffRecoveryHealth.mockResolvedValue(safeHealth)
     const { GET } = await import("../src/app/api/admin/write-off-recovery/health/route")
     const response = await GET()
@@ -37,7 +37,7 @@ describe("write-off recovery production health route", () => {
   })
 
   it("returns fail-closed health without repair when schema is missing", async () => {
-    requireMasterAdministrator.mockResolvedValue({ session: { user: { role: "MASTER_ADMIN" } }, errorResponse: null })
+    requireAdministrator.mockResolvedValue({ session: { user: { role: "ADMIN" } }, errorResponse: null })
     readWriteOffRecoveryHealth.mockResolvedValue({ ...safeHealth, assertions: { ...safeHealth.assertions, schemaReady: false, unsafeAutomaticCases: true, syntheticTestReady: false } })
     const { GET } = await import("../src/app/api/admin/write-off-recovery/health/route")
     const response = await GET()
