@@ -1352,11 +1352,20 @@ model WriteOffRecoveryTriggerRecord {
   ingestedAt            DateTime @default(now())
   idempotencyKey        String   @unique
   payloadFingerprint    String
+  observedFieldPath     String?
+  observedJsonType      String?
+  sanitizedStructuralShape String?
+  checkboxTokenClass    String?
+  sourceInvoiceFingerprint String?
+  sourceModificationTimestamp DateTime?
+  anomalySchemaVersion  String?
   missingRequirements   Json
   recoveryCase          WriteOffRecoveryCase? @relation(fields: [caseId], references: [id], onDelete: Restrict)
 
   @@index([caseId, ingestedAt])
   @@index([zohoInvoiceId, sourceField])
+  @@index([observationKind, anomalySchemaVersion])
+  @@index([sourceInvoiceFingerprint])
 }
 
 model WriteOffRecoveryCostComponent {

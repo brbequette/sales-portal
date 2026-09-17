@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { requireAdministrator } from "@/lib/auth-helpers"
+import { requireMasterAdministrator } from "@/lib/auth-helpers"
 import { prisma } from "@/lib/prisma"
 import { readWriteOffRecoveryHealth } from "@/lib/write-off-recovery-health"
 
@@ -11,7 +11,7 @@ function noStore(response: NextResponse) {
 }
 
 export async function GET() {
-  const auth = await requireAdministrator()
+  const auth = await requireMasterAdministrator()
   if (auth.errorResponse) return noStore(auth.errorResponse)
 
   const health = await readWriteOffRecoveryHealth(prisma)

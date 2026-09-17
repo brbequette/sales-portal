@@ -1,6 +1,6 @@
 import { Prisma, type PrismaClient } from "@prisma/client"
 
-const EXPECTED_MIGRATION = "20260916190000_write_off_recovery_bounded_trigger"
+const EXPECTED_MIGRATION = "20260917110000_write_off_anomaly_observability"
 const REQUIRED_TABLES = [
   "WriteOffRecoveryCase",
   "WriteOffRecoveryTriggerRecord",
@@ -12,15 +12,33 @@ const REQUIRED_TABLES = [
 const REQUIRED_COLUMN_TABLES = [
   "WriteOffRecoveryCase", "WriteOffRecoveryCase", "WriteOffRecoveryCase", "WriteOffRecoveryCase", "WriteOffRecoveryCase", "WriteOffRecoveryCase", "WriteOffRecoveryCase",
   "WriteOffRecoveryTriggerRecord", "WriteOffRecoveryTriggerRecord", "WriteOffRecoveryTriggerRecord", "WriteOffRecoveryTriggerRecord", "WriteOffRecoveryTriggerRecord", "WriteOffRecoveryTriggerRecord", "WriteOffRecoveryTriggerRecord",
+  "WriteOffRecoveryTriggerRecord", "WriteOffRecoveryTriggerRecord", "WriteOffRecoveryTriggerRecord", "WriteOffRecoveryTriggerRecord", "WriteOffRecoveryTriggerRecord", "WriteOffRecoveryTriggerRecord", "WriteOffRecoveryTriggerRecord",
 ]
 const REQUIRED_COLUMNS = [
   "triggerSourceField", "triggerZohoInvoiceId", "evidenceStatus", "missingRequirements", "managerReviewRequired", "salespersonSnapshot", "triggerDetectedAt",
   "caseId", "sourceField", "zohoInvoiceId", "idempotencyKey", "observationKind", "anomalyCode", "payloadFingerprint",
+  "observedFieldPath", "observedJsonType", "sanitizedStructuralShape", "checkboxTokenClass", "sourceInvoiceFingerprint", "sourceModificationTimestamp", "anomalySchemaVersion",
 ]
 
 type QueryClient = Pick<PrismaClient, "$queryRaw">
 type BoolRow = { ok: boolean }
 type CountRow = Record<string, bigint | number>
+type JsonCounts = Record<string, number>
+type AnomalyRow = {
+  legacy_unknown: bigint | number
+  by_reason: JsonCounts
+  by_field_path: JsonCounts
+  by_json_type: JsonCounts
+  by_token_class: JsonCounts
+  distinct_source_invoices: bigint | number
+  distinct_payloads: bigint | number
+  exact_replays: bigint | number
+  repeated_payloads: bigint | number
+  repeated_source_invoices: bigint | number
+  first_observed: Date | null
+  last_observed: Date | null
+  checkbox_like_string_proven: boolean
+}
 
 export type RecoveryHealth = {
   schema: {
@@ -43,6 +61,21 @@ export type RecoveryHealth = {
     duplicateSourceInvoiceGroups: number | null
     duplicateIdempotencyKeyGroups: number | null
   }
+  anomalyDiagnostics: {
+    legacyUnknownCount: number | null
+    byReason: JsonCounts | null
+    byFieldPath: JsonCounts | null
+    byJsonType: JsonCounts | null
+    byTokenClass: JsonCounts | null
+    distinctSourceInvoiceFingerprintCount: number | null
+    distinctPayloadFingerprintCount: number | null
+    exactReplayDuplicateCount: number | null
+    repeatedPayloadFingerprintGroups: number | null
+    repeatedSourceInvoiceFingerprintGroups: number | null
+    firstObservationTimestamp: string | null
+    lastObservationTimestamp: string | null
+    checkboxLikeStringRepresentationProven: boolean | null
+  }
   assertions: {
     schemaReady: boolean
     duplicatesFound: boolean
@@ -51,6 +84,13 @@ export type RecoveryHealth = {
     syntheticTestReady: boolean
   }
 }
+
+const emptyAnomalyDiagnostics = (): RecoveryHealth["anomalyDiagnostics"] => ({
+  legacyUnknownCount: null, byReason: null, byFieldPath: null, byJsonType: null, byTokenClass: null,
+  distinctSourceInvoiceFingerprintCount: null, distinctPayloadFingerprintCount: null,
+  exactReplayDuplicateCount: null, repeatedPayloadFingerprintGroups: null, repeatedSourceInvoiceFingerprintGroups: null,
+  firstObservationTimestamp: null, lastObservationTimestamp: null, checkboxLikeStringRepresentationProven: null,
+})
 
 const emptyCounts = (): RecoveryHealth["counts"] => ({
   automaticRecoveryCases: null,
@@ -176,7 +216,47 @@ export async function readWriteOffRecoveryHealth(database: QueryClient): Promise
     const duplicatesFound = counts.duplicateSourceInvoiceGroups! > 0 || counts.duplicateIdempotencyKeyGroups! > 0
     const unexpectedFinancialPostings = counts.recoveryLedgerPostingsTiedToAutomaticCases! > 0
     const unsafeAutomaticCases = counts.automaticCasesLackingBlockers! > 0 || unexpectedFinancialPostings
-    return { schema, counts, assertions: { schemaReady, duplicatesFound, unexpectedFinancialPostings, unsafeAutomaticCases, syntheticTestReady: schemaReady && !duplicatesFound && !unexpectedFinancialPostings && !unsafeAutomaticCases } }
+    const [anomaly] = await database.$queryRaw<AnomalyRow[]>(Prisma.sql`
+      WITH anomalies AS (
+        SELECT * FROM "WriteOffRecoveryTriggerRecord" WHERE "observationKind" = 'PARSE_ANOMALY'
+      ), payload_repeats AS (
+        SELECT "payloadFingerprint" FROM anomalies GROUP BY 1 HAVING count(*) > 1
+      ), source_repeats AS (
+        SELECT "sourceInvoiceFingerprint" FROM anomalies
+        WHERE "sourceInvoiceFingerprint" IS NOT NULL GROUP BY 1 HAVING count(*) > 1
+      ), replay_duplicates AS (
+        SELECT "idempotencyKey" FROM anomalies GROUP BY 1 HAVING count(*) > 1
+      )
+      SELECT
+        count(*) FILTER (WHERE "anomalySchemaVersion" IS NULL) AS legacy_unknown,
+        COALESCE((SELECT jsonb_object_agg(key, total) FROM (SELECT COALESCE("anomalyCode", 'UNKNOWN') key, count(*) total FROM anomalies GROUP BY 1) grouped), '{}'::jsonb) AS by_reason,
+        COALESCE((SELECT jsonb_object_agg(key, total) FROM (SELECT COALESCE("observedFieldPath", 'LEGACY_UNKNOWN') key, count(*) total FROM anomalies GROUP BY 1) grouped), '{}'::jsonb) AS by_field_path,
+        COALESCE((SELECT jsonb_object_agg(key, total) FROM (SELECT COALESCE("observedJsonType", 'LEGACY_UNKNOWN') key, count(*) total FROM anomalies GROUP BY 1) grouped), '{}'::jsonb) AS by_json_type,
+        COALESCE((SELECT jsonb_object_agg(key, total) FROM (SELECT COALESCE("checkboxTokenClass", 'LEGACY_UNKNOWN') key, count(*) total FROM anomalies GROUP BY 1) grouped), '{}'::jsonb) AS by_token_class,
+        count(DISTINCT "sourceInvoiceFingerprint") AS distinct_source_invoices,
+        count(DISTINCT "payloadFingerprint") AS distinct_payloads,
+        (SELECT count(*) FROM replay_duplicates) AS exact_replays,
+        (SELECT count(*) FROM payload_repeats) AS repeated_payloads,
+        (SELECT count(*) FROM source_repeats) AS repeated_source_invoices,
+        min("ingestedAt") AS first_observed,
+        max("ingestedAt") AS last_observed,
+        COALESCE(bool_or("anomalySchemaVersion" = 'SANITIZED_V1' AND "checkboxTokenClass" IN ('STRING_TRUE', 'STRING_FALSE', 'STRING_YES_NO', 'STRING_ONE_ZERO')), false) AS checkbox_like_string_proven
+      FROM anomalies
+    `)
+    const anomalyDiagnostics: RecoveryHealth["anomalyDiagnostics"] = {
+      legacyUnknownCount: number(anomaly?.legacy_unknown),
+      byReason: anomaly?.by_reason || {}, byFieldPath: anomaly?.by_field_path || {},
+      byJsonType: anomaly?.by_json_type || {}, byTokenClass: anomaly?.by_token_class || {},
+      distinctSourceInvoiceFingerprintCount: number(anomaly?.distinct_source_invoices),
+      distinctPayloadFingerprintCount: number(anomaly?.distinct_payloads),
+      exactReplayDuplicateCount: number(anomaly?.exact_replays),
+      repeatedPayloadFingerprintGroups: number(anomaly?.repeated_payloads),
+      repeatedSourceInvoiceFingerprintGroups: number(anomaly?.repeated_source_invoices),
+      firstObservationTimestamp: anomaly?.first_observed?.toISOString() || null,
+      lastObservationTimestamp: anomaly?.last_observed?.toISOString() || null,
+      checkboxLikeStringRepresentationProven: Boolean(anomaly?.checkbox_like_string_proven),
+    }
+    return { schema, counts, anomalyDiagnostics, assertions: { schemaReady, duplicatesFound, unexpectedFinancialPostings, unsafeAutomaticCases, syntheticTestReady: schemaReady && !duplicatesFound && !unexpectedFinancialPostings && !unsafeAutomaticCases } }
   } catch {
     return failClosed(schema)
   }
@@ -185,7 +265,7 @@ export async function readWriteOffRecoveryHealth(database: QueryClient): Promise
 function failClosed(schema: RecoveryHealth["schema"]): RecoveryHealth {
   return {
     schema,
-    counts: emptyCounts(),
+    counts: emptyCounts(), anomalyDiagnostics: emptyAnomalyDiagnostics(),
     assertions: { schemaReady: false, duplicatesFound: false, unexpectedFinancialPostings: false, unsafeAutomaticCases: true, syntheticTestReady: false },
   }
 }

@@ -110,8 +110,39 @@ describe("bounded write-off recovery trigger", () => {
     expect(result).toMatchObject({ action: "PARSE_ANOMALY", zohoCalls: 0 })
     expect(state.cases.size).toBe(0)
     const evidence = [...state.triggers.values()][0]
-    expect(evidence).toMatchObject({ caseId: null, newValue: null, observationKind: "PARSE_ANOMALY", anomalyCode: "NON_BOOLEAN_VALUE" })
+    expect(evidence).toMatchObject({ caseId: null, newValue: null, observationKind: "PARSE_ANOMALY", anomalyCode: "NON_BOOLEAN_VALUE", observedFieldPath: "TOP_LEVEL", observedJsonType: "STRING", sanitizedStructuralShape: "SCALAR", checkboxTokenClass: "STRING_YES_NO", anomalySchemaVersion: "SANITIZED_V1" })
     expect(JSON.stringify(evidence)).not.toContain("DO NOT STORE")
+    expect(JSON.stringify(evidence)).not.toContain('"yes"')
+  })
+
+  it.each([
+    [{ custom_field_hash: { cf_written_off: "false" } }, "CUSTOM_FIELD_HASH", "STRING_FALSE"],
+    [{ custom_fields: [{ api_name: "cf_written_off", value: ["private"] }] }, "CUSTOM_FIELDS_ARRAY", "ARRAY"],
+    [{ cf_written_off: { private: "value" } }, "TOP_LEVEL", "OBJECT"],
+    [{ cf_written_off: 1 }, "TOP_LEVEL", "NUMBER"],
+    [{ cf_written_off: null }, "TOP_LEVEL", "NULL"],
+  ])("persists fixed sanitized categories without raw malformed content", async (payload, path, tokenClass) => {
+    const state = fakeTransaction()
+    await observeImportedInvoiceWriteOff(state.tx, { invoice, incomingPayload: { invoice_id: invoice.zohoId, ...payload }, previousPayload: null, actorId: "import-1" })
+    expect([...state.triggers.values()][0]).toMatchObject({ observedFieldPath: path, checkboxTokenClass: tokenClass, anomalySchemaVersion: "SANITIZED_V1" })
+    expect(JSON.stringify([...state.triggers.values()])).not.toContain("private")
+  })
+
+  it("deduplicates an exact anomaly replay but retains a changed source version", async () => {
+    const state = fakeTransaction()
+    const first = { ...incoming("true"), last_modified_time: "2026-09-17T10:00:00Z" }
+    await observeImportedInvoiceWriteOff(state.tx, { invoice, incomingPayload: first, previousPayload: null, actorId: "import-1" })
+    await observeImportedInvoiceWriteOff(state.tx, { invoice, incomingPayload: first, previousPayload: null, actorId: "import-2" })
+    expect(state.triggers.size).toBe(1)
+    await observeImportedInvoiceWriteOff(state.tx, { invoice, incomingPayload: { ...first, last_modified_time: "2026-09-17T10:01:00Z" }, previousPayload: null, actorId: "import-3" })
+    expect(state.triggers.size).toBe(2)
+  })
+
+  it("does not create an anomaly when the optional field is missing", async () => {
+    const state = fakeTransaction()
+    const result = await observeImportedInvoiceWriteOff(state.tx, { invoice, incomingPayload: { invoice_id: invoice.zohoId }, previousPayload: null, actorId: "import-1" })
+    expect(result.action).toBe("NO_FIELD")
+    expect(state.triggers.size).toBe(0)
   })
 
   it.each([
