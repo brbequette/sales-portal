@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from "vitest"
 import { readWriteOffRecoveryHealth } from "../src/lib/write-off-recovery-health"
+import { isAdministratorRole } from "../src/lib/roles"
 
 describe("write-off recovery health reader", () => {
+  it("uses the administrator policy without granting manager or collections access", () => {
+    expect(["MASTER_ADMIN", "ADMIN", "Administrator"].every(isAdministratorRole)).toBe(true)
+    expect(["MANAGER", "COLLECTIONS", "AGENT", "VIEWER"].some(isAdministratorRole)).toBe(false)
+  })
+
   it("fails closed with null counts when catalog inspection fails", async () => {
     const database = { $queryRaw: vi.fn().mockRejectedValue(new Error("missing relation")) }
     const health = await readWriteOffRecoveryHealth(database as never)
