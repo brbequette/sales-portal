@@ -97,8 +97,43 @@ model User {
   basePayEarnings       BasePayEarning[]
   emailMailboxes        EmailMailbox[]
   syncJobs              SyncJob[]
+  localMasterCredential LocalMasterCredential?
 
   @@index([role])
+}
+
+/// Separate local break-glass credential for a person who retains an ordinary Zoho role.
+model LocalMasterCredential {
+  id                 String    @id @default(cuid())
+  userId             String    @unique
+  loginIdentifier    String    @unique
+  passwordHash       String
+  active             Boolean   @default(true)
+  mustRotatePassword Boolean   @default(true)
+  failedLoginCount   Int       @default(0)
+  lockedUntil        DateTime?
+  passwordVersion    Int       @default(1)
+  lastLoginAt        DateTime?
+  rotatedAt          DateTime?
+  revokedAt          DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  user               User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([active, lockedUntil])
+}
+
+/// HMAC-keyed distributed backoff state; stores neither submitted identifiers nor IP addresses.
+model MasterAdminLoginThrottle {
+  key             String   @id
+  failedCount     Int      @default(0)
+  windowStartedAt DateTime @default(now())
+  lastFailureAt   DateTime @default(now())
+  lockedUntil     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([lockedUntil])
 }
 
 model Account {
