@@ -3,19 +3,12 @@
 Runs an exact-target LOCAL_MASTER preflight or securely provisions after preflight.
 
 .PARAMETER EnvironmentFile
-Path to the protected environment file. Production operators use:
-C:\Users\titan\Documents\ChatGPT\Titan Diamond.env
-
-.EXAMPLE
-& powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\invoke-master-admin-provisioning.ps1 -Action Preflight -LoginIdentifier ('ben','titandiamond.net' -join '@') -ExpectedUserId 'cmppahv5m0000lsi0s00jywp3' -EnvironmentFile 'C:\Users\titan\Documents\ChatGPT\Titan Diamond.env' -Mode ReplaceRevoked
-
-.EXAMPLE
-& powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\invoke-master-admin-provisioning.ps1 -Action Provision -LoginIdentifier ('ben','titandiamond.net' -join '@') -ExpectedUserId 'cmppahv5m0000lsi0s00jywp3' -EnvironmentFile 'C:\Users\titan\Documents\ChatGPT\Titan Diamond.env' -Mode ReplaceRevoked
+Path to an operator-supplied protected environment file. The wrapper has no default production path.
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('Preflight', 'Provision')]
+    [ValidateSet('Preflight', 'Provision', 'SecureInputSelfTest')]
     [string]$Action,
     [Parameter(Mandatory = $true)]
     [string]$LoginIdentifier,
@@ -41,7 +34,55 @@ $passwordBstr = [IntPtr]::Zero
 $confirmationBstr = [IntPtr]::Zero
 $child = $null
 
+function Read-NoEchoSecureString {
+    param([Parameter(Mandatory = $true)][string]$Prompt)
+
+    if ([Console]::IsInputRedirected -or -not [Environment]::UserInteractive) {
+        throw 'SECURE_CONSOLE_INPUT_UNAVAILABLE'
+    }
+    $value = [Security.SecureString]::new()
+    try {
+        Write-Host -NoNewline ($Prompt + ': ')
+        while ($true) {
+            try {
+                $key = [Console]::ReadKey($true)
+            }
+            catch {
+                throw 'SECURE_CONSOLE_INPUT_UNAVAILABLE'
+            }
+            if ($key.Key -eq [ConsoleKey]::Enter) { break }
+            if ($key.Key -eq [ConsoleKey]::C -and ($key.Modifiers -band [ConsoleModifiers]::Control)) {
+                throw 'SECURE_INPUT_CANCELLED'
+            }
+            if ($key.Key -eq [ConsoleKey]::Backspace) {
+                if ($value.Length -gt 0) { $value.RemoveAt($value.Length - 1) }
+                continue
+            }
+            if (-not [char]::IsControl($key.KeyChar)) { $value.AppendChar($key.KeyChar) }
+        }
+        Write-Host
+        $value.MakeReadOnly()
+        return $value
+    }
+    catch {
+        $value.Dispose()
+        throw
+    }
+}
+
 try {
+    if ($Action -eq 'SecureInputSelfTest') {
+        if ($env:MASTER_ADMIN_SECURE_INPUT_SELF_TEST -ne '1') { throw 'SECURE_INPUT_SELF_TEST_NOT_ENABLED' }
+        $passwordSecure = Read-NoEchoSecureString 'Sentinel password'
+        $confirmationSecure = Read-NoEchoSecureString 'Confirm sentinel password'
+        $passwordBstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($passwordSecure)
+        $confirmationBstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($confirmationSecure)
+        $password = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($passwordBstr)
+        $confirmation = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($confirmationBstr)
+        if ($password -ne $confirmation) { throw 'SECURE_INPUT_SELF_TEST_MISMATCH' }
+        Write-Output 'MASTER_ADMIN_SECURE_INPUT_SELF_TEST=PASS'
+        return
+    }
     if (-not (Test-Path -LiteralPath $EnvironmentFile -PathType Leaf)) {
         throw 'PRODUCTION_ENVIRONMENT_FILE_NOT_FOUND'
     }
@@ -69,8 +110,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "MASTER_ADMIN_PREFLIGHT_EXIT_$LASTEXITCODE" }
     if ($Action -eq 'Preflight') { return }
 
-    $passwordSecure = Read-Host 'Master administrator password' -AsSecureString
-    $confirmationSecure = Read-Host 'Confirm password' -AsSecureString
+    $passwordSecure = Read-NoEchoSecureString 'Master administrator password'
+    $confirmationSecure = Read-NoEchoSecureString 'Confirm password'
     $passwordBstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($passwordSecure)
     $confirmationBstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($confirmationSecure)
     $password = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($passwordBstr)
@@ -107,6 +148,8 @@ finally {
     if ($confirmationBstr -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($confirmationBstr) }
     $password = $null
     $confirmation = $null
+    if ($null -ne $passwordSecure) { $passwordSecure.Dispose() }
+    if ($null -ne $confirmationSecure) { $confirmationSecure.Dispose() }
     $passwordSecure = $null
     $confirmationSecure = $null
     if ($null -ne $child) { $child.Dispose() }

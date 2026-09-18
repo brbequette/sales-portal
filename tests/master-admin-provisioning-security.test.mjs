@@ -115,19 +115,47 @@ assert.ok(!unsafeDirect.stdout.includes(secret) && !unsafeDirect.stderr.includes
 
 const runner = fs.readFileSync(new URL('../scripts/invoke-master-admin-provisioning.ps1', import.meta.url), 'utf8')
 const packageJson = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
-assert.match(runner, /Read-Host 'Master administrator password' -AsSecureString/)
-assert.match(runner, /Read-Host 'Confirm password' -AsSecureString/)
+assert.match(runner, /\[Console\]::ReadKey\(\$true\)/)
+assert.match(runner, /SECURE_CONSOLE_INPUT_UNAVAILABLE/)
+assert.doesNotMatch(runner, /Read-Host[^\r\n]*-AsSecureString/)
+assert.doesNotMatch(runner, /Write-(?:Host|Output)[^\r\n]*['"]?\*|output\.write\(['"]\*['"]\)/i)
 assert.match(runner, /ZeroFreeBSTR/)
 assert.match(runner, /SetEnvironmentVariable\(\$databaseKey, \$previousDatabaseUrl, 'Process'\)/)
 assert.match(runner, /MASTER_ADMIN_SECURE_STDIN/)
-assert.match(runner, /C:\\Users\\titan\\Documents\\ChatGPT\\Titan Diamond\.env/)
+assert.doesNotMatch(runner, /C:\\Users\\titan\\Documents\\ChatGPT\\Titan Diamond/)
 assert.match(runner, /Test-Path -LiteralPath \$EnvironmentFile -PathType Leaf/)
 assert.ok(runner.indexOf('Test-Path -LiteralPath $EnvironmentFile') < runner.indexOf('[Environment]::SetEnvironmentVariable($databaseKey, $databaseUrl'))
 assert.ok(runner.indexOf('PRODUCTION_DATABASE_URL_INVALID') < runner.indexOf('& $nodePath $preflightScript'))
 assert.doesNotMatch(runner, /ArgumentList\.Add\(\$password|Arguments\s*=.*\$password/)
 assert.doesNotMatch(runner, /Write-(?:Host|Output).*\$(?:password|confirmation)/i)
-assert.match(packageJson.scripts['auth:provision-master-admin'], /invoke-master-admin-provisioning\.ps1/)
+assert.match(packageJson.scripts['auth:provision-master-admin'], /\.codex-tmp\/run-production-master-admin-provisioning\.ps1/)
+assert.match(packageJson.scripts['auth:install-master-admin-runner'], /install-production-master-admin-runner\.ps1/)
 assert.doesNotMatch(packageJson.scripts['auth:provision-master-admin'], /node\s+scripts\/provision-master-admin/)
+
+const installer = fs.readFileSync(new URL('../scripts/install-production-master-admin-runner.ps1', import.meta.url), 'utf8')
+assert.match(installer, /\.codex-tmp/)
+assert.match(installer, /run-production-master-admin-provisioning\.ps1/)
+assert.match(installer, /Copy-Item -LiteralPath \$source -Destination \$destination -Force/)
+assert.match(installer, /Security\.Cryptography\.SHA256/)
+
+const installResult = spawnSync('powershell.exe', [
+  '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
+  fileURLToPath(new URL('../scripts/install-production-master-admin-runner.ps1', import.meta.url)),
+], { encoding: 'utf8' })
+assert.equal(installResult.status, 0)
+const generatedRunner = fileURLToPath(new URL('../.codex-tmp/run-production-master-admin-provisioning.ps1', import.meta.url))
+const windowsSentinel = 'Windows-E2E-Never-Echo-9!'
+const redirectedConsole = spawnSync('powershell.exe', [
+  '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', generatedRunner,
+  '-Action', 'SecureInputSelfTest', '-LoginIdentifier', target.email,
+  '-ExpectedUserId', target.id, '-EnvironmentFile', 'unused',
+], {
+  input: `${windowsSentinel}\n${windowsSentinel}\n`, encoding: 'utf8',
+  env: { ...process.env, MASTER_ADMIN_SECURE_INPUT_SELF_TEST: '1' },
+})
+assert.notEqual(redirectedConsole.status, 0)
+assert.match(redirectedConsole.stderr, /SECURE_CONSOLE_INPUT_UNAVAILABLE/)
+assert.ok(!redirectedConsole.stdout.includes(windowsSentinel) && !redirectedConsole.stderr.includes(windowsSentinel))
 
 const wrapper = fileURLToPath(new URL('../scripts/invoke-master-admin-provisioning.ps1', import.meta.url))
 const environmentFixtureDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'master-admin-env-'))
