@@ -1,5 +1,11 @@
 # Titan Diamond — Consolidated Project Context
 
+## Commission authoritative-snapshot reader audit (2026-09-18)
+
+- Read-only production audit disproved the reported 35-current-block premise: September has 17 qualifying documents (15 invoices and 2 uninvoiced sales orders) totaling $44,780.89. Rep-stats classifies all 17 authoritative; `/commissions` falsely blocks 8 invoices totaling $23,459.30 because it reads legacy JSON profit/dead-profit keys but does not select the authoritative denormalized invoice columns added before PR #63.
+- All 8 false blocks are category A: `computedDeadCost`, `computedProfit`, and `computedDeadProfit` exist (including legitimate zero/negative outcomes), and stored commission exists. No data reconstruction, current-catalog fallback, Zoho read, or production mutation is required. Ross Haisler has 5 false blocks / $8,709.60; Montgomery Morgan has 3 / $14,749.70. The other 9 invoices and both sales orders were already recognized correctly.
+- The reader-only correction selects and prefers the authoritative invoice columns while retaining the explicit warning for genuinely missing snapshots. Sales totals were never excluded; profit and earned commission for the 8 false blocks were incorrectly displayed as zero. No cost processor, import, sync, backfill, or snapshot repair was run.
+
 ## Sales Commission selected-year scope correction (2026-09-18)
 
 - Read-only production proof found the `/commissions` 2026 request loaded 7,497 eligible invoices because its raw invoice SQL never applied the already-computed selected-year filter. Only 496 belong to 2026; 7,001 invoices from 2018–2025 leaked into the selected-year response. All 7,497 invoice numbers are distinct under the endpoint's deduplication rule. The three qualifying sales orders were already correctly year-scoped, so the 2026 response contained 7,500 commission records instead of 499. Ross Haisler was inflated from 237 to 2,686 invoices and Benjamin Bequette from 5 to 9.
