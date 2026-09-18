@@ -30,6 +30,14 @@ assert.doesNotMatch(commissions, /from ["'].+cost-calculations|await calculateDo
 assert.doesNotMatch(commissions, /dead_cost_fallback_pct|commission_rate_pct/)
 assert.match(commissions, /Cache-Control.*no-store/)
 assert.match(commissions, /hasAuthoritativeFinancials/)
+assert.match(commissions, /hasAuthoritativeInvoiceColumns/)
+for (const field of ['computedDeadCost', 'computedProfit', 'computedDeadProfit', 'computedVigRate']) {
+  assert.match(commissions, new RegExp(`i\\."${field}"`))
+}
+assert.match(commissions, /const hasStoredCosts = hasStoredColumns \|\| hasAuthoritativeFinancials\(items\)/)
+assert.match(commissions, /hasStoredColumns \? financialNumber\(inv\.computedDeadCost\)/)
+assert.match(commissions, /hasStoredColumns \? financialNumber\(inv\.computedProfit\)/)
+assert.match(commissions, /hasStoredColumns \? financialNumber\(inv\.computedDeadProfit\)/)
 assert.match(commissions, /const invoiceDateSql = targetYear !== 'all'/)
 assert.match(commissions, /WHERE lower\(i\.status\)[\s\S]*\$\{invoiceDateSql\}[\s\S]*ORDER BY i\."issueDate"/)
 assert.match(commissions, /const soDateSql = targetYear !== 'all'/)

@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client"
 import { prisma } from "./lib/prisma"
 import { isAdminRole } from "../../src/lib/roles"
 import { financialNumber, headerCommission } from "../../src/lib/global-header-metrics"
+import { hasAuthoritativeInvoiceColumns } from "../../src/lib/commission-financial-snapshot"
 
 
 // Statuses where the FINAL half is earned (invoice has been paid)
@@ -131,6 +132,10 @@ const authenticatedHandler: Handler = async (event) => {
           i."dueDate",
           i."createdAt",
           i."actualShippingCost",
+          i."computedDeadCost",
+          i."computedProfit",
+          i."computedDeadProfit",
+          i."computedVigRate",
           a.name    AS "accountName",
           a."zohoId" AS "accountZohoId",
           c."firstName" || ' ' || c."lastName" AS "contactName",
@@ -492,7 +497,8 @@ const authenticatedHandler: Handler = async (event) => {
       // ── PREFER STORED VALUES FROM THE AUTHORITATIVE COST PROCESSOR ───
       // If the invoice has been processed (has stored profit), use stored values directly.
       // This ensures the sales sheet matches the invoice detail modal exactly.
-      const hasStoredCosts = hasAuthoritativeFinancials(items)
+      const hasStoredColumns = hasAuthoritativeInvoiceColumns(inv, items)
+      const hasStoredCosts = hasStoredColumns || hasAuthoritativeFinancials(items)
       
       let deadCost: number
       let deadCostPlusVig: number
@@ -503,10 +509,11 @@ const authenticatedHandler: Handler = async (event) => {
 
       if (hasStoredCosts) {
         // ── USE STORED VALUES (source of truth from cost-calculations.ts) ──
-        deadCost = financialNumber(items.deadCostTotal ?? items.dead_cost_total ?? items.deadCost ?? items.cf_dead_cost_total ?? items.cf_dead_cost_total_unformatted)
-        deadCostPlusVig = items.deadCostPlusVig != null ? financialNumber(items.deadCostPlusVig) : deadCost * vigRate
-        profit = financialNumber(items.profit)
-        deadProfit = items.deadProfitActual != null ? financialNumber(items.deadProfitActual) : subTotal - deadCost
+        deadCost = hasStoredColumns ? financialNumber(inv.computedDeadCost) : financialNumber(items.deadCostTotal ?? items.dead_cost_total ?? items.deadCost ?? items.cf_dead_cost_total ?? items.cf_dead_cost_total_unformatted)
+        const storedVigRate = hasStoredColumns && hasStoredValue(inv.computedVigRate) ? financialNumber(inv.computedVigRate) : vigRate
+        deadCostPlusVig = items.deadCostPlusVig != null ? financialNumber(items.deadCostPlusVig) : deadCost * storedVigRate
+        profit = hasStoredColumns ? financialNumber(inv.computedProfit) : financialNumber(items.profit)
+        deadProfit = hasStoredColumns ? financialNumber(inv.computedDeadProfit) : (items.deadProfitActual != null ? financialNumber(items.deadProfitActual) : subTotal - deadCost)
         salesCommission = headerCommission(items)
         usedFallbackCost = items.usedFallbackCost === true || items.usedFallbackCost === 'true'
       } else {
