@@ -4,7 +4,7 @@
 
 - The first production `LOCAL_MASTER` credential was revoked and retained for audit; no replacement credential exists or may be provisioned without a separate explicit production action.
 - Windows provisioning now uses a checked-in PowerShell boundary with `Read-Host -AsSecureString`; passwords are transferred only through redirected child stdin, never process arguments, environment variables, stdout, stderr, or command history. BSTR buffers are zero-freed and process environment state is restored after every invocation.
-- Every invocation freshly loads `DATABASE_URL` from an explicit protected environment file. Preflight requires both exact normalized email and expected user ID, rejects missing/ambiguous/mismatched identities, and refuses active credentials. Revoked credentials require the explicit `ReplaceRevoked` mode.
+- Every invocation freshly loads `DATABASE_URL` from the explicit protected production environment file `C:\Users\titan\Documents\ChatGPT\Titan Diamond.env`; the path is an operator-supplied wrapper parameter, not an application runtime constant. Missing, non-file, or malformed input fails before a database process starts. Preflight requires both exact normalized email and expected user ID, rejects missing/ambiguous/mismatched identities, and refuses active credentials. Revoked credentials require the explicit `ReplaceRevoked` mode.
 - Credential creation/reactivation and its sanitized audit event are revalidated and written in one database transaction. A failed audit or guard leaves no partial credential change.
 
 ## Local Master Administrator authentication (2026-09-17)

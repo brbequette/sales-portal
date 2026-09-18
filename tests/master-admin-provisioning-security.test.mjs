@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import {
@@ -118,13 +120,44 @@ assert.match(runner, /Read-Host 'Confirm password' -AsSecureString/)
 assert.match(runner, /ZeroFreeBSTR/)
 assert.match(runner, /SetEnvironmentVariable\(\$databaseKey, \$previousDatabaseUrl, 'Process'\)/)
 assert.match(runner, /MASTER_ADMIN_SECURE_STDIN/)
+assert.match(runner, /C:\\Users\\titan\\Documents\\ChatGPT\\Titan Diamond\.env/)
+assert.match(runner, /Test-Path -LiteralPath \$EnvironmentFile -PathType Leaf/)
+assert.ok(runner.indexOf('Test-Path -LiteralPath $EnvironmentFile') < runner.indexOf('[Environment]::SetEnvironmentVariable($databaseKey, $databaseUrl'))
+assert.ok(runner.indexOf('PRODUCTION_DATABASE_URL_INVALID') < runner.indexOf('& $nodePath $preflightScript'))
 assert.doesNotMatch(runner, /ArgumentList\.Add\(\$password|Arguments\s*=.*\$password/)
 assert.doesNotMatch(runner, /Write-(?:Host|Output).*\$(?:password|confirmation)/i)
 assert.match(packageJson.scripts['auth:provision-master-admin'], /invoke-master-admin-provisioning\.ps1/)
 assert.doesNotMatch(packageJson.scripts['auth:provision-master-admin'], /node\s+scripts\/provision-master-admin/)
+
+const wrapper = fileURLToPath(new URL('../scripts/invoke-master-admin-provisioning.ps1', import.meta.url))
+const environmentFixtureDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'master-admin-env-'))
+try {
+  const missing = spawnSync('powershell.exe', [
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', wrapper,
+    '-Action', 'Preflight', '-LoginIdentifier', target.email,
+    '-ExpectedUserId', target.id, '-EnvironmentFile', path.join(environmentFixtureDirectory, 'missing.env'),
+  ], { encoding: 'utf8' })
+  assert.notEqual(missing.status, 0)
+  assert.match(missing.stderr, /PRODUCTION_ENVIRONMENT_FILE_NOT_FOUND/)
+
+  const malformedSecret = 'Never-Print-Malformed-Environment-Secret'
+  const malformedPath = path.join(environmentFixtureDirectory, 'malformed.env')
+  fs.writeFileSync(malformedPath, `DATABASE_URL=${malformedSecret}\n`, { mode: 0o600 })
+  const malformed = spawnSync('powershell.exe', [
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', wrapper,
+    '-Action', 'Preflight', '-LoginIdentifier', target.email,
+    '-ExpectedUserId', target.id, '-EnvironmentFile', malformedPath,
+  ], { encoding: 'utf8' })
+  assert.notEqual(malformed.status, 0)
+  assert.match(malformed.stderr, /PRODUCTION_DATABASE_URL_INVALID/)
+  assert.ok(!malformed.stdout.includes(malformedSecret) && !malformed.stderr.includes(malformedSecret))
+} finally {
+  fs.rmSync(environmentFixtureDirectory, { recursive: true, force: true })
+}
 
 console.log('MASTER_ADMIN_EXACT_TARGET_PREFLIGHT=PASS')
 console.log('MASTER_ADMIN_TRANSACTION_ROLLBACK=PASS')
 console.log('MASTER_ADMIN_REVOKED_REPLACEMENT_GUARD=PASS')
 console.log('MASTER_ADMIN_WINDOWS_SECURE_INPUT=PASS')
 console.log('MASTER_ADMIN_SECRET_OUTPUT_REDACTION=PASS')
+console.log('MASTER_ADMIN_ENVIRONMENT_FILE_FAIL_CLOSED=PASS')

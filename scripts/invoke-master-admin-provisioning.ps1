@@ -1,3 +1,17 @@
+<#
+.SYNOPSIS
+Runs an exact-target LOCAL_MASTER preflight or securely provisions after preflight.
+
+.PARAMETER EnvironmentFile
+Path to the protected environment file. Production operators use:
+C:\Users\titan\Documents\ChatGPT\Titan Diamond.env
+
+.EXAMPLE
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\invoke-master-admin-provisioning.ps1 -Action Preflight -LoginIdentifier ('ben','titandiamond.net' -join '@') -ExpectedUserId 'cmppahv5m0000lsi0s00jywp3' -EnvironmentFile 'C:\Users\titan\Documents\ChatGPT\Titan Diamond.env' -Mode ReplaceRevoked
+
+.EXAMPLE
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\invoke-master-admin-provisioning.ps1 -Action Provision -LoginIdentifier ('ben','titandiamond.net' -join '@') -ExpectedUserId 'cmppahv5m0000lsi0s00jywp3' -EnvironmentFile 'C:\Users\titan\Documents\ChatGPT\Titan Diamond.env' -Mode ReplaceRevoked
+#>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
@@ -28,6 +42,9 @@ $confirmationBstr = [IntPtr]::Zero
 $child = $null
 
 try {
+    if (-not (Test-Path -LiteralPath $EnvironmentFile -PathType Leaf)) {
+        throw 'PRODUCTION_ENVIRONMENT_FILE_NOT_FOUND'
+    }
     $resolvedEnvironmentFile = (Resolve-Path -LiteralPath $EnvironmentFile).Path
     $databaseLine = Get-Content -LiteralPath $resolvedEnvironmentFile |
         Where-Object { $_.StartsWith($databaseKey + '=') } |
@@ -75,6 +92,15 @@ try {
     $child.StandardInput.Close()
     $child.WaitForExit()
     if ($child.ExitCode -ne 0) { throw "MASTER_ADMIN_PROVISIONING_EXIT_$($child.ExitCode)" }
+}
+catch {
+    $category = if ($_.Exception.Message -match '^[A-Z0-9_]+$') {
+        $_.Exception.Message
+    } else {
+        'MASTER_ADMIN_PROVISIONING_FAILED'
+    }
+    Write-Error $category -ErrorAction Continue
+    exit 1
 }
 finally {
     if ($passwordBstr -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordBstr) }
