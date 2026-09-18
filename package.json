@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "build:netlify": "prisma generate && next build --webpack",
-    "auth:provision-master-admin": "node scripts/provision-master-admin.mjs",
+    "auth:provision-master-admin": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/invoke-master-admin-provisioning.ps1",
     "auth:rotate-master-admin": "node scripts/rotate-master-admin-password.mjs",
     "start": "next start",
     "lint": "eslint"
