@@ -1,5 +1,14 @@
 # Titan Diamond — Consolidated Project Context
 
+## Sales Commission selected-year scope correction (2026-09-18)
+
+- Read-only production proof found the `/commissions` 2026 request loaded 7,497 eligible invoices because its raw invoice SQL never applied the already-computed selected-year filter. Only 496 belong to 2026; 7,001 invoices from 2018–2025 leaked into the selected-year response. All 7,497 invoice numbers are distinct under the endpoint's deduplication rule. The three qualifying sales orders were already correctly year-scoped, so the 2026 response contained 7,500 commission records instead of 499. Ross Haisler was inflated from 237 to 2,686 invoices and Benjamin Bequette from 5 to 9.
+- The isolated correction applies the same half-open selected-year date interval to invoice SQL that was already applied to sales-order SQL. It changes no stored financial value, compensation plan, payout, Zoho record, or production data.
+
+## Unresolved Master Administrator provisioning security backlog (2026-09-18)
+
+- A real provisioning invocation returned `MASTER_ADMIN_PROVISIONED=PASS` after reactivating the existing credential record, despite its Windows-hosted password entry being visibly exposed. Database containment is verified: the sole record `cmu7f2a1r00029bu683vstu3x` is revoked and no `LOCAL_MASTER` credential is active. The misleading success result and real-host secure-input path remain a separate security backlog/PR and are not part of commission work.
+
 ## Local Master Administrator provisioning security correction (2026-09-18)
 
 - The first production `LOCAL_MASTER` credential was revoked and retained for audit; no replacement credential exists or may be provisioned without a separate explicit production action.
