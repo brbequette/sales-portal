@@ -4,7 +4,7 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import type { Prisma } from "@prisma/client"
 import bcrypt from "bcryptjs"
 import { prisma } from "./prisma"
-import { isMasterAdminRole } from "./roles"
+import { authenticateLocalMaster, effectiveRoleForAuthSource, LOCAL_STAFF_AUTH_SOURCE, ZOHO_AUTH_SOURCE } from "./master-admin-auth"
 
 type LoginAttempt = { failures: number; blockedUntil: number; lastFailure: number }
 
@@ -15,9 +15,12 @@ const loginAttempts = new Map<string, LoginAttempt>()
 const dummyPasswordHash = bcrypt.hashSync("timing-only-password-that-never-authenticates", 12)
 
 function requestHeader(request: unknown, name: string) {
-  const headers = (request as any)?.headers
-  if (typeof headers?.get === "function") return headers.get(name) || ""
-  return headers?.[name] || headers?.[name.toLowerCase()] || ""
+  const headers = (request as { headers?: Headers | Record<string, string | string[] | undefined> } | null)?.headers
+  if (headers instanceof Headers) return headers.get(name) || ""
+  if (!headers) return ""
+  const values = headers as Record<string, string | string[] | undefined>
+  const value = values[name] || values[name.toLowerCase()]
+  return Array.isArray(value) ? value[0] || "" : value || ""
 }
 
 function loginAttemptKeys(input: string, request: unknown, userId?: string) {
@@ -167,15 +170,15 @@ export const authOptions: NextAuthOptions = {
       },
       token: `https://accounts.zoho.${ZOHO_DC}/oauth/v2/token`,
       userinfo: `https://accounts.zoho.${ZOHO_DC}/oauth/user/info`,
-      profile(profile: any) {
-        const rawEmail = profile.Email || profile.email || profile.Email_Id || profile.email_id || profile.primary_email || profile.User_Email || "";
-        const rawName = profile.Display_Name || profile.display_name || profile.name || [profile.First_Name, profile.Last_Name].filter(Boolean).join(" ") || (rawEmail ? rawEmail.split("@")[0] : "");
-        const rawId = profile.ZUID || profile.zuid || profile.id || rawEmail;
+      profile(profile: Record<string, unknown>) {
+        const rawEmail = profileString(profile, "Email", "email", "Email_Id", "email_id", "primary_email", "User_Email");
+        const rawName = profileString(profile, "Display_Name", "display_name", "name") || [profileString(profile, "First_Name"), profileString(profile, "Last_Name")].filter(Boolean).join(" ") || (rawEmail ? rawEmail.split("@")[0] : "");
+        const rawId = profileString(profile, "ZUID", "zuid", "id") || rawEmail;
         return {
           id: String(rawId || "zoho_user"),
           name: String(rawName || "Zoho User"),
           email: String(rawEmail).toLowerCase().trim(),
-          image: profile.image_url || profile.picture || null,
+          image: typeof profile.image_url === "string" ? profile.image_url : typeof profile.picture === "string" ? profile.picture : null,
         };
       }
     }),
@@ -193,12 +196,7 @@ export const authOptions: NextAuthOptions = {
 
         if (isLoginBlocked(preliminaryKeys, now)) return null
 
-        // Master accounts are resolved by exact email only. They never use the
-        // historical salesperson alias resolver.
-        const exactMaster = await prisma.user.findFirst({
-          where: { email: { equals: input, mode: "insensitive" }, role: "MASTER_ADMIN", authType: "LOCAL" },
-        }).catch(() => null)
-        const dbUser = exactMaster || await findUserFlexibly(input);
+        const dbUser = await findUserFlexibly(input);
         const attemptKeys = loginAttemptKeys(input, request, dbUser?.id)
         if (isLoginBlocked(attemptKeys, now)) return null
 
@@ -234,11 +232,29 @@ export const authOptions: NextAuthOptions = {
           dbId: dbUser.id,
           name: dbUser.name,
           email: dbUser.email,
-          role: dbUser.role,
-          isZohoUser: !isMasterAdminRole(dbUser.role),
+          role: effectiveRoleForAuthSource(dbUser.role, LOCAL_STAFF_AUTH_SOURCE),
+          authSource: LOCAL_STAFF_AUTH_SOURCE,
+          isZohoUser: false,
           mustRotatePassword: Boolean(dbUser.mustRotatePassword),
         };
       }
+    }),
+    CredentialsProvider({
+      id: "master-admin",
+      name: "Local Master Administrator",
+      credentials: {
+        email: { label: "Master administrator login", type: "text" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials, request) {
+        if (!credentials?.email || !credentials?.password) return null
+        return authenticateLocalMaster(prisma, {
+          loginIdentifier: credentials.email,
+          password: credentials.password,
+          clientAddress: requestHeader(request, "cf-connecting-ip") || requestHeader(request, "x-forwarded-for") || requestHeader(request, "x-real-ip"),
+          requestId: requestHeader(request, "x-nf-request-id") || requestHeader(request, "x-request-id") || undefined,
+        })
+      },
     })
   ],
   callbacks: {
@@ -276,7 +292,7 @@ export const authOptions: NextAuthOptions = {
           if (dbUser) {
             user.id = dbUser.zohoId || dbUser.id
             user.dbId = dbUser.id
-            user.role = dbUser.role
+            user.role = effectiveRoleForAuthSource(dbUser.role, ZOHO_AUTH_SOURCE)
             user.name = dbUser.name
             user.email = dbUser.email
           }
@@ -285,6 +301,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         user.isZohoUser = true
+        user.authSource = ZOHO_AUTH_SOURCE
         return true
       }
       return true
@@ -292,10 +309,12 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id
-        token.dbId = (user as any).dbId || user.id
-        token.role = (user as any).role || "Sales Representative"
-        token.isZohoUser = account?.provider === "zoho" || (user as any).isZohoUser
-        token.mustRotatePassword = Boolean((user as any).mustRotatePassword)
+        token.dbId = user.dbId || user.id
+        token.role = user.role || "Sales Representative"
+        token.authSource = user.authSource || (account?.provider === "zoho" ? ZOHO_AUTH_SOURCE : LOCAL_STAFF_AUTH_SOURCE)
+        token.isZohoUser = account?.provider === "zoho" || user.isZohoUser
+        token.mustRotatePassword = Boolean(user.mustRotatePassword)
+        token.credentialVersion = user.credentialVersion
       }
       return token
     },
@@ -304,8 +323,10 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id || token.sub || ""
         session.user.dbId = token.dbId
         session.user.role = token.role
+        session.user.authSource = token.authSource
         session.user.isZohoUser = token.isZohoUser
         session.user.mustRotatePassword = token.mustRotatePassword
+        session.user.credentialVersion = token.credentialVersion
       }
       return session
     },
@@ -325,6 +346,12 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: '/employee-login',
     error: '/employee-login',
+  },
+  cookies: {
+    sessionToken: {
+      name: isProd ? "__Secure-next-auth.session-token" : "next-auth.session-token",
+      options: { httpOnly: true, sameSite: "lax", path: "/", secure: isProd },
+    },
   },
   secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "MISSING-SET-NEXTAUTH_SECRET-IN-ENV",
 }

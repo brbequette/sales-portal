@@ -12,10 +12,21 @@ try {
   const password = await rl.question('New password: ', { hideEchoBack: true })
   const confirmation = await rl.question('Confirm new password: ', { hideEchoBack: true })
   if (!strong(password) || password !== confirmation) throw new Error('INVALID_ROTATION_INPUT')
-  const user = await prisma.user.findFirst({ where: { email, role: 'MASTER_ADMIN', authType: 'LOCAL' }, select: { id: true } })
-  if (!user) throw new Error('MASTER_ACCOUNT_NOT_FOUND')
-  await prisma.user.update({ where: { id: user.id }, data: { password: await bcrypt.hash(password, 12), mustRotatePassword: false, failedLoginCount: 0, lockedUntil: null } })
-  await prisma.authAuditEvent.create({ data: { eventType: 'MASTER_PASSWORD_ROTATED', actorUserId: user.id } })
+  const credential = await prisma.localMasterCredential.findUnique({ where: { loginIdentifier: email }, select: { id: true, userId: true, active: true, revokedAt: true } })
+  if (!credential) throw new Error('MASTER_CREDENTIAL_NOT_FOUND')
+  if (!credential.active || credential.revokedAt) throw new Error('MASTER_CREDENTIAL_REVOKED')
+  const passwordHash = await bcrypt.hash(password, 12)
+  await prisma.$transaction(async tx => {
+    await tx.localMasterCredential.update({ where: { id: credential.id }, data: {
+      passwordHash, mustRotatePassword: false, failedLoginCount: 0, lockedUntil: null,
+      passwordVersion: { increment: 1 }, rotatedAt: new Date(),
+    } })
+    await tx.authAuditEvent.create({ data: {
+      eventType: 'LOCAL_MASTER_CREDENTIAL_ROTATED', actorUserId: credential.userId,
+      reasonCode: 'EXPLICIT_OPERATOR_COMMAND', entityType: 'LOCAL_MASTER_CREDENTIAL',
+      changedFields: { passwordVersionIncremented: true, mustRotatePassword: false },
+    } })
+  })
   console.log('MASTER_ADMIN_ROTATION=PASS')
 } finally {
   rl.close()

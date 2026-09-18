@@ -1,5 +1,11 @@
 # Titan Diamond — Consolidated Project Context
 
+## Local Master Administrator authentication (2026-09-17)
+
+- Master authority is now login-method-derived rather than stored on Ben Bequette's shared Zoho identity. Zoho login retains the underlying `Administrator` role with `authSource=ZOHO`; the separate `/master-admin-login` credentials provider issues `MASTER_ADMIN` only after validating a linked local credential and stamps `authSource=LOCAL_MASTER` into the signed server session.
+- `LocalMasterCredential` stores only a bcrypt hash plus rotation, revocation, version, failure, and lockout state linked one-to-one to the existing User. `MasterAdminLoginThrottle` provides HMAC-keyed distributed backoff without storing submitted identifiers or addresses. Provisioning, rotation, and revocation are explicit operator commands and never run during builds, migrations, page loads, or login attempts.
+- `isMasterAdminSession()` is the canonical capability check: it requires the exact effective role and authentication source, then verifies the current local credential is active, rotated, unrevoked, and version-matched. Existing master-only delegation and write-off health routes use the canonical server helper. Local login, failure, lockout, provisioning, rotation, and revocation produce sanitized audit events and make no Zoho calls.
+
 ## Automatic write-off recovery trigger (2026-09-16)
 
 - New malformed-checkbox observations carry nullable, sanitized `SANITIZED_V1` evidence: fixed field-path/type/shape/token categories, one-way source-invoice and payload fingerprints, and the source modification timestamp already present in the bounded payload. Existing rows remain physically untouched and are reported as `LEGACY_UNKNOWN`; no raw malformed value or customer/document content is stored. Exact source-version replays remain idempotent while a changed source modification timestamp is retained as a distinct observation.

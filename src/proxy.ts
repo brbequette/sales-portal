@@ -22,6 +22,7 @@ const PUBLIC_ROUTES = [
   '/training',
   '/careers',
   '/admin-login',
+  '/master-admin-login',
   '/employee-login',
   '/auth/complete',
   '/customer-portal',

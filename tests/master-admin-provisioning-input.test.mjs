@@ -12,12 +12,12 @@ function run(input) {
   })
 }
 
-const valid = run(`master@example.test\nMaster Administrator\n${secret}\n${secret}\n`)
+const valid = run(`master@example.test\n${secret}\n${secret}\n`)
 assert.equal(valid.status, 0)
 assert.match(valid.stdout, /MASTER_ADMIN_VALIDATION=PASS/)
 assert.ok(!valid.stdout.includes(secret) && !valid.stderr.includes(secret))
 
-const invalid = run(`master@example.test\nMaster Administrator\nshort\nshort\n`)
+const invalid = run(`master@example.test\nshort\nshort\n`)
 assert.notEqual(invalid.status, 0)
 assert.match(invalid.stderr, /PASSWORD_TOO_SHORT/)
 assert.ok(!invalid.stdout.includes('short') && !invalid.stderr.includes('short'))

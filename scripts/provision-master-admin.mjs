@@ -45,32 +45,39 @@ function readHidden(prompt, lineReader, pipedLines) {
 let prisma
 let rl
 try {
-  console.log('Password policy: at least 14 characters, with upper-case, lower-case, number, and symbol.')
+  console.log('Credential policy: at least 14 characters, with upper-case, lower-case, number, and symbol.')
   const pipedLines = process.stdin.isTTY ? null : await readPipedLines()
   rl = process.stdin.isTTY ? createInterface({ input, output }) : null
   const email = (await readLine('Master administrator email: ', rl, pipedLines)).trim().toLowerCase()
-  const username = (await readLine('Master administrator username/display name: ', rl, pipedLines)).trim()
   const password = await readHidden('Master administrator password: ', rl, pipedLines)
   const confirmation = await readHidden('Confirm password: ', rl, pipedLines)
-  if (!email || !username) throw new Error('INVALID_PROVISIONING_INPUT')
+  if (!email) throw new Error('INVALID_PROVISIONING_INPUT')
   if (!strong(password)) throw new Error(password.length < 14 ? 'PASSWORD_TOO_SHORT' : 'PASSWORD_POLICY_FAILED')
   if (password !== confirmation) throw new Error('PASSWORD_MISMATCH')
   if (process.env.NODE_ENV === 'test' && process.env.MASTER_ADMIN_DRY_RUN === '1') {
     rl?.close(); console.log('MASTER_ADMIN_VALIDATION=PASS'); process.exit(0)
   }
   prisma = new PrismaClient()
-  const existing = await prisma.user.findUnique({ where: { email } })
-  if (existing) throw new Error('MASTER_ACCOUNT_ALREADY_EXISTS_USE_ROTATE_COMMAND')
+  const existing = await prisma.user.findUnique({ where: { email }, select: { id: true, role: true } })
+  if (!existing) throw new Error('UNDERLYING_ADMINISTRATOR_NOT_FOUND')
+  if (!['admin', 'administrator'].includes(existing.role.trim().toLowerCase())) throw new Error('UNDERLYING_USER_NOT_ADMINISTRATOR')
+  const existingCredential = await prisma.localMasterCredential.findUnique({ where: { userId: existing.id }, select: { id: true } })
+  if (existingCredential) throw new Error('MASTER_CREDENTIAL_ALREADY_EXISTS_USE_ROTATE_COMMAND')
   const passwordHash = await bcrypt.hash(password, 12)
-  await prisma.user.create({ data: {
-    email, name: username, password: passwordHash, authType: 'LOCAL', role: 'MASTER_ADMIN',
-    title: 'Master Administrator', isSalesperson: false, showOnSalesBoard: false,
-    mustRotatePassword: true,
-  } })
+  await prisma.$transaction(async tx => {
+    await tx.localMasterCredential.create({ data: {
+      userId: existing.id, loginIdentifier: email, passwordHash, mustRotatePassword: true,
+    } })
+    await tx.authAuditEvent.create({ data: {
+      eventType: 'LOCAL_MASTER_CREDENTIAL_PROVISIONED', actorUserId: existing.id,
+      reasonCode: 'EXPLICIT_OPERATOR_COMMAND', entityType: 'LOCAL_MASTER_CREDENTIAL',
+      changedFields: { mustRotatePassword: true, active: true },
+    } })
+  })
   console.log('MASTER_ADMIN_PROVISIONED=PASS')
 } catch (error) {
   const category = error instanceof Error ? error.message : 'PROVISIONING_FAILED'
-  const safe = new Set(['PASSWORD_INPUT_UNAVAILABLE', 'INPUT_CANCELLED', 'INVALID_PROVISIONING_INPUT', 'PASSWORD_TOO_SHORT', 'PASSWORD_POLICY_FAILED', 'PASSWORD_MISMATCH', 'MASTER_ACCOUNT_ALREADY_EXISTS_USE_ROTATE_COMMAND'])
+  const safe = new Set(['PASSWORD_INPUT_UNAVAILABLE', 'INPUT_CANCELLED', 'INVALID_PROVISIONING_INPUT', 'PASSWORD_TOO_SHORT', 'PASSWORD_POLICY_FAILED', 'PASSWORD_MISMATCH', 'UNDERLYING_ADMINISTRATOR_NOT_FOUND', 'UNDERLYING_USER_NOT_ADMINISTRATOR', 'MASTER_CREDENTIAL_ALREADY_EXISTS_USE_ROTATE_COMMAND'])
   console.error(safe.has(category) ? category : 'PROVISIONING_FAILED')
   process.exitCode = 1
 } finally {

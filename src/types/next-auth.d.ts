@@ -6,6 +6,8 @@ declare module "next-auth" {
     role?: string
     isZohoUser?: boolean
     mustRotatePassword?: boolean
+    authSource?: "ZOHO" | "LOCAL_STAFF" | "LOCAL_MASTER"
+    credentialVersion?: number
   }
 
   interface Session {
@@ -15,6 +17,8 @@ declare module "next-auth" {
       role?: string
       isZohoUser?: boolean
       mustRotatePassword?: boolean
+      authSource?: "ZOHO" | "LOCAL_STAFF" | "LOCAL_MASTER"
+      credentialVersion?: number
     } & DefaultSession["user"]
   }
 }
@@ -26,5 +30,7 @@ declare module "next-auth/jwt" {
     role?: string
     isZohoUser?: boolean
     mustRotatePassword?: boolean
+    authSource?: "ZOHO" | "LOCAL_STAFF" | "LOCAL_MASTER"
+    credentialVersion?: number
   }
 }

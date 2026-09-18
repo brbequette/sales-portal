@@ -1,6 +1,5 @@
 import crypto from "node:crypto"
 import { prisma } from "./prisma"
-import { isMasterAdminRole } from "./roles"
 
 const MAX_DELEGATION_MS = 60 * 60 * 1000
 
@@ -15,9 +14,9 @@ export async function startDelegatedSession(input: {
   sessionId?: string
   durationMs?: number
 }) {
-  const actor = await prisma.user.findUnique({ where: { id: input.actorUserId }, select: { id: true, role: true } })
+  const actor = await prisma.user.findUnique({ where: { id: input.actorUserId }, select: { id: true } })
   const subject = await prisma.user.findUnique({ where: { id: input.subjectUserId }, select: { id: true } })
-  if (!actor || !isMasterAdminRole(actor.role) || !subject || actor.id === subject.id) throw new Error("DELEGATION_NOT_AUTHORIZED")
+  if (!actor || !subject || actor.id === subject.id) throw new Error("DELEGATION_NOT_AUTHORIZED")
   const reason = input.reason.trim()
   if (!reason) throw new Error("DELEGATION_REASON_REQUIRED")
   const durationMs = Math.min(Math.max(input.durationMs || 15 * 60 * 1000, 60_000), MAX_DELEGATION_MS)
