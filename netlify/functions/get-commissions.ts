@@ -99,6 +99,9 @@ const authenticatedHandler: Handler = async (event) => {
     }
 
     // Build date filter fragments for raw queries
+    const invoiceDateSql = targetYear !== 'all'
+      ? Prisma.sql`AND i."issueDate" >= ${new Date(`${targetYear}-01-01`)} AND i."issueDate" < ${new Date(`${parseInt(targetYear)+1}-01-01`)}`
+      : Prisma.empty
     const soDateSql = targetYear !== 'all'
       ? Prisma.sql`AND s."orderDate" >= ${new Date(`${targetYear}-01-01`)} AND s."orderDate" < ${new Date(`${parseInt(targetYear)+1}-01-01`)}`
       : Prisma.empty
@@ -183,6 +186,7 @@ const authenticatedHandler: Handler = async (event) => {
           LIMIT 1
         ) c ON true
         WHERE lower(i.status) NOT IN ('void','voided','draft','written_off','writeoff','write_off','written off','bad debt')
+        ${invoiceDateSql}
         ORDER BY i."issueDate" DESC NULLS LAST
       `).catch(() => []),
       prisma.$queryRaw<any[]>(Prisma.sql`
