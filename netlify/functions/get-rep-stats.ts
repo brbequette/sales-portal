@@ -3,6 +3,7 @@ import { Handler } from "@netlify/functions"
 import { prisma, Prisma } from "./lib/prisma"
 import { financialNumber, headerCommission } from "../../src/lib/global-header-metrics"
 import { isAdminRole } from "../../src/lib/roles"
+import { calculateTargetProgress, combineRepStatsDocuments, countCompanyWorkdays, type RepStatsTarget } from "../../src/lib/rep-stats-period"
 
 function hasStoredCommission(items: Record<string, unknown>): boolean {
   return [items.salesCommission, items.commission, items.cf_commission_amount, items.cf_commision_amount, items.cf_commission_amount_unformatted]
@@ -111,7 +112,7 @@ const authenticatedHandler: Handler = async (event) => {
     // PERF: invoices and salesOrders now use $queryRaw — extracts only needed JSON keys
     //       at the DB layer instead of hydrating the entire items blob in JS.
     //       Also reads new computedProfit/deadProfit columns when available (post-migration).
-    const soExcludedStatuses = ['Void','void','VOID','Draft','draft','DRAFT','Cancelled','cancelled','CANCELLED','Invoiced','invoiced','INVOICED','Converted','converted','CONVERTED']
+    const soExcludedStatuses = ['Void','void','VOID','Voided','voided','Draft','draft','DRAFT','Declined','declined','Cancelled','cancelled','CANCELLED','Canceled','canceled','Deleted','deleted','Orphaned','orphaned','Invoiced','invoiced','INVOICED','Converted','converted','CONVERTED','Billed','billed','Partially_Invoiced','partially_invoiced']
     const soExcludedSql = Prisma.sql`AND s.status NOT IN (${Prisma.join(soExcludedStatuses)})`
     const requestedRep = repIdFilter !== 'all'
       ? await prisma.user.findFirst({
@@ -124,14 +125,17 @@ const authenticatedHandler: Handler = async (event) => {
       ? Prisma.sql`AND (a."ownerId" = ${requestedRep.id} OR LOWER(TRIM(COALESCE(i."computedSalesperson", ''))) = LOWER(${requestedRep.name}) OR LOWER(TRIM(COALESCE(i.items->>'salesperson', ''))) = LOWER(${requestedRep.name}))`
       : repIdFilter !== 'all' ? Prisma.sql`AND a."ownerId" = ${repIdFilter}` : Prisma.empty
     const salesOrderRepFilterSql = requestedRep
-      ? Prisma.sql`AND (a."ownerId" = ${requestedRep.id} OR LOWER(TRIM(COALESCE(s.items->>'salesperson', ''))) = LOWER(${requestedRep.name}))`
+      ? Prisma.sql`AND (a."ownerId" = ${requestedRep.id} OR LOWER(TRIM(COALESCE(s.items->>'salesperson_name', s.items->>'salesperson', ''))) = LOWER(${requestedRep.name}))`
       : repIdFilter !== 'all' ? Prisma.sql`AND a."ownerId" = ${repIdFilter}` : Prisma.empty
 
     const [
       users,
       allInvoices,
-      allSalesOrders
-    ]: [any[], any[], any[]] = await Promise.all([
+      allSalesOrders,
+      monthlyGoals,
+      targetSettings,
+      excludedSalesOrders,
+    ]: [any[], any[], any[], any[], any[], any[]] = await Promise.all([
       prisma.user.findMany({
         where: {
           AND: [
@@ -208,7 +212,8 @@ const authenticatedHandler: Handler = async (event) => {
         FROM "Invoice" i
         JOIN "Account" a ON a.id = i."accountId"
         WHERE i."issueDate" >= ${rangeStart} AND i."issueDate" <= ${rangeEnd}
-          AND lower(i.status) NOT IN ('void','voided','draft','written_off','writeoff','write_off','written off','bad debt')
+          AND lower(i.status) NOT IN ('void','voided','draft','declined','cancelled','canceled','orphaned','deleted','written_off','writeoff','write_off','written off','bad debt')
+          AND i."syncConflict" = false AND i."pendingZohoFetch" = false
           ${invoiceRepFilterSql}
         ORDER BY i."issueDate" DESC
       `).catch(() => []),
@@ -227,7 +232,7 @@ const authenticatedHandler: Handler = async (event) => {
           a."ownerId"  AS "accountOwnerId",
           a."zohoId"   AS "accountZohoId",
           jsonb_build_object(
-            'salesperson',     s.items->>'salesperson',
+            'salesperson',     COALESCE(s.items->>'salesperson_name', s.items->>'salesperson'),
             'salesorder_number', s.items->>'salesorder_number',
             'salesOrderNumber',  s.items->>'salesOrderNumber',
             'customer_name',   s.items->>'customer_name',
@@ -252,6 +257,7 @@ const authenticatedHandler: Handler = async (event) => {
         JOIN "Account" a ON a.id = s."accountId"
         WHERE s."orderDate" >= ${rangeStart} AND s."orderDate" <= ${rangeEnd}
           ${soExcludedSql}
+          AND s."syncConflict" = false AND s."pendingZohoFetch" = false
           AND NOT EXISTS (
             SELECT 1 FROM "Invoice" linked
             WHERE (
@@ -272,8 +278,64 @@ const authenticatedHandler: Handler = async (event) => {
           )
           ${salesOrderRepFilterSql}
         ORDER BY s."orderDate" DESC
+      `).catch(() => []),
+      prisma.monthlyVigGoal.findMany({
+        where: {
+          monthKey: {
+            gte: `${rangeStart.getUTCFullYear()}-${String(rangeStart.getUTCMonth() + 1).padStart(2, '0')}`,
+            lte: `${rangeEnd.getUTCFullYear()}-${String(rangeEnd.getUTCMonth() + 1).padStart(2, '0')}`,
+          },
+        },
+        select: { repId: true, monthKey: true, metric: true, profitGoal: true, subtotalGoal: true, workingDays: true, manualVigRate: true, lastSyncedVigRate: true },
+      }).catch(() => []),
+      prisma.systemSetting.findMany({
+        where: { key: { in: ['sales_targets', 'holidays', 'default_vig_rate'] } },
+        select: { key: true, value: true },
+      }).catch(() => []),
+      prisma.$queryRaw<any[]>(Prisma.sql`
+        SELECT s.id::text, s."zohoId", s.status, s."orderDate", s.amount,
+          COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber') AS "salesOrderNumber",
+          COALESCE(s.items->>'salesperson_name', s.items->>'salesperson') AS salesperson,
+          a."ownerId" AS "accountOwnerId", a.name AS "accountName",
+          EXISTS (
+            SELECT 1 FROM "Invoice" linked WHERE (
+              NULLIF(lower(s."zohoId"), '') IS NOT NULL
+              AND lower(s."zohoId") IN (lower(COALESCE(linked."salesOrderZohoId", '')), lower(COALESCE(linked.items->>'salesorder_id', '')), lower(COALESCE(linked.items->>'sales_order_id', '')))
+            ) OR (
+              NULLIF(lower(COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber', '')), '') IS NOT NULL
+              AND lower(COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber', '')) IN (lower(COALESCE(linked."salesorderNumber", '')), lower(COALESCE(linked.items->>'salesorder_number', '')), lower(COALESCE(linked.items->>'salesOrderNumber', '')))
+            )
+          ) AS "invoiceLinked"
+        FROM "SalesOrder" s JOIN "Account" a ON a.id = s."accountId"
+        WHERE s."orderDate" >= ${rangeStart} AND s."orderDate" <= ${rangeEnd}
+          ${salesOrderRepFilterSql}
+          AND (
+            lower(s.status) IN ('void','voided','draft','declined','cancelled','canceled','orphaned','deleted','converted','invoiced','billed','partially_invoiced')
+            OR EXISTS (
+              SELECT 1 FROM "Invoice" linked WHERE (
+                NULLIF(lower(s."zohoId"), '') IS NOT NULL
+                AND lower(s."zohoId") IN (lower(COALESCE(linked."salesOrderZohoId", '')), lower(COALESCE(linked.items->>'salesorder_id', '')), lower(COALESCE(linked.items->>'sales_order_id', '')))
+              ) OR (
+                NULLIF(lower(COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber', '')), '') IS NOT NULL
+                AND lower(COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber', '')) IN (lower(COALESCE(linked."salesorderNumber", '')), lower(COALESCE(linked.items->>'salesorder_number', '')), lower(COALESCE(linked.items->>'salesOrderNumber', '')))
+              )
+            )
+          )
       `).catch(() => [])
     ])
+
+    const settingMap = new Map(targetSettings.map(setting => [setting.key, setting.value]))
+    let dailyProfitTargets: Record<string, number> = {}
+    let holidays: Array<string | { date?: string }> = []
+    try { dailyProfitTargets = JSON.parse(settingMap.get('sales_targets') || '{}') } catch {}
+    try { holidays = JSON.parse(settingMap.get('holidays') || '[]') } catch {}
+    const holidaySet = new Set(holidays.map(holiday => typeof holiday === 'string' ? holiday.slice(0, 10) : holiday.date?.slice(0, 10) || '').filter(Boolean))
+    const defaultVigRate = financialNumber(settingMap.get('default_vig_rate') || 1.3)
+    const workdayCount = countCompanyWorkdays(rangeStart, rangeEnd, holidaySet)
+    const monthlyTargetPeriod = periodParam === 'this_month' || periodParam === 'last_month' || Boolean(monthParam)
+    const singleMonthKey = monthlyTargetPeriod && rangeStart.getUTCFullYear() === rangeEnd.getUTCFullYear() && rangeStart.getUTCMonth() === rangeEnd.getUTCMonth()
+      ? `${rangeStart.getUTCFullYear()}-${String(rangeStart.getUTCMonth() + 1).padStart(2, '0')}`
+      : null
 
     const userNameToIdMap: Record<string, string> = {}
     users.forEach(u => {
@@ -520,6 +582,36 @@ const authenticatedHandler: Handler = async (event) => {
       repsList = repsList.filter((r: any) => isRepMatch(r, repIdFilter))
     }
 
+    for (const rep of repsList as any[]) {
+      const documentTotals = combineRepStatsDocuments(rep.invoices, rep.salesOrders)
+      const monthlyGoal = singleMonthKey
+        ? monthlyGoals.find(goal => goal.repId === rep.repId && goal.monthKey === singleMonthKey)
+        : null
+      let target: RepStatsTarget
+      if (monthlyGoal) {
+        const metric = String(monthlyGoal.metric || 'PROFIT').toUpperCase() === 'SUBTOTAL' ? 'SUBTOTAL' : 'PROFIT'
+        const value = metric === 'SUBTOTAL' ? financialNumber(monthlyGoal.subtotalGoal) : financialNumber(monthlyGoal.profitGoal)
+        target = value > 0
+          ? { configured: true, value, metric, source: 'MONTHLY_VIG_GOAL' }
+          : { configured: false, value: null, metric, source: 'NOT_CONFIGURED' }
+      } else {
+        const dailyTarget = financialNumber(dailyProfitTargets[rep.repId])
+        target = dailyTarget > 0 && workdayCount > 0
+          ? { configured: true, value: dailyTarget * workdayCount, metric: 'PROFIT', source: 'DAILY_PROFIT_TARGET' }
+          : { configured: false, value: null, metric: 'PROFIT', source: 'NOT_CONFIGURED' }
+      }
+      const user = users.find(candidate => candidate.id === rep.repId)
+      const vigRate = user?.constantVigEnabled && user.constantVigValue != null
+        ? financialNumber(user.constantVigValue)
+        : financialNumber(monthlyGoal?.manualVigRate ?? monthlyGoal?.lastSyncedVigRate ?? defaultVigRate)
+      rep.periodStats = {
+        ...documentTotals,
+        target,
+        progressPercent: calculateTargetProgress(documentTotals, target),
+        vigRate,
+      }
+    }
+
     let totalInvoiceCount = 0
     let totalInvoiceSubtotal = 0
     let totalInvoiceWeeklyRevenue = 0
@@ -562,6 +654,16 @@ const authenticatedHandler: Handler = async (event) => {
           end: rangeEnd.toISOString()
         },
         reps: visibleReps,
+        excludedSalesOrders: excludedSalesOrders.map(order => ({
+          id: order.id,
+          salesOrderNumber: order.salesOrderNumber || order.zohoId || order.id,
+          date: order.orderDate,
+          status: order.status,
+          customerName: order.accountName || 'Unknown Customer',
+          salesperson: order.salesperson || '',
+          amount: financialNumber(order.amount),
+          reason: order.invoiceLinked ? 'INVOICE_LINKED' : 'TERMINAL_STATUS',
+        })),
         totals: {
           invoiceCount: totalInvoiceCount,
           invoiceSubtotal: totalInvoiceSubtotal,

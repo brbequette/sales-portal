@@ -10,13 +10,17 @@ import {
   FiBarChart2, FiTrendingUp, FiDollarSign, FiUsers, FiAward,
   FiChevronDown, FiChevronUp, FiX, FiTarget, FiCalendar, FiSearch, FiRefreshCw
 } from "react-icons/fi"
-import { sessionGet, sessionSet, TTL } from "@/lib/dataCache"
+
+type TargetMetric = 'PROFIT' | 'SUBTOTAL'
 
 interface RepPeriodStats {
   revenue: number
   profit: number
   dealsWon: number
-  target: number
+  target: number | null
+  targetConfigured: boolean
+  targetMetric: TargetMetric
+  progressPercent: number | null
   vigRate?: number
 }
 
@@ -39,6 +43,8 @@ interface Rep {
   weekly: RepPeriodStats
   monthly: RepPeriodStats
   annually?: RepPeriodStats  // alias: API returns YTD totals in the monthly bucket
+  invoices?: any[]
+  salesOrders?: any[]
 }
 
 interface CompanyData {
@@ -88,6 +94,8 @@ export default function StatsPage() {
   const [companyTotals, setCompanyTotals] = useState<CompanyData | null>(null)
   const [companyAverages, setCompanyAverages] = useState<CompanyData | null>(null)
   const [historicalVigRates, setHistoricalVigRates] = useState<any[]>([])
+  const [excludedSalesOrders, setExcludedSalesOrders] = useState<any[]>([])
+  const [detailView, setDetailView] = useState<'revenue' | 'profit' | 'documents' | 'target' | null>(null)
   const [selectedPeriod, setSelectedPeriod] = useState<"daily" | "weekly" | "monthly" | "annually">("monthly")
   const repPeriodKey = selectedPeriod
   const [selectedRep, setSelectedRep] = useState<Rep | null>(null)
@@ -105,12 +113,7 @@ export default function StatsPage() {
       return
     }
 
-    const fetchStats = async (force = false) => {
-      const cacheKey = `rep-stats-${selectedPeriod}-${selectedDataDate || 'current'}-${preferences.showHiddenReps ? '1' : '0'}`
-      if (!force) {
-        const cached = sessionGet<any>(cacheKey, TTL.TEN_MIN)
-        if (cached) { setReps(cached.reps); setCompanyTotals(cached.totals); setCompanyAverages(cached.averages); setHistoricalVigRates(cached.vigRates); return }
-      }
+    const fetchStats = async () => {
       // First load with no data: show full spinner. Otherwise: subtle refresh indicator
       if (reps.length === 0) setLoading(true)
       else setRefreshing(true)
@@ -135,22 +138,34 @@ export default function StatsPage() {
           dateParam = selectedDataDate.length === 7 ? `month=${selectedDataDate}` : `date=${selectedDataDate}`
         }
         for (const [key, value] of new URLSearchParams(dateParam)) query.set(key, value)
-        const res = await fetch(`/api/get-rep-stats?${query.toString()}`)
-        const data = await res.json()
+        const res = await fetch(`/api/get-rep-stats?${query.toString()}`, { cache: 'no-store' })
+        const responseText = await res.text()
+        let data: any
+        try { data = JSON.parse(responseText) } catch { throw new Error(`Rep Stats service unavailable (HTTP ${res.status}). No performance totals were displayed.`) }
+        if (!res.ok) throw new Error(data.error || `Rep Stats service unavailable (HTTP ${res.status})`)
         if (data.success) {
           // The endpoint returns one explicitly requested date range. Store the
           // returned values only under that range so period changes cannot reuse
           // monthly numbers as daily, weekly, or annual performance.
           const normalizedReps = (data.reps || []).map((r: any) => ({
             ...r,
-            [selectedPeriod]: { revenue: r.revenue || 0, profit: r.profit || 0, dealsWon: r.invoiceCount || 0, target: 0, vigRate: undefined },
+            [selectedPeriod]: {
+              revenue: r.periodStats?.revenue ?? 0,
+              profit: r.periodStats?.profit ?? 0,
+              dealsWon: r.periodStats?.documentCount ?? 0,
+              target: r.periodStats?.target?.configured ? r.periodStats.target.value : null,
+              targetConfigured: r.periodStats?.target?.configured === true,
+              targetMetric: r.periodStats?.target?.metric || 'PROFIT',
+              progressPercent: r.periodStats?.progressPercent ?? null,
+              vigRate: r.periodStats?.vigRate,
+            },
           }))
           setReps(normalizedReps)
           const totals = data.totals || {}
           setCompanyTotals(totals)
           setCompanyAverages(data.companyAverages || totals)
           setHistoricalVigRates(data.historicalVigRates || [])
-          sessionSet(cacheKey, { reps: normalizedReps, totals, averages: data.companyAverages || totals, vigRates: data.historicalVigRates || [] })
+          setExcludedSalesOrders(data.excludedSalesOrders || [])
         } else {
           setApiError(data.error || "Failed to load stats")
         }
@@ -161,7 +176,7 @@ export default function StatsPage() {
         setRefreshing(false)
       }
     }
-    fetchStats(refreshTrigger > 0)
+    fetchStats()
   }, [isInitialized, currentUser, router, selectedDataDate, selectedPeriod, refreshTrigger])
 
   const pastWeeks = useMemo(() => {
@@ -268,15 +283,26 @@ export default function StatsPage() {
     let profit = 0
     let dealsWon = 0
     let target = 0
+    let targetConfigured = reps.length > 0
+    const targetMetrics = new Set<TargetMetric>()
     reps.forEach(r => {
-      const stats = r[repPeriodKey] || { revenue: 0, profit: 0, dealsWon: 0, target: 0 }
+      const stats = r[repPeriodKey] || { revenue: 0, profit: 0, dealsWon: 0, target: null, targetConfigured: false }
       revenue += stats.revenue || 0
       profit += stats.profit || 0
       dealsWon += stats.dealsWon || 0
-      target += stats.target || 0
+      if (stats.targetConfigured && stats.target != null) { target += stats.target; targetMetrics.add(stats.targetMetric) }
+      else targetConfigured = false
     })
-    return { revenue, profit, dealsWon, target }
+    if (targetMetrics.size > 1) targetConfigured = false
+    const targetMetric = targetMetrics.values().next().value as TargetMetric | undefined
+    const targetActual = targetMetric === 'SUBTOTAL' ? revenue : profit
+    return { revenue, profit, dealsWon, target: targetConfigured ? target : null, targetConfigured, targetMetric, targetActual }
   }, [reps, selectedPeriod])
+
+  const contributingDocuments = useMemo(() => reps.flatMap(rep => [
+    ...(rep.invoices || []).map((document: any) => ({ ...document, type: 'Invoice' })),
+    ...(rep.salesOrders || []).map((document: any) => ({ ...document, type: 'Uninvoiced sales order' })),
+  ]), [reps])
 
   if (!isInitialized || (loading && reps.length === 0)) {
     return (
@@ -387,20 +413,21 @@ export default function StatsPage() {
           return (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
-                { label: `${periodLabel} Revenue`, value: formatPreciseCurrency(periodTotals.revenue), icon: <FiDollarSign />, color: "text-emerald-400", border: "border-emerald-500/20", bg: "bg-emerald-950/20" },
-                { label: `${periodLabel} Profit`, value: formatPreciseCurrency(periodTotals.profit), icon: <FiTrendingUp />, color: "text-emerald-400", border: "border-emerald-500/20", bg: "bg-emerald-950/20" },
-                { label: `${periodLabel} Deals Won`, value: formatNumber(periodTotals.dealsWon), icon: <FiAward />, color: "text-amber-400", border: "border-amber-500/20", bg: "bg-amber-950/20" },
+                { key: 'revenue' as const, label: `${periodLabel} Revenue`, value: formatPreciseCurrency(periodTotals.revenue), icon: <FiDollarSign />, color: "text-emerald-400", border: "border-emerald-500/20", bg: "bg-emerald-950/20" },
+                { key: 'profit' as const, label: `${periodLabel} Profit`, value: formatPreciseCurrency(periodTotals.profit), icon: <FiTrendingUp />, color: "text-emerald-400", border: "border-emerald-500/20", bg: "bg-emerald-950/20" },
+                { key: 'documents' as const, label: `${periodLabel} Sales Documents`, value: formatNumber(periodTotals.dealsWon), icon: <FiAward />, color: "text-amber-400", border: "border-amber-500/20", bg: "bg-amber-950/20", subtext: 'Invoices + eligible uninvoiced orders' },
                 {
+                  key: 'target' as const,
                   label: `${periodLabel} Target Progress`,
-                  value: periodTotals.target > 0 ? `${((periodTotals.profit / periodTotals.target) * 100).toFixed(1)}%` : "N/A",
+                  value: periodTotals.targetConfigured && periodTotals.target != null ? `${((periodTotals.targetActual / periodTotals.target) * 100).toFixed(1)}%` : "Not configured",
                   icon: <FiTarget />,
                   color: "text-sky-400",
                   border: "border-sky-500/20",
                   bg: "bg-sky-950/20",
-                  subtext: `Target: ${formatCurrency(periodTotals.target)}`
+                  subtext: periodTotals.targetConfigured && periodTotals.target != null ? `Target: ${formatPreciseCurrency(periodTotals.target)}` : 'No authoritative target for one or more representatives'
                 },
               ].map(card => (
-                <div key={card.label} className={`${card.bg} border ${card.border} rounded-2xl p-4 hover:scale-[1.01] transition-all duration-200 flex flex-col justify-between`}>
+                <button type="button" onClick={() => setDetailView(detailView === card.key ? null : card.key)} key={card.label} className={`${card.bg} border ${card.border} rounded-2xl p-4 text-left hover:scale-[1.01] transition-all duration-200 flex flex-col justify-between`}>
                   <div>
                     <div className="flex justify-between items-start mb-2">
                       <span className="text-[10px] uppercase text-neutral-500 font-semibold tracking-wider">{card.label}</span>
@@ -409,11 +436,26 @@ export default function StatsPage() {
                     <p className={`text-base sm:text-lg font-bold ${card.color}`}>{card.value}</p>
                   </div>
                   {(card as any).subtext && <p className="text-[10px] text-neutral-500 mt-1 font-mono">{(card as any).subtext}</p>}
-                </div>
+                </button>
               ))}
             </div>
           )
         })()}
+
+        {detailView && (
+          <div className="modern-card p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div><h2 className="text-xs font-bold uppercase text-white">{detailView === 'documents' ? 'Eligible sales documents' : detailView === 'target' ? 'Target configuration' : `${detailView} contributors`}</h2><p className="text-[10px] text-neutral-500">Local PostgreSQL · selected role and date scope</p></div>
+              <button type="button" aria-label="Close metric details" onClick={() => setDetailView(null)}><FiX /></button>
+            </div>
+            {detailView === 'target' ? (
+              <div className="space-y-2">{reps.map(rep => { const stats = rep[repPeriodKey]; return <div key={rep.repId} className="flex justify-between border-b border-white/5 py-2 text-xs"><span className="text-neutral-300">{rep.repName}</span><span className="text-neutral-400">{stats?.targetConfigured && stats.target != null ? `${stats.targetMetric}: ${formatPreciseCurrency(stats.target)} · ${stats.progressPercent?.toFixed(1)}% · ${stats.vigRate?.toFixed(1)} VIG` : `Not configured · ${stats?.vigRate?.toFixed(1) ?? '—'} VIG`}</span></div> })}</div>
+            ) : (
+              <div className="overflow-x-auto"><table className="td-table"><thead><tr><th className="td-th">Type</th><th className="td-th">Document</th><th className="td-th">Rep</th><th className="td-th">Status</th><th className="td-th text-right">Revenue</th><th className="td-th text-right">Profit</th><th className="td-th">Quality</th></tr></thead><tbody>{contributingDocuments.map((document:any)=><tr key={`${document.type}-${document.id}`}><td className="td-td">{document.type}</td><td className="td-td">{document.invoiceNumber || document.salesOrderNumber || document.id}</td><td className="td-td">{document.repName}</td><td className="td-td">{document.status}</td><td className="td-td text-right">{formatPreciseCurrency(document.subtotal || 0)}</td><td className="td-td text-right">{document.costQuality === 'AUTHORITATIVE_STORED' ? formatPreciseCurrency(document.profit || 0) : 'Blocked'}</td><td className="td-td">{document.costQuality === 'AUTHORITATIVE_STORED' ? 'Authoritative' : 'Blocked missing cost'}</td></tr>)}</tbody></table></div>
+            )}
+            {detailView === 'documents' && excludedSalesOrders.length > 0 && <div><h3 className="mb-2 text-[10px] font-bold uppercase text-neutral-500">Excluded sales orders</h3><div className="space-y-1">{excludedSalesOrders.map(order=><div key={order.id} className="flex justify-between text-xs text-neutral-500"><span>SO-{order.salesOrderNumber} · {order.status}</span><span>{order.reason === 'INVOICE_LINKED' ? 'Invoice linked' : 'Terminal status'}</span></div>)}</div></div>}
+          </div>
+        )}
 
         {/* Leaderboard Table */}
         <div className="modern-card overflow-hidden">
@@ -442,7 +484,7 @@ export default function StatsPage() {
                     <span className="inline-flex items-center gap-1">Profit <SortIcon field="profit" /></span>
                   </th>
                   <th className="td-th text-right cursor-pointer hover:text-white select-none" onClick={() => handleSort("totalDeals")}>
-                    <span className="inline-flex items-center gap-1">Deals Won <SortIcon field="totalDeals" /></span>
+                    <span className="inline-flex items-center gap-1">Sales Documents <SortIcon field="totalDeals" /></span>
                   </th>
                   <th className="td-th text-right">Target</th>
                   <th className="td-th text-right">Progress</th>
@@ -453,10 +495,9 @@ export default function StatsPage() {
                 {pagination.paginatedItems.map((rep, idx) => {
                   const rank = pagination.pageSize === "All" ? idx + 1 : (pagination.currentPage - 1) * (pagination.pageSize as number) + idx + 1
                   const isSelected = selectedRep?.repId === rep.repId
-                  const periodStats = rep[repPeriodKey] || { revenue: 0, profit: 0, dealsWon: 0, target: 0 }
-                  const progressPct = periodStats.target > 0 ? (periodStats.profit / periodStats.target) * 100 : 0
-                  const metGoal = periodStats.profit >= periodStats.target
-                  const vigRate = periodStats.vigRate ?? (metGoal ? 1.3 : 1.5)
+                  const periodStats = rep[repPeriodKey] || { revenue: 0, profit: 0, dealsWon: 0, target: null, targetConfigured: false, targetMetric: 'PROFIT' as const, progressPercent: null }
+                  const progressPct = periodStats.progressPercent
+                  const vigRate = periodStats.vigRate
 
                   return (
                     <tr
@@ -489,19 +530,19 @@ export default function StatsPage() {
                       <td className="td-td text-right font-bold text-emerald-400">{formatPreciseCurrency(periodStats.revenue)}</td>
                       <td className="td-td text-right font-medium text-emerald-500">{formatPreciseCurrency(periodStats.profit)}</td>
                       <td className="td-td text-right font-medium text-amber-400">{periodStats.dealsWon}</td>
-                      <td className="td-td text-right font-medium text-neutral-400">{formatCurrency(periodStats.target)}</td>
+                      <td className="td-td text-right font-medium text-neutral-400">{periodStats.targetConfigured && periodStats.target != null ? formatPreciseCurrency(periodStats.target) : 'Not configured'}</td>
                       <td className="td-td text-right">
-                        <span className={`font-bold font-mono ${progressPct >= 100 ? "text-emerald-400" : "text-sky-400"}`}>
-                          {progressPct.toFixed(1)}%
+                        <span className={`font-bold font-mono ${progressPct != null && progressPct >= 100 ? "text-emerald-400" : "text-sky-400"}`}>
+                          {progressPct == null ? 'N/A' : `${progressPct.toFixed(1)}%`}
                         </span>
                       </td>
                       <td className="td-td text-center">
                         <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold border ${
-                          vigRate <= 1.3
+                          vigRate != null && vigRate <= 1.3
                             ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/30"
                             : "bg-red-950/40 text-red-400 border-red-500/30"
                         }`}>
-                          {vigRate.toFixed(1)} vig
+                          {vigRate == null ? 'N/A' : `${vigRate.toFixed(1)} vig`}
                         </span>
                       </td>
                     </tr>
@@ -527,10 +568,9 @@ export default function StatsPage() {
             {pagination.paginatedItems.map((rep, idx) => {
               const rank = pagination.pageSize === "All" ? idx + 1 : (pagination.currentPage - 1) * (pagination.pageSize as number) + idx + 1
               const isSelected = selectedRep?.repId === rep.repId
-              const periodStats = rep[repPeriodKey] || { revenue: 0, profit: 0, dealsWon: 0, target: 0 }
-              const progressPct = periodStats.target > 0 ? (periodStats.profit / periodStats.target) * 100 : 0
-              const metGoal = periodStats.target > 0 && periodStats.profit >= periodStats.target
-              const vigRate = periodStats.vigRate ?? (metGoal ? 1.3 : 1.5)
+              const periodStats = rep[repPeriodKey] || { revenue: 0, profit: 0, dealsWon: 0, target: null, targetConfigured: false, targetMetric: 'PROFIT' as const, progressPercent: null }
+              const progressPct = periodStats.progressPercent
+              const vigRate = periodStats.vigRate
 
               return (
                 <div
@@ -555,11 +595,11 @@ export default function StatsPage() {
                       </div>
                     </div>
                     <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold border ${
-                      vigRate <= 1.3
+                      vigRate != null && vigRate <= 1.3
                         ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/30"
                         : "bg-red-950/40 text-red-400 border-red-500/30"
                     }`}>
-                      {vigRate.toFixed(1)} vig
+                      {vigRate == null ? 'N/A' : `${vigRate.toFixed(1)} vig`}
                     </span>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
@@ -569,11 +609,11 @@ export default function StatsPage() {
                     </div>
                     <div>
                       <p className="text-[9px] text-neutral-500 uppercase">Progress</p>
-                      <p className={`text-xs font-bold ${progressPct >= 100 ? "text-emerald-400" : "text-sky-400"}`}>{progressPct.toFixed(1)}%</p>
+                      <p className={`text-xs font-bold ${progressPct != null && progressPct >= 100 ? "text-emerald-400" : "text-sky-400"}`}>{progressPct == null ? 'N/A' : `${progressPct.toFixed(1)}%`}</p>
                     </div>
                     <div>
                       <p className="text-[9px] text-neutral-500 uppercase">Target</p>
-                      <p className="text-xs font-bold text-neutral-400">{formatCurrency(periodStats.target)}</p>
+                      <p className="text-xs font-bold text-neutral-400">{periodStats.targetConfigured && periodStats.target != null ? formatPreciseCurrency(periodStats.target) : 'Not configured'}</p>
                     </div>
                   </div>
                 </div>
@@ -623,33 +663,34 @@ export default function StatsPage() {
               </div>
 
               {(() => {
-                const periodStats = selectedRep[repPeriodKey] || { revenue: 0, profit: 0, dealsWon: 0, target: 0 }
-                const progressPct = periodStats.target > 0 ? (periodStats.profit / periodStats.target) * 100 : 0
-                const diff = periodStats.target - periodStats.profit
+                const periodStats = selectedRep[repPeriodKey] || { revenue: 0, profit: 0, dealsWon: 0, target: null, targetConfigured: false, targetMetric: 'PROFIT' as const, progressPercent: null }
+                const progressPct = periodStats.progressPercent
+                const targetActual = periodStats.targetMetric === 'SUBTOTAL' ? periodStats.revenue : periodStats.profit
+                const diff = periodStats.target == null ? null : periodStats.target - targetActual
                 let statusMsg = ""
-                if (periodStats.target === 0) {
-                  statusMsg = "No target configured for this period."
-                } else if (periodStats.profit >= periodStats.target) {
-                  statusMsg = `🏆 Goal Hit! ${formatPreciseCurrency(periodStats.profit - periodStats.target)} over target.`
+                if (!periodStats.targetConfigured || periodStats.target == null) {
+                  statusMsg = "Not configured for this period."
+                } else if (targetActual >= periodStats.target) {
+                  statusMsg = `🏆 Goal Hit! ${formatPreciseCurrency(targetActual - periodStats.target)} over target.`
                 } else {
-                  statusMsg = `Needs ${formatPreciseCurrency(diff)} more to hit target.`
+                  statusMsg = `Needs ${formatPreciseCurrency(diff || 0)} more to hit target.`
                 }
 
                 return (
                   <div className="p-3.5 rounded-xl border border-sky-500/10 bg-black/20 space-y-2.5">
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Profit Goal</span>
+                      <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">{periodStats.targetMetric === 'SUBTOTAL' ? 'Revenue' : 'Profit'} Goal</span>
                       <div className="text-right">
-                        <span className="text-xs font-black text-white">{formatPreciseCurrency(periodStats.profit)}</span>
-                        <span className="text-[10px] text-neutral-500 font-medium"> / {formatPreciseCurrency(periodStats.target)}</span>
+                        <span className="text-xs font-black text-white">{formatPreciseCurrency(targetActual)}</span>
+                        <span className="text-[10px] text-neutral-500 font-medium"> / {periodStats.target == null ? 'Not configured' : formatPreciseCurrency(periodStats.target)}</span>
                       </div>
                     </div>
                     <div className="h-2 w-full bg-neutral-900 rounded-full overflow-hidden border border-white/8">
-                      <div className="h-full bg-sky-500 shadow-sm shadow-sky-500/30 rounded-full transition-all duration-500" style={{ width: `${Math.min(progressPct, 100)}%` }} />
+                      <div className="h-full bg-sky-500 shadow-sm shadow-sky-500/30 rounded-full transition-all duration-500" style={{ width: `${Math.min(progressPct || 0, 100)}%` }} />
                     </div>
                     <div className="flex justify-between items-center text-[9px]">
                       <span className="text-neutral-500">{statusMsg}</span>
-                      <span className={`font-bold ${progressPct >= 100 ? "text-emerald-400" : "text-sky-400"}`}>{progressPct.toFixed(1)}%</span>
+                      <span className={`font-bold ${progressPct != null && progressPct >= 100 ? "text-emerald-400" : "text-sky-400"}`}>{progressPct == null ? 'N/A' : `${progressPct.toFixed(1)}%`}</span>
                     </div>
                   </div>
                 )
