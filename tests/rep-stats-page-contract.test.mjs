@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+
+const handler = fs.readFileSync('netlify/functions/get-rep-stats.ts', 'utf8')
+const page = fs.readFileSync('src/app/stats/page.tsx', 'utf8')
+
+assert.match(handler, /combineRepStatsDocuments\(rep\.invoices, rep\.salesOrders\)/)
+assert.match(handler, /NOT EXISTS \(\s*SELECT 1 FROM "Invoice" linked/)
+for (const status of ['declined','cancelled','orphaned','deleted','converted','invoiced','billed','partially_invoiced']) assert.match(handler, new RegExp(status, 'i'))
+assert.match(handler, /if \(!privileged\) repIdFilter = authenticatedRepId/)
+assert.match(handler, /isAdminRole\(authenticatedUser\.role\)/)
+assert.match(handler, /costQuality: costReady \? 'AUTHORITATIVE_STORED' : 'BLOCKED_MISSING_COST'/)
+assert.match(handler, /Cache-Control.*no-store/)
+assert.doesNotMatch(handler, /zohoFetch|fetchZoho|zohoRequest|axios/)
+assert.doesNotMatch(handler, /\.create\(|\.update\(|\.upsert\(|\.delete\(|\$executeRaw/)
+assert.match(page, /fetch\(`\/api\/get-rep-stats[\s\S]*cache: 'no-store'/)
+assert.doesNotMatch(page, /sessionGet|sessionSet|TTL\.TEN_MIN/)
+assert.match(page, /responseText = await res\.text\(\)/)
+assert.match(page, /No performance totals were displayed/)
+assert.match(page, /Not configured/)
+assert.match(page, /Sales Documents/)
+assert.match(page, /excludedSalesOrders/)
+assert.match(page, /Blocked missing cost/)
+
+console.log('REP_STATS_PAGE_CONTRACT=PASS')
