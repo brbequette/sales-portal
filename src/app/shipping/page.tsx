@@ -7,6 +7,7 @@ import { CreatePackageModal } from "@/components/CreatePackageModal"
 import { CreateDropshipmentModal } from "@/components/CreateDropshipmentModal"
 import { toast } from 'react-hot-toast';
 import { PeriodSelector, isInPeriod, type PeriodValue } from "@/components/PeriodSelector"
+import { financialZohoLineItems } from "@/lib/zoho-line-items"
 
 type ShipStatus = "all" | "needs_packaging" | "packaged" | "shipped" | "delivered"
 
@@ -734,7 +735,7 @@ export default function ShippingPage() {
           },
           items: (() => {
             // Build items matching EasyShip format
-            const pkgItemsList = shipNowPkg.items?.line_items || shipNowPkg.items?.items || []
+            const pkgItemsList = financialZohoLineItems(shipNowPkg.items?.line_items || shipNowPkg.items?.items)
             if (Array.isArray(pkgItemsList) && pkgItemsList.length > 0) {
               return pkgItemsList.map((li: any) => ({
                 description: li.name || li.item_name || li.description || 'Item',
@@ -1519,7 +1520,7 @@ export default function ShippingPage() {
                                     <FiBox className="text-xs text-blue-400" /> Items in Shipment
                                   </div>
                                   {(() => {
-                                    const pkgItems = pkg.items?.lineItems || pkg.items?.line_items || (Array.isArray(pkg.items) ? pkg.items : null)
+                                    const pkgItems = financialZohoLineItems(pkg.items?.lineItems || pkg.items?.line_items || (Array.isArray(pkg.items) ? pkg.items : []))
                                     if (pkgItems && pkgItems.length > 0) {
                                       return (
                                         <div className="space-y-0.5">
@@ -2116,7 +2117,7 @@ export default function ShippingPage() {
 
                   {/* Items Being Shipped */}
                   {shipNowPkg?.items && (() => {
-                    const pkgItems = shipNowPkg.items?.lineItems || shipNowPkg.items?.line_items || (Array.isArray(shipNowPkg.items) ? shipNowPkg.items : [])
+                    const pkgItems = financialZohoLineItems(shipNowPkg.items?.lineItems || shipNowPkg.items?.line_items || (Array.isArray(shipNowPkg.items) ? shipNowPkg.items : []))
                     return pkgItems.length > 0 ? (
                       <div className="bg-black/20 rounded-xl p-3">
                         <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">Items Being Shipped</div>

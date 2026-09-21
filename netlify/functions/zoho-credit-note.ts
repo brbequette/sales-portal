@@ -4,6 +4,7 @@ import { getZohoAccessToken as getAccessToken , ZOHO_ORGANIZATION_ID } from "./l
 const ORG_ID = ZOHO_ORGANIZATION_ID
 import { prisma } from "./lib/prisma"
 import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
+import { financialZohoLineItems } from "../../src/lib/zoho-line-items"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 export const handler: Handler = async (event) => {
@@ -68,12 +69,14 @@ export const handler: Handler = async (event) => {
     }
 
     const customerId = invData.invoice.customer_id
+    const financialItems = financialZohoLineItems(items)
+    if (financialItems.length === 0) throw new Error('No financial line items were supplied for the credit note')
 
     // Create the credit note
     const creditNotePayload: any = {
       customer_id: customerId,
       date: new Date().toISOString().split('T')[0],
-      line_items: items.map((item: any) => ({
+      line_items: financialItems.map(item => ({
         item_id: item.item_id,
         quantity: item.quantity,
         rate: item.rate,
@@ -99,7 +102,7 @@ export const handler: Handler = async (event) => {
     if (!creditNoteId) throw new Error('Credit note created but no ID returned')
 
     // Calculate total amount to apply
-    const totalAmount = items.reduce((sum: number, item: any) => {
+    const totalAmount = financialItems.reduce((sum: number, item) => {
       return sum + (parseFloat(item.quantity) * parseFloat(item.rate))
     }, 0)
 

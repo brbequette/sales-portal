@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { financialZohoLineItems } from '../../src/lib/zoho-line-items.ts';
 
 export const key = value => String(value ?? '').replace(/^\uFEFF/, '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
 const number = value => { if (value === null || value === undefined || String(value).trim() === '') return null; const cleaned=String(value).replace(/,/g, '').match(/-?\d+(?:\.\d+)?/); if(!cleaned)return null; const n=Number(cleaned[0]); return Number.isFinite(n) && n >= 0 ? n : null; };
@@ -22,7 +23,7 @@ const HISTORICAL_COST_KEYS = Object.freeze(['historicalCost', 'purchase_rate', '
 const historicalRows = value => {
   if (!value || typeof value !== 'object') return [];
   const rows = [];
-  for (const key of ['line_items', 'lineItems', 'items']) if (Array.isArray(value[key])) rows.push(...value[key]);
+  for (const key of ['line_items', 'lineItems', 'items']) if (Array.isArray(value[key])) rows.push(...financialZohoLineItems(value[key]));
   return rows;
 };
 export function buildHistoricalInvoiceCostIndex(invoices = []) {

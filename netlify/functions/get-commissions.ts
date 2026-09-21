@@ -6,6 +6,7 @@ import { isAdminRole } from "../../src/lib/roles"
 import { financialNumber, headerCommission } from "../../src/lib/global-header-metrics"
 import { classifyCommissionCostQuality, COMMISSION_COST_QUALITY, hasAuthoritativeInvoiceColumns, hasAuthoritativeLegacyFinancials } from "../../src/lib/commission-financial-snapshot"
 import { companyCalendarDaysBetween } from "../../src/lib/company-calendar-days"
+import { financialZohoLineItems } from "../../src/lib/zoho-line-items"
 
 
 // Statuses where the FINAL half is earned (invoice has been paid)
@@ -15,8 +16,7 @@ function getSubTotal(items: any, amount: number) {
   if (isNaN(sub) || sub === 0) {
     const details = items?.lineItemDetails || items?.line_items || items?.items
     if (Array.isArray(details)) {
-      sub = details.reduce((sum: number, it: any) => {
-        if (it.line_item_category === "header" || it.line_item_category === "subtotal") return sum;
+      sub = financialZohoLineItems(details).reduce((sum: number, it) => {
         const qty = parseFloat(it.quantity || 0)
         const rate = parseFloat(it.rate || it.itemTotal || it.item_total || 0)
         return sum + (qty * rate)

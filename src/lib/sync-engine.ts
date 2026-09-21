@@ -16,6 +16,7 @@
 import { prisma } from "../../netlify/functions/lib/prisma"
 import { Prisma } from "@prisma/client"
 import { getZohoAccessToken, ZOHO_DC, ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
+import { financialZohoLineItems } from "@/lib/zoho-line-items"
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 
@@ -97,7 +98,7 @@ export function mergeInvoiceJson(existingJson: unknown, mergePlan: InvoiceJsonMe
 }
 
 export function buildStoredLineItemPersistencePlan(invoiceId: string, rawLineItems: unknown): StoredLineItemPersistencePlan {
-  const lineItems = Array.isArray(rawLineItems) ? rawLineItems as Record<string, unknown>[] : []
+  const lineItems = financialZohoLineItems(rawLineItems)
   const finite = (value: unknown, fallback = 0) => { const parsed = typeof value === 'number' ? value : Number(value); return Number.isFinite(parsed) ? parsed : fallback }
   return { invoiceId, replace: true, items: lineItems.map((item, index) => ({ invoiceId, zohoLineItemId: `invoice:${invoiceId}:${String(item.line_item_id || item.item_id || index)}`, productName: String(item.name || item.item_name || item.description || 'Line item'), sku: item.sku ? String(item.sku) : null, quantity: finite(item.quantity), unitPrice: finite(item.rate ?? item.unit_price), discount: finite(item.discount_amount, Math.max(0, finite(item.quantity) * finite(item.rate ?? item.unit_price) - finite(item.item_total ?? item.total))), total: finite(item.item_total ?? item.total), description: item.description ? String(item.description) : null })) }
 }
@@ -693,7 +694,7 @@ export async function persistStoredLineItems(
   documentId: string,
   rawLineItems: unknown,
 ): Promise<void> {
-  const lineItems = Array.isArray(rawLineItems) ? rawLineItems as Record<string, unknown>[] : []
+  const lineItems = financialZohoLineItems(rawLineItems)
   const finiteNumber = (value: unknown, fallback = 0): number => {
     const parsed = typeof value === "number" ? value : Number(value)
     return Number.isFinite(parsed) ? parsed : fallback

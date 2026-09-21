@@ -4,6 +4,7 @@ import { getZohoAccessToken as getAccessToken , ZOHO_ORGANIZATION_ID } from "./l
 const ORG_ID = ZOHO_ORGANIZATION_ID
 import { prisma } from "./lib/prisma"
 import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
+import { classifyZohoLineItem, financialZohoLineItems, structuralZohoLineItemPayload } from "../../src/lib/zoho-line-items"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 export const handler: Handler = async (event) => {
@@ -88,6 +89,7 @@ export const handler: Handler = async (event) => {
     // Also manual dead cost can be sent and saved in custom fields. 
     // We update the rate, quantity, and name, and preserve other required fields like item_id, tax_id, etc.
     const sanitizeLineItem = (item: any) => {
+      if (classifyZohoLineItem(item)?.structural) return structuralZohoLineItemPayload(item)
       const allowedKeys = [
         "line_item_id",
         "item_id",
@@ -102,7 +104,8 @@ export const handler: Handler = async (event) => {
         "tax_percentage",
         "tax_type",
         "header_id",
-        "line_item_category"
+        "line_item_category",
+        "item_order"
       ]
       const cleanItem: any = {}
       for (const key of allowedKeys) {
@@ -114,6 +117,7 @@ export const handler: Handler = async (event) => {
     }
 
     const updatedLineItems = doc.line_items.map((existingItem: any) => {
+      if (classifyZohoLineItem(existingItem)?.structural) return sanitizeLineItem(existingItem)
       const updateData = lineItems.find((li: any) => li.line_item_id === existingItem.line_item_id)
       const merged = updateData
         ? {
@@ -128,7 +132,7 @@ export const handler: Handler = async (event) => {
     })
 
     // Find and append new line items that don't exist in doc.line_items
-    const newItems = lineItems.filter((li: any) => {
+    const newItems = financialZohoLineItems(lineItems).filter((li: any) => {
       if (!li.line_item_id || String(li.line_item_id).startsWith("new_")) {
         return true
       }

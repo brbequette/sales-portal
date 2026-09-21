@@ -4,6 +4,7 @@ import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
 const ORG_ID = ZOHO_ORGANIZATION_ID
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
+import { financialZohoLineItems } from "../../src/lib/zoho-line-items"
 
 export const handler: Handler = async (event, context) => {
   const headers = { "Content-Type": "application/json" }
@@ -53,7 +54,7 @@ export const handler: Handler = async (event, context) => {
         statusCode: 200,
         body: JSON.stringify({
           success: true,
-          lineItems: so.line_items || [],
+          lineItems: financialZohoLineItems(so.line_items),
           shippingAddress: so.shipping_address || null,
           customerName: so.customer_name,
           salesorderNumber: so.salesorder_number,
@@ -64,10 +65,11 @@ export const handler: Handler = async (event, context) => {
 
     if (action === "CreatePackage") {
       // Create a Package
+      const financialItems = financialZohoLineItems(items)
       const payload = {
         salesorder_id: salesOrderId,
         date: new Date().toISOString().split('T')[0],
-        line_items: items.map((i: any) => ({
+        line_items: financialItems.map(i => ({
           so_line_item_id: i.lineItemId,
           quantity: i.quantity
         }))
@@ -87,8 +89,8 @@ export const handler: Handler = async (event, context) => {
       const createdPkg = pkgData.package || {}
       try {
         const { prisma } = require("./lib/prisma")
-        const pkgItems = items.map((i: any) => {
-          const soLine = so.line_items?.find((li: any) => li.line_item_id === i.lineItemId)
+        const pkgItems = financialItems.map(i => {
+          const soLine = financialZohoLineItems(so.line_items).find((li: any) => li.line_item_id === i.lineItemId)
           return {
             line_item_id: i.lineItemId,
             name: soLine?.name || soLine?.item_name || 'Item',
@@ -134,8 +136,8 @@ export const handler: Handler = async (event, context) => {
       const { prisma } = require("./lib/prisma")
 
       // Map SO line items to PO line items using their cost instead of retail price
-      const poLineItems = await Promise.all(items.map(async (i: any) => {
-        const soItem = so.line_items.find((li: any) => li.line_item_id === i.lineItemId)
+      const poLineItems = await Promise.all(financialZohoLineItems(items).map(async i => {
+        const soItem = financialZohoLineItems(so.line_items).find(li => li.line_item_id === i.lineItemId)
         if (!soItem) throw new Error(`Line item ${i.lineItemId} not found on SO`)
 
         let purchaseRate = 0

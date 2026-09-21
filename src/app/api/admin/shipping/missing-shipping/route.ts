@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from "next/server"
 import { requireAdministrator } from "@/lib/auth-helpers"
+import { financialZohoLineItems } from "@/lib/zoho-line-items"
 
 export async function GET() {
   try {
@@ -20,7 +21,7 @@ export async function GET() {
 
     const formatted = invoices.map(inv => {
       const items: any = inv.items || {}
-      const lineItems: any[] = items.line_items || []
+      const lineItems = financialZohoLineItems(items.line_items)
       const allocations: any[] = items.shippingAllocations || []
 
       // Identify SKUs/items covered

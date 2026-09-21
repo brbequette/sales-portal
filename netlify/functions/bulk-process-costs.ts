@@ -22,6 +22,7 @@ import { withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken, ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
 import { calculateDocumentCosts, buildFieldsToUpdate, isGiftItem } from "./lib/cost-calculations"
+import { financialZohoLineItems } from "../../src/lib/zoho-line-items"
 
 import { prisma } from "./lib/prisma"
 const ZOHO_DC = process.env.ZOHO_DC || "com"
@@ -54,7 +55,7 @@ const ENTITY_CONFIG: Record<EntityType, {
 
 function calcTariffAmount(doc: any): number {
   let nonGiftDeadCost = 0
-  for (const item of (doc.line_items || [])) {
+  for (const item of financialZohoLineItems(doc.line_items)) {
     if (!isGiftItem(item)) {
       nonGiftDeadCost += parseFloat(item.purchase_rate || 0) * parseFloat(item.quantity || 1)
     }

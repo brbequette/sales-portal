@@ -16,6 +16,7 @@ import { Prisma } from "@prisma/client"
 import { prisma } from "./lib/prisma"
 import { authorizeCostProcessing, hasPrivilegedCostOptions } from "./lib/document-access"
 import { assertSyncJobWritable, recordSyncWriteAttempt } from "../../src/lib/sync-job-control"
+import { financialZohoLineItems } from "../../src/lib/zoho-line-items"
 const ORG_ID = ZOHO_ORGANIZATION_ID
 
 let invoiceFieldDefinitionsCache: { expiresAt: number; fields: any[] } | null = null
@@ -143,7 +144,7 @@ export const internalHandler: Handler = async (event) => {
       const removeTariff = invoice.custom_fields?.some((f: any) => f.label?.toUpperCase().includes('REMOVE TARIFF') && (f.value === true || f.value === 'true'))
       if (existingAdjustment === 0 && !removeTariff) {
         let nonGiftDeadCost = 0
-        for (const item of (invoice.line_items || [])) {
+        for (const item of financialZohoLineItems(invoice.line_items)) {
           const isGift = item.rate === 0 || item.custom_fields?.some((cf: any) => cf.label?.toUpperCase().includes('GIFT') && (cf.value === true || cf.value === 'true'))
           if (!isGift) {
             nonGiftDeadCost += parseFloat(item.purchase_rate || 0) * parseFloat(item.quantity || 1)

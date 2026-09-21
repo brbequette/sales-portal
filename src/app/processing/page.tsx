@@ -8,6 +8,7 @@ import {
   FiRefreshCw, FiSearch, FiShield, FiTruck, FiUser, FiXCircle,
 } from 'react-icons/fi'
 import toast from 'react-hot-toast'
+import { financialZohoLineItems } from '@/lib/zoho-line-items'
 
 type WorkItem = {
   id: string; customer: string; invoiceNumber: string; amount: number; balance: number; profit: number
@@ -97,7 +98,7 @@ export default function ProcessingPage(){
   const accountData=asRecord(lifecycle?.account)
   const accountContacts=asRows(accountData.contacts)
   const primaryContact=accountContacts.find(contact=>contact.isPrimary===true)||accountContacts[0]||{}
-  const lineItems=asRows(orderData.line_items || orderData.lineItemDetails || orderData.items)
+  const lineItems=financialZohoLineItems(orderData.line_items || orderData.lineItemDetails || orderData.items)
   const customerEmail=firstText(orderData.email,orderData.email_id,orderData.contact_email,primaryContact.email)
   const customerPhone=firstText(orderData.phone,orderData.phone_number,orderData.contact_phone,primaryContact.phone,primaryContact.mobilePhone)
   const shippingAddress=addressText(orderData.shipping_address || orderData.shippingAddress)||addressText({street:accountData.shippingStreet,city:accountData.shippingCity,state:accountData.shippingState,zip:accountData.shippingZip})

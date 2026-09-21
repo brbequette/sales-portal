@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { CreatePackageModal } from "./CreatePackageModal"
 import { CreateDropshipmentModal } from "./CreateDropshipmentModal"
 import { RecordPaymentModal } from "./RecordPaymentModal"
+import { classifyZohoLineItem, financialZohoLineItems, orderedZohoLineItems } from "@/lib/zoho-line-items"
 
 export interface DocumentPopoutContentProps {
   entityId: string
@@ -94,7 +95,7 @@ export function DocumentPopoutContent({
       {showPackageModal && displayData?.line_items && (
         <CreatePackageModal 
           salesOrderId={zohoId} 
-          lineItems={displayData.line_items}
+          lineItems={financialZohoLineItems(displayData.line_items)}
           onClose={() => setShowPackageModal(false)}
           onSuccess={(pkgId) => {
             alert(`Package created successfully! ID: ${pkgId}`)
@@ -105,7 +106,7 @@ export function DocumentPopoutContent({
       {showDropshipmentModal && displayData?.line_items && (
         <CreateDropshipmentModal 
           salesOrderId={zohoId} 
-          lineItems={displayData.line_items}
+          lineItems={financialZohoLineItems(displayData.line_items)}
           onClose={() => setShowDropshipmentModal(false)}
           onSuccess={(poId) => {
             alert(`Dropshipment Purchase Order created successfully! ID: ${poId}`)
@@ -290,7 +291,7 @@ export function DocumentPopoutContent({
                   paymentDate={displayData?.paymentDate || displayData?.paidDate || displayData?.payment_date || src.paymentDate || null}
                   lineItemDetails={
                     (displayData?.items?.lineItemDetails) ||
-                    displayData?.line_items?.map((item: any) => ({
+                    financialZohoLineItems(displayData?.line_items).map((item: any) => ({
                       name: item.name || item.description || "Item",
                       quantity: parseFloat(item.quantity || 1),
                       rate: parseFloat(item.rate || item.price || 0),
@@ -466,7 +467,11 @@ export function DocumentPopoutContent({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
-                          {displayData.line_items.map((item: any, i: number) => (
+                          {orderedZohoLineItems(displayData.line_items).map((item: any, i: number) => classifyZohoLineItem(item)?.structural ? (
+                            <tr key={item.line_item_id || i} className="bg-white/[0.04]">
+                              <td colSpan={5} className="px-3 py-2 font-bold text-neutral-300">{item.description || 'Section'}</td>
+                            </tr>
+                          ) : (
                             <tr key={item.line_item_id || i} className="hover:bg-white/[0.02] transition-colors">
                               <td className="px-3 py-2">
                                 <div className="text-white font-semibold truncate max-w-[200px]">{item.name || item.description || 'Item'}</div>

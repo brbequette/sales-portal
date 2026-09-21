@@ -6,6 +6,7 @@ import { authOptions } from '@/lib/auth';
 import { isAdministratorRole } from '@/lib/roles';
 import { Prisma } from '@prisma/client';
 import { calculateGlobalHeaderMetrics, resolveGlobalHeaderScope, scopeGlobalHeaderDocuments } from '@/lib/global-header-metrics';
+import { financialZohoLineItems } from '@/lib/zoho-line-items';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,8 +15,7 @@ function getSubTotal(items: any, amount: number) {
   if (isNaN(sub) || sub === 0) {
     const details = items.lineItemDetails || items.line_items || items.items;
     if (Array.isArray(details)) {
-      sub = details.reduce((sum: number, item: any) => {
-        if (item.line_item_category === 'header' || item.line_item_category === 'subtotal') return sum;
+      sub = financialZohoLineItems(details).reduce((sum: number, item) => {
         return sum + (parseFloat(item.quantity || 0) * parseFloat(item.rate || item.itemTotal || item.item_total || 0));
       }, 0);
     }
@@ -190,7 +190,7 @@ export async function GET(request: Request) {
           lastSyncedAt: record.lastSyncedAt,
           pendingCostSync: record.pendingCostSync === true,
           costReady: Boolean(record.costsCalculatedAt || items.deadCostTotal !== undefined || items.profit !== undefined),
-          lineCount: Array.isArray(items.line_items) ? items.line_items.length : 0,
+          lineCount: financialZohoLineItems(items.line_items).length,
         };
       };
 

@@ -1,6 +1,7 @@
 import { withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { prisma } from "./lib/prisma"
+import { financialZohoLineItems } from "../../src/lib/zoho-line-items"
 
 const authenticatedHandler: Handler = async (event) => {
   const cors = {
@@ -62,7 +63,7 @@ const authenticatedHandler: Handler = async (event) => {
       const issueDate = inv.issueDate ? new Date(inv.issueDate).toISOString() : null
       
       if (Array.isArray(lineItems)) {
-        for (const line of lineItems) {
+        for (const line of financialZohoLineItems(lineItems)) {
           const sku = line.sku || "N/A"
           const name = line.name || line.description || "Unknown Item"
           const qty = parseFloat(line.quantity || 0)
