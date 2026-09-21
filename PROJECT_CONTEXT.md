@@ -1,5 +1,11 @@
 # Titan Diamond — Consolidated Project Context
 
+## Commission cost-quality and clawback-day correction (2026-09-21)
+
+- A fresh read-only production PostgreSQL audit of Ross Haisler / 2026 found 238 eligible commission documents and reproduced the exact 35-row warning. All 35 are invoices (zero uninvoiced sales orders), total $65,512.11, and are category A: authoritative denormalized cost/profit/dead-profit columns and a stored commission snapshot exist. The query projection retained only `salesCommission` while discarding the `commission` and legacy CF aliases recognized by the canonical helper, so the helper received an incomplete object and falsely blocked all 35. Categories B–E are zero; no Ross/2026 document is genuinely missing authoritative cost evidence, and no financial data repair or Zoho access is required.
+- The commission function now emits one canonical `costQuality` result from the same stored-snapshot predicate used to select totals. The banner and sales-sheet rows consume that result instead of the legacy fallback flag. Legitimate zero, negative, and numeric-string snapshots remain authoritative; genuinely incomplete snapshots remain explicitly blocked while revenue stays visible.
+- Clawback aging now uses whole America/Phoenix calendar days rather than elapsed-hour fractions. The normalized integer drives display, tier boundaries, sorting, filtering, and counts; negative remaining days clamp to zero, while missing or invalid dates are explicitly unavailable.
+
 ## Commission authoritative-snapshot reader audit (2026-09-18)
 
 - Read-only production audit disproved the reported 35-current-block premise: September has 17 qualifying documents (15 invoices and 2 uninvoiced sales orders) totaling $44,780.89. Rep-stats classifies all 17 authoritative; `/commissions` falsely blocks 8 invoices totaling $23,459.30 because it reads legacy JSON profit/dead-profit keys but does not select the authoritative denormalized invoice columns added before PR #63.
