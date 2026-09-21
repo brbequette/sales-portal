@@ -16,6 +16,7 @@ import {
   FiRefreshCw
 } from "react-icons/fi"
 import { LineItemModal } from "./LineItemModal"
+import { financialZohoLineItems } from "@/lib/zoho-line-items"
 
 interface KpiBreakdownModalProps {
   isOpen: boolean
@@ -279,7 +280,7 @@ export function KpiBreakdownModal({
                       const isEditing = editingDocId === docId
                       const docNum = doc.invoiceNumber || doc.salesorder_number || doc.zohoId || `Doc #${i+1}`
                       const docDate = doc.issueDate || doc.date || doc.orderDate || doc.createdAt
-                      const lineItems = doc.lineItems || doc.line_items || []
+                      const lineItems = financialZohoLineItems(doc.lineItems || doc.line_items)
 
                       return (
                         <React.Fragment key={docId}>

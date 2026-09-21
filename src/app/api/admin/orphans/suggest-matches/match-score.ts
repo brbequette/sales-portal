@@ -1,3 +1,5 @@
+import { financialZohoLineItems } from '@/lib/zoho-line-items'
+
 export function computePOMatchScore(po: any, invoice: any) {
   let score = 0
   const reasons: string[] = []
@@ -31,8 +33,8 @@ export function computePOMatchScore(po: any, invoice: any) {
   }
 
   // 3. Line Item SKU / Product Match (Up to 30 points)
-  const poLineItems = po.items?.lineItems || po.items || []
-  const invLineItems = invItems.lineItemDetails || invItems.line_items || []
+  const poLineItems = financialZohoLineItems(po.items?.lineItems || po.items)
+  const invLineItems = financialZohoLineItems(invItems.lineItemDetails || invItems.line_items)
 
   if (Array.isArray(poLineItems) && Array.isArray(invLineItems) && poLineItems.length > 0 && invLineItems.length > 0) {
     let skuMatched = false

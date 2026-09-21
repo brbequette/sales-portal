@@ -1,6 +1,7 @@
 import { withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
+import { financialZohoLineItems } from "../../src/lib/zoho-line-items"
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 const ZOHO_DC = process.env.ZOHO_DC || "com"
@@ -120,7 +121,7 @@ const authenticatedHandler: Handler = async (event) => {
 
         // 4. Calculate tariff: 12.5% of dead cost of non-gift items
         let nonGiftDeadCost = 0
-        const lineItems = invoice.line_items || []
+        const lineItems = financialZohoLineItems(invoice.line_items)
 
         for (const item of lineItems) {
           if (!isGiftItem(item)) {

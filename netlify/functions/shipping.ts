@@ -1,5 +1,6 @@
 import { withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
+import { financialZohoLineItems } from "../../src/lib/zoho-line-items"
 import { prisma } from "./lib/prisma"
 import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from "./lib/zoho-auth"
 
@@ -287,7 +288,7 @@ const authenticatedHandler: Handler = async (event) => {
       let mappedLineItems: any[] = []
       
       if (Array.isArray(lineItems) && lineItems.length > 0) {
-        const filteredLines = lineItems.map((li: any) => {
+        const filteredLines = financialZohoLineItems(lineItems).map(li => {
           const totalQty = parseFloat(li.quantity || 0)
           const dropshippedQty = parseFloat(li.quantity_dropshipped || 0)
           const remainingQty = Math.max(0, totalQty - dropshippedQty)

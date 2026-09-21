@@ -3,6 +3,7 @@ import { useState, useMemo } from "react"
 import { FiPrinter, FiX, FiDollarSign, FiCalendar, FiTrendingUp, FiAward, FiCheckCircle, FiLayers } from "react-icons/fi"
 
 import { LineItemModal } from "./LineItemModal"
+import { financialZohoLineItems } from "@/lib/zoho-line-items"
 
 interface InvoiceRecord {
   id: string
@@ -362,7 +363,7 @@ export function PayPeriodStatementModal({ rep, onClose, initialWeekStart }: PayP
                   {upfrontInvoices.map(inv => {
                     const raw = (inv as any).raw || {}
                     const rawItems = (inv as any).items || raw.items || {}
-                    const lineItems: any[] = Array.isArray(rawItems.line_items) ? rawItems.line_items : (Array.isArray(rawItems) ? rawItems : [])
+                    const lineItems = financialZohoLineItems(Array.isArray(rawItems.line_items) ? rawItems.line_items : rawItems)
 
                     return (
                       <>
@@ -512,7 +513,7 @@ export function PayPeriodStatementModal({ rep, onClose, initialWeekStart }: PayP
                   {finalInvoices.map(inv => {
                     const raw = (inv as any).raw || {}
                     const rawItems = (inv as any).items || raw.items || {}
-                    const lineItems: any[] = Array.isArray(rawItems.line_items) ? rawItems.line_items : (Array.isArray(rawItems) ? rawItems : [])
+                    const lineItems = financialZohoLineItems(Array.isArray(rawItems.line_items) ? rawItems.line_items : rawItems)
 
                     return (
                       <>

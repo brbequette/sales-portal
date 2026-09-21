@@ -2,6 +2,7 @@ import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 
 import { prisma } from "./lib/prisma"
+import { financialZohoLineItems } from "../../src/lib/zoho-line-items"
 
 const authenticatedHandler: Handler = async (event) => {
   const cors = {
@@ -53,7 +54,7 @@ const authenticatedHandler: Handler = async (event) => {
       const items = inv.items as any
       const lineItems = items?.line_items
       if (Array.isArray(lineItems)) {
-        for (const line of lineItems) {
+        for (const line of financialZohoLineItems(lineItems)) {
           if (line.sku && line.sku.toLowerCase() === sku.toLowerCase()) {
             purchaseHistory.push({
               invoiceId: inv.id,

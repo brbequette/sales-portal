@@ -2,6 +2,7 @@ import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from '@netlify/functions'
 import { prisma } from "./lib/prisma"
 import { isAdminRole } from "../../src/lib/roles"
+import { financialZohoLineItems } from "../../src/lib/zoho-line-items"
 
 const authenticatedHandler: Handler = async (event, context) => {
   // CORS Headers
@@ -124,8 +125,7 @@ const authenticatedHandler: Handler = async (event, context) => {
     const getSubTotal = (items: any, amount: number) => {
       const details = items?.lineItemDetails || items?.line_items || items?.items
       if (Array.isArray(details)) {
-        const sum = details.reduce((sum: number, it: any) => {
-          if (it.line_item_category === "header" || it.line_item_category === "subtotal") return sum;
+        const sum = financialZohoLineItems(details).reduce((sum: number, it) => {
           const qty = parseFloat(it.quantity || 0)
           const discountAmount = parseFloat(it.discount_amount || it.discountAmount || 0)
           const rate = parseFloat(it.rate || 0)

@@ -5,6 +5,7 @@ const ORG_ID = ZOHO_ORGANIZATION_ID
 import { prisma } from "./lib/prisma"
 import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
 import { authorizeDocumentAccess } from "./lib/document-access"
+import { classifyZohoLineItem, structuralZohoLineItemPayload } from "../../src/lib/zoho-line-items"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 export const handler: Handler = async (event) => {
@@ -99,16 +100,20 @@ export const handler: Handler = async (event) => {
     // 3. Update the invoice in Zoho Books
     const payload = {
       customer_id: invoice.customer_id,
-      line_items: (invoice.line_items || []).map((item: any) => ({
-        line_item_id: item.line_item_id,
-        item_id: item.item_id,
-        name: item.name,
-        description: item.description,
-        rate: item.rate,
-        quantity: item.quantity,
-        tax_id: item.tax_id,
-        discount: remove ? 0 : `${discountPercentage}%`
-      })),
+      line_items: (invoice.line_items || []).map((item: any) => {
+        const classified = classifyZohoLineItem(item)
+        if (classified?.structural) return structuralZohoLineItemPayload(item)
+        return {
+          line_item_id: item.line_item_id,
+          item_id: item.item_id,
+          name: item.name,
+          description: item.description,
+          rate: item.rate,
+          quantity: item.quantity,
+          tax_id: item.tax_id,
+          discount: remove ? 0 : `${discountPercentage}%`
+        }
+      }).filter(Boolean),
       shipping_charge: invoice.shipping_charge || 0,
       discount_type: "item_level",
       is_discount_before_tax: !remove,

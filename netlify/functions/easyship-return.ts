@@ -7,6 +7,7 @@ import { getSystemSettings } from "./lib/settings"
 import { prisma } from "./lib/prisma"
 import { isAdminRole } from "../../src/lib/roles"
 import { getOriginFromDB } from "../../src/lib/easyship"
+import { financialZohoLineItems } from "../../src/lib/zoho-line-items"
 const EASYSHIP_API_KEY = process.env.EASYSHIP_API_KEY;
 const _esRawUrl = (process.env.EASYSHIP_API_URL || 'https://enterprise-api.easyship.com').replace(/\/+$/, '');
 const EASYSHIP_BASE = _esRawUrl.match(/\/\d{4}-\d{2}$/) ? _esRawUrl : `${_esRawUrl}/2024-09`;
@@ -133,7 +134,7 @@ const authenticatedHandler: Handler = async (event) => {
     }
 
     // 2. Map line items
-    const items = (invoice.line_items || []).map((item: any) => ({
+    const items = financialZohoLineItems(invoice.line_items).map(item => ({
       description: item.name || "Return Item",
       category: "returns",
       sku: item.sku || "RETURN",

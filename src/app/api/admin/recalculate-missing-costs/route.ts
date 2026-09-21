@@ -5,6 +5,7 @@ import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from '../../../../.
 import { calculateDocumentCosts } from '../../../../../netlify/functions/lib/cost-calculations'
 import { getSystemSettings } from '../../../../../netlify/functions/lib/settings'
 import { requireAdministrator } from '@/lib/auth-helpers'
+import { financialZohoLineItems } from '@/lib/zoho-line-items'
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 
@@ -80,7 +81,7 @@ export async function POST(req: Request) {
           const removeTariff = invoice.custom_fields?.some((f: any) => f.label?.toUpperCase().includes('REMOVE TARIFF') && (f.value === true || f.value === 'true'))
           if (existingAdjustment === 0 && !removeTariff) {
             let nonGiftDeadCost = 0
-            for (const item of (invoice.line_items || [])) {
+            for (const item of financialZohoLineItems(invoice.line_items)) {
               const isGift = item.rate === 0 || item.custom_fields?.some((cf: any) => cf.label?.toUpperCase().includes('GIFT') && (cf.value === true || cf.value === 'true'))
               if (!isGift) {
                 nonGiftDeadCost += parseFloat(item.purchase_rate || 0) * parseFloat(item.quantity || 1)

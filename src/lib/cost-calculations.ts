@@ -16,6 +16,7 @@ import { prisma } from "./prisma"
 import { getSystemSettings, AppSettings } from "./settings"
 import { extractCcFees, extractAdditionalCosts, extractInsurance, extractActualShippingCost, extractShippingCostBreakdown } from "./custom-field-extractor"
 import { BusinessDefaults, getBusinessDefaults } from "./business-defaults"
+import { financialZohoLineItems } from "./zoho-line-items"
 
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -329,9 +330,7 @@ export async function calculateDocumentCosts(
   let deadCostNoVig = 0
   const lineItemDetails: LineItemDetail[] = []
 
-  for (const item of (doc.line_items || [])) {
-    // Zoho Books API now supports "header" and "subtotal" rows. Skip them in cost calculations.
-    if (item.line_item_category === "header" || item.line_item_category === "subtotal") continue;
+  for (const item of financialZohoLineItems(doc.line_items)) {
 
     const qty          = parseFloat(item.quantity || 1)
     const rate         = parseFloat(item.rate || 0)
@@ -361,8 +360,7 @@ export async function calculateDocumentCosts(
 
   let subTotal = parseFloat(doc.sub_total || 0)
   if ((isNaN(subTotal) || subTotal === 0) && doc.line_items && Array.isArray(doc.line_items)) {
-    subTotal = doc.line_items.reduce((sum: number, item: any) => {
-      if (item.line_item_category === "header" || item.line_item_category === "subtotal") return sum;
+    subTotal = financialZohoLineItems(doc.line_items).reduce((sum: number, item) => {
       const qty = parseFloat(item.quantity || 0)
       const rate = parseFloat(item.rate || 0)
       const discountAmount = parseFloat(item.discount_amount || 0)

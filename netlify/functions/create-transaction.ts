@@ -8,6 +8,7 @@ import { internalHandler as processQuoteCosts } from "./process-quote-costs"
 import { internalHandler as processSalesOrderCosts } from "./process-salesorder-costs"
 import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
 import { isAdminRole } from "../../src/lib/roles"
+import { classifyZohoLineItem, financialZohoLineItems, orderedZohoLineItems, structuralZohoLineItemPayload } from "../../src/lib/zoho-line-items"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 export const handler: Handler = async (event, context) => {
@@ -122,7 +123,7 @@ export const handler: Handler = async (event, context) => {
       const payload = {
         customer_id: booksContactId,
         salesperson_name: author?.name || "System Admin",
-        line_items: (lineItems || []).map((li: any) => ({ item_id: li.itemId || undefined, name: li.name, description: li.description, rate: li.rate, quantity: li.quantity, discount: li.discount || 0 })),
+        line_items: financialZohoLineItems(lineItems).map(li => ({ item_id: li.itemId || undefined, name: li.name, description: li.description, rate: li.rate, quantity: li.quantity, discount: li.discount || 0 })),
         discount_type: "item_level",
         is_discount_before_tax: true,
         notes: "Created via Sales Portal POS"
@@ -144,13 +145,18 @@ export const handler: Handler = async (event, context) => {
 
     // Resolve full line items array
     const responseLineItems = zohoDoc?.line_items || lineItems || []
-    const resolvedLineItems = responseLineItems.map((li: any) => ({
-      name: li.name,
-      sku: li.sku || li.description?.replace("SKU: ", "")?.replace(" (PROMO FREE)", "") || "",
-      rate: parseFloat(li.rate || 0),
-      quantity: parseInt(li.quantity || 0),
-      description: li.description || ""
-    }))
+    const resolvedLineItems = orderedZohoLineItems(responseLineItems).map(li => {
+      if (classifyZohoLineItem(li)?.structural) return structuralZohoLineItemPayload(li)
+      return {
+        name: li.name,
+        sku: String(li.sku || li.description || '').replace("SKU: ", "").replace(" (PROMO FREE)", ""),
+        rate: parseFloat(String(li.rate || 0)),
+        quantity: parseInt(String(li.quantity || 0)),
+        description: li.description || "",
+        line_item_category: li.line_item_category,
+        item_order: li.item_order,
+      }
+    }).filter((lineItem): lineItem is Exclude<typeof lineItem, null> => lineItem !== null)
 
     // Now save to Prisma database
     let transaction: any;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
 import { requireAdministrator } from "@/lib/auth-helpers"
+import { financialZohoLineItems } from "@/lib/zoho-line-items"
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 /**
@@ -101,7 +102,7 @@ export async function POST(req: NextRequest) {
 
         // Calculate 12.5% of dead cost on non-gift items
         let nonGiftDeadCost = 0
-        for (const item of invoice.line_items || []) {
+        for (const item of financialZohoLineItems(invoice.line_items)) {
           if (!isGiftItem(item)) {
             nonGiftDeadCost += parseFloat(item.purchase_rate || 0) * parseFloat(item.quantity || 1)
           }

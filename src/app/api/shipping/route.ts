@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client"
 import { getZohoAccessToken, ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
 import { requireAdministrator } from "@/lib/auth-helpers"
 import { getAuthenticatedDbUser } from "@/lib/session-user"
+import { financialZohoLineItems } from "@/lib/zoho-line-items"
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 
@@ -235,7 +236,7 @@ export async function GET(req: NextRequest) {
       let mappedLineItems: any[] = []
       
       if (Array.isArray(lineItems) && lineItems.length > 0) {
-        const filteredLines = lineItems.map((li: any) => {
+        const filteredLines = financialZohoLineItems(lineItems).map(li => {
           const totalQty = parseFloat(li.quantity || 0)
           const dropshippedQty = parseFloat(li.quantity_dropshipped || 0)
           const remainingQty = Math.max(0, totalQty - dropshippedQty)
@@ -317,7 +318,7 @@ export async function GET(req: NextRequest) {
             status: po.status,
             trackingNumber: po.trackingNumber,
             shippingCharge: poItems.shipping_charge || 0,
-            lineItems: lineItems.map((li: any) => ({
+            lineItems: financialZohoLineItems(lineItems).map(li => ({
               name: li.name || li.item_name || li.description || '',
               sku: li.sku || '',
               quantity: li.quantity || 1,
@@ -551,7 +552,7 @@ export async function PUT(req: NextRequest) {
                       carrier: detail.delivery_method || p.delivery_method || null,
                       trackingNumber: detail.tracking_number || p.tracking_number || null,
                       shippingCharge: detail.shipping_charge || 0,
-                      items: detail.line_items ? { lineItems: detail.line_items.map((li: any) => ({
+                      items: detail.line_items ? { lineItems: financialZohoLineItems(detail.line_items).map(li => ({
                         line_item_id: li.line_item_id,
                         name: li.name,
                         sku: li.sku || '',
@@ -568,7 +569,7 @@ export async function PUT(req: NextRequest) {
                       carrier: detail.delivery_method || p.delivery_method || null,
                       trackingNumber: detail.tracking_number || p.tracking_number || null,
                       shippingCharge: detail.shipping_charge || 0,
-                      items: detail.line_items ? { lineItems: detail.line_items.map((li: any) => ({
+                      items: detail.line_items ? { lineItems: financialZohoLineItems(detail.line_items).map(li => ({
                         line_item_id: li.line_item_id,
                         name: li.name,
                         sku: li.sku || '',

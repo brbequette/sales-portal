@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth"
 import { NextRequest, NextResponse } from "next/server"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { financialZohoLineItems } from "@/lib/zoho-line-items"
 
 type JsonRecord = Record<string, unknown>
 
@@ -23,7 +24,7 @@ const normalizeName = (value: string) => {
 
 function salesperson(items: unknown) {
   const data = record(items)
-  const lines = Array.isArray(data.line_items) ? data.line_items.map(record) : []
+  const lines = financialZohoLineItems(data.line_items).map(record)
   return text(data.salespersonName, data.salesperson_name, data.cf_salesperson, lines[0]?.salesperson_name, lines[0]?.cf_salesperson)
 }
 

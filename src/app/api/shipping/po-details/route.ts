@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getZohoAccessToken, ZOHO_ORGANIZATION_ID } from '@/lib/zoho-auth'
 import { prisma } from '@/lib/prisma'
 import { requireAdministrator } from '@/lib/auth-helpers'
+import { financialZohoLineItems } from '@/lib/zoho-line-items'
 
 const ZOHO_DC = process.env.ZOHO_DC || 'com'
 
@@ -33,7 +34,7 @@ export async function GET(req: Request) {
     const data = await res.json()
     const po = data.purchaseorder || {}
 
-    const lineItems = (po.line_items || []).map((li: any) => ({
+    const lineItems = financialZohoLineItems(po.line_items).map((li: any) => ({
       name: li.name || li.item_name || li.description || '',
       sku: li.sku || '',
       quantity: li.quantity || 1,

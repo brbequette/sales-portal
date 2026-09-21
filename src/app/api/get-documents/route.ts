@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth'
 import { hasValidTvSession } from '@/lib/tv-auth'
 import { isAdminRole } from '@/lib/roles'
 import { requireTvAccess } from '@/lib/tv-access'
+import { financialZohoLineItems } from '@/lib/zoho-line-items'
 
 export async function GET(request: Request) {
   try {
@@ -229,8 +230,7 @@ export async function GET(request: Request) {
           }, 0)
         }
         if ((isNaN(subTotal) || subTotal === 0) && items.line_items && Array.isArray(items.line_items)) {
-          subTotal = items.line_items.reduce((sum: number, it: any) => {
-            if (it.line_item_category === "header" || it.line_item_category === "subtotal") return sum;
+          subTotal = financialZohoLineItems(items.line_items).reduce((sum: number, it) => {
             const qty = parseFloat(it.quantity || 0)
             const rate = parseFloat(it.rate || 0)
             return sum + (qty * rate)
