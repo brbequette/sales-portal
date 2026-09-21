@@ -11,6 +11,19 @@ export type RepStatsTarget = {
   source: 'MONTHLY_VIG_GOAL' | 'DAILY_PROFIT_TARGET' | 'NOT_CONFIGURED'
 }
 
+export type RepStatsRosterCandidate = {
+  repId: string
+  isSalesperson: boolean
+  yearInvoiceCount: number
+  yearSalesOrderCount: number
+}
+
+export type RepStatsCompanyTargetMember = {
+  target: RepStatsTarget
+  revenue: number
+  profit: number
+}
+
 const cents = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100
 
 export function combineRepStatsDocuments(invoices: RepStatsDocument[], salesOrders: RepStatsDocument[]) {
@@ -32,6 +45,44 @@ export function calculateTargetProgress(
   if (!target.configured || target.value == null || target.value <= 0) return null
   const actual = target.metric === 'SUBTOTAL' ? totals.revenue : totals.profit
   return actual / target.value * 100
+}
+
+export function eligibleRepIdsForYear(candidates: RepStatsRosterCandidate[]) {
+  return new Set(candidates
+    .filter(candidate => candidate.isSalesperson && candidate.yearInvoiceCount + candidate.yearSalesOrderCount > 0)
+    .map(candidate => candidate.repId))
+}
+
+export function aggregateCompanyTarget(members: RepStatsCompanyTargetMember[]) {
+  const missingTargetCount = members.filter(member => !member.target.configured || member.target.value == null || member.target.value <= 0).length
+  const metrics = new Set(members.filter(member => member.target.configured).map(member => member.target.metric))
+  const configured = members.length > 0 && missingTargetCount === 0 && metrics.size === 1
+  const metric = metrics.size === 1 ? [...metrics][0] : null
+  const target = configured ? cents(members.reduce((sum, member) => sum + (member.target.value || 0), 0)) : null
+  const actual = metric === 'SUBTOTAL'
+    ? cents(members.reduce((sum, member) => sum + member.revenue, 0))
+    : cents(members.reduce((sum, member) => sum + member.profit, 0))
+  return {
+    configured,
+    status: configured ? 'CONFIGURED' as const : 'INCOMPLETE_CONFIGURATION' as const,
+    includedRepCount: members.length,
+    missingTargetCount,
+    metric,
+    target,
+    actual,
+    progressPercent: configured && target ? actual / target * 100 : null,
+  }
+}
+
+export function resolveRepStatsVigRate(
+  repName: string,
+  constantEnabled: boolean,
+  constantValue: number | null,
+  authoritativeRate: number,
+) {
+  const normalizedName = repName.trim().toLowerCase()
+  if (normalizedName.includes('montgomery') || normalizedName.includes('monty morgan')) return 1.0
+  return constantEnabled && constantValue != null ? constantValue : authoritativeRate
 }
 
 export function countCompanyWorkdays(start: Date, end: Date, holidays: Set<string>) {

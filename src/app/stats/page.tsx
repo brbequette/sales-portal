@@ -60,6 +60,23 @@ interface CompanyData {
   overdueCollections: number
 }
 
+interface CompanyTargetSummary {
+  configured: boolean
+  status: 'CONFIGURED' | 'INCOMPLETE_CONFIGURATION'
+  includedRepCount: number
+  missingTargetCount: number
+  metric: TargetMetric | null
+  target: number | null
+  actual: number
+  progressPercent: number | null
+}
+
+interface RosterSummary {
+  rule: 'SALESPERSON_WITH_QUALIFYING_SELECTED_YEAR_ACTIVITY'
+  year: number
+  includedRepCount: number
+}
+
 function formatCurrency(value: number): string {
   if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`
   if (value >= 1000) return `$${(value / 1000).toFixed(1)}k`
@@ -95,6 +112,8 @@ export default function StatsPage() {
   const [companyAverages, setCompanyAverages] = useState<CompanyData | null>(null)
   const [historicalVigRates, setHistoricalVigRates] = useState<any[]>([])
   const [excludedSalesOrders, setExcludedSalesOrders] = useState<any[]>([])
+  const [companyTarget, setCompanyTarget] = useState<CompanyTargetSummary | null>(null)
+  const [rosterSummary, setRosterSummary] = useState<RosterSummary | null>(null)
   const [detailView, setDetailView] = useState<'revenue' | 'profit' | 'documents' | 'target' | null>(null)
   const [selectedPeriod, setSelectedPeriod] = useState<"daily" | "weekly" | "monthly" | "annually">("monthly")
   const repPeriodKey = selectedPeriod
@@ -166,6 +185,8 @@ export default function StatsPage() {
           setCompanyAverages(data.companyAverages || totals)
           setHistoricalVigRates(data.historicalVigRates || [])
           setExcludedSalesOrders(data.excludedSalesOrders || [])
+          setCompanyTarget(data.companyTarget || null)
+          setRosterSummary(data.roster || null)
         } else {
           setApiError(data.error || "Failed to load stats")
         }
@@ -282,22 +303,24 @@ export default function StatsPage() {
     let revenue = 0
     let profit = 0
     let dealsWon = 0
-    let target = 0
-    let targetConfigured = reps.length > 0
-    const targetMetrics = new Set<TargetMetric>()
     reps.forEach(r => {
       const stats = r[repPeriodKey] || { revenue: 0, profit: 0, dealsWon: 0, target: null, targetConfigured: false }
       revenue += stats.revenue || 0
       profit += stats.profit || 0
       dealsWon += stats.dealsWon || 0
-      if (stats.targetConfigured && stats.target != null) { target += stats.target; targetMetrics.add(stats.targetMetric) }
-      else targetConfigured = false
     })
-    if (targetMetrics.size > 1) targetConfigured = false
-    const targetMetric = targetMetrics.values().next().value as TargetMetric | undefined
-    const targetActual = targetMetric === 'SUBTOTAL' ? revenue : profit
-    return { revenue, profit, dealsWon, target: targetConfigured ? target : null, targetConfigured, targetMetric, targetActual }
-  }, [reps, selectedPeriod])
+    return {
+      revenue,
+      profit,
+      dealsWon,
+      target: companyTarget?.target ?? null,
+      targetConfigured: companyTarget?.configured === true,
+      targetMetric: companyTarget?.metric,
+      targetActual: companyTarget?.actual ?? profit,
+      targetProgressPercent: companyTarget?.progressPercent ?? null,
+      missingTargetCount: companyTarget?.missingTargetCount ?? 0,
+    }
+  }, [reps, selectedPeriod, companyTarget])
 
   const contributingDocuments = useMemo(() => reps.flatMap(rep => [
     ...(rep.invoices || []).map((document: any) => ({ ...document, type: 'Invoice' })),
@@ -419,12 +442,14 @@ export default function StatsPage() {
                 {
                   key: 'target' as const,
                   label: `${periodLabel} Target Progress`,
-                  value: periodTotals.targetConfigured && periodTotals.target != null ? `${((periodTotals.targetActual / periodTotals.target) * 100).toFixed(1)}%` : "Not configured",
+                  value: periodTotals.targetConfigured && periodTotals.targetProgressPercent != null ? `${periodTotals.targetProgressPercent.toFixed(1)}%` : "Incomplete configuration",
                   icon: <FiTarget />,
                   color: "text-sky-400",
                   border: "border-sky-500/20",
                   bg: "bg-sky-950/20",
-                  subtext: periodTotals.targetConfigured && periodTotals.target != null ? `Target: ${formatPreciseCurrency(periodTotals.target)}` : 'No authoritative target for one or more representatives'
+                  subtext: periodTotals.targetConfigured && periodTotals.target != null
+                    ? `Target: ${formatPreciseCurrency(periodTotals.target)} across ${companyTarget?.includedRepCount || 0} eligible reps`
+                    : `${periodTotals.missingTargetCount} eligible rep${periodTotals.missingTargetCount === 1 ? '' : 's'} missing an authoritative target`
                 },
               ].map(card => (
                 <button type="button" onClick={() => setDetailView(detailView === card.key ? null : card.key)} key={card.label} className={`${card.bg} border ${card.border} rounded-2xl p-4 text-left hover:scale-[1.01] transition-all duration-200 flex flex-col justify-between`}>
@@ -441,6 +466,12 @@ export default function StatsPage() {
             </div>
           )
         })()}
+
+        {rosterSummary && (
+          <div className="rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3 text-[11px] text-neutral-400">
+            Leaderboard includes {rosterSummary.includedRepCount} salesperson{rosterSummary.includedRepCount === 1 ? '' : 's'} with qualifying {rosterSummary.year} invoices or eligible uninvoiced sales orders. Periods with no activity remain visible as zero; admin-only, service, duplicate empty, and zero-year-activity accounts are excluded.
+          </div>
+        )}
 
         {detailView && (
           <div className="modern-card p-4 space-y-3">
