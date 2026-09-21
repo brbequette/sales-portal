@@ -13,6 +13,7 @@ import {
 import { classifyAtRiskInvoices, DEFAULT_CLAWBACK_SETTINGS, type AtRiskInvoice, type ClawbackSettings } from '@/lib/clawback-calculator'
 import { UpdateBanner } from '@/lib/useStaleCheck'
 import { isAdminRole } from "@/lib/roles"
+import { COMMISSION_COST_QUALITY } from '@/lib/commission-financial-snapshot'
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(n || 0)
@@ -161,7 +162,7 @@ export default function CommissionsPage() {
     }
     return byRep[selectedRepId]
   }, [byRep, selectedRepId])
-  const qualityBlockedCount = useMemo(() => (currentRepData?.invoices || []).filter((invoice: any) => invoice.usedFallbackCost).length, [currentRepData])
+  const qualityBlockedCount = useMemo(() => (currentRepData?.invoices || []).filter((invoice: any) => invoice.costQuality === COMMISSION_COST_QUALITY.BLOCKED).length, [currentRepData])
 
   // Group current rep's invoices into Pay Period Weeks
   const weeklyGroups = useMemo<WeeklyGroup[]>(() => {
@@ -288,7 +289,7 @@ export default function CommissionsPage() {
 
     // Map invoices to the shape needed by the clawback calculator  
     const mappedInvoices = (clawbackByRep[selectedRepId] || [])
-      .filter((inv: any) => !inv.isPaid && inv.daysOld > 0)
+      .filter((inv: any) => !inv.isPaid)
       .map((inv: any) => ({
         id: inv.id,
         invoiceNumber: inv.invoiceNumber,
@@ -301,7 +302,7 @@ export default function CommissionsPage() {
         vigRate: inv.vigRate || 1.3,
         actualShippingCost: inv.actualShippingCost || 0,
         isPaid: false,
-        daysOld: inv.daysOld || 0,
+        daysOld: typeof inv.daysOld === 'number' ? inv.daysOld : null,
         repId: inv.repId || currentRepData.repId,
         accountName: inv.accountName || inv.name || 'Unknown',
         contactName: inv.contactName || null,
@@ -317,6 +318,7 @@ export default function CommissionsPage() {
       critical: atRisk.filter(i => i.urgency === 'critical'),
       warning: atRisk.filter(i => i.urgency === 'warning'),
       watch: atRisk.filter(i => i.urgency === 'watch'),
+      unavailable: atRisk.filter(i => i.urgency === 'unavailable'),
     }
     
     return { pendingCommission: pending, atRiskInvoices: atRisk, clawbackTotals: clawTotals }
@@ -682,15 +684,15 @@ export default function CommissionsPage() {
                             }`}>
                               <td className="px-4 py-2">
                                 <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
-                                  inv.urgency === 'critical' ? 'bg-red-500/20 text-red-400' : inv.urgency === 'warning' ? 'bg-amber-500/20 text-amber-400' : 'bg-neutral-700 text-neutral-400'
-                                }`}>{inv.urgency === 'critical' ? '< 30d' : inv.urgency === 'warning' ? '30-60d' : '60-90d'}</span>
+                                inv.urgency === 'critical' ? 'bg-red-500/20 text-red-400' : inv.urgency === 'warning' ? 'bg-amber-500/20 text-amber-400' : 'bg-neutral-700 text-neutral-400'
+                                }`}>{inv.urgency === 'critical' ? '< 30d' : inv.urgency === 'warning' ? '30-59d' : inv.urgency === 'watch' ? '60-90d' : 'Unavailable'}</span>
                               </td>
                               <td className="px-3 py-2 font-mono font-bold text-indigo-400">#{inv.invoiceNumber || '--'}</td>
                               <td className="px-3 py-2 text-neutral-300 font-medium">{inv.accountName}</td>
-                              <td className="px-3 py-2 text-right text-neutral-400 tabular-nums">{Math.round(inv.daysOld)}</td>
+                              <td className="px-3 py-2 text-right text-neutral-400 tabular-nums">{inv.daysOld == null ? 'Unavailable' : inv.daysOld}</td>
                               <td className={`px-3 py-2 text-right font-bold tabular-nums ${
                                 inv.urgency === 'critical' ? 'text-red-400' : inv.urgency === 'warning' ? 'text-amber-400' : 'text-neutral-300'
-                              }`}>{inv.daysToClawback}</td>
+                              }`}>{inv.daysToClawback == null ? 'Unavailable' : inv.daysToClawback}</td>
                               <td className="px-3 py-2 text-right text-white font-medium tabular-nums">{fmt(inv.amount)}</td>
                               <td className="px-3 py-2 text-right text-neutral-400 tabular-nums">{fmt(inv.deadCost)}</td>
                               <td className="px-3 py-2 text-right text-neutral-400 tabular-nums">{fmt(inv.actualShippingCost)}</td>

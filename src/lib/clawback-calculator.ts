@@ -1,3 +1,5 @@
+import { normalizeWholeDaysRemaining } from './company-calendar-days'
+
 /**
  * Clawback Cascade Calculator
  * 
@@ -42,7 +44,7 @@ export interface InvoiceForClawback {
   vigRate: number
   actualShippingCost: number
   isPaid: boolean
-  daysOld: number          // days overdue (retained name for API compatibility)
+  daysOld: number | null   // whole company-calendar days overdue; null when unavailable
   repId: string
   accountName: string
   contactName?: string | null
@@ -131,11 +133,11 @@ export interface ClawbackImpact {
 // ─── At-risk invoice with clawback details ───────────────────────────────────
 
 export interface AtRiskInvoice extends InvoiceForClawback {
-  daysToClawback: number
+  daysToClawback: number | null
   isApproachingClawback: boolean
   chargeOffRepCost: number
   pendingCommission: number   // future commission not yet earned
-  urgency: 'critical' | 'warning' | 'watch'  // <30, <60, <90 days
+  urgency: 'critical' | 'warning' | 'watch' | 'unavailable'
 }
 
 // ─── Helper: Get month key from date ─────────────────────────────────────────
@@ -159,19 +161,20 @@ export function classifyAtRiskInvoices(
 ): AtRiskInvoice[] {
   const thresholdDays = settings.clawback_threshold_days
   const warningDays = settings.warning_window_days
-  const warningStart = Math.max(0, thresholdDays - warningDays)
-
   return invoices
-    .filter(inv => !inv.isPaid && inv.daysOld >= warningStart)
+    .filter(inv => !inv.isPaid)
     .map(inv => {
-      const daysToClawback = Math.max(0, thresholdDays - inv.daysOld)
-      const isApproachingClawback = daysToClawback > 0 && daysToClawback <= warningDays
+      const daysToClawback = inv.daysOld == null
+        ? null
+        : normalizeWholeDaysRemaining(thresholdDays - inv.daysOld)
+      const isApproachingClawback = daysToClawback != null && daysToClawback > 0 && daysToClawback <= warningDays
       const chargeOffRepCost = (inv.deadCost + inv.actualShippingCost) * settings.rep_cost_split_pct
       const pendingCommission = inv.commission.future
 
-      let urgency: 'critical' | 'warning' | 'watch' = 'watch'
-      if (daysToClawback <= 30) urgency = 'critical'
-      else if (daysToClawback <= 60) urgency = 'warning'
+      let urgency: AtRiskInvoice['urgency'] = 'unavailable'
+      if (daysToClawback != null && daysToClawback < 30) urgency = 'critical'
+      else if (daysToClawback != null && daysToClawback < 60) urgency = 'warning'
+      else if (daysToClawback != null) urgency = 'watch'
 
       return {
         ...inv,
@@ -182,7 +185,12 @@ export function classifyAtRiskInvoices(
         urgency,
       }
     })
-    .sort((a, b) => a.daysToClawback - b.daysToClawback)
+    .filter(inv => inv.daysToClawback == null || inv.daysToClawback <= warningDays)
+    .sort((a, b) => {
+      if (a.daysToClawback == null) return b.daysToClawback == null ? 0 : 1
+      if (b.daysToClawback == null) return -1
+      return a.daysToClawback - b.daysToClawback
+    })
 }
 
 // ─── Calculate clawback cascade impact ───────────────────────────────────────
@@ -325,7 +333,7 @@ export function calculateClawbackImpact(
   const recursiveImpacts = [...oneMonthImpacts]
   let recursiveVigImpact = totalVigImpact
   let recursiveBonusReversed = totalBonusReversed
-  let recursiveCommClawed = totalCommClawed
+  const recursiveCommClawed = totalCommClawed
 
   // Build a set of months already processed
   const processedMonths = new Set(Object.keys(byMonth))

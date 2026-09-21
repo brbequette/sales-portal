@@ -329,7 +329,7 @@ export default function SalesSheetPage() {
                         <tr
                           key={inv.id}
                           className={`border-b hover:bg-white/[0.02] transition-colors group ${inv.documentType === "invoice" && !inv.isDraft ? "cursor-pointer" : ""}`}
-                          style={{ borderColor: "var(--border, #1a1a1a)", borderLeft: `4px solid ${docTheme.border}`, ...(inv.usedFallbackCost ? { background: 'rgba(245,158,11,0.03)' } : {}) }}
+                          style={{ borderColor: "var(--border, #1a1a1a)", borderLeft: `4px solid ${docTheme.border}`, ...(inv.costQuality === 'BLOCKED_MISSING_COST' ? { background: 'rgba(245,158,11,0.03)' } : {}) }}
                           onClick={() => { if (inv.documentType === "invoice" && !inv.isDraft) setActiveInvoice(inv) }}
                         >
                           <td className="px-3 py-2 text-xs text-neutral-600 font-mono">{idx + 1}</td>
@@ -359,8 +359,8 @@ export default function SalesSheetPage() {
                           <td className="px-3 py-2 text-xs font-medium text-neutral-200 text-right tabular-nums">
                             {fmt(inv.amount)}
                           </td>
-                          <td className="px-3 py-2 text-xs text-neutral-400 text-right tabular-nums" title={inv.usedFallbackCost ? 'Estimated — no real cost data on line items' : ''}>
-                            {inv.usedFallbackCost && <span className="text-amber-400 mr-1" title="Estimated cost — needs real data">⚠</span>}
+                          <td className="px-3 py-2 text-xs text-neutral-400 text-right tabular-nums" title={inv.costQuality === 'BLOCKED_MISSING_COST' ? 'Blocked — authoritative stored cost is missing' : ''}>
+                            {inv.costQuality === 'BLOCKED_MISSING_COST' && <span className="text-amber-400 mr-1" title="Blocked — authoritative stored cost is missing">⚠</span>}
                             {fmt(inv.deadCost)}
                           </td>
                           <td className="px-3 py-2 text-xs font-medium text-right tabular-nums" style={{ color: (inv.profit || 0) >= 0 ? "#34d399" : "#f87171" }}>

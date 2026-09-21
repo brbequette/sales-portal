@@ -4,7 +4,8 @@ import { Prisma } from "@prisma/client"
 import { prisma } from "./lib/prisma"
 import { isAdminRole } from "../../src/lib/roles"
 import { financialNumber, headerCommission } from "../../src/lib/global-header-metrics"
-import { hasAuthoritativeInvoiceColumns } from "../../src/lib/commission-financial-snapshot"
+import { classifyCommissionCostQuality, COMMISSION_COST_QUALITY, hasAuthoritativeInvoiceColumns, hasAuthoritativeLegacyFinancials } from "../../src/lib/commission-financial-snapshot"
+import { companyCalendarDaysBetween } from "../../src/lib/company-calendar-days"
 
 
 // Statuses where the FINAL half is earned (invoice has been paid)
@@ -30,15 +31,6 @@ function getSubTotal(items: any, amount: number) {
 
 function hasStoredValue(value: unknown): boolean {
   return value !== undefined && value !== null && value !== ''
-}
-
-function hasAuthoritativeFinancials(items: Record<string, unknown>): boolean {
-  const hasCost = hasStoredValue(items.deadCostTotal ?? items.dead_cost_total ?? items.deadCost ?? items.cf_dead_cost_total ?? items.cf_dead_cost_total_unformatted)
-  const hasProfit = hasStoredValue(items.profit)
-  const hasDeadProfit = hasStoredValue(items.deadProfitActual)
-  const hasCommission = [items.salesCommission, items.commission, items.cf_commission_amount, items.cf_commision_amount, items.cf_commission_amount_unformatted]
-    .some(hasStoredValue)
-  return hasCost && hasProfit && hasDeadProfit && hasCommission
 }
 
 const authenticatedHandler: Handler = async (event) => {
@@ -172,6 +164,10 @@ const authenticatedHandler: Handler = async (event) => {
             'balance',                   i.items->>'balance',
             'profit',                    i.items->>'profit',
             'salesCommission',           i.items->>'salesCommission',
+            'commission',                i.items->>'commission',
+            'cf_commission_amount',      i.items->>'cf_commission_amount',
+            'cf_commision_amount',       i.items->>'cf_commision_amount',
+            'cf_commission_amount_unformatted', i.items->>'cf_commission_amount_unformatted',
             'deadProfitActual',          i.items->>'deadProfitActual',
             'commissionPct',             i.items->>'commissionPct',
             'vigRate',                   i.items->>'vigRate',
@@ -236,6 +232,10 @@ const authenticatedHandler: Handler = async (event) => {
             'balance',                s.items->>'balance',
             'profit',                 s.items->>'profit',
             'salesCommission',        s.items->>'salesCommission',
+            'commission',             s.items->>'commission',
+            'cf_commission_amount',   s.items->>'cf_commission_amount',
+            'cf_commision_amount',    s.items->>'cf_commision_amount',
+            'cf_commission_amount_unformatted', s.items->>'cf_commission_amount_unformatted',
             'deadProfitActual',       s.items->>'deadProfitActual',
             'commissionPct',          s.items->>'commissionPct',
             'vigRate',                s.items->>'vigRate',
@@ -498,7 +498,8 @@ const authenticatedHandler: Handler = async (event) => {
       // If the invoice has been processed (has stored profit), use stored values directly.
       // This ensures the sales sheet matches the invoice detail modal exactly.
       const hasStoredColumns = hasAuthoritativeInvoiceColumns(inv, items)
-      const hasStoredCosts = hasStoredColumns || hasAuthoritativeFinancials(items)
+      const costQuality = classifyCommissionCostQuality(inv, items)
+      const hasStoredCosts = costQuality === COMMISSION_COST_QUALITY.AUTHORITATIVE
       
       let deadCost: number
       let deadCostPlusVig: number
@@ -515,7 +516,7 @@ const authenticatedHandler: Handler = async (event) => {
         profit = hasStoredColumns ? financialNumber(inv.computedProfit) : financialNumber(items.profit)
         deadProfit = hasStoredColumns ? financialNumber(inv.computedDeadProfit) : (items.deadProfitActual != null ? financialNumber(items.deadProfitActual) : subTotal - deadCost)
         salesCommission = headerCommission(items)
-        usedFallbackCost = items.usedFallbackCost === true || items.usedFallbackCost === 'true'
+        usedFallbackCost = false
       } else {
         // Financial reads never calculate, persist, or approximate missing costs.
         // The record remains visible with an explicit quality blocker and contributes
@@ -567,10 +568,8 @@ const authenticatedHandler: Handler = async (event) => {
       const isSameDayPaid = isPaid && (issueDateStr === paymentDateStr)
 
       // Clawback aging is based on the contractual due date, never issue date.
-      const daysOld = inv.dueDate
-        ? Math.max(0, (Date.now() - new Date(inv.dueDate).getTime()) / (1000 * 60 * 60 * 24))
-        : 0
-      const isAtRisk = !isPaid && daysOld >= atRiskDaysOverdue
+      const daysOld = companyCalendarDaysBetween(inv.dueDate)
+      const isAtRisk = !isPaid && daysOld != null && daysOld >= atRiskDaysOverdue
       const atRiskAmount = isAtRisk ? future : 0
 
       const rawLineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
@@ -606,6 +605,7 @@ const authenticatedHandler: Handler = async (event) => {
         contactPhone: inv.contactPhone || null,
         commission: { total, upfront, final: final, future, atRiskAmount },
         usedFallbackCost,
+        costQuality,
         type: "invoice" as const
       }
     }))
@@ -644,7 +644,10 @@ const authenticatedHandler: Handler = async (event) => {
       )
 
       // ── PREFER STORED VALUES ────────────────────────────────
-      const hasStoredCosts = hasAuthoritativeFinancials(items)
+      const costQuality = hasAuthoritativeLegacyFinancials(items)
+        ? COMMISSION_COST_QUALITY.AUTHORITATIVE
+        : COMMISSION_COST_QUALITY.BLOCKED
+      const hasStoredCosts = costQuality === COMMISSION_COST_QUALITY.AUTHORITATIVE
 
       let deadCost: number
       let profit: number
@@ -657,7 +660,7 @@ const authenticatedHandler: Handler = async (event) => {
         profit = financialNumber(items.profit)
         deadProfit = items.deadProfitActual != null ? financialNumber(items.deadProfitActual) : subTotal - deadCost
         salesCommission = headerCommission(items)
-        usedFallbackCost = items.usedFallbackCost === true || items.usedFallbackCost === 'true'
+        usedFallbackCost = false
       } else {
         deadCost = 0
         profit = 0
@@ -719,6 +722,7 @@ const authenticatedHandler: Handler = async (event) => {
         contactPhone: null as string | null,
         commission: { total, upfront, final, future, atRiskAmount: 0 },
         usedFallbackCost,
+        costQuality,
         type: "invoice" as const
       }
     }))).filter(so => !INVOICED_SO_STATUSES.has(so.status || ''))
@@ -802,6 +806,7 @@ const authenticatedHandler: Handler = async (event) => {
         contactPhone: inv.contactPhone || null,
         commission: inv.commission || { total: 0, upfront: 0, final: 0, future: 0, atRiskAmount: 0 },
         usedFallbackCost: !!(inv as any).usedFallbackCost,
+        costQuality: (inv as any).costQuality,
         repName: inv.repName || byRep[key].repName || null,
         salesperson: inv.repName || byRep[key].repName || null
       })
@@ -978,7 +983,7 @@ const authenticatedHandler: Handler = async (event) => {
     // Clawback is intentionally independent of the selected commission year.
     const clawbackByRep: Record<string, any[]> = {}
     for (const inv of allInvoiceRecords) {
-      if (inv.isPaid || !inv.dueDate) continue
+      if (inv.isPaid) continue
       const key = inv.repId
       if (!clawbackByRep[key]) clawbackByRep[key] = []
       clawbackByRep[key].push({
