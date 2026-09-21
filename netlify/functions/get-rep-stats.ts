@@ -3,7 +3,7 @@ import { Handler } from "@netlify/functions"
 import { prisma, Prisma } from "./lib/prisma"
 import { financialNumber, headerCommission } from "../../src/lib/global-header-metrics"
 import { isAdminRole } from "../../src/lib/roles"
-import { calculateTargetProgress, combineRepStatsDocuments, countCompanyWorkdays, type RepStatsTarget } from "../../src/lib/rep-stats-period"
+import { aggregateCompanyTarget, calculateTargetProgress, combineRepStatsDocuments, countCompanyWorkdays, eligibleRepIdsForYear, resolveRepStatsVigRate, type RepStatsTarget } from "../../src/lib/rep-stats-period"
 
 function hasStoredCommission(items: Record<string, unknown>): boolean {
   return [items.salesCommission, items.commission, items.cf_commission_amount, items.cf_commision_amount, items.cf_commission_amount_unformatted]
@@ -127,6 +127,9 @@ const authenticatedHandler: Handler = async (event) => {
     const salesOrderRepFilterSql = requestedRep
       ? Prisma.sql`AND (a."ownerId" = ${requestedRep.id} OR LOWER(TRIM(COALESCE(s.items->>'salesperson_name', s.items->>'salesperson', ''))) = LOWER(${requestedRep.name}))`
       : repIdFilter !== 'all' ? Prisma.sql`AND a."ownerId" = ${repIdFilter}` : Prisma.empty
+    const rosterYear = periodParam === 'all_time' || periodParam === 'all' ? now.getFullYear() : rangeStart.getUTCFullYear()
+    const rosterYearStart = new Date(Date.UTC(rosterYear, 0, 1))
+    const rosterYearEnd = new Date(Date.UTC(rosterYear + 1, 0, 1))
 
     const [
       users,
@@ -135,7 +138,9 @@ const authenticatedHandler: Handler = async (event) => {
       monthlyGoals,
       targetSettings,
       excludedSalesOrders,
-    ]: [any[], any[], any[], any[], any[], any[]] = await Promise.all([
+      rosterInvoices,
+      rosterSalesOrders,
+    ] = await Promise.all([
       prisma.user.findMany({
         where: {
           AND: [
@@ -151,6 +156,7 @@ const authenticatedHandler: Handler = async (event) => {
           phone: true,
           title: true,
           role: true,
+          isSalesperson: true,
           constantVigEnabled: true,
           constantVigValue: true,
           payoutStructure: true
@@ -321,7 +327,34 @@ const authenticatedHandler: Handler = async (event) => {
               )
             )
           )
-      `).catch(() => [])
+      `).catch(() => []),
+      prisma.$queryRaw<Array<{ salesperson: string | null; legacySalesperson: string | null; accountOwnerId: string | null }>>(Prisma.sql`
+        SELECT i."computedSalesperson" AS salesperson, i.items->>'salesperson' AS "legacySalesperson",
+          a."ownerId" AS "accountOwnerId"
+        FROM "Invoice" i JOIN "Account" a ON a.id = i."accountId"
+        WHERE i."issueDate" >= ${rosterYearStart} AND i."issueDate" < ${rosterYearEnd}
+          AND lower(i.status) NOT IN ('void','voided','draft','declined','cancelled','canceled','orphaned','deleted','written_off','writeoff','write_off','written off','bad debt')
+          AND i."syncConflict" = false AND i."pendingZohoFetch" = false
+          ${invoiceRepFilterSql}
+      `),
+      prisma.$queryRaw<Array<{ salesperson: string | null; accountOwnerId: string | null }>>(Prisma.sql`
+        SELECT COALESCE(s.items->>'salesperson_name', s.items->>'salesperson') AS salesperson,
+          a."ownerId" AS "accountOwnerId"
+        FROM "SalesOrder" s JOIN "Account" a ON a.id = s."accountId"
+        WHERE s."orderDate" >= ${rosterYearStart} AND s."orderDate" < ${rosterYearEnd}
+          ${soExcludedSql}
+          AND s."syncConflict" = false AND s."pendingZohoFetch" = false
+          AND NOT EXISTS (
+            SELECT 1 FROM "Invoice" linked WHERE (
+              NULLIF(lower(s."zohoId"), '') IS NOT NULL
+              AND lower(s."zohoId") IN (lower(COALESCE(linked."salesOrderZohoId", '')), lower(COALESCE(linked.items->>'salesorder_id', '')), lower(COALESCE(linked.items->>'sales_order_id', '')))
+            ) OR (
+              NULLIF(lower(COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber', '')), '') IS NOT NULL
+              AND lower(COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber', '')) IN (lower(COALESCE(linked."salesorderNumber", '')), lower(COALESCE(linked.items->>'salesorder_number', '')), lower(COALESCE(linked.items->>'salesOrderNumber', '')))
+            )
+          )
+          ${salesOrderRepFilterSql}
+      `)
     ])
 
     const settingMap = new Map(targetSettings.map(setting => [setting.key, setting.value]))
@@ -358,6 +391,27 @@ const authenticatedHandler: Handler = async (event) => {
     addAlias("ben bequette", "benjamin bequette")
     addAlias("justin  zastrow", "justin zastrow")
     const unassignedId = "unassigned"
+
+    const resolveRosterRepId = (salesperson: unknown, legacySalesperson: unknown, accountOwnerId: unknown) => {
+      const name = String(salesperson || legacySalesperson || '').replace(/\s+/g, ' ').trim().toLowerCase()
+      return userNameToIdMap[name] || String(accountOwnerId || '') || null
+    }
+    const rosterCounts = new Map<string, { yearInvoiceCount: number; yearSalesOrderCount: number }>()
+    const addRosterDocument = (repId: string | null, type: 'INVOICE' | 'SALES_ORDER') => {
+      if (!repId) return
+      const counts = rosterCounts.get(repId) || { yearInvoiceCount: 0, yearSalesOrderCount: 0 }
+      if (type === 'INVOICE') counts.yearInvoiceCount++
+      else counts.yearSalesOrderCount++
+      rosterCounts.set(repId, counts)
+    }
+    rosterInvoices.forEach(row => addRosterDocument(resolveRosterRepId(row.salesperson, row.legacySalesperson, row.accountOwnerId), 'INVOICE'))
+    rosterSalesOrders.forEach(row => addRosterDocument(resolveRosterRepId(row.salesperson, null, row.accountOwnerId), 'SALES_ORDER'))
+    const eligibleRepIds = eligibleRepIdsForYear(users.map(user => ({
+      repId: user.id,
+      isSalesperson: user.isSalesperson === true,
+      yearInvoiceCount: rosterCounts.get(user.id)?.yearInvoiceCount || 0,
+      yearSalesOrderCount: rosterCounts.get(user.id)?.yearSalesOrderCount || 0,
+    })))
 
     // Compute current week boundaries (Mon-Sun)
     const weekNow = new Date()
@@ -576,7 +630,7 @@ const authenticatedHandler: Handler = async (event) => {
       return false
     }
 
-    let repsList = Object.values(repStatsMap).filter((r: any) => r.repId !== unassignedId || r.invoices.length > 0 || r.salesOrders.length > 0)
+    let repsList = Object.values(repStatsMap).filter((r: any) => eligibleRepIds.has(r.repId))
     
     if (repIdFilter !== "all") {
       repsList = repsList.filter((r: any) => isRepMatch(r, repIdFilter))
@@ -601,16 +655,31 @@ const authenticatedHandler: Handler = async (event) => {
           : { configured: false, value: null, metric: 'PROFIT', source: 'NOT_CONFIGURED' }
       }
       const user = users.find(candidate => candidate.id === rep.repId)
-      const vigRate = user?.constantVigEnabled && user.constantVigValue != null
-        ? financialNumber(user.constantVigValue)
-        : financialNumber(monthlyGoal?.manualVigRate ?? monthlyGoal?.lastSyncedVigRate ?? defaultVigRate)
+      const vigRate = resolveRepStatsVigRate(
+        rep.repName,
+        user?.constantVigEnabled === true,
+        user?.constantVigValue == null ? null : financialNumber(user.constantVigValue),
+        financialNumber(monthlyGoal?.manualVigRate ?? monthlyGoal?.lastSyncedVigRate ?? defaultVigRate),
+      )
       rep.periodStats = {
         ...documentTotals,
         target,
         progressPercent: calculateTargetProgress(documentTotals, target),
         vigRate,
       }
+      rep.rosterEligibility = {
+        year: rosterYear,
+        qualifyingInvoiceCount: rosterCounts.get(rep.repId)?.yearInvoiceCount || 0,
+        eligibleUninvoicedSalesOrderCount: rosterCounts.get(rep.repId)?.yearSalesOrderCount || 0,
+        reason: 'QUALIFYING_SELECTED_YEAR_ACTIVITY',
+      }
     }
+
+    const companyTarget = aggregateCompanyTarget(repsList.map(rep => ({
+      target: rep.periodStats.target,
+      revenue: rep.periodStats.revenue,
+      profit: rep.periodStats.profit,
+    })))
 
     let totalInvoiceCount = 0
     let totalInvoiceSubtotal = 0
@@ -649,6 +718,12 @@ const authenticatedHandler: Handler = async (event) => {
         success: true,
         scope: repIdFilter === 'all' ? 'company' : 'personal',
         period: periodParam,
+        roster: {
+          rule: 'SALESPERSON_WITH_QUALIFYING_SELECTED_YEAR_ACTIVITY',
+          year: rosterYear,
+          includedRepCount: repsList.length,
+        },
+        companyTarget,
         dateRange: {
           start: rangeStart.toISOString(),
           end: rangeEnd.toISOString()
