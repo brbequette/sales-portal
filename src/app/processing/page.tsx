@@ -77,7 +77,7 @@ export default function ProcessingPage(){
   const [loading,setLoading]=useState(true); const [detailLoading,setDetailLoading]=useState(false); const [busy,setBusy]=useState('')
   const [lane,setLane]=useState<Lane|'all'>('all'); const [query,setQuery]=useState(''); const [tracking,setTracking]=useState(''); const [carrier,setCarrier]=useState('')
 
-  const load=useCallback(async(keep=true)=>{setLoading(true);try{const res=await fetch('/api/zoho-invoices?view=pipeline',{cache:'no-store'});const data=await res.json();if(!res.ok)throw new Error(data.error||'Unable to load processing queue');const rows:WorkItem[]=data.deals||[];setItems(rows);setSelectedId(current=>keep&&rows.some(x=>x.id===current)?current:(rows[0]?.id||''))}catch(error){toast.error(error instanceof Error?error.message:'Unable to load queue')}finally{setLoading(false)}},[])
+  const load=useCallback(async(keep=true)=>{setLoading(true);try{const res=await fetch('/api/database-documents?view=pipeline',{cache:'no-store'});const data=await res.json();if(!res.ok||!Array.isArray(data.deals))throw new Error(data.error||'Unable to load processing queue');const rows:WorkItem[]=data.deals;setItems(rows);setSelectedId(current=>keep&&rows.some(x=>x.id===current)?current:(rows[0]?.id||''))}catch(error){setItems([]);setSelectedId('');setLifecycle(null);setTimeline([]);toast.error(error instanceof Error?error.message:'Unable to load queue')}finally{setLoading(false)}},[])
   useEffect(()=>{void load(false)},[load])
   const selected=useMemo(()=>items.find(x=>x.id===selectedId)||null,[items,selectedId])
   const counts=useMemo(()=>items.reduce<Record<Lane,number>>((a,x)=>{a[laneFor(x)]++;return a},{exceptions:0,approval:0,fulfillment:0,billing:0}),[items])

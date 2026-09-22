@@ -148,9 +148,9 @@ export function DealPipeline({ onViewInvoice }: { onViewInvoice?: (invoice: any)
 
   async function fetchPipelineData() {
     try {
-      const res = await fetch("/api/zoho-invoices?view=pipeline")
+      const res = await fetch("/api/database-documents?view=pipeline", { cache: "no-store" })
       const json = await res.json()
-      if (!Array.isArray(json.deals)) return
+      if (!res.ok || !Array.isArray(json.deals)) throw new Error(json.error || "Pipeline unavailable")
       const pipelineDeals = json.deals.filter((deal: PipelineDeal) => {
         const rep = deal.rep.toUpperCase()
         return !(rep.includes("PAUL") && (rep.includes("GENCUSKI") || rep.includes("GENKUSKI")))
@@ -158,6 +158,8 @@ export function DealPipeline({ onViewInvoice }: { onViewInvoice?: (invoice: any)
       setDeals(pipelineDeals)
       setReps(Array.from(new Set<string>(pipelineDeals.map((deal: PipelineDeal) => deal.rep))).sort())
     } catch (err) {
+      setDeals([])
+      setReps([])
       console.error("Pipeline fetch error:", err)
     } finally {
       setLoading(false)

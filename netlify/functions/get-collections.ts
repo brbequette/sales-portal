@@ -1,6 +1,5 @@
 import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
-import { syncRecentBooksInvoices } from "./lib/zoho-books"
 import { prisma, Prisma } from "./lib/prisma"
 import { isAdminRole } from "../../src/lib/roles"
 
@@ -14,7 +13,7 @@ const authenticatedHandler: Handler = async (event) => {
   if (event.httpMethod !== "GET") return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "Method not allowed" }) }
 
   try {
-    const { tab = "overdue", repId, refresh, zohoId, email, checkOnly } = event.queryStringParameters || {}
+    const { tab = "overdue", repId, checkOnly } = event.queryStringParameters || {}
     const now = new Date()
     const businessDateParts = new Intl.DateTimeFormat("en-US", {
       timeZone: "America/Phoenix",
@@ -71,30 +70,8 @@ const authenticatedHandler: Handler = async (event) => {
       }
     }
 
-    if (refresh === "true" && canViewCompanyCollections && (zohoId || email)) {
-      // --- 60-minute sync cooldown ---
-      const COOLDOWN_KEY = 'collections_last_synced_at'
-      const COOLDOWN_MS = 60 * 60 * 1000 // 60 minutes
-      const lastSync = await prisma.systemSetting.findUnique({ where: { key: COOLDOWN_KEY } })
-      const cooldownActive = lastSync && (Date.now() - new Date(lastSync.value).getTime() < COOLDOWN_MS)
+    // Refresh re-queries PostgreSQL only; provider reconciliation is a separate action.
 
-      if (cooldownActive) {
-        console.log('Collections sync skipped — cooldown active (last sync:', lastSync!.value, ')')
-      } else {
-        try {
-          console.log('Collections: syncing recent invoice statuses from Zoho Books...')
-          await syncRecentBooksInvoices()
-          console.log('Collections: Books invoice status sync complete.')
-          await prisma.systemSetting.upsert({
-            where: { key: COOLDOWN_KEY },
-            update: { value: new Date().toISOString() },
-            create: { key: COOLDOWN_KEY, value: new Date().toISOString() }
-          })
-        } catch (zohoError) {
-          console.error("Failed to sync with Zoho Books from collections page:", zohoError)
-        }
-      }
-    }
 
     // PERF: $queryRaw replaces three separate findMany(include:{account:{include:{owner:true}}}) calls.
     // Selects only the 8 columns used in the response shape, joins Account+User in SQL,

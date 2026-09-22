@@ -140,6 +140,9 @@ export default function CommissionsPage() {
         setError(data.error || "Failed to load commission data")
       }
     } catch (err: any) {
+      setByRep({})
+      setClawbackByRep({})
+      setSelectedRepId("")
       setError(err.message || "Network error loading commissions")
     } finally {
       setLoading(false)

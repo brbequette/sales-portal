@@ -139,34 +139,28 @@ export function useInvoiceDetailsData({ invoice, type = "Invoice", onClose, invo
   const zohoId = isString ? currentInvoice : (currentInvoice?.zohoId || currentInvoice?.id)
   const initialData = isString ? { id: zohoId, zohoId } : currentInvoice
 
-  const fetchDetails = useCallback(async (force = false) => {
+  const fetchDetails = useCallback(async (_force = false) => {
+    void _force
     if (!zohoId) return
     // Only show the loading spinner when there's no data yet (initial open)
     // For force refreshes, show a spinning indicator on the button instead
     if (!fullInvoiceDetails) setIsLoading(true)
     try {
-      const url = `/api/get-invoice-details?targetId=${zohoId}&type=${currentType}${force ? '&force=true' : ''}`
-      const res = await fetch(url)
+      const url = `/api/get-invoice-details?targetId=${zohoId}&type=${currentType}`
+      const res = await fetch(url, { cache: 'no-store' })
       const data = await res.json()
-      if (data.success && (data.invoice || data.document || data.salesorder || data.estimate)) {
+      if (!res.ok || !data.success) throw new Error(data.error || 'LOCAL_DATA_INCOMPLETE')
+      if (data.invoice || data.document || data.salesorder || data.estimate) {
         const doc = data.invoice || data.document || data.salesorder || data.estimate
         setFullInvoiceDetails(doc)
         setDataSource(data._source === 'local_db' ? 'local_db' : 'zoho_live')
         setCachedAt(doc._cachedAt || null)
 
-        // Proactive cost calculation if deadCostTotal is missing/null/0
-        const statusLower = (doc.status || '').toLowerCase()
-        if (statusLower !== 'void' && statusLower !== 'voided' && statusLower !== 'draft') {
-          const items = doc.items || {}
-          const deadCost = parseFloat(items.deadCostTotal || 0)
-          if (isNaN(deadCost) || deadCost === 0) {
-            setTimeout(() => {
-              handleProcessCosts(true)
-            }, 100)
-          }
-        }
       }
     } catch (e) {
+      setFullInvoiceDetails(null)
+      setDataSource(null)
+      setCachedAt(null)
       console.error("Failed to load full document details", e)
     } finally {
       setIsLoading(false)

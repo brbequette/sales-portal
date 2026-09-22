@@ -1,76 +1,64 @@
 import { NextResponse } from 'next/server'
-import { getZohoAccessToken, ZOHO_ORGANIZATION_ID } from '@/lib/zoho-auth'
 import { prisma } from '@/lib/prisma'
 import { requireAdministrator } from '@/lib/auth-helpers'
+import { databaseReadHeaders, LOCAL_DATA_INCOMPLETE } from '@/lib/database-read-metadata'
 import { financialZohoLineItems } from '@/lib/zoho-line-items'
 
-const ZOHO_DC = process.env.ZOHO_DC || 'com'
-
 export async function GET(req: Request) {
+  const startedAt = performance.now()
   try {
     const auth = await requireAdministrator()
     if (auth.errorResponse) return auth.errorResponse
+    const poZohoId = new URL(req.url).searchParams.get('poZohoId')
+    if (!poZohoId) return NextResponse.json({ error: 'Missing poZohoId' }, { status: 400 })
 
-    const { searchParams } = new URL(req.url)
-    const poZohoId = searchParams.get('poZohoId')
-
-    if (!poZohoId) {
-      return NextResponse.json({ error: 'Missing poZohoId' }, { status: 400 })
-    }
-
-    const token = await getZohoAccessToken()
-
-    // Fetch individual PO details from Zoho Books
-    const res = await fetch(
-      `https://www.zohoapis.${ZOHO_DC}/books/v3/purchaseorders/${poZohoId}?organization_id=${ZOHO_ORGANIZATION_ID}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
-    )
-
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '')
-      console.error('Zoho PO detail error:', res.status, errText.substring(0, 200))
-      return NextResponse.json({ error: `Zoho API returned ${res.status}` }, { status: res.status })
-    }
-
-    const data = await res.json()
-    const po = data.purchaseorder || {}
-
-    const lineItems = financialZohoLineItems(po.line_items).map((li: any) => ({
-      name: li.name || li.item_name || li.description || '',
-      sku: li.sku || '',
-      quantity: li.quantity || 1,
-      rate: li.rate || 0,
-      amount: li.item_total || 0,
-      item_id: li.item_id || '',
-    }))
-
-    // Update the PO in our database with the full details including line_items
-    await prisma.purchaseOrder.updateMany({
+    const po = await prisma.purchaseOrder.findFirst({
       where: { zohoId: poZohoId },
-      data: {
-        items: po as any, // Store full PO response
-        vendorName: po.vendor_name || undefined,
-        shipToName: po.delivery_customer_name || po.customer_name || undefined,
-        salesOrderId: po.salesorder_id || undefined,
-        salesOrderNumber: po.salesorder_number || po.reference_number || undefined,
-        isDropshipment: !!(po.delivery_customer_id || po.salesorder_id || po.delivery_customer_name),
-        trackingNumber: po.tracking_number || undefined,
-      }
+      select: {
+        items: true, vendorName: true, shipToName: true, total: true, status: true,
+        trackingNumber: true, salesOrderId: true,
+      },
     })
-
+    if (!po) {
+      return NextResponse.json({ success: false, error: LOCAL_DATA_INCOMPLETE }, {
+        status: 409,
+        headers: databaseReadHeaders(startedAt, 1),
+      })
+    }
+    const items = po.items && typeof po.items === 'object' && !Array.isArray(po.items)
+      ? po.items as Record<string, any>
+      : {}
+    const lineItems = financialZohoLineItems(items.line_items || items.lineItems).map((line) => ({
+      name: line.name || line.item_name || line.description || '',
+      sku: line.sku || '',
+      quantity: line.quantity || 1,
+      rate: line.rate || 0,
+      amount: line.item_total || 0,
+      item_id: line.item_id || '',
+    }))
+    if (!lineItems.length) {
+      return NextResponse.json({ success: false, error: LOCAL_DATA_INCOMPLETE }, {
+        status: 409,
+        headers: databaseReadHeaders(startedAt, 1),
+      })
+    }
     return NextResponse.json({
       success: true,
       lineItems,
-      vendorName: po.vendor_name,
-      shipToName: po.delivery_customer_name || po.customer_name,
+      vendorName: po.vendorName,
+      shipToName: po.shipToName,
       total: po.total,
       status: po.status,
-      shippingCharge: po.shipping_charge || 0,
-      trackingNumber: po.tracking_number || '',
-      deliveryCustomerId: po.delivery_customer_id || '',
-      salesOrderId: po.salesorder_id || '',
+      shippingCharge: Number(items.shipping_charge || 0),
+      trackingNumber: po.trackingNumber || '',
+      deliveryCustomerId: String(items.delivery_customer_id || ''),
+      salesOrderId: po.salesOrderId || '',
+    }, { headers: databaseReadHeaders(startedAt, 1) })
+  } catch (error) {
+    console.error('Local PO detail read error:', error)
+    return NextResponse.json({ success: false, error: LOCAL_DATA_INCOMPLETE }, {
+      status: 500,
+      headers: databaseReadHeaders(startedAt, 0),
     })
-  } catch (error: any) {
-    console.error('PO detail fetch error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

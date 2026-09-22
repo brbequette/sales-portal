@@ -32,7 +32,6 @@ async function executeNetlifyFunction(req: NextRequest) {
   }
 }
 
-export async function GET(req: NextRequest) { return executeNetlifyFunction(req); }
 export async function POST(req: NextRequest) { return executeNetlifyFunction(req); }
 export async function PUT(req: NextRequest) { return executeNetlifyFunction(req); }
 export async function DELETE(req: NextRequest) { return executeNetlifyFunction(req); }

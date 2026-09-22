@@ -68,12 +68,12 @@ export default function ProductCatalogPage() {
   const fetchProducts = async () => {
     setLoading(true)
     try {
-      const res = await fetch("/api/get-products")
+      const res = await fetch("/api/get-products", { cache: "no-store" })
       const data = await res.json()
-      if (data.success) {
-        setProducts(data.products || [])
-      }
+      if (!res.ok || !data.success || !Array.isArray(data.products)) throw new Error(data.error || "LOCAL_DATA_INCOMPLETE")
+      setProducts(data.products)
     } catch (e) {
+      setProducts([])
       console.error("Error fetching products:", e)
     } finally {
       setLoading(false)
@@ -84,19 +84,9 @@ export default function ProductCatalogPage() {
     setSyncing(true)
     setSyncProgress("Starting sync...")
     try {
-      let page = 1
-      let hasMore = true
-      while (hasMore) {
-        setSyncProgress(`Syncing page ${page}...`)
-        const res = await fetch(`/api/get-products?reseed=true&page=${page}`)
-        const data = await res.json()
-        if (data.success) {
-          hasMore = data.hasMore
-          page = data.nextPage || (page + 1)
-        } else {
-          throw new Error(data.message || "Failed during reseed")
-        }
-      }
+      const res = await fetch('/api/admin/products/sync', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok || !data.success) throw new Error(data.error || data.message || 'Product sync failed')
       setSyncProgress("Sync completed successfully!")
       await fetchProducts()
     } catch (e: any) {

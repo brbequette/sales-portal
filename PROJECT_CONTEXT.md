@@ -1,5 +1,13 @@
 # Titan Diamond — Consolidated Project Context
 
+## Database-only runtime reads (2026-09-22, PR pending)
+
+- User-facing dashboard/header, pipeline, processing, account/customer, documents/detail/PDF, commissions, Rep Stats, collections, tasks, shipping, catalog, search, product-image, and write-off health reads now use PostgreSQL only. Page-facing document reads moved to `/api/database-documents`; the legacy `/api/zoho-invoices` route remains a PostgreSQL-only compatibility alias.
+- Account, task, collections, catalog, shipping detail, document detail/PDF, and product-image GET fallbacks no longer obtain an access token or call Zoho. Missing local evidence returns `LOCAL_DATA_INCOMPLETE`; refresh failures clear stale client financial/queue/catalog state. Document rendering no longer launches cost processing, and shipping row expansion no longer synchronizes from Books.
+- Customer CRM update and shipping/provider refresh logic moved to explicit POST action routes. Zoho-prefixed mutation proxies no longer expose GET. Scheduled/webhook importers and explicit administrator/provider mutations remain separate and unchanged in purpose.
+- Shared freshness metadata reports PostgreSQL source, last successful bounded import, active run, sanitized last failure, and staleness. Read responses expose server timing, bounded DB query counts, and zero Zoho/OAuth counters. Dashboard/header concurrent summary requests are deduplicated without persistent caching; account/document/catalog result sizes are bounded; commission transforms no longer create unnecessary Promise arrays.
+- The strengthened static contract recursively inspects 16 major user-facing GET dependency graphs and rejects Zoho clients, application token providers, and sync/import functions. Detailed runtime corrections, performance bounds, remaining actions, and exceptions are documented in `docs/database-only-runtime-read-migration.md`.
+
 ## Rep Stats selected-year roster and company target correction (2026-09-21)
 
 - A read-only production PostgreSQL audit proved the Rep Stats endpoint was seeding all 13 non-test users into the leaderboard before processing documents. Six identities had no qualifying 2026 activity (including the separate Master Administrator login and five zero-activity agent logins), so an excluded missing target incorrectly made company progress appear unconfigured.

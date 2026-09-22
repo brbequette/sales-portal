@@ -191,6 +191,13 @@ export default function StatsPage() {
           setApiError(data.error || "Failed to load stats")
         }
       } catch (err: any) {
+        setReps([])
+        setCompanyTotals(null)
+        setCompanyAverages(null)
+        setHistoricalVigRates([])
+        setExcludedSalesOrders([])
+        setCompanyTarget(null)
+        setRosterSummary(null)
         setApiError(err.message || "Network error")
       } finally {
         setLoading(false)

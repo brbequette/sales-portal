@@ -6,6 +6,7 @@ import { usePreferences } from "@/components/PreferencesProvider"
 import { GeofenceMonitor, type MonitorStatus } from "@/lib/geofence-monitor"
 import { useCampaignProgress } from "@/components/CampaignProgressProvider"
 import { parseGlobalHeaderSummary, type GlobalHeaderScope } from "@/lib/global-header-metrics"
+import { fetchDatabaseSummary } from "@/lib/client-database-reads"
 
 export function useGlobalTopBarData() {
   const router = useRouter()
@@ -74,9 +75,8 @@ export function useGlobalTopBarData() {
 
   const fetchStripStats = useCallback(async () => {
     try {
-      const res = await fetch("/api/zoho-invoices?summary=true", { cache: "no-store" })
-      const json = await res.json()
-      const summary = res.ok ? parseGlobalHeaderSummary(json) : null
+      const json = await fetchDatabaseSummary()
+      const summary = parseGlobalHeaderSummary(json)
       if (!summary) {
         setStripStats(null)
         return

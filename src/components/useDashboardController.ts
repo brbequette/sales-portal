@@ -262,6 +262,7 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
 
       const res = await fetch(`/api/get-rep-stats?${params.toString()}`, { cache: "no-store" })
       const d = await res.json()
+      if (!res.ok || !d.success) throw new Error(d.error || "LOCAL_DATA_INCOMPLETE")
       if (d.success) {
         setRepStatsReps(d.reps || [])
         if (d.totals) setRepStatsTotals(d.totals)
@@ -271,6 +272,8 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
         setTimeout(() => checkForUpdates(sig, `/api/get-rep-stats?${params.toString()}`), 2000)
       }
     } catch (e) {
+      setRepStatsReps([])
+      setRepStatsTotals({ invoiceCount: 0, invoiceSubtotal: 0, invoiceDeadProfit: 0, invoiceNetProfit: 0, invoiceCommission: 0, salesOrderCount: 0, salesOrderSubtotal: 0, salesOrderDeadProfit: 0, salesOrderEstCommission: 0 })
       console.error("Failed to load rep stats on dashboard", e)
     } finally {
       setRepStatsLoading(false)
@@ -289,11 +292,14 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
       }
       const res = await fetch(`/api/get-rep-stats?${params.toString()}`, { cache: "no-store" })
       const d = await res.json()
+      if (!res.ok || !d.success) throw new Error(d.error || "LOCAL_DATA_INCOMPLETE")
       if (d.success) {
         setCompanyReps(d.reps || [])
         if (d.totals) setCompanyTotals(d.totals)
       }
     } catch (e) {
+      setCompanyReps([])
+      setCompanyTotals({ invoiceCount: 0, invoiceSubtotal: 0, invoiceWeeklyRevenue: 0, invoiceDeadProfit: 0, invoiceNetProfit: 0, invoiceCommission: 0, salesOrderCount: 0, salesOrderSubtotal: 0, salesOrderDeadProfit: 0, salesOrderEstCommission: 0 })
       console.error("Failed to load company stats", e)
     } finally {
       setCompanyLoading(false)
