@@ -2,7 +2,8 @@ import { withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { corsHeaders, handleOptions } from "./lib/cors"
 import { getZohoVoiceAccessToken } from "./lib/zoho-voice-auth"
-import FormData from "form-data"
+import { evaluateZohoSmsResponse } from "./lib/zoho-sms-response"
+import { buildZohoSmsFormData, loadZohoMmsMedia } from "./lib/zoho-mms-media"
 
 import { prisma } from "./lib/prisma"
 
@@ -39,48 +40,20 @@ const authenticatedHandler: Handler = async (event) => {
       if (!accessToken) return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ success: false, message: "Failed to authenticate with Zoho Voice API." }) }
 
       const isMms = !!imageUrl
-      let preFetchedImageBuffer: Buffer | null = null
-      let preFetchedImageContentType = "image/jpeg"
-      let preFetchedImageExt = "jpg"
-
-      if (isMms && imageUrl) {
-        try {
-          if (imageUrl.startsWith("data:")) {
-            const match = imageUrl.match(/^data:([^;]+);base64,(.+)$/)
-            if (match) {
-              preFetchedImageContentType = match[1]
-              preFetchedImageBuffer = Buffer.from(match[2], "base64")
-              preFetchedImageExt = preFetchedImageContentType.split("/")[1] || "jpg"
-            }
-          } else {
-            const imgRes = await fetch(imageUrl)
-            if (imgRes.ok, { signal: AbortSignal.timeout(15000) }) {
-              preFetchedImageBuffer = Buffer.from(await imgRes.arrayBuffer())
-              preFetchedImageContentType = imgRes.headers.get("content-type") || "image/jpeg"
-              preFetchedImageExt = preFetchedImageContentType.split("/")[1] || "jpg"
-            }
-          }
-        } catch {}
-      }
+      const mmsMedia = isMms && imageUrl ? await loadZohoMmsMedia(imageUrl) : null
 
       const zohoVoiceUrl = `https://voice.zoho.${process.env.ZOHO_DC || "com"}/rest/json/v2/sms/send`
-      const smsData = { customerNumber: phoneNumber, message: text || "Titan Diamond — Test Message", senderId: resolvedFrom, mms: isMms }
-      const formData = new FormData()
-      formData.append("sms_data", JSON.stringify(smsData))
-      if (isMms && preFetchedImageBuffer) formData.append("mms_media", preFetchedImageBuffer, { filename: `attachment.${preFetchedImageExt}`, contentType: preFetchedImageContentType })
-
-      const smsRes = await fetch(zohoVoiceUrl, { signal: AbortSignal.timeout(15000), method: "POST", headers: { Authorization: `Zoho-oauthtoken ${accessToken}`, Accept: "application/json", ...formData.getHeaders() }, body: formData as any })
+      const formData = buildZohoSmsFormData({ customerNumber: phoneNumber, message: text || "Titan Diamond — Test Message", senderId: resolvedFrom, media: mmsMedia })
+      const smsRes = await fetch(zohoVoiceUrl, { signal: AbortSignal.timeout(30000), method: "POST", headers: { Authorization: `Zoho-oauthtoken ${accessToken}`, Accept: "application/json" }, body: formData })
       const resultText = await smsRes.text()
       let resultJson: any = {}
       try { resultJson = JSON.parse(resultText) } catch {}
 
-      const providerStatus = String(resultJson.status || "").toLowerCase()
-      const providerCode = String(resultJson.code || "").toLowerCase()
-      const providerRejected = providerStatus === "error" || providerStatus === "failed" || providerCode === "error" || providerCode === "failed"
-      if (smsRes.ok && resultText.trim().length > 0 && !providerRejected) {
+      const providerResult = evaluateZohoSmsResponse(smsRes, resultText)
+      if (providerResult.accepted) {
         return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, message: `Test sent to ${phoneNumber}` }) }
       } else {
-        return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: false, message: resultJson.message || "Zoho API Error sending test" }) }
+        return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: false, message: providerResult.errorMessage }) }
       }
     }
 

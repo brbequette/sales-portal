@@ -31,6 +31,7 @@ export function evaluateZohoSmsResponse(response: Response, responseText: string
   }
 
   const providerMessage = normalized(payload?.message || payload?.error?.message)
+  const providerCode = String(payload?.code || "").trim()
   const fallback = !response.ok
     ? `Zoho Voice HTTP ${response.status}`
     : !trimmed
@@ -39,7 +40,11 @@ export function evaluateZohoSmsResponse(response: Response, responseText: string
 
   return {
     accepted: false,
-    errorMessage: providerMessage || fallback,
+    errorMessage: providerCode && providerMessage
+      ? `[${providerCode}] ${providerMessage}`
+      : providerCode
+        ? `[${providerCode}] ${fallback}`
+        : providerMessage || fallback,
     providerId: providerId ? String(providerId) : null,
   }
 }

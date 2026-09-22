@@ -1,7 +1,7 @@
 import { schedule } from "@netlify/functions"
-import FormData from "form-data"
 import { getZohoVoiceAccessToken } from "./lib/zoho-voice-auth"
 import { evaluateZohoSmsResponse } from "./lib/zoho-sms-response"
+import { buildZohoSmsFormData, loadZohoMmsMedia } from "./lib/zoho-mms-media"
 import { prisma } from "./lib/prisma"
 
 // Runs every 10 minutes to process scheduled texts
@@ -101,44 +101,14 @@ export const handler = schedule("*/10 * * * *", async () => {
 
       try {
         const isMms = !!msg.imageUrl
-        let imageBuffer: Buffer | null = null
-        let imageContentType = "image/jpeg"
-        let imageExt = "jpg"
-
-        if (isMms && msg.imageUrl) {
-          try {
-            if (msg.imageUrl.startsWith("data:")) {
-              const match = msg.imageUrl.match(/^data:([^;]+);base64,(.+)$/)
-              if (match) {
-                imageContentType = match[1]
-                imageBuffer = Buffer.from(match[2], "base64")
-                imageExt = imageContentType.split("/")[1] || "jpg"
-              }
-            } else {
-              const imgRes = await fetch(msg.imageUrl)
-              if (imgRes.ok, { signal: AbortSignal.timeout(15000) }) {
-                imageBuffer = Buffer.from(await imgRes.arrayBuffer())
-                imageContentType = imgRes.headers.get("content-type") || "image/jpeg"
-                imageExt = imageContentType.split("/")[1] || "jpg"
-              }
-            }
-          } catch (err) {
-            console.error(`Error loading scheduled MMS media for msg ${msg.id}:`, err)
-          }
-        }
+        const mmsMedia = isMms && msg.imageUrl ? await loadZohoMmsMedia(msg.imageUrl) : null
 
         const zohoVoiceUrl = `https://voice.zoho.${process.env.ZOHO_DC || "com"}/rest/json/v2/sms/send`
-        const smsData = { customerNumber: phoneNumber, message: msg.body || "Titan Diamond Update", senderId: msg.fromNumber, mms: isMms }
-        const formData = new FormData()
-        formData.append("sms_data", JSON.stringify(smsData))
-        if (isMms && imageBuffer) {
-          formData.append("mms_media", imageBuffer, { filename: `attachment.${imageExt}`, contentType: imageContentType })
-        }
-
-        const smsRes = await fetch(zohoVoiceUrl, { signal: AbortSignal.timeout(15000),
+        const formData = buildZohoSmsFormData({ customerNumber: phoneNumber, message: msg.body || "Titan Diamond Update", senderId: msg.fromNumber, media: mmsMedia })
+        const smsRes = await fetch(zohoVoiceUrl, { signal: AbortSignal.timeout(30000),
           method: "POST",
-          headers: { Authorization: `Zoho-oauthtoken ${accessToken}`, Accept: "application/json", ...formData.getHeaders() },
-          body: formData as any
+          headers: { Authorization: `Zoho-oauthtoken ${accessToken}`, Accept: "application/json" },
+          body: formData
         })
         const resultText = await smsRes.text()
         let resultJson: any = {}

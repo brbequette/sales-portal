@@ -5,6 +5,14 @@ const createHandler = fs.readFileSync("netlify/functions/campaign-job-create.ts"
 const statusHandler = fs.readFileSync("netlify/functions/campaign-job-status.ts", "utf8")
 const manager = fs.readFileSync("src/lib/campaign-manager.ts", "utf8")
 const topBar = fs.readFileSync("src/components/GlobalTopBar.tsx", "utf8")
+const mmsMedia = fs.readFileSync("netlify/functions/lib/zoho-mms-media.ts", "utf8")
+const mmsSenders = [
+  "campaign-job-create.ts",
+  "campaign-job-status.ts",
+  "campaign-job-test-send.ts",
+  "process-scheduled-messages.ts",
+  "send-campaign.ts",
+].map((file) => [file, fs.readFileSync(`netlify/functions/${file}`, "utf8")])
 const voiceSenders = [
   "campaign-job-create.ts",
   "campaign-job-status.ts",
@@ -31,10 +39,22 @@ assert.match(createHandler, /const CHUNK_SIZE = 1/, "the initial campaign chunk 
 assert.match(statusHandler, /const CHUNK_SIZE = 1/, "continuation chunks must send one provider request at a time")
 assert.match(createHandler, /status: "RUNNING", channel: "SMS"/, "parallel SMS campaigns must be rejected")
 assert.match(manager, /const POLL_INTERVAL_MS = 4000/, "campaign polling must remain below 20 provider requests per minute")
+assert.match(mmsMedia, /MAX_MMS_MEDIA_BYTES = 900_000/, "MMS media must retain safety margin below Zoho's 1,000 KB ceiling")
+assert.match(mmsMedia, /new Blob/, "MMS attachments must use native Blob multipart values")
+assert.match(mmsMedia, /formData\.append\("mms_media"/, "MMS media must use Zoho's documented field name")
+assert.match(mmsMedia, /JPEG, PNG, or GIF/, "MMS media types must fail closed")
+for (const [file, source] of mmsSenders) {
+  assert.match(source, /buildZohoSmsFormData/, `${file} must use the shared native multipart builder`)
+  assert.doesNotMatch(source, /from ["']form-data["']/, `${file} must not use legacy form-data with native fetch`)
+  assert.doesNotMatch(source, /getHeaders\(\)/, `${file} must let native FormData set its multipart boundary`)
+}
 for (const [file, source] of voiceSenders) {
   assert.match(source, /getZohoVoiceAccessToken/, `${file} must use the isolated Voice OAuth credential`)
   assert.doesNotMatch(source, /getZohoAccessToken/, `${file} must not reuse the Books\/CRM token cache`)
   assert.match(source, /Accept['"]?: ['"]application\/json/, `${file} must request Zoho's documented JSON response`)
 }
+
+const smsResponse = fs.readFileSync("netlify/functions/lib/zoho-sms-response.ts", "utf8")
+assert.match(smsResponse, /\[\$\{providerCode\}\]/, "Zoho failure logs must retain the provider response code")
 
 console.log("campaign delivery contracts passed")
