@@ -4,6 +4,7 @@ import { corsHeaders, handleOptions } from "./lib/cors"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 import FormData from "form-data"
 import { evaluateZohoSmsResponse } from "./lib/zoho-sms-response"
+import { MISSING_CAMPAIGN_PHONE_ERROR, resolveCampaignChunkState } from "./lib/campaign-delivery-outcome"
 
 import { prisma } from "./lib/prisma"
 import { isAdministratorRole } from "../../src/lib/roles"
@@ -86,6 +87,9 @@ const authenticatedHandler: Handler = async (event) => {
 
     let successfulCount = 0
     let failedCount = 0
+    let providerAttemptCount = 0
+    let providerFailureCount = 0
+    const failureMessages: string[] = []
     const text = job.text
     const imageUrl = job.imageUrl || null
     const fromNumber = job.fromNumber || ""
@@ -149,18 +153,26 @@ const authenticatedHandler: Handler = async (event) => {
           await new Promise((resolve) => setTimeout(resolve, index * 100))
           const recentLogs = recentLogsMap.get(account.id) || 0
           if (recentLogs >= 1) {
-            logsToCreate.push({ campaignBlastId: blast.id, accountId: account.id, status: "FAILED", errorMessage: "Daily blast limit reached (maximum 1 campaign message per day)", zohoNumberUsed: fromNumber })
+            const errorMessage = "Daily blast limit reached (maximum 1 campaign message per day)"
+            logsToCreate.push({ campaignBlastId: blast.id, accountId: account.id, status: "FAILED", errorMessage, zohoNumberUsed: fromNumber })
+            failureMessages.push(errorMessage)
             failedCount++
             return
           }
           const contact = account.contacts.find((c: any) => c.isPrimary) || account.contacts[0]
           const rawPhoneNumber = contact?.mobilePhone || contact?.phone
-          if (!rawPhoneNumber) { failedCount++; return }
+          if (!rawPhoneNumber) {
+            failedCount++
+            failureMessages.push(MISSING_CAMPAIGN_PHONE_ERROR)
+            logsToCreate.push({ campaignBlastId: blast.id, accountId: account.id, status: "FAILED", errorMessage: MISSING_CAMPAIGN_PHONE_ERROR, zohoNumberUsed: fromNumber })
+            return
+          }
           let phoneNumber = rawPhoneNumber.replace(/[^\d+]/g, "")
           if (phoneNumber.length === 10 && !phoneNumber.startsWith("+")) phoneNumber = "+1" + phoneNumber
           else if (!phoneNumber.startsWith("+") && phoneNumber.length > 10) phoneNumber = "+" + phoneNumber
 
           try {
+            providerAttemptCount++
             const zohoVoiceUrl = `https://voice.zoho.${process.env.ZOHO_DC || "com"}/rest/json/v2/sms/send`
             const smsData = { customerNumber: phoneNumber, message: text || campaignName || "Titan Diamond Update", senderId: fromNumber, mms: isMms }
             const formData = new FormData()
@@ -178,11 +190,16 @@ const authenticatedHandler: Handler = async (event) => {
               smsMessagesToCreate.push({ accountId: account.id, authorId: campaignAuthor.id, fromNumber, toNumber: phoneNumber, body: text || "Titan Diamond Update", direction: "OUTBOUND", campaignBlastId: blast.id })
             } else {
               failedCount++
+              providerFailureCount++
+              failureMessages.push(providerResult.errorMessage)
               logsToCreate.push({ campaignBlastId: blast.id, accountId: account.id, status: "FAILED", errorMessage: providerResult.errorMessage, zohoNumberUsed: fromNumber })
             }
           } catch (e: any) {
+            const errorMessage = e.message || "Unknown Exception"
             failedCount++
-            logsToCreate.push({ campaignBlastId: blast.id, accountId: account.id, status: "FAILED", errorMessage: e.message || "Unknown Exception", zohoNumberUsed: fromNumber })
+            providerFailureCount++
+            failureMessages.push(errorMessage)
+            logsToCreate.push({ campaignBlastId: blast.id, accountId: account.id, status: "FAILED", errorMessage, zohoNumberUsed: fromNumber })
           }
         })
       )
@@ -201,16 +218,18 @@ const authenticatedHandler: Handler = async (event) => {
 
     const newIndex = job.currentIndex + CHUNK_SIZE
     const isDone = newIndex >= job.total
+    const outcome = resolveCampaignChunkState({ isDone, successfulCount, failedCount, providerAttemptCount, providerFailureCount, failureMessages })
+    const errorMessage = outcome.errorMessage || job.errorMessage
 
     await prisma.campaignJob.update({
       where: { id: jobId },
-      data: { currentIndex: Math.min(newIndex, job.total), sentCount: { increment: successfulCount }, failedCount: { increment: failedCount }, status: isDone ? "DONE" : "RUNNING" },
+      data: { currentIndex: Math.min(newIndex, job.total), sentCount: { increment: successfulCount }, failedCount: { increment: failedCount }, status: outcome.status, errorMessage },
     })
 
     return {
       statusCode: 200,
       headers: corsHeaders,
-      body: JSON.stringify({ success: true, status: isDone ? "DONE" : "RUNNING", blastId: job.blastId, progress: Math.min(newIndex, job.total), total: job.total, sentCount: job.sentCount + successfulCount, failedCount: job.failedCount + failedCount, name: job.campaignName }),
+      body: JSON.stringify({ success: true, status: outcome.status, blastId: job.blastId, progress: Math.min(newIndex, job.total), total: job.total, sentCount: job.sentCount + successfulCount, failedCount: job.failedCount + failedCount, name: job.campaignName, error: errorMessage }),
     }
   } catch (error: any) {
     console.error("campaign-job-status error:", error)

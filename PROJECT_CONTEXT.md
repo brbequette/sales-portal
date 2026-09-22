@@ -1284,3 +1284,9 @@ live state before destructive changes or external writes.
 - Missing category remains a legacy product row. Unknown/malformed explicit categories remain visible and fail conservatively as unsupported financial rows rather than being silently discarded. The documented `subtotal` category is also structural.
 - Header handling is pure and adds zero Zoho calls. Existing provider fetches, sync ranges, schedules, document totals, and schema are unchanged. No production/Zoho operation or feature activation occurred during development.
 - Full call-site inventory, residual manual-script guard, sandbox activation gate, and rollback procedure are in `docs/zoho-line-item-header-compatibility-audit.md`. Production enablement remains unapproved until mixed-row sandbox acceptance passes.
+
+## 2026-09-22 Zoho Voice campaign failure containment (PR pending)
+
+- A stopped production MMS campaign reached Zoho Voice but received repeated provider failures. A later one-recipient plain-SMS test did not reach Zoho because the selected local account had no contact phone; the immediate and continuation campaign paths incremented the failure count without creating a `CampaignLog` or returning the reason to the operator.
+- The pending correction records missing-phone failures consistently, returns and persists terminal failure summaries, and shows those summaries in the global campaign status UI. If every actual Zoho provider attempt in a processing chunk fails, the job now transitions to `ERROR` and stops advancing instead of consuming the remaining recipient list.
+- This change does not resend either campaign, change recipient/customer data, switch providers, or claim that the underlying Zoho MMS/provider failure is resolved. A new send still requires an eligible account with a valid stored phone and deliberate operator action after deployment.

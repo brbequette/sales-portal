@@ -678,33 +678,34 @@ export function GlobalTopBar() {
     )}
 
     {/* Campaign Progress Pill — inside sticky wrapper */}
-    {(campaignState.status === 'running' || campaignState.status === 'done' || campaignState.status === 'cancelled') && (() => {
+    {(campaignState.status === 'running' || campaignState.status === 'done' || campaignState.status === 'cancelled' || campaignState.status === 'error') && (() => {
       const pct = campaignState.total > 0 ? Math.round((campaignState.progress / campaignState.total) * 100) : 0
       const isDone = campaignState.status === 'done'
       const isCancelled = campaignState.status === 'cancelled'
+      const isError = campaignState.status === 'error'
       return (
         <div
           style={{
             animation: 'slideDownIn 0.3s ease-out',
             background: isDone
               ? 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.1))'
-              : isCancelled
+              : isCancelled || isError
               ? 'linear-gradient(135deg, rgba(239,68,68,0.12), rgba(220,38,38,0.08))'
               : 'linear-gradient(135deg, rgba(249,115,22,0.12), rgba(234,88,12,0.08))',
           }}
           className={`border-x-0 border-t-0 px-4 py-2 rounded-none flex items-center gap-3 overflow-x-auto scrollbar-none border-b ${
-            isDone ? 'border-emerald-500/20' : isCancelled ? 'border-red-500/20' : 'border-orange-500/20'
+            isDone ? 'border-emerald-500/20' : isCancelled || isError ? 'border-red-500/20' : 'border-orange-500/20'
           }`}
         >
           {/* Icon + label */}
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-sm">
-              {isDone ? '✅' : isCancelled ? '🛑' : '📨'}
+              {isDone ? '✅' : isCancelled ? '🛑' : isError ? '⚠️' : '📨'}
             </span>
             <span className={`text-xs font-bold ${
-              isDone ? 'text-emerald-400' : isCancelled ? 'text-red-400' : 'text-orange-300'
+              isDone ? 'text-emerald-400' : isCancelled || isError ? 'text-red-400' : 'text-orange-300'
             }`}>
-              {isDone ? 'Campaign Complete' : isCancelled ? 'Campaign Cancelled' : 'Campaign Sending'}
+              {isDone ? 'Campaign Complete' : isCancelled ? 'Campaign Cancelled' : isError ? 'Campaign Failed' : 'Campaign Sending'}
             </span>
             {campaignState.name && (
               <span className="text-xs text-neutral-400 font-medium hidden sm:inline truncate max-w-[140px]">
@@ -734,6 +735,12 @@ export function GlobalTopBar() {
               <span className="text-emerald-400 ml-1">({campaignState.sentCount} sent)</span>
             )}
           </span>
+
+          {campaignState.error && (
+            <span className="text-xs text-red-300 truncate max-w-[420px]" title={campaignState.error}>
+              {campaignState.error}
+            </span>
+          )}
 
           {/* Open button */}
           <button
