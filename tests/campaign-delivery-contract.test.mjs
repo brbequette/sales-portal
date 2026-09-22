@@ -18,5 +18,9 @@ assert.match(manager, /completedWithNoDeliveries/, "zero-delivery completion mus
 assert.match(manager, /error: data\.error \|\| this\.state\.error/, "polling must retain the server failure reason")
 assert.match(topBar, /Campaign Failed/, "the global campaign banner must expose failure state")
 assert.match(topBar, /campaignState\.error/, "the global campaign banner must render the failure reason")
+assert.match(createHandler, /const CHUNK_SIZE = 1/, "the initial campaign chunk must respect Zoho's request limit")
+assert.match(statusHandler, /const CHUNK_SIZE = 1/, "continuation chunks must send one provider request at a time")
+assert.match(createHandler, /status: "RUNNING", channel: "SMS"/, "parallel SMS campaigns must be rejected")
+assert.match(manager, /const POLL_INTERVAL_MS = 4000/, "campaign polling must remain below 20 provider requests per minute")
 
 console.log("campaign delivery contracts passed")
