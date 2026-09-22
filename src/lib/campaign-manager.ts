@@ -136,14 +136,16 @@ class CampaignManager {
       const serverStatus = (data.status || "").toLowerCase()
 
       if (serverStatus === "done") {
+        const completedWithNoDeliveries = Boolean(data.error) && (data.sentCount || 0) === 0
         this.state = {
           ...this.state,
-          status: "done",
+          status: completedWithNoDeliveries ? "error" : "done",
           blastId: data.blastId || this.state.blastId,
           progress: data.total,
           total: data.total,
           sentCount: data.sentCount || 0,
           failedCount: data.failedCount || 0,
+          error: data.error || null,
         }
         this.notify()
         // Clear after 6 seconds so the pill can show the done state
@@ -167,6 +169,7 @@ class CampaignManager {
           sentCount: data.sentCount ?? this.state.sentCount,
           failedCount: data.failedCount ?? this.state.failedCount,
           name: data.name || this.state.name,
+          error: data.error || this.state.error,
         }
         this.notify()
         this.schedulePoll()
@@ -207,14 +210,18 @@ class CampaignManager {
       this.state = {
         jobId,
         blastId,
-        status: data.progress >= data.total ? "done" : "running",
+        status: (data.status || "").toLowerCase() === "error" || (data.error && (data.sentCount || 0) === 0)
+          ? "error"
+          : data.progress >= data.total
+            ? "done"
+            : "running",
         progress: data.progress || 0,
         total: data.total || config.accountIds.length,
         sentCount: data.sentCount || 0,
         failedCount: data.failedCount || 0,
         name: config.campaignName,
         channel: config.channel,
-        error: null,
+        error: data.error || null,
       }
       this.notify()
 
