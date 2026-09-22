@@ -1,6 +1,6 @@
 import { Handler } from "@netlify/functions"
 import { corsHeaders, handleOptions } from "./lib/cors"
-import { getZohoAccessToken } from "./lib/zoho-auth"
+import { getZohoVoiceAccessToken } from "./lib/zoho-voice-auth"
 import { evaluateZohoSmsResponse } from "./lib/zoho-sms-response"
 
 import { prisma } from "./lib/prisma"
@@ -128,7 +128,7 @@ export const handler: Handler = async (event, context) => {
       let apiMessage = ""
 
       try {
-        const accessToken = await getZohoAccessToken()
+        const accessToken = await getZohoVoiceAccessToken()
         if (accessToken) {
           let fromNumber = process.env.ZOHO_VOICE_FROM_NUMBER || ''
           if (!fromNumber) {
@@ -158,7 +158,8 @@ export const handler: Handler = async (event, context) => {
           const smsRes = await fetch(zohoVoiceUrl, { signal: AbortSignal.timeout(15000),
             method: 'POST',
             headers: {
-              'Authorization': `Zoho-oauthtoken ${accessToken}`
+              'Authorization': `Zoho-oauthtoken ${accessToken}`,
+              'Accept': 'application/json'
             },
             body: formData as any
           })

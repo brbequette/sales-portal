@@ -2,7 +2,7 @@ import { withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import FormData from "form-data"
 import { corsHeaders, handleOptions } from "./lib/cors"
-import { getZohoAccessToken } from "./lib/zoho-auth"
+import { getZohoVoiceAccessToken } from "./lib/zoho-voice-auth"
 import { evaluateZohoSmsResponse } from "./lib/zoho-sms-response"
 
 import { prisma } from "./lib/prisma"
@@ -143,7 +143,7 @@ const authenticatedHandler: Handler = async (event, context) => {
     }
 
     if ((channel || 'SMS') === 'SMS') {
-      const accessToken = await getZohoAccessToken()
+      const accessToken = await getZohoVoiceAccessToken()
       if (!accessToken) {
         return {
           statusCode: 500,
@@ -276,6 +276,7 @@ const authenticatedHandler: Handler = async (event, context) => {
             method: 'POST',
             headers: {
               'Authorization': `Zoho-oauthtoken ${accessToken}`,
+              'Accept': 'application/json',
               ...formData.getHeaders()
             },
             body: formData as any

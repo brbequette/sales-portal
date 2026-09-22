@@ -1,7 +1,7 @@
 import { withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { corsHeaders, handleOptions } from "./lib/cors"
-import { getZohoAccessToken } from "./lib/zoho-auth"
+import { getZohoVoiceAccessToken } from "./lib/zoho-voice-auth"
 import FormData from "form-data"
 import { evaluateZohoSmsResponse } from "./lib/zoho-sms-response"
 import { MISSING_CAMPAIGN_PHONE_ERROR, resolveCampaignChunkState } from "./lib/campaign-delivery-outcome"
@@ -44,7 +44,7 @@ async function sendSmsChunk(params: {
   const failureMessages: string[] = []
 
   if (channel === "SMS") {
-    const accessToken = await getZohoAccessToken()
+    const accessToken = await getZohoVoiceAccessToken()
     if (!accessToken) {
       throw new Error("Failed to authenticate with Zoho Voice API.")
     }
@@ -123,7 +123,7 @@ async function sendSmsChunk(params: {
           if (isMms && preFetchedImageBuffer) {
             formData.append("mms_media", preFetchedImageBuffer, { filename: `attachment.${preFetchedImageExt}`, contentType: preFetchedImageContentType })
           }
-          const smsRes = await fetch(zohoVoiceUrl, { signal: AbortSignal.timeout(15000), method: "POST", headers: { Authorization: `Zoho-oauthtoken ${accessToken}`, ...formData.getHeaders() }, body: formData as any })
+          const smsRes = await fetch(zohoVoiceUrl, { signal: AbortSignal.timeout(15000), method: "POST", headers: { Authorization: `Zoho-oauthtoken ${accessToken}`, Accept: "application/json", ...formData.getHeaders() }, body: formData as any })
           const resultText = await smsRes.text()
           let resultJson: any = {}
           try { resultJson = JSON.parse(resultText) } catch {}

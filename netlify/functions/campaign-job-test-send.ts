@@ -1,7 +1,7 @@
 import { withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { corsHeaders, handleOptions } from "./lib/cors"
-import { getZohoAccessToken } from "./lib/zoho-auth"
+import { getZohoVoiceAccessToken } from "./lib/zoho-voice-auth"
 import FormData from "form-data"
 
 import { prisma } from "./lib/prisma"
@@ -35,7 +35,7 @@ const authenticatedHandler: Handler = async (event) => {
         }
       }
 
-      const accessToken = await getZohoAccessToken()
+      const accessToken = await getZohoVoiceAccessToken()
       if (!accessToken) return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ success: false, message: "Failed to authenticate with Zoho Voice API." }) }
 
       const isMms = !!imageUrl
@@ -69,7 +69,7 @@ const authenticatedHandler: Handler = async (event) => {
       formData.append("sms_data", JSON.stringify(smsData))
       if (isMms && preFetchedImageBuffer) formData.append("mms_media", preFetchedImageBuffer, { filename: `attachment.${preFetchedImageExt}`, contentType: preFetchedImageContentType })
 
-      const smsRes = await fetch(zohoVoiceUrl, { signal: AbortSignal.timeout(15000), method: "POST", headers: { Authorization: `Zoho-oauthtoken ${accessToken}`, ...formData.getHeaders() }, body: formData as any })
+      const smsRes = await fetch(zohoVoiceUrl, { signal: AbortSignal.timeout(15000), method: "POST", headers: { Authorization: `Zoho-oauthtoken ${accessToken}`, Accept: "application/json", ...formData.getHeaders() }, body: formData as any })
       const resultText = await smsRes.text()
       let resultJson: any = {}
       try { resultJson = JSON.parse(resultText) } catch {}

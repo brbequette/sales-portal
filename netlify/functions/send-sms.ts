@@ -2,7 +2,7 @@ import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import FormData from "form-data"
 import { corsHeaders, handleOptions } from "./lib/cors"
-import { getZohoAccessToken } from "./lib/zoho-auth"
+import { getZohoVoiceAccessToken } from "./lib/zoho-voice-auth"
 import { prisma } from "./lib/prisma"
 
 // Module-level cache for phone numbers (rarely changes)
@@ -105,7 +105,7 @@ const authenticatedHandler: Handler = async (event) => {
       phoneNumber = '+' + phoneNumber
     }
 
-    const accessToken = await getZohoAccessToken()
+    const accessToken = await getZohoVoiceAccessToken()
     if (!accessToken) {
       return {
         statusCode: 500,
@@ -139,6 +139,7 @@ const authenticatedHandler: Handler = async (event) => {
       method: 'POST',
       headers: {
         'Authorization': `Zoho-oauthtoken ${accessToken}`,
+        'Accept': 'application/json',
         ...formData.getHeaders()
       },
       body: formData as any
