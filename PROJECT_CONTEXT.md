@@ -1,5 +1,16 @@
 # Titan Diamond — Consolidated Project Context
 
+## Durable campaign processing and deliverability (pending PR, 2026-09-22)
+
+- Campaign status reads are observation-only. New campaigns materialize one durable recipient row per selected account and are processed by bounded server-side workers plus a one-minute recovery watchdog; browser polling and local storage are no longer execution dependencies.
+- Recipient claims use atomic row locking and expiring pre-submission leases. `SENDING` is persisted before Zoho submission; an interrupted `SENDING` attempt becomes `AMBIGUOUS` and is never automatically resent. Accepted, failed, ambiguous, skipped, and completed recipients are terminal for ordinary recovery.
+- The legacy 2,073-recipient MMS job with index 201 and 212 outcomes is explicitly `LEGACY_QUARANTINED`. No recipient rows are synthesized and no ordinary resume is available; its raw missing-result count is evidence for review, never permission to resend.
+- Initial Zoho acceptance is stored as submitted rather than delivered. Authenticated Zoho Voice delivery callbacks update final provider states and number-specific technical disposition. Permanent technical failures suppress only the normalized number; opt-out/legal suppression remains separately protected. Temporary and ambiguous failures remain unsuppressed and are never automatically retried.
+- A bounded 15-minute reconciliation sweep never sends a probe or guesses delivery. It keeps recent accepted messages awaiting callbacks and moves campaigns with overdue/unresolved receipts to admin review because no documented non-message Zoho Voice carrier lookup is configured.
+- Admin Campaign Management includes server-side recovery state, recipient/delivery counts, quarantine warnings, and exportable after-send review. Manual ambiguous retry requires explicit per-recipient confirmation; quarantined legacy messages require a separate reviewed campaign.
+- Every callable Zoho Voice SMS/MMS surface now uses the shared number-level suppression guard. Protected opt-out/legal restrictions block all traffic; promotional, scheduled-promotional, and canary traffic also enforce technical suppression. The legacy bulk sender is retired. Campaign and Canary confirmation views expose suppression counts/reasons before submission, and account/contact phone badges expose the affected number's disposition without disabling peer numbers.
+- PR validation uses two disposable PostgreSQL 16 databases with workflow-local credentials: one applies and re-applies the complete migration chain, while the other rehearses the legacy upgrade and proves inconsistent/known jobs remain quarantined with no sendable recipients.
+
 ## Rep Stats selected-year roster and company target correction (2026-09-21)
 
 - A read-only production PostgreSQL audit proved the Rep Stats endpoint was seeding all 13 non-test users into the leaderboard before processing documents. Six identities had no qualifying 2026 activity (including the separate Master Administrator login and five zero-activity agent logins), so an excluded missing target incorrectly made company progress appear unconfigured.

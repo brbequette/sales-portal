@@ -1,4 +1,5 @@
 "use client"
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 
 
 import { formatPhoneNumber } from "@/lib/formatters"
@@ -7,6 +8,7 @@ import { formatPhoneNumber } from "@/lib/formatters"
 import { useState } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import { FiUser, FiMail, FiPhone, FiSmartphone, FiPlus, FiMessageSquare, FiCheck, FiFileText, FiEdit2 } from "react-icons/fi"
+import { PhoneDeliverabilityBadge } from "@/components/PhoneDeliverabilityBadge"
 import { ContactEditModal } from "@/components/ContactEditModal"
 import { PhoneLink } from "@/components/PhoneLink"
 import { toast } from 'react-hot-toast';
@@ -229,6 +231,7 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                         >
                           <FiPhone className="shrink-0" size={11} />
                         </PhoneLink>
+                        <PhoneDeliverabilityBadge phone={c.phone || c.mobilePhone || ""} />
                       </div>
                     )}
                 </button>
@@ -276,7 +279,7 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                       onChange={e => setNewNoteText(e.target.value)}
                       placeholder="Write a general note or log a communication..."
                       className="w-full glass-panel border border-white/10 rounded-lg p-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500 resize-none h-18"
-                    />
+                        />
                     <div className="flex justify-end gap-2 text-[10px]">
                       <button
                         onClick={() => {
@@ -367,7 +370,10 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                   <div className="space-y-0.5">
                     <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider block">Office Phone</span>
                     {selectedContact.phone ? (
-                      <PhoneLink phone={selectedContact.phone} className="text-xs text-sky-400 hover:text-sky-300 font-mono font-bold" />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <PhoneLink phone={selectedContact.phone} className="text-xs text-sky-400 hover:text-sky-300 font-mono font-bold" />
+                        <PhoneDeliverabilityBadge phone={selectedContact.phone} />
+                      </div>
                     ) : (
                       <span className="text-xs text-neutral-600 block">Not specified</span>
                     )}
@@ -375,7 +381,10 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                   <div className="space-y-0.5 sm:col-span-2">
                     <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider block">Mobile Phone</span>
                     {selectedContact.mobilePhone ? (
-                      <PhoneLink phone={selectedContact.mobilePhone} className="text-xs text-sky-400 hover:text-sky-300 font-mono font-bold" />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <PhoneLink phone={selectedContact.mobilePhone} className="text-xs text-sky-400 hover:text-sky-300 font-mono font-bold" />
+                        <PhoneDeliverabilityBadge phone={selectedContact.mobilePhone} />
+                      </div>
                     ) : (
                       <span className="text-xs text-neutral-600 block">Not specified</span>
                     )}

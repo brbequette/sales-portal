@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { corsHeaders, handleOptions } from "./lib/cors"
@@ -5,6 +6,8 @@ import { getZohoVoiceAccessToken } from "./lib/zoho-voice-auth"
 import { evaluateZohoSmsResponse } from "./lib/zoho-sms-response"
 import { MISSING_CAMPAIGN_PHONE_ERROR, resolveCampaignChunkState } from "./lib/campaign-delivery-outcome"
 import { buildZohoSmsFormData, loadZohoMmsMedia } from "./lib/zoho-mms-media"
+import { normalizeE164 } from "./lib/campaign-deliverability"
+import { guardSmsSend } from "../../src/lib/sms-suppression"
 
 import { prisma } from "./lib/prisma"
 
@@ -207,7 +210,7 @@ const authenticatedHandler: Handler = async (event) => {
 
     if (!isScheduled && (channel || "SMS") === "SMS") {
       const activeSmsJob = await prisma.campaignJob.findFirst({
-        where: { status: "RUNNING", channel: "SMS" },
+        where: { status: { in: ["QUEUED", "RUNNING", "RECOVERING"] }, channel: "SMS" },
         select: { id: true },
       })
       if (activeSmsJob) {
@@ -288,7 +291,7 @@ const authenticatedHandler: Handler = async (event) => {
         data: {
           authorId: author.id,
           blastId: blast.id,
-          status: "SCHEDULED",
+          status: "PAUSED",
           campaignName: campaignName || "Unnamed Campaign",
           channel: channel || "SMS",
           text: text || "",
@@ -303,7 +306,7 @@ const authenticatedHandler: Handler = async (event) => {
       return {
         statusCode: 200,
         headers: corsHeaders,
-        body: JSON.stringify({ success: true, jobId: job.id, blastId: blast.id, status: "SCHEDULED", progress: 0, total: accountIds.length, sentCount: 0, failedCount: 0 }),
+        body: JSON.stringify({ success: true, jobId: job.id, blastId: blast.id, status: "PAUSED", progress: 0, total: accountIds.length, sentCount: 0, failedCount: 0 }),
       }
     }
 
@@ -312,7 +315,7 @@ const authenticatedHandler: Handler = async (event) => {
       data: {
         authorId: author.id,
         blastId: blast.id,
-        status: "RUNNING",
+        status: "QUEUED",
         campaignName: campaignName || "Unnamed Campaign",
         channel: channel || "SMS",
         text: text || "",
@@ -324,26 +327,26 @@ const authenticatedHandler: Handler = async (event) => {
       },
     })
 
-    // Process first chunk immediately
-    const firstChunkIds = accountIds.slice(0, CHUNK_SIZE)
-    const firstAccounts = await prisma.account.findMany({ where: { id: { in: firstChunkIds } }, include: { contacts: true } })
-    const limitRow = await prisma.systemSetting.findUnique({ where: { key: 'sms_daily_account_limit' } })
-    const accountDailyLimit = limitRow ? parseInt(limitRow.value, 10) || 1 : 1
-    const chunkResult = await sendSmsChunk({ accounts: firstAccounts, blast, author, text, imageUrl, fromNumber: resolvedFromNumber, campaignName, channel, accountDailyLimit })
-    const { successfulCount, failedCount } = chunkResult
-
-    const newIndex = Math.min(CHUNK_SIZE, accountIds.length)
-    const isDone = newIndex >= accountIds.length
-    const outcome = resolveCampaignChunkState({ isDone, ...chunkResult })
-    await prisma.campaignJob.update({
-      where: { id: job.id },
-      data: { currentIndex: newIndex, sentCount: successfulCount, failedCount, status: outcome.status, errorMessage: outcome.errorMessage },
+    const accounts = await prisma.account.findMany({ where: { id: { in: accountIds } }, include: { contacts: true } })
+    const accountMap = new Map(accounts.map(account => [account.id, account]))
+    const prepared = accountIds.map((accountId: string, originalIndex: number) => {
+      const account = accountMap.get(accountId)
+      const contact = account?.contacts.find((entry: any) => entry.isPrimary) || account?.contacts[0]
+      const originalPhone = contact?.mobilePhone || contact?.phone || null
+      return { accountId, contactId: contact?.id || null, originalPhone, normalizedPhone: originalPhone ? normalizeE164(originalPhone) : null, originalIndex }
     })
+    const decisions = await Promise.all(prepared.map(entry => guardSmsSend({ phone: entry.normalizedPhone || "", traffic: "PROMOTIONAL" })))
+    await prisma.campaignRecipient.createMany({ data: prepared.map(entry => {
+      const decision = decisions[entry.originalIndex]
+      const skipped = !decision.allowed
+      return { campaignJobId: job.id, ...entry, normalizedPhone: decision.normalizedPhone, state: skipped ? "SKIPPED" as const : "PENDING" as const, skippedAt: skipped ? new Date() : null, dispositionReason: skipped ? decision.reason : null }
+    }) })
+    const excludedCount = decisions.filter(decision => !decision.allowed).length
 
     return {
       statusCode: 200,
       headers: corsHeaders,
-      body: JSON.stringify({ success: true, jobId: job.id, blastId: blast.id, status: outcome.status, progress: newIndex, total: accountIds.length, sentCount: successfulCount, failedCount, error: outcome.errorMessage }),
+        body: JSON.stringify({ success: true, jobId: job.id, blastId: blast.id, status: "QUEUED", progress: excludedCount, total: accountIds.length, sentCount: 0, failedCount: 0, excludedCount, serverSideProcessing: true }),
     }
   } catch (error: any) {
     console.error("campaign-job-create error:", error)

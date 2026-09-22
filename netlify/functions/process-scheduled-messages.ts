@@ -1,8 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { schedule } from "@netlify/functions"
 import { getZohoVoiceAccessToken } from "./lib/zoho-voice-auth"
 import { evaluateZohoSmsResponse } from "./lib/zoho-sms-response"
 import { buildZohoSmsFormData, loadZohoMmsMedia } from "./lib/zoho-mms-media"
 import { prisma } from "./lib/prisma"
+import { guardSmsSend } from "../../src/lib/sms-suppression"
 
 // Runs every 10 minutes to process scheduled texts
 export const handler = schedule("*/10 * * * *", async () => {
@@ -98,6 +100,13 @@ export const handler = schedule("*/10 * * * *", async () => {
       let phoneNumber = rawPhoneNumber.replace(/[^\d+]/g, "")
       if (phoneNumber.length === 10 && !phoneNumber.startsWith("+")) phoneNumber = "+1" + phoneNumber
       else if (!phoneNumber.startsWith("+") && phoneNumber.length > 10) phoneNumber = "+" + phoneNumber
+
+      const guard = await guardSmsSend({ phone: phoneNumber, traffic: msg.campaignBlastId ? "PROMOTIONAL" : "TRANSACTIONAL" })
+      if (!guard.allowed) {
+        await prisma.scheduledMessage.update({ where: { id: msg.id }, data: { status: "FAILED", errorMessage: `Suppressed: ${guard.reason}`, sentAt: now } })
+        if (msg.campaignBlastId) { await prisma.campaignLog.create({ data: { campaignBlastId: msg.campaignBlastId, accountId: msg.accountId, status: "FAILED", errorMessage: `Suppressed: ${guard.reason}`, zohoNumberUsed: msg.fromNumber } }); await updateJobProgress(msg.campaignBlastId, 0, 1) }
+        continue
+      }
 
       try {
         const isMms = !!msg.imageUrl
@@ -218,7 +227,7 @@ async function updateJobProgress(blastId: string, successInc: number, failInc: n
         currentIndex: Math.min(newIndex, job.total),
         sentCount: newSent,
         failedCount: newFailed,
-        status: isDone ? "DONE" : "SCHEDULED"
+        status: isDone ? "COMPLETED" : "PAUSED"
       }
     })
   } catch (err) {

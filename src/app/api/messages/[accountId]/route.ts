@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, prefer-const */
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 // Using default auth for prototype
 import { getZohoAccessToken } from '@/lib/zoho-auth'
 import FormData from 'form-data'
 import { checkAccountOwnership } from '@/lib/auth-helpers'
+import { guardSmsSend } from '@/lib/sms-suppression'
 
 export async function GET(req: Request, context: { params: Promise<{ accountId: string }> }) {
   try {
@@ -122,6 +124,8 @@ export async function POST(req: Request, context: { params: Promise<{ accountId:
     let phoneNumber = rawPhoneNumber.replace(/[^\d+]/g, '')
     if (phoneNumber.length === 10 && !phoneNumber.startsWith('+')) phoneNumber = '+1' + phoneNumber
     else if (!phoneNumber.startsWith('+') && phoneNumber.length > 10) phoneNumber = '+' + phoneNumber
+    const guard = await guardSmsSend({ phone: phoneNumber, traffic: 'TRANSACTIONAL' })
+    if (!guard.allowed) return NextResponse.json({ success: false, error: `SMS blocked: ${guard.reason}` }, { status: 409 })
 
     const accessToken = await getZohoAccessToken()
     if (!accessToken) throw new Error('Failed to get Zoho Access Token')

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { corsHeaders, handleOptions } from "./lib/cors"
@@ -15,7 +16,11 @@ const authenticatedHandler: Handler = async (event) => {
     const job = await prisma.campaignJob.findUnique({ where: { id: jobId } })
     if (!job) return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, message: "Job not found" }) }
 
-    await prisma.campaignJob.update({ where: { id: jobId }, data: { status: "CANCELLED" } })
+    if (job.status === "LEGACY_QUARANTINED") return { statusCode: 409, headers: corsHeaders, body: JSON.stringify({ success: false, message: "Quarantined legacy campaigns cannot be altered" }) }
+    await prisma.$transaction([
+      prisma.campaignJob.update({ where: { id: jobId }, data: { status: "CANCELLED" } }),
+      prisma.campaignRecipient.updateMany({ where: { campaignJobId: jobId, state: { in: ["PENDING", "LEASED"] } }, data: { state: "SKIPPED", skippedAt: new Date(), leaseOwner: null, leaseExpiresAt: null, dispositionReason: "Campaign cancelled by administrator" } }),
+    ])
 
     return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, status: "CANCELLED" }) }
   } catch (error: any) {

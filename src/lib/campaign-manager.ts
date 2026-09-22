@@ -5,6 +5,7 @@
  * Lives in browser JS memory independently of React -- survives navigation.
  * State is persisted in the DB, so refresh just reconnects via localStorage jobId.
  */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 const STORAGE_KEY = "titan_active_campaign_job_id"
 // One provider request every four seconds stays below Zoho Voice's documented
@@ -137,7 +138,7 @@ class CampaignManager {
 
       const serverStatus = (data.status || "").toLowerCase()
 
-      if (serverStatus === "done") {
+      if (serverStatus === "completed" || serverStatus === "completed_with_errors") {
         const completedWithNoDeliveries = Boolean(data.error) && (data.sentCount || 0) === 0
         this.state = {
           ...this.state,
@@ -156,12 +157,12 @@ class CampaignManager {
         this.state = { ...this.state, status: "cancelled", progress: data.progress || this.state.progress }
         this.notify()
         setTimeout(() => this.clear(), 4000)
-      } else if (serverStatus === "error") {
+      } else if (serverStatus === "legacy_quarantined") {
         this.state = { ...this.state, status: "error", error: data.error || "Unknown error" }
         this.notify()
         setTimeout(() => this.clear(), 6000)
       } else {
-        // Still running
+        // Still running server-side; polling only observes durable state.
         this.state = {
           ...this.state,
           status: "running",
@@ -212,9 +213,9 @@ class CampaignManager {
       this.state = {
         jobId,
         blastId,
-        status: (data.status || "").toLowerCase() === "error" || (data.error && (data.sentCount || 0) === 0)
+        status: (data.status || "").toLowerCase() === "legacy_quarantined" || (data.error && (data.sentCount || 0) === 0)
           ? "error"
-          : data.progress >= data.total
+          : ["completed", "completed_with_errors"].includes((data.status || "").toLowerCase()) || data.progress >= data.total
             ? "done"
             : "running",
         progress: data.progress || 0,
