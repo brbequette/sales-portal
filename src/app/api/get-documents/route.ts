@@ -6,8 +6,10 @@ import { hasValidTvSession } from '@/lib/tv-auth'
 import { isAdminRole } from '@/lib/roles'
 import { requireTvAccess } from '@/lib/tv-access'
 import { financialZohoLineItems } from '@/lib/zoho-line-items'
+import { databaseReadHeaders, getDatabaseFreshness, LOCAL_DATA_INCOMPLETE } from '@/lib/database-read-metadata'
 
 export async function GET(request: Request) {
+  const startedAt = performance.now()
   try {
     const { searchParams } = new URL(request.url)
     const tvRequested = searchParams.get('tv') === '1'
@@ -21,7 +23,7 @@ export async function GET(request: Request) {
     }
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
     const loadAll = searchParams.get('loadAll') === 'true'
-    const maxPageSize = loadAll ? 10000 : 100
+    const maxPageSize = 200
     const pageSize = Math.min(maxPageSize, Math.max(1, parseInt(searchParams.get('pageSize') || '50', 10) || 50))
     
     const search = searchParams.get('search')?.toLowerCase() || ''
@@ -182,7 +184,8 @@ export async function GET(request: Request) {
       fetchInvoices ? prisma.invoice.count({ where: invoiceWhere }) : Promise.resolve(0),
       fetchSalesOrders ? prisma.invoice.findMany({
         where: { OR: [{ salesOrderZohoId: { not: null } }, { salesorderNumber: { not: null } }] },
-        select: { salesOrderZohoId: true, salesorderNumber: true }
+        select: { salesOrderZohoId: true, salesorderNumber: true },
+        take: 5000,
       }) : Promise.resolve([])
     ])
 
@@ -339,18 +342,23 @@ export async function GET(request: Request) {
     const total = quotesCount + salesOrdersCount + invoicesCount
     const totalPages = Math.ceil(total / pageSize)
 
+    const freshness = await getDatabaseFreshness()
     return NextResponse.json({
       success: true,
       documents: allDocs,
       total,
       page,
       pageSize,
-      totalPages
-    })
+      totalPages,
+      freshness,
+    }, { headers: databaseReadHeaders(startedAt, 8) })
 
   } catch (err: any) {
     console.error('get-documents error:', err)
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
+    return NextResponse.json({ success: false, documents: [], error: LOCAL_DATA_INCOMPLETE }, {
+      status: 500,
+      headers: databaseReadHeaders(startedAt, 0),
+    })
   }
 }
 

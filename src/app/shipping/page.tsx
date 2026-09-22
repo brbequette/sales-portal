@@ -235,8 +235,8 @@ export default function ShippingPage() {
   const handleSyncSalesOrderDetail = async (zohoId: string) => {
     setFetchingLineItems(zohoId)
     try {
-      const res = await fetch("/api/shipping", {
-        method: "PUT",
+      const res = await fetch("/api/shipping/action", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "syncSalesOrder",
@@ -267,10 +267,6 @@ export default function ShippingPage() {
     setExpandedOrder(orderId)
 
     const order = orders.find(o => o.id === orderId)
-    if (order && (!order.lineItems || order.lineItems.length === 0)) {
-      await handleSyncSalesOrderDetail(order.zohoId)
-    }
-
     // Auto-fetch PO details for dropshipments that have no line items
     if (order?.dropshipments?.length) {
       for (const ds of order.dropshipments) {
@@ -450,8 +446,8 @@ export default function ShippingPage() {
     if (!trackingModal) return
     setTrackingSubmitting(true)
     try {
-      const res = await fetch("/api/shipping", {
-        method: "PUT",
+      const res = await fetch("/api/shipping/action", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "addTracking",
@@ -477,8 +473,8 @@ export default function ShippingPage() {
   // Mark shipped/delivered
   const handleStatusChange = async (packageId: string, action: "markShipped" | "markDelivered") => {
     try {
-      const res = await fetch("/api/shipping", {
-        method: "PUT",
+      const res = await fetch("/api/shipping/action", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, packageId }),
       })

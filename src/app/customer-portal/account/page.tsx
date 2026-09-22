@@ -35,7 +35,7 @@ export default function CustomerAccountPage() {
     event.preventDefault(); setSaving(true); setError(""); setMessage("")
     try {
       const token = localStorage.getItem("td_customer_token")
-      const response = await fetch("/api/customer/account", { method: "PUT", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(form) })
+      const response = await fetch("/api/customer/account/update", { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(form) })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || "Unable to save changes")
       setMessage("Your account and primary contact were updated in Titan and Zoho CRM.")

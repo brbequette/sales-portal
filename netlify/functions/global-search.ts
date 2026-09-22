@@ -1,11 +1,7 @@
 import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
-import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
-
-const ORG_ID = ZOHO_ORGANIZATION_ID
 import { prisma } from "./lib/prisma"
 import { isAdminRole } from "../../src/lib/roles"
-const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 const authenticatedHandler: Handler = async (event) => {
   const cors = {

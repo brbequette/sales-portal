@@ -170,32 +170,22 @@ export default function AdminSettingsPage() {
     setApiError(null)
     setSuccessMsg(null)
     try {
-      let page = 1
-      let hasMore = true
-      
-      while (hasMore) {
-        const res = await fetch(`/api/get-products?reseed=true&page=${page}`)
-        const text = await res.text()
+      const res = await fetch('/api/admin/products/sync', { method: 'POST' })
+      const text = await res.text()
         
-        if (!text) {
-          throw new Error("Empty response from server (Timeout)")
-        }
-        
-        let data
-        try {
-          data = JSON.parse(text)
-        } catch (e) {
-          throw new Error("Invalid response format from server")
-        }
-        
-        if (!data.success) {
-          throw new Error(data.error || data.message || "Failed to refresh products")
-        }
-        
-        hasMore = data.hasMore
-        page = data.nextPage
+      if (!text) {
+        throw new Error("Empty response from server (Timeout)")
       }
-      
+
+      let data
+      try {
+        data = JSON.parse(text)
+      } catch {
+        throw new Error("Invalid response format from server")
+      }
+
+      if (!res.ok || !data.success) throw new Error(data.error || data.message || "Failed to refresh products")
+
       setSuccessMsg("Product catalog fully synchronized!")
     } catch (err: any) {
       setApiError(err.message || "Network error")

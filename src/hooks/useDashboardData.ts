@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { parseGlobalHeaderSummary } from '@/lib/global-header-metrics'
+import { fetchDatabaseSummary } from '@/lib/client-database-reads'
 
 export function useDashboardData(
   repName?: string | null,
@@ -15,12 +16,12 @@ export function useDashboardData(
         if (startDate) statsParams.set('startDate', startDate)
         if (endDate) statsParams.set('endDate', endDate)
       }
-      const [statsResponse, summaryResponse] = await Promise.all([
-        fetch(`/api/get-rep-stats?${statsParams.toString()}`),
-        fetch('/api/zoho-invoices?summary=true&personal=true'),
+      const [statsResponse, summaryPayload] = await Promise.all([
+        fetch(`/api/get-rep-stats?${statsParams.toString()}`, { cache: 'no-store' }),
+        fetchDatabaseSummary(),
       ])
-      if (!statsResponse.ok || !summaryResponse.ok) throw new Error('Failed to fetch dashboard data')
-      const [stats, summaryPayload] = await Promise.all([statsResponse.json(), summaryResponse.json()])
+      if (!statsResponse.ok) throw new Error('Failed to fetch dashboard data')
+      const stats = await statsResponse.json()
       const globalHeaderSummary = parseGlobalHeaderSummary(summaryPayload)
       if (!stats.success || !globalHeaderSummary || stats.scope !== globalHeaderSummary.scope) {
         throw new Error('Dashboard financial scope unavailable')
