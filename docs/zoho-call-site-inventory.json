@@ -1,0 +1,20 @@
+{
+  "generatedFrom": "repository-static-audit",
+  "policy": "user-facing reads must use local PostgreSQL; explicit sync/write actions remain separate",
+  "entries": [
+    {"path":"netlify/functions/daily-books-sync.ts","kind":"scheduled sync","direction":"read Zoho/write local DB","pageRequest":false,"loopRisk":"resource loop","replacement":"bounded/staged local importer"},
+    {"path":"netlify/functions/automation-engine.ts","kind":"scheduled automation","direction":"read Zoho/write local DB","pageRequest":false,"loopRisk":"sales-order fetch","replacement":"local operational tables"},
+    {"path":"src/app/api/customer/account/route.ts","kind":"API read","direction":"read Zoho CRM","pageRequest":true,"loopRisk":"account/contact detail","replacement":"local Account/Contact tables"},
+    {"path":"src/app/api/update-product/route.ts","kind":"explicit action","direction":"read/write Zoho Books","pageRequest":true,"loopRisk":"none","replacement":"local Product read; explicit write remains gated"},
+    {"path":"src/app/api/bulk-calculate-costs/route.ts","kind":"explicit financial action","direction":"read/write Zoho Books","pageRequest":true,"loopRisk":"document loop","replacement":"local evidence; Apply remains explicit"},
+    {"path":"src/app/api/batch-tariff-update/route.ts","kind":"explicit financial action","direction":"read/write Zoho Books","pageRequest":true,"loopRisk":"document loop","replacement":"local evidence; Apply remains explicit"},
+    {"path":"src/app/api/auth/magic-link/route.ts","kind":"authentication","direction":"read Zoho Mail","pageRequest":true,"loopRisk":"message lookup","replacement":"local auth provider/cache"},
+    {"path":"netlify/functions/admin-books-sync-packages.ts","kind":"admin sync/package action","direction":"read Zoho/write local artifact","pageRequest":false,"loopRisk":"resource loop","replacement":"Sync Center staged package"},
+    {"path":"netlify/functions/admin-books-sync-packages-background.ts","kind":"background sync/package action","direction":"read Zoho/write local artifact","pageRequest":false,"loopRisk":"resource loop","replacement":"Sync Center staged package"}
+  ],
+  "knownReadSurfaceRules": [
+    "No page component may import a Zoho client or token provider.",
+    "Page refresh must not invoke sync-now or a provider fallback.",
+    "Missing local evidence is a visible blocker, not a Zoho fetch."
+  ]
+}
