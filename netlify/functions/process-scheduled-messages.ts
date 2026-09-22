@@ -1,6 +1,6 @@
 import { schedule } from "@netlify/functions"
 import FormData from "form-data"
-import { getZohoAccessToken } from "./lib/zoho-auth"
+import { getZohoVoiceAccessToken } from "./lib/zoho-voice-auth"
 import { evaluateZohoSmsResponse } from "./lib/zoho-sms-response"
 import { prisma } from "./lib/prisma"
 
@@ -33,7 +33,7 @@ export const handler = schedule("*/10 * * * *", async () => {
     console.log(`Processing ${messages.length} due scheduled messages...`)
 
     // Get Zoho voice token once for the batch
-    const accessToken = await getZohoAccessToken()
+    const accessToken = await getZohoVoiceAccessToken()
     if (!accessToken) {
       console.error("Failed to authenticate with Zoho Voice API for scheduled batch.")
       return { statusCode: 500 }
@@ -137,7 +137,7 @@ export const handler = schedule("*/10 * * * *", async () => {
 
         const smsRes = await fetch(zohoVoiceUrl, { signal: AbortSignal.timeout(15000),
           method: "POST",
-          headers: { Authorization: `Zoho-oauthtoken ${accessToken}`, ...formData.getHeaders() },
+          headers: { Authorization: `Zoho-oauthtoken ${accessToken}`, Accept: "application/json", ...formData.getHeaders() },
           body: formData as any
         })
         const resultText = await smsRes.text()
