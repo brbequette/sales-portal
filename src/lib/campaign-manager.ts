@@ -7,7 +7,9 @@
  */
 
 const STORAGE_KEY = "titan_active_campaign_job_id"
-const POLL_INTERVAL_MS = 3000
+// One provider request every four seconds stays below Zoho Voice's documented
+// 20-request-per-minute limit and leaves capacity for isolated direct sends.
+const POLL_INTERVAL_MS = 4000
 
 export interface CampaignState {
   jobId: string | null

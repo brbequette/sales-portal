@@ -8,7 +8,7 @@ import { MISSING_CAMPAIGN_PHONE_ERROR, resolveCampaignChunkState } from "./lib/c
 
 import { prisma } from "./lib/prisma"
 import { isAdministratorRole } from "../../src/lib/roles"
-const CHUNK_SIZE = 2
+const CHUNK_SIZE = 1
 
 const authenticatedHandler: Handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return handleOptions()

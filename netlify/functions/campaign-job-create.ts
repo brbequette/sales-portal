@@ -8,7 +8,9 @@ import { MISSING_CAMPAIGN_PHONE_ERROR, resolveCampaignChunkState } from "./lib/c
 
 import { prisma } from "./lib/prisma"
 
-const CHUNK_SIZE = 10
+// Zoho Voice permits 20 send requests per minute and locks the endpoint for one
+// minute when exceeded. One recipient per poll leaves headroom for direct sends.
+const CHUNK_SIZE = 1
 
 async function sendSmsChunk(params: {
   accounts: any[]
@@ -230,6 +232,20 @@ const authenticatedHandler: Handler = async (event) => {
     if (!author) return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: "No valid user found" }) }
     if (author.canSendCampaigns === false && author.role !== "ADMIN") {
       return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ success: false, message: "You do not have permission to send campaigns." }) }
+    }
+
+    if (!isScheduled && (channel || "SMS") === "SMS") {
+      const activeSmsJob = await prisma.campaignJob.findFirst({
+        where: { status: "RUNNING", channel: "SMS" },
+        select: { id: true },
+      })
+      if (activeSmsJob) {
+        return {
+          statusCode: 409,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: false, message: "Another SMS campaign is already running. Stop or finish it before starting a new one." }),
+        }
+      }
     }
 
     // Rate limit (skip if scheduled)
