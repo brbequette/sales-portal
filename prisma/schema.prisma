@@ -786,7 +786,8 @@ model CampaignJob {
   id           String   @id @default(cuid())
   authorId     String
   blastId      String? // linked CampaignBlast once created
-  status       String   @default("RUNNING") // RUNNING | DONE | CANCELLED | ERROR
+  status       CampaignJobState @default(QUEUED)
+  reviewState  CampaignReviewState @default(SUBMITTING)
   campaignName String
   channel      String   @default("SMS")
   text         String   @default("")
@@ -798,13 +799,185 @@ model CampaignJob {
   sentCount    Int      @default(0)
   failedCount  Int      @default(0)
   errorMessage String?
+  workerHeartbeatAt DateTime?
+  submissionCompletedAt DateTime?
+  reviewedAt DateTime?
+  legacyRecordedAccepted Int?
+  legacyRecordedFailed Int?
+  legacyRawMissingCount Int?
+  quarantineReason String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  recipients CampaignRecipient[]
 
   @@index([authorId])
   @@index([status])
+}
+
+enum CampaignJobState {
+  QUEUED
+  RUNNING
+  RECOVERING
+  PAUSED
+  COMPLETED
+  COMPLETED_WITH_ERRORS
+  CANCELLED
+  LEGACY_QUARANTINED
+}
+
+enum CampaignReviewState {
+  SUBMITTING
+  AWAITING_DELIVERY_RECEIPTS
+  RECONCILING
+  REVIEW_READY
+  REVIEWED_CLOSED
+}
+
+enum CampaignRecipientState {
+  PENDING
+  LEASED
+  SENDING
+  ACCEPTED
+  FAILED
+  AMBIGUOUS
+  SKIPPED
+}
+
+enum CampaignAttemptState {
+  CLAIMED
+  SENDING
+  SUBMITTED
+  ACCEPTED
+  FAILED
+  AMBIGUOUS
+}
+
+enum PhoneDeliverabilityStatus {
+  UNKNOWN
+  SMS_CAPABLE
+  DELIVERED
+  INVALID
+  LANDLINE_NON_MOBILE
+  CARRIER_BLOCKED
+  UNSUPPORTED_COUNTRY
+  OPTED_OUT
+  TEMPORARILY_UNAVAILABLE
+  MANUAL_REVIEW
+}
+
+enum PhoneSuppressionStatus {
+  ELIGIBLE
+  TECHNICAL_SUPPRESSED
+  OPT_OUT_SUPPRESSED
+  LEGAL_SUPPRESSED
+  MANUAL_SUPPRESSED
+}
+
+model CampaignRecipient {
+  id String @id @default(cuid())
+  campaignJobId String
+  originalIndex Int
+  accountId String?
+  contactId String?
+  originalPhone String?
+  normalizedPhone String?
+  state CampaignRecipientState @default(PENDING)
+  deliveryStatus String @default("unknown")
+  leaseOwner String?
+  leaseExpiresAt DateTime?
+  attemptCount Int @default(0)
+  lastAttemptId String?
+  acceptedAt DateTime?
+  failedAt DateTime?
+  ambiguousAt DateTime?
+  skippedAt DateTime?
+  deliveredAt DateTime?
+  lastProviderHttpStatus Int?
+  lastProviderCode String?
+  lastProviderStatus String?
+  lastProviderMessage String?
+  lastProviderLogId String?
+  lastProviderMmsId String?
+  dispositionReason String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campaignJob CampaignJob @relation(fields: [campaignJobId], references: [id], onDelete: Cascade)
+  attempts CampaignAttempt[]
+
+  @@unique([campaignJobId, originalIndex])
+  @@index([campaignJobId, state])
+  @@index([state, leaseExpiresAt])
+  @@index([normalizedPhone])
+}
+
+model CampaignAttempt {
+  id String @id @default(uuid())
+  campaignRecipientId String
+  workerId String
+  state CampaignAttemptState
+  claimedAt DateTime @default(now())
+  sendingAt DateTime?
+  providerResponseAt DateTime?
+  completedAt DateTime?
+  normalizedRecipient String
+  sender String
+  providerHttpStatus Int?
+  zohoCode String?
+  zohoStatus String?
+  zohoMessage String?
+  zohoLogId String?
+  zohoMmsId String?
+  deploymentId String?
+  interruptionReason String?
+  createdAt DateTime @default(now())
+
+  recipient CampaignRecipient @relation(fields: [campaignRecipientId], references: [id], onDelete: Cascade)
+  @@index([campaignRecipientId, createdAt])
+  @@index([state, createdAt])
+}
+
+model PhoneDeliverability {
+  id String @id @default(cuid())
+  normalizedPhone String
+  channel String
+  deliverabilityStatus PhoneDeliverabilityStatus @default(UNKNOWN)
+  suppressionStatus PhoneSuppressionStatus @default(ELIGIBLE)
+  suppressionReason String?
+  providerCode String?
+  providerMessage String?
+  sourceCampaignJobId String?
+  sourceRecipientId String?
+  sourceAttemptId String?
+  firstFailureAt DateTime?
+  mostRecentFailureAt DateTime?
+  consecutiveFailureCount Int @default(0)
+  lastSuccessfulDeliveryAt DateTime?
+  lastCheckedAt DateTime?
+  automaticDecision Boolean @default(true)
+  overrideAdministratorId String?
+  overrideReason String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  reviews PhoneDeliverabilityReview[]
+  @@unique([normalizedPhone, channel])
+  @@index([suppressionStatus])
+}
+
+model PhoneDeliverabilityReview {
+  id String @id @default(cuid())
+  phoneDeliverabilityId String
+  administratorId String
+  previousDeliverabilityStatus PhoneDeliverabilityStatus
+  nextDeliverabilityStatus PhoneDeliverabilityStatus
+  previousSuppressionStatus PhoneSuppressionStatus
+  nextSuppressionStatus PhoneSuppressionStatus
+  reason String
+  createdAt DateTime @default(now())
+  phoneDeliverability PhoneDeliverability @relation(fields: [phoneDeliverabilityId], references: [id], onDelete: Cascade)
+  @@index([phoneDeliverabilityId, createdAt])
 }
 
 model CampaignLog {
@@ -835,6 +1008,7 @@ model SmsMessage {
   direction       String // "INBOUND" | "OUTBOUND"
   mediaUrl        String?
   zohoLogId       String?  @unique
+  status          String   @default("SUBMITTED")
   campaignBlastId String?
   isAiGenerated   Boolean  @default(false)
   createdAt       DateTime @default(now())

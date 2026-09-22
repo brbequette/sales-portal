@@ -5,6 +5,7 @@
 
 import { toastConfirm } from '@/lib/toastConfirm'
 import { MmsCanaryPanel } from '@/components/MmsCanaryPanel'
+import { CampaignRecoveryPanel } from '@/components/CampaignRecoveryPanel'
 
 import { useState, useEffect, useSyncExternalStore } from "react"
 import { FiTrash2, FiPlus, FiTarget, FiActivity, FiImage } from "react-icons/fi"
@@ -94,6 +95,7 @@ export default function AdminCampaignsPage() {
       <div className="page-body">
         {accountName && <div className="mb-5 rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100"><span className="font-black uppercase">Account context:</span> {accountName}. Build reusable content here, then return to Communications &amp; Sales to contact this account.</div>}
         <MmsCanaryPanel />
+        <CampaignRecoveryPanel />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Templates Section */}
           <div className="glass-panel/50 border border-white/10 rounded-xl p-6">

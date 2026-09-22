@@ -218,7 +218,7 @@ async function updateJobProgress(blastId: string, successInc: number, failInc: n
         currentIndex: Math.min(newIndex, job.total),
         sentCount: newSent,
         failedCount: newFailed,
-        status: isDone ? "DONE" : "SCHEDULED"
+        status: isDone ? "COMPLETED" : "PAUSED"
       }
     })
   } catch (err) {

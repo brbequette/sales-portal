@@ -46,6 +46,12 @@
 [functions."process-scheduled-messages"]
   schedule = "*/5 * * * *"
 
+[functions."campaign-recovery-watchdog"]
+  schedule = "* * * * *"
+
+[functions."campaign-delivery-reconciliation"]
+  schedule = "*/15 * * * *"
+
 [functions."email-sync"]
   schedule = "*/3 * * * *"
 
