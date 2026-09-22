@@ -231,6 +231,7 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                         >
                           <FiPhone className="shrink-0" size={11} />
                         </PhoneLink>
+                        <PhoneDeliverabilityBadge phone={c.phone || c.mobilePhone || ""} />
                       </div>
                     )}
                 </button>
@@ -279,7 +280,6 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                       placeholder="Write a general note or log a communication..."
                       className="w-full glass-panel border border-white/10 rounded-lg p-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500 resize-none h-18"
                         />
-                        <PhoneDeliverabilityBadge phone={c.phone || c.mobilePhone || ""} />
                     <div className="flex justify-end gap-2 text-[10px]">
                       <button
                         onClick={() => {
@@ -370,7 +370,10 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                   <div className="space-y-0.5">
                     <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider block">Office Phone</span>
                     {selectedContact.phone ? (
-                      <PhoneLink phone={selectedContact.phone} className="text-xs text-sky-400 hover:text-sky-300 font-mono font-bold" />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <PhoneLink phone={selectedContact.phone} className="text-xs text-sky-400 hover:text-sky-300 font-mono font-bold" />
+                        <PhoneDeliverabilityBadge phone={selectedContact.phone} />
+                      </div>
                     ) : (
                       <span className="text-xs text-neutral-600 block">Not specified</span>
                     )}
@@ -378,7 +381,10 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                   <div className="space-y-0.5 sm:col-span-2">
                     <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider block">Mobile Phone</span>
                     {selectedContact.mobilePhone ? (
-                      <PhoneLink phone={selectedContact.mobilePhone} className="text-xs text-sky-400 hover:text-sky-300 font-mono font-bold" />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <PhoneLink phone={selectedContact.mobilePhone} className="text-xs text-sky-400 hover:text-sky-300 font-mono font-bold" />
+                        <PhoneDeliverabilityBadge phone={selectedContact.mobilePhone} />
+                      </div>
                     ) : (
                       <span className="text-xs text-neutral-600 block">Not specified</span>
                     )}
