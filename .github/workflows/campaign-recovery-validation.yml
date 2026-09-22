@@ -1,0 +1,46 @@
+name: Campaign recovery validation
+
+on:
+  pull_request:
+    paths:
+      - "prisma/**"
+      - "netlify/functions/**campaign**"
+      - "netlify/functions/**sms**"
+      - "src/**campaign**"
+      - ".github/workflows/campaign-recovery-validation.yml"
+      - "scripts/test-campaign-legacy-upgrade.ps1"
+  workflow_dispatch:
+
+jobs:
+  postgres-migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: campaign_ci
+          POSTGRES_PASSWORD: campaign_ci_password
+          POSTGRES_DB: campaign_chain
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U campaign_ci -d campaign_chain"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://campaign_ci:campaign_ci_password@localhost:5432/campaign_chain
+      PGPASSWORD: campaign_ci_password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: npm }
+      - run: npm ci
+      - name: Empty database complete migration chain
+        run: |
+          npx prisma validate
+          npx prisma generate
+          npx prisma migrate deploy
+          npx prisma migrate status
+          npx prisma migrate deploy
+          test "$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM \"_prisma_migrations\" WHERE finished_at IS NULL OR rolled_back_at IS NOT NULL")" = "0"
+      - name: Legacy upgrade path
+        shell: pwsh
+        run: ./scripts/test-campaign-legacy-upgrade.ps1 -ConnectionString 'postgresql://campaign_ci:campaign_ci_password@localhost:5432/campaign_upgrade'

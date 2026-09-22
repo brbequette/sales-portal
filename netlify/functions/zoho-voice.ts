@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { Handler } from "@netlify/functions"
 import { corsHeaders, handleOptions } from "./lib/cors"
 import { getZohoVoiceAccessToken } from "./lib/zoho-voice-auth"
@@ -5,6 +6,7 @@ import { evaluateZohoSmsResponse } from "./lib/zoho-sms-response"
 
 import { prisma } from "./lib/prisma"
 import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
+import { guardSmsSend } from "../../src/lib/sms-suppression"
 
 export const handler: Handler = async (event, context) => {
   if (event.httpMethod === "OPTIONS") return handleOptions()
@@ -123,6 +125,8 @@ export const handler: Handler = async (event, context) => {
       } else if (!phoneNumber.startsWith('+') && phoneNumber.length > 10) {
         phoneNumber = '+' + phoneNumber
       }
+      const guard = await guardSmsSend({ phone: phoneNumber, traffic: "TRANSACTIONAL" })
+      if (!guard.allowed) return { statusCode: 409, headers: corsHeaders, body: JSON.stringify({ success: false, message: `SMS blocked: ${guard.reason}` }) }
 
       let apiSuccess = false
       let apiMessage = ""

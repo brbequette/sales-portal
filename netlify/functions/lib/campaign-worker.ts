@@ -5,6 +5,7 @@ import { getZohoVoiceAccessToken } from "./zoho-voice-auth"
 import { evaluateZohoSmsResponse } from "./zoho-sms-response"
 import { buildZohoSmsFormData, loadZohoMmsMedia } from "./zoho-mms-media"
 import { classifyProviderOutcome } from "./campaign-deliverability"
+import { guardSmsSend } from "../../../src/lib/sms-suppression"
 
 const LEASE_MS = 90_000
 
@@ -40,6 +41,14 @@ export async function processCampaignBatch(jobId: string, batchSize = 1) {
   for (; processed < batchSize; processed++) {
     const recipient = await claim(jobId, workerId)
     if (!recipient) break
+    const guard = await guardSmsSend({ phone: recipient.normalizedPhone || "", traffic: "PROMOTIONAL" })
+    if (!guard.allowed) {
+      await prisma.$transaction([
+        prisma.campaignRecipient.update({ where: { id: recipient.id }, data: { state: "SKIPPED", skippedAt: new Date(), leaseOwner: null, leaseExpiresAt: null, dispositionReason: guard.reason } }),
+        prisma.campaignJob.update({ where: { id: jobId }, data: { currentIndex: { increment: 1 }, workerHeartbeatAt: new Date() } }),
+      ])
+      continue
+    }
     const attemptId = crypto.randomUUID(); const sendingAt = new Date()
     await prisma.$transaction([
       prisma.campaignAttempt.create({ data: { id: attemptId, campaignRecipientId: recipient.id, workerId, state: "SENDING", sendingAt, normalizedRecipient: recipient.normalizedPhone!, sender: job.fromNumber || "", deploymentId: process.env.DEPLOY_ID || process.env.BUILD_ID || null } }),

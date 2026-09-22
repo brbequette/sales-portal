@@ -1,4 +1,5 @@
 "use client"
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, react/no-unescaped-entities, @next/next/no-img-element, react-hooks/immutability, react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
 import { formatPhoneNumber } from "@/lib/formatters"
 import { resolvePermissions } from "@/lib/permissions"
@@ -283,6 +284,7 @@ export default function SalesPage() {
   const [campaignImageUrl, setCampaignImageUrl] = useState("")
   const [campaignError, setCampaignError] = useState("")
   const [campaignSuccess, setCampaignSuccess] = useState("")
+  const [campaignPreflight, setCampaignPreflight] = useState<any>(null)
   const [isOptimizing, setIsOptimizing] = useState(false)
   const [isScheduled, setIsScheduled] = useState(false)
   const [scheduledDate, setScheduledDate] = useState("")
@@ -861,6 +863,14 @@ export default function SalesPage() {
     setCampaignError("")
     setCampaignSuccess("")
     try {
+      const preflightSignature = JSON.stringify({ accountIds: selectedAccountIds, campaignChannel, campaignText, campaignImageUrl, selectedZohoNumber, isScheduled, scheduledDate, scheduledTime })
+      if (!campaignPreflight || campaignPreflight.signature !== preflightSignature) {
+        const preflightResponse = await fetch("/api/campaign-job/preflight", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accountIds: selectedAccountIds }) })
+        const preflight = await preflightResponse.json()
+        if (!preflightResponse.ok || !preflight.success) throw new Error(preflight.message || "Suppression preflight failed")
+        setCampaignPreflight({ ...preflight, signature: preflightSignature })
+        return
+      }
       const res = await startCampaign({
         accountIds: selectedAccountIds,
         channel: campaignChannel,
@@ -877,6 +887,7 @@ export default function SalesPage() {
       } as any)
       if (!res.success) throw new Error(res.error || "Failed to start campaign")
       setShowCampaignModal(false)
+      setCampaignPreflight(null)
       if (isScheduled) {
         toast.success("Campaign blast scheduled successfully!")
       } else {
@@ -2058,11 +2069,12 @@ export default function SalesPage() {
                 />
               </div>
               <div className="pt-2 flex justify-end gap-2">
+                {campaignPreflight && <div className="mr-auto rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-100"><div>Original: {campaignPreflight.selected} · Excluded: {campaignPreflight.excluded} · Protected: {campaignPreflight.protectedCount} · Technical: {campaignPreflight.technicalCount} · Sendable: {campaignPreflight.sendable}</div><div className="mt-1 text-neutral-300">{Object.entries(campaignPreflight.reasons || {}).map(([reason, count]) => `${reason}: ${count}`).join(" · ") || "No exclusions"}</div></div>}
                 <button type="button" onClick={() => setShowCampaignModal(false)} className="px-4 py-2 rounded-lg bg-neutral-800 text-sm font-semibold">
                   Cancel
                 </button>
                 <button type="submit" className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-sm font-bold text-white">
-                  Send Blast
+                  {campaignPreflight ? "Confirm exact sendable recipients" : "Review recipients"}
                 </button>
               </div>
             </form>

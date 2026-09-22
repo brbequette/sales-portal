@@ -29,6 +29,7 @@ export function MmsCanaryPanel() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
   const [result, setResult] = useState<MmsCanaryResult | null>(null)
+  const [suppression, setSuppression] = useState<{ allowed: boolean; protectedSuppression: boolean; technicalSuppression: boolean; reason: string | null; providerCode: string | null; lastCheckedAt: string | null } | null>(null)
 
   useEffect(() => {
     if (!isInitialized || !administrator) return
@@ -69,13 +70,17 @@ export function MmsCanaryPanel() {
     }
   }
 
-  function review() {
+  async function review() {
     setError("")
     try {
-      normalizeSingleRecipient(recipient)
+      const normalizedRecipient = normalizeSingleRecipient(recipient)
       normalizeSingleRecipient(sender)
       if (!message.trim()) throw new Error("Message is required.")
       if (!image || !imageDataUrl) throw new Error("Choose and optimize an image before review.")
+      const response = await fetch("/api/admin/sms-suppression-preflight", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: normalizedRecipient, traffic: "TEST" }) })
+      const decision = await response.json()
+      if (!response.ok) throw new Error(decision.error || "Suppression status unavailable")
+      setSuppression(decision)
       setStep("confirm")
     } catch (reviewError) {
       setError(reviewError instanceof Error ? reviewError.message : "Review the canary fields.")
@@ -137,7 +142,7 @@ export function MmsCanaryPanel() {
             <div><dt className="text-xs text-neutral-500">MIME type</dt><dd className="font-medium text-white">{image.mimeType}</dd></div>
             <div><dt className="text-xs text-neutral-500">Byte size</dt><dd className="font-medium text-white">{image.byteSize.toLocaleString()}</dd></div>
           </dl>}
-          <div className="flex justify-end"><button type="button" onClick={review} disabled={busy} className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-black text-black disabled:opacity-50">{busy ? "Optimizing…" : "Review exact send"}</button></div>
+          <div className="flex justify-end"><button type="button" onClick={() => void review()} disabled={busy} className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-black text-black disabled:opacity-50">{busy ? "Optimizing…" : "Review exact send"}</button></div>
         </div>
       )}
 
@@ -151,10 +156,13 @@ export function MmsCanaryPanel() {
               <div><dt className="text-neutral-500">Message</dt><dd className="whitespace-pre-wrap text-white">{message.trim()}</dd></div>
               <div><dt className="text-neutral-500">Image</dt><dd className="text-white">{image.filename} · {image.width} × {image.height} · {image.mimeType} · {image.byteSize.toLocaleString()} bytes</dd></div>
             </dl>
+            <div className={`mt-4 rounded-lg border p-3 text-sm ${suppression?.allowed ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200" : "border-red-500/30 bg-red-500/10 text-red-200"}`}>
+              <strong>Suppression preflight:</strong> {suppression?.allowed ? "Sendable" : "BLOCKED"}{suppression?.protectedSuppression ? " · protected opt-out/legal restriction" : ""}{suppression?.technicalSuppression ? " · technical suppression" : ""}{suppression?.reason ? ` · ${suppression.reason}` : ""}{suppression?.providerCode ? ` · ${suppression.providerCode}` : ""}{suppression?.lastCheckedAt ? ` · checked ${new Date(suppression.lastCheckedAt).toLocaleString()}` : ""}
+            </div>
           </div>
           <div className="flex flex-wrap justify-end gap-3">
             <button type="button" onClick={() => setStep("edit")} disabled={busy} className="rounded-lg border border-white/15 px-4 py-2 text-sm font-bold text-neutral-300">Back</button>
-            <button type="button" onClick={() => void sendOnce()} disabled={busy} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-black text-white disabled:opacity-50">{busy ? "Sending once…" : "Send exactly one MMS"}</button>
+            <button type="button" onClick={() => void sendOnce()} disabled={busy || !suppression?.allowed} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-black text-white disabled:opacity-50">{busy ? "Sending once…" : "Send exactly one MMS"}</button>
           </div>
         </div>
       )}

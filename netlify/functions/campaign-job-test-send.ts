@@ -5,6 +5,7 @@ import { getZohoVoiceAccessToken } from "./lib/zoho-voice-auth"
 import { evaluateZohoSmsResponse } from "./lib/zoho-sms-response"
 import { buildZohoSmsFormData, loadZohoMmsMedia } from "./lib/zoho-mms-media"
 import { normalizeSingleRecipient } from "../../src/lib/mms-canary"
+import { guardSmsSend } from "../../src/lib/sms-suppression"
 
 import { prisma } from "./lib/prisma"
 
@@ -39,6 +40,8 @@ const authenticatedHandler: Handler = async (event) => {
     }
 
     if (channelValue === "SMS" || !channelValue) {
+      const guard = await guardSmsSend({ phone: phoneNumber, traffic: "TEST" })
+      if (!guard.allowed) return { statusCode: 409, headers: corsHeaders, body: JSON.stringify({ success: false, message: guard.reason || "Recipient is suppressed", suppression: guard }) }
       // Resolve fromNumber
       let resolvedFrom = fromNumberValue || process.env.ZOHO_VOICE_FROM_NUMBER || ""
       if (!resolvedFrom) {

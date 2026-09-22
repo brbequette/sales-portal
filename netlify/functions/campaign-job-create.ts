@@ -7,6 +7,7 @@ import { evaluateZohoSmsResponse } from "./lib/zoho-sms-response"
 import { MISSING_CAMPAIGN_PHONE_ERROR, resolveCampaignChunkState } from "./lib/campaign-delivery-outcome"
 import { buildZohoSmsFormData, loadZohoMmsMedia } from "./lib/zoho-mms-media"
 import { normalizeE164 } from "./lib/campaign-deliverability"
+import { guardSmsSend } from "../../src/lib/sms-suppression"
 
 import { prisma } from "./lib/prisma"
 
@@ -334,15 +335,13 @@ const authenticatedHandler: Handler = async (event) => {
       const originalPhone = contact?.mobilePhone || contact?.phone || null
       return { accountId, contactId: contact?.id || null, originalPhone, normalizedPhone: originalPhone ? normalizeE164(originalPhone) : null, originalIndex }
     })
-    const normalized = prepared.map(entry => entry.normalizedPhone).filter(Boolean) as string[]
-    const suppressions = await prisma.phoneDeliverability.findMany({ where: { normalizedPhone: { in: normalized }, channel: "SMS", suppressionStatus: { not: "ELIGIBLE" } } })
-    const suppressed = new Map(suppressions.map(entry => [entry.normalizedPhone, entry]))
+    const decisions = await Promise.all(prepared.map(entry => guardSmsSend({ phone: entry.normalizedPhone || "", traffic: "PROMOTIONAL" })))
     await prisma.campaignRecipient.createMany({ data: prepared.map(entry => {
-      const suppression = entry.normalizedPhone ? suppressed.get(entry.normalizedPhone) : null
-      const skipped = !entry.normalizedPhone || Boolean(suppression)
-      return { campaignJobId: job.id, ...entry, state: skipped ? "SKIPPED" as const : "PENDING" as const, skippedAt: skipped ? new Date() : null, dispositionReason: !entry.normalizedPhone ? "Missing or invalid phone number" : suppression ? `Suppressed: ${suppression.suppressionReason || suppression.suppressionStatus}` : null }
+      const decision = decisions[entry.originalIndex]
+      const skipped = !decision.allowed
+      return { campaignJobId: job.id, ...entry, normalizedPhone: decision.normalizedPhone, state: skipped ? "SKIPPED" as const : "PENDING" as const, skippedAt: skipped ? new Date() : null, dispositionReason: skipped ? decision.reason : null }
     }) })
-    const excludedCount = prepared.filter(entry => !entry.normalizedPhone || suppressed.has(entry.normalizedPhone)).length
+    const excludedCount = decisions.filter(decision => !decision.allowed).length
 
     return {
       statusCode: 200,
