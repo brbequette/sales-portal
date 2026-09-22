@@ -1,9 +1,9 @@
 import { withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
-import FormData from "form-data"
 import { corsHeaders, handleOptions } from "./lib/cors"
 import { getZohoVoiceAccessToken } from "./lib/zoho-voice-auth"
 import { evaluateZohoSmsResponse } from "./lib/zoho-sms-response"
+import { buildZohoSmsFormData, loadZohoMmsMedia } from "./lib/zoho-mms-media"
 
 import { prisma } from "./lib/prisma"
 
@@ -176,31 +176,7 @@ const authenticatedHandler: Handler = async (event, context) => {
 
       // Pre-fetch MMS image if applicable so we don't fetch it repeatedly in the loop
       const isMms = !!imageUrl
-      let preFetchedImageBuffer: Buffer | null = null
-      let preFetchedImageContentType = 'image/jpeg'
-      let preFetchedImageExt = 'jpg'
-
-      if (isMms) {
-        try {
-          if (imageUrl.startsWith('data:')) {
-            const match = imageUrl.match(/^data:([^;]+);base64,(.+)$/)
-            if (match) {
-              preFetchedImageContentType = match[1]
-              preFetchedImageBuffer = Buffer.from(match[2], 'base64')
-              preFetchedImageExt = preFetchedImageContentType.split('/')[1] || 'jpg'
-            }
-          } else {
-            const imgRes = await fetch(imageUrl)
-            if (imgRes.ok, { signal: AbortSignal.timeout(15000) }) {
-              preFetchedImageBuffer = Buffer.from(await imgRes.arrayBuffer())
-              preFetchedImageContentType = imgRes.headers.get('content-type') || 'image/jpeg'
-              preFetchedImageExt = preFetchedImageContentType.split('/')[1] || 'jpg'
-            }
-          }
-        } catch (err) {
-          console.error("Error pre-fetching MMS media:", err)
-        }
-      }
+      const mmsMedia = isMms ? await loadZohoMmsMedia(imageUrl) : null
 
       const accountIdsForLogs = accounts.map(a => a.id)
       const recentLogsCounts = await prisma.campaignLog.groupBy({
@@ -255,31 +231,14 @@ const authenticatedHandler: Handler = async (event, context) => {
         try {
           const zohoVoiceUrl = `https://voice.zoho.${process.env.ZOHO_DC || 'com'}/rest/json/v2/sms/send`
           
-          const smsData = {
-            customerNumber: phoneNumber,
-            message: text || campaignName || 'Titan Diamond Update',
-            senderId: fromNumber,
-            mms: isMms
-          }
-          
-          const formData = new FormData()
-          formData.append('sms_data', JSON.stringify(smsData))
-
-          if (isMms && preFetchedImageBuffer) {
-            formData.append('mms_media', preFetchedImageBuffer, {
-              filename: `attachment.${preFetchedImageExt}`,
-              contentType: preFetchedImageContentType
-            })
-          }
-
-          const smsRes = await fetch(zohoVoiceUrl, { signal: AbortSignal.timeout(15000),
+          const formData = buildZohoSmsFormData({ customerNumber: phoneNumber, message: text || campaignName || 'Titan Diamond Update', senderId: fromNumber, media: mmsMedia })
+          const smsRes = await fetch(zohoVoiceUrl, { signal: AbortSignal.timeout(30000),
             method: 'POST',
             headers: {
               'Authorization': `Zoho-oauthtoken ${accessToken}`,
-              'Accept': 'application/json',
-              ...formData.getHeaders()
+              'Accept': 'application/json'
             },
-            body: formData as any
+            body: formData
           })
 
           const resultText = await smsRes.text()
