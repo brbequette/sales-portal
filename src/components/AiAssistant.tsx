@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
-import { FiZap, FiX, FiMic, FiSend, FiMessageSquare, FiVolume2, FiVolumeX, FiThumbsUp, FiThumbsDown, FiShield } from 'react-icons/fi';
+import { FiZap, FiX, FiMic, FiSend, FiMessageSquare, FiVolume2, FiVolumeX, FiThumbsUp, FiThumbsDown, FiShield, FiCheckCircle } from 'react-icons/fi';
 
 interface AiAssistantProps {
   user?: { id?: string; name?: string; role?: string };
@@ -14,9 +14,11 @@ interface Message {
   timestamp: Date;
   logId?: string; // AiChatLog id for feedback
   feedback?: boolean | null; // null = no feedback, true = helpful, false = not helpful
+  pendingActions?: Array<{ toolName: string; summary: string; confirmationToken: string }>;
 }
 
 const AGENT_QUICK_PROMPTS = [
+  "Review my upcoming engagement steps and offer the next actions",
   "Show me today's sales",
   "What's my commission total this month?",
   "How many tasks are due?",
@@ -189,11 +191,13 @@ export function AiAssistant({ user }: AiAssistantProps) {
     }
   };
 
-  const handleSend = async (text: string = inputText) => {
+  const handleSend = async (text: string = inputText, confirmationToken?: string) => {
     if (!text.trim()) return;
 
-    const userMessage: Message = { role: 'user', content: text, timestamp: new Date() };
-    setMessages((prev) => [...prev, userMessage]);
+    if (!confirmationToken) {
+      const userMessage: Message = { role: 'user', content: text, timestamp: new Date() };
+      setMessages((prev) => [...prev, userMessage]);
+    }
     setInputText('');
     setIsLoading(true);
 
@@ -210,6 +214,7 @@ export function AiAssistant({ user }: AiAssistantProps) {
             userName: user?.name,
           },
           conversationHistory: messages.slice(-20).map((m) => ({ role: m.role, content: m.content })),
+          confirmationToken,
         }),
       });
 
@@ -225,6 +230,7 @@ export function AiAssistant({ user }: AiAssistantProps) {
         timestamp: new Date(),
         logId: data.logId,
         feedback: null,
+        pendingActions: data.pendingActions || [],
       };
       setMessages((prev) => [...prev, aiMessage]);
 
@@ -377,7 +383,18 @@ export function AiAssistant({ user }: AiAssistantProps) {
 
             {/* Assistant action row: listen + feedback */}
             {msg.role === 'assistant' && (
-              <div className="mt-1.5 flex items-center gap-3">
+              <div className="mt-1.5 flex flex-wrap items-center gap-3">
+                {msg.pendingActions?.map(action => (
+                  <button
+                    key={action.confirmationToken}
+                    onClick={() => handleSend(`Confirm ${action.toolName}`, action.confirmationToken)}
+                    disabled={isLoading}
+                    className="px-2.5 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 disabled:opacity-50 flex items-center gap-1.5 text-[10px] font-bold"
+                    title={action.summary}
+                  >
+                    <FiCheckCircle size={11} /> Confirm action
+                  </button>
+                ))}
                 <button
                   onClick={() => speakText(msg.content)}
                   className="text-[10px] text-neutral-500 hover:text-amber-400 flex items-center gap-1 font-mono transition-colors"

@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { name, description, parameters, endpointUrl, method = 'POST', bodyTemplate, isActive = true } = body;
+    const { name, description, parameters, endpointUrl, method = 'POST', bodyTemplate, isActive = true, minimumRole = 'ADMIN', requiresConfirmation = true } = body;
 
     if (!name || !description || !parameters || !endpointUrl) {
       return NextResponse.json({ success: false, error: 'Missing required fields (name, description, parameters, endpointUrl)' }, { status: 400 });
@@ -43,6 +43,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Parameters must be a valid JSON Schema object with "type": "object" and "properties" defined' }, { status: 400 });
     }
 
+    const normalizedRole = String(minimumRole).toUpperCase();
+    if (!['VIEWER', 'AGENT', 'MANAGER', 'ADMIN'].includes(normalizedRole)) {
+      return NextResponse.json({ success: false, error: 'Invalid minimum role' }, { status: 400 });
+    }
+
     const tool = await prisma.aiCustomTool.create({
       data: {
         name: cleanName,
@@ -51,7 +56,9 @@ export async function POST(req: NextRequest) {
         endpointUrl: endpointUrl.trim(),
         method,
         bodyTemplate: bodyTemplate || null,
-        isActive
+        isActive,
+        minimumRole: normalizedRole,
+        requiresConfirmation: Boolean(requiresConfirmation)
       }
     });
 
@@ -70,7 +77,7 @@ export async function PUT(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { id, name, description, parameters, endpointUrl, method, bodyTemplate, isActive } = body;
+    const { id, name, description, parameters, endpointUrl, method, bodyTemplate, isActive, minimumRole, requiresConfirmation } = body;
 
     if (!id) {
       return NextResponse.json({ success: false, error: 'Missing tool ID' }, { status: 400 });
@@ -89,6 +96,14 @@ export async function PUT(req: NextRequest) {
     if (method) updateData.method = method;
     if (bodyTemplate !== undefined) updateData.bodyTemplate = bodyTemplate || null;
     if (isActive !== undefined) updateData.isActive = isActive;
+    if (minimumRole !== undefined) {
+      const normalizedRole = String(minimumRole).toUpperCase();
+      if (!['VIEWER', 'AGENT', 'MANAGER', 'ADMIN'].includes(normalizedRole)) {
+        return NextResponse.json({ success: false, error: 'Invalid minimum role' }, { status: 400 });
+      }
+      updateData.minimumRole = normalizedRole;
+    }
+    if (requiresConfirmation !== undefined) updateData.requiresConfirmation = Boolean(requiresConfirmation);
 
     const tool = await prisma.aiCustomTool.update({
       where: { id },

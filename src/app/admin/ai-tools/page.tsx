@@ -14,6 +14,8 @@ interface CustomTool {
   method: string;
   bodyTemplate?: string | null;
   isActive: boolean;
+  minimumRole: 'VIEWER' | 'AGENT' | 'MANAGER' | 'ADMIN';
+  requiresConfirmation: boolean;
   createdAt: string;
 }
 
@@ -42,6 +44,8 @@ export default function AiToolsAdminPage() {
   const [bodyTemplate, setBodyTemplate] = useState('');
   const [parametersStr, setParametersStr] = useState(JSON.stringify(DEFAULT_PARAMETERS, null, 2));
   const [isActive, setIsActive] = useState(true);
+  const [minimumRole, setMinimumRole] = useState<CustomTool['minimumRole']>('ADMIN');
+  const [requiresConfirmation, setRequiresConfirmation] = useState(true);
 
   useEffect(() => {
     fetchTools();
@@ -93,6 +97,8 @@ export default function AiToolsAdminPage() {
       method,
       bodyTemplate: bodyTemplate || null,
       isActive
+      , minimumRole
+      , requiresConfirmation
     };
 
     try {
@@ -125,6 +131,8 @@ export default function AiToolsAdminPage() {
     setBodyTemplate(tool.bodyTemplate || '');
     setParametersStr(JSON.stringify(tool.parameters, null, 2));
     setIsActive(tool.isActive);
+    setMinimumRole(tool.minimumRole || 'ADMIN');
+    setRequiresConfirmation(tool.requiresConfirmation !== false);
   };
 
   const handleDelete = async (id: string) => {
@@ -173,6 +181,8 @@ export default function AiToolsAdminPage() {
     setBodyTemplate('');
     setParametersStr(JSON.stringify(DEFAULT_PARAMETERS, null, 2));
     setIsActive(true);
+    setMinimumRole('ADMIN');
+    setRequiresConfirmation(true);
   };
 
   return (
@@ -325,6 +335,22 @@ export default function AiToolsAdminPage() {
                 </label>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-black uppercase text-neutral-400 tracking-wider block mb-1">Minimum role</label>
+                  <select value={minimumRole} onChange={e => setMinimumRole(e.target.value as CustomTool['minimumRole'])} className="w-full bg-black border border-white/10 rounded-xl px-3 py-2 text-xs text-white">
+                    <option value="VIEWER">Viewer</option>
+                    <option value="AGENT">Agent</option>
+                    <option value="MANAGER">Manager</option>
+                    <option value="ADMIN">Administrator</option>
+                  </select>
+                </div>
+                <label className="flex items-end gap-2 pb-2 text-xs text-neutral-300">
+                  <input type="checkbox" checked={requiresConfirmation} onChange={e => setRequiresConfirmation(e.target.checked)} />
+                  Confirm before running
+                </label>
+              </div>
+
               <div className="flex gap-2 pt-3 border-t border-white/5">
                 <button
                   type="button"
@@ -396,6 +422,10 @@ export default function AiToolsAdminPage() {
                       <div className="flex items-center gap-1.5">
                         <span className="text-neutral-500">METHOD:</span>
                         <span className="text-blue-400 font-bold">{tool.method}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-neutral-500">ACCESS:</span>
+                        <span className="text-amber-400">{tool.minimumRole || 'ADMIN'}{tool.requiresConfirmation !== false ? ' · CONFIRM' : ''}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className="text-neutral-500">ENDPOINT:</span>

@@ -2005,6 +2005,8 @@ model AiCustomTool {
   method       String   @default("POST") // POST | GET | PUT
   bodyTemplate String? // e.g. '{"userId": "{{userId}}", "action": "clockIn"}'
   isActive     Boolean  @default(true)
+  minimumRole  String   @default("ADMIN") // VIEWER | AGENT | MANAGER | ADMIN
+  requiresConfirmation Boolean @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
