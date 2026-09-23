@@ -10,6 +10,7 @@
 [build.environment]
   NODE_VERSION = "20.18.0"
   NEXT_TELEMETRY_DISABLED = "1"
+  PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK = "1"
 
 [[headers]]
   for = "/*"
