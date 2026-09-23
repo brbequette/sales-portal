@@ -7,6 +7,7 @@ import { financialNumber, headerCommission } from "../../src/lib/global-header-m
 import { classifyCommissionCostQuality, COMMISSION_COST_QUALITY, hasAuthoritativeInvoiceColumns, hasAuthoritativeLegacyFinancials } from "../../src/lib/commission-financial-snapshot"
 import { companyCalendarDaysBetween } from "../../src/lib/company-calendar-days"
 import { financialZohoLineItems } from "../../src/lib/zoho-line-items"
+import { COMMISSION_LEDGER_START } from "../../src/lib/commission-ledger-period"
 
 
 // Statuses where the FINAL half is earned (invoice has been paid)
@@ -59,10 +60,14 @@ const authenticatedHandler: Handler = async (event) => {
     // ── checkOnly mode: fast staleness check without full commission calc ──
     if (checkOnly === 'true') {
       const targetYr = year || 'all'
-      let countWhere: any = { status: { notIn: ['Void', 'void', 'Voided', 'voided', 'Draft', 'draft', 'Written Off', 'written_off', 'write_off', 'Writeoff', 'writeoff', 'Write Off', 'bad debt'] } }
+      let countWhere: any = {
+        issueDate: { gte: COMMISSION_LEDGER_START },
+        status: { notIn: ['Void', 'void', 'Voided', 'voided', 'Draft', 'draft', 'Orphaned', 'orphaned', 'Deleted', 'deleted', 'Written Off', 'written_off', 'write_off', 'Writeoff', 'writeoff', 'Write Off', 'bad debt'] },
+      }
       if (effectiveRepId) countWhere.account = { ownerId: effectiveRepId }
       if (targetYr !== 'all' && !isNaN(parseInt(targetYr))) {
-        countWhere.issueDate = { gte: new Date(`${targetYr}-01-01`), lt: new Date(`${parseInt(targetYr)+1}-01-01`) }
+        const requestedStart = new Date(`${targetYr}-01-01`)
+        countWhere.issueDate = { gte: requestedStart > COMMISSION_LEDGER_START ? requestedStart : COMMISSION_LEDGER_START, lt: new Date(`${parseInt(targetYr)+1}-01-01`) }
       }
       const count = await prisma.invoice.count({ where: countWhere })
       return {
@@ -84,20 +89,22 @@ const authenticatedHandler: Handler = async (event) => {
     // --- Commission source: ALL invoices except Void/Draft ---
     // Upfront half earned on creation, final half earned on payment
     // --- Batch all queries concurrently in a single Promise.all trip ---
-    let payoutWhere: any = effectiveRepId ? { repId: effectiveRepId } : {}
+    let payoutWhere: any = { ...(effectiveRepId ? { repId: effectiveRepId } : {}), date: { gte: COMMISSION_LEDGER_START } }
     if (targetYear && targetYear !== 'all' && !isNaN(parseInt(targetYear))) {
       const payoutStart = new Date(`${targetYear}-01-01`)
       const payoutEnd = new Date(`${parseInt(targetYear) + 1}-01-01`)
-      payoutWhere.date = { gte: payoutStart, lt: payoutEnd }
+      payoutWhere.date = { gte: payoutStart > COMMISSION_LEDGER_START ? payoutStart : COMMISSION_LEDGER_START, lt: payoutEnd }
     }
 
     // Build date filter fragments for raw queries
+    const requestedYearStart = targetYear !== 'all' ? new Date(`${targetYear}-01-01`) : COMMISSION_LEDGER_START
+    const effectiveYearStart = requestedYearStart > COMMISSION_LEDGER_START ? requestedYearStart : COMMISSION_LEDGER_START
     const invoiceDateSql = targetYear !== 'all'
-      ? Prisma.sql`AND i."issueDate" >= ${new Date(`${targetYear}-01-01`)} AND i."issueDate" < ${new Date(`${parseInt(targetYear)+1}-01-01`)}`
-      : Prisma.empty
+      ? Prisma.sql`AND i."issueDate" >= ${effectiveYearStart} AND i."issueDate" < ${new Date(`${parseInt(targetYear)+1}-01-01`)}`
+      : Prisma.sql`AND i."issueDate" >= ${COMMISSION_LEDGER_START}`
     const soDateSql = targetYear !== 'all'
-      ? Prisma.sql`AND s."orderDate" >= ${new Date(`${targetYear}-01-01`)} AND s."orderDate" < ${new Date(`${parseInt(targetYear)+1}-01-01`)}`
-      : Prisma.empty
+      ? Prisma.sql`AND s."orderDate" >= ${effectiveYearStart} AND s."orderDate" < ${new Date(`${parseInt(targetYear)+1}-01-01`)}`
+      : Prisma.sql`AND s."orderDate" >= ${COMMISSION_LEDGER_START}`
 
     const [
       rawInvoicesRaw,
@@ -186,7 +193,7 @@ const authenticatedHandler: Handler = async (event) => {
           ORDER BY "isPrimary" DESC NULLS LAST, "createdAt" ASC
           LIMIT 1
         ) c ON true
-        WHERE lower(i.status) NOT IN ('void','voided','draft','written_off','writeoff','write_off','written off','bad debt')
+        WHERE lower(i.status) NOT IN ('void','voided','draft','orphaned','deleted','written_off','writeoff','write_off','written off','bad debt')
         ${invoiceDateSql}
         ORDER BY i."issueDate" DESC NULLS LAST
       `).catch(() => []),
