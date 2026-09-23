@@ -26,6 +26,8 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}))
     const scope = body.scope === "all" ? "all" : "range"
     const apply = body.apply === true
+    const cursor = typeof body.cursor === "string" && body.cursor ? body.cursor : null
+    const batchSize = Math.max(25, Math.min(1000, Number(body.batchSize) || (apply ? 100 : 750)))
     const startBase = scope === "range" ? dateFromValue(body.startDate) : null
     const endBase = scope === "range" ? dateFromValue(body.endDate) : null
     if (scope === "range" && (!startBase || !endBase)) {
@@ -36,7 +38,10 @@ export async function POST(request: Request) {
     const start = startBase ? new Date(`${dateKey(startBase)}T00:00:00.000Z`) : null
     const end = endBase ? new Date(`${dateKey(endBase)}T23:59:59.999Z`) : null
 
-    const invoiceRange = start && end ? Prisma.sql`WHERE "issueDate" >= ${start} AND "issueDate" <= ${end}` : Prisma.empty
+    const invoiceRange = start && end
+      ? Prisma.sql`WHERE "issueDate" >= ${start} AND "issueDate" <= ${end}`
+      : cursor ? Prisma.sql`WHERE id > ${cursor}` : Prisma.empty
+    const invoiceLimit = scope === "all" ? Prisma.sql`LIMIT ${batchSize}` : Prisma.empty
     const [invoices, salesOrders, estimates] = await Promise.all([
       prisma.$queryRaw<Array<{
         id: string; invoiceNumber: string | null; zohoId: string | null; issueDate: Date;
@@ -51,7 +56,7 @@ export async function POST(request: Request) {
           items->>'estimate_id' AS "itemEstimateId", items->>'estimate_number' AS "itemEstimateNumber", items->>'estimateNumber' AS "itemEstimateNumberAlt",
           items->>'invoiceNumber' AS "itemInvoiceNumber", items->>'invoice_number' AS "itemInvoiceNumberAlt",
           items->>'invoiceDateBeforeLinkedBackfill' AS "originalDate"
-        FROM "Invoice" ${invoiceRange} ORDER BY "issueDate" DESC
+        FROM "Invoice" ${invoiceRange} ORDER BY ${scope === "all" ? Prisma.sql`id ASC` : Prisma.sql`"issueDate" DESC`} ${invoiceLimit}
       `),
       prisma.$queryRaw<Array<{ zohoId: string | null; orderDate: Date; itemId: string | null; itemIdAlt: string | null; itemNumber: string | null; itemNumberAlt: string | null }>>(Prisma.sql`
         SELECT "zohoId", "orderDate", items->>'salesorder_id' AS "itemId", items->>'sales_order_id' AS "itemIdAlt",
@@ -139,10 +144,12 @@ export async function POST(request: Request) {
     }
 
     const bySource = changes.reduce((result, change) => { result[change.source]++; return result }, { "sales order": 0, estimate: 0 })
+    const nextCursor = scope === "all" && invoices.length === batchSize ? invoices[invoices.length - 1]?.id || null : null
     return NextResponse.json({
       success: true, applied: apply, scannedCount: invoices.length, matchedCount: changes.length,
       updatedCount, failedCount: failures.length, zohoCalls, skippedCount: invoices.length - changes.length, bySource,
       failures: failures.slice(0, 100),
+      nextCursor, hasMore: Boolean(nextCursor),
       sample: changes.slice(0, 25).map(({ invoiceNumber, from, to, source }) => ({ invoiceNumber, from, to, source })),
       message: apply
         ? `Updated ${updatedCount} invoice dates in Zoho Books and the portal; ${failures.length} failed.`

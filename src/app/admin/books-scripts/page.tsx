@@ -401,19 +401,36 @@ export default function BooksScriptsPage() {
     const execute = async () => {
       setLoading('invoice-date-repair')
       try {
-        const res = await fetch('/api/admin/backfill-invoice-dates', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            scope: dateRepairScope,
-            startDate: dateRepairStart,
-            endDate: dateRepairEnd,
-            apply,
-          }),
-        })
-        const data = await res.json()
-        if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`)
-        setDateRepairResult(data)
+        let cursor: string | null = null
+        const combined: any = { success: true, applied: apply, scannedCount: 0, matchedCount: 0, updatedCount: 0, failedCount: 0, zohoCalls: 0, skippedCount: 0, bySource: { 'sales order': 0, estimate: 0 }, sample: [], failures: [] }
+        do {
+          const res = await fetch('/api/admin/backfill-invoice-dates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              scope: dateRepairScope,
+              startDate: dateRepairStart,
+              endDate: dateRepairEnd,
+              apply, cursor,
+              batchSize: apply ? 100 : 750,
+            }),
+          })
+          const responseText = await res.text()
+          let data: any
+          try { data = JSON.parse(responseText) } catch { throw new Error(`HTTP ${res.status}: server batch failed`) }
+          if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`)
+          for (const key of ['scannedCount', 'matchedCount', 'updatedCount', 'failedCount', 'zohoCalls', 'skippedCount']) combined[key] += Number(data[key] || 0)
+          combined.bySource['sales order'] += Number(data.bySource?.['sales order'] || 0)
+          combined.bySource.estimate += Number(data.bySource?.estimate || 0)
+          combined.sample.push(...(data.sample || []).slice(0, Math.max(0, 25 - combined.sample.length)))
+          combined.failures.push(...(data.failures || []).slice(0, Math.max(0, 100 - combined.failures.length)))
+          cursor = dateRepairScope === 'all' ? data.nextCursor : null
+          setDateRepairResult({ ...combined, message: `${apply ? 'Updating' : 'Scanning'} invoice history… ${combined.scannedCount.toLocaleString()} checked.` })
+        } while (cursor)
+        combined.message = apply
+          ? `Updated ${combined.updatedCount} invoice dates in Zoho Books and the portal; ${combined.failedCount} failed.`
+          : `Preview found ${combined.matchedCount} invoice dates to update (${combined.bySource['sales order']} from sales orders, ${combined.bySource.estimate} from estimates).`
+        setDateRepairResult(combined)
       } catch (error: any) {
         setDateRepairResult({ success: false, message: error.message })
       } finally {
