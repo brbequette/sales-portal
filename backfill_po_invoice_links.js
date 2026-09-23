@@ -27,9 +27,15 @@
 const { PrismaClient } = require("@prisma/client")
 const prisma = new PrismaClient()
 
-const CLIENT_ID     = process.env.ZOHO_CLIENT_ID     || "1000.XW3WINW3H421OTV0PEUGKQ4X7UYVFK"
-const CLIENT_SECRET = process.env.ZOHO_CLIENT_SECRET || "0267c0d4b05b6c3061290007135cd499c6ff14cd5d"
-const REFRESH_TOKEN = process.env.ZOHO_REFRESH_TOKEN || "1000.f601eba1f1712f228ccb1c6690178be9.dcc85a75fd9af618d09b8830fb955435"
+const requiredEnv = (name) => {
+  const value = process.env[name]
+  if (!value) throw new Error(`Missing required environment variable: ${name}`)
+  return value
+}
+
+const CLIENT_ID     = requiredEnv("ZOHO_CLIENT_ID")
+const CLIENT_SECRET = requiredEnv("ZOHO_CLIENT_SECRET")
+const REFRESH_TOKEN = requiredEnv("ZOHO_REFRESH_TOKEN")
 const ORG_ID        = process.env.ZOHO_ORGANIZATION_ID || "664670946"
 const ZOHO_DC       = process.env.ZOHO_DC || "com"
 const BASE_URL      = `https://www.zohoapis.${ZOHO_DC}/books/v3`

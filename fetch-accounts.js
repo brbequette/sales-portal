@@ -1,8 +1,13 @@
 async function main() {
+  const required = (name) => {
+    const value = process.env[name];
+    if (!value) throw new Error(`Missing required environment variable: ${name}`);
+    return value;
+  };
   const params = new URLSearchParams({
-    refresh_token: '1000.a6c78bb1ddd3519f9d55dc01fe7b10c2.b89f59150ce88c25240f4410903c143c',
-    client_id: '1000.XW3WINW3H421OTV0PEUGKQ4X7UYVFK',
-    client_secret: '0267c0d4b05b6c3061290007135cd499c6ff14cd5d',
+    refresh_token: required('ZOHO_REFRESH_TOKEN'),
+    client_id: required('ZOHO_CLIENT_ID'),
+    client_secret: required('ZOHO_CLIENT_SECRET'),
     grant_type: 'refresh_token'
   });
 

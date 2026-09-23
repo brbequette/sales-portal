@@ -1,8 +1,13 @@
 async function main() {
-  const code = '1000.82d15ea2373db4e08d64f9ce3c1c6182.7a51b6329207275d40780f0ad8a41940';
-  const clientId = '1000.XW3WINW3H421OTV0PEUGKQ4X7UYVFK';
-  const clientSecret = '0267c0d4b05b6c3061290007135cd499c6ff14cd5d';
-  const redirectUri = 'https://titan-sales-portal.netlify.app/api/auth/zoho/callback';
+  const required = (name) => {
+    const value = process.env[name];
+    if (!value) throw new Error(`Missing required environment variable: ${name}`);
+    return value;
+  };
+  const code = required('ZOHO_AUTHORIZATION_CODE');
+  const clientId = required('ZOHO_CLIENT_ID');
+  const clientSecret = required('ZOHO_CLIENT_SECRET');
+  const redirectUri = required('ZOHO_REDIRECT_URI');
   
   const params = new URLSearchParams({
     code,
@@ -18,7 +23,8 @@ async function main() {
   });
   
   const data = await res.json();
-  console.log('Exchange response:', JSON.stringify(data, null, 2));
+  if (!res.ok || !data.access_token) throw new Error(`Zoho token exchange failed (${res.status})`);
+  console.log('Zoho token exchange succeeded. Store the returned credentials in the approved secret manager; token values are intentionally not printed.');
 }
 
 main().catch(console.error);

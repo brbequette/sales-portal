@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getZohoAccessToken } from '@/lib/zoho-auth'
+import { getZohoVoiceAccessToken } from '@/lib/zoho-voice-auth'
 import { requireAdministrator } from '@/lib/auth-helpers'
 import { transcriptText } from '@/lib/voice-account-matching'
 import { indexCallAndCreateSafeFollowUp } from '@/lib/communication-automation'
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     // Let's use fromIdx and size
     let fromIdx = parseInt(body.from) || 0
 
-    const accessToken = await getZohoAccessToken()
+    const accessToken = await getZohoVoiceAccessToken()
     if (!accessToken) {
       return NextResponse.json({ success: false, error: 'Zoho not connected' }, { status: 401 })
     }
