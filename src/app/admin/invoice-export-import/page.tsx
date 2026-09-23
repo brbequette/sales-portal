@@ -36,7 +36,8 @@ export default function InvoiceExportImportPage() {
 
   async function run(mode: "preview" | "apply") {
     setRunning(true)
-    const totals = { creates: 0, updates: 0, unresolved: 0, invalid: 0, received: 0, zohoCalls: 0, failures: [] as any[] }
+    const accountCreateIds = new Set<string>()
+    const totals = { creates: 0, updates: 0, accountCreates: 0, accountsToCreate: [] as any[], unresolved: 0, invalid: 0, received: 0, zohoCalls: 0, failures: [] as any[] }
     try {
       for (let offset = 0; offset < documents.length; offset += 50) {
         setStatus(`${mode === "preview" ? "Checking" : "Updating"} invoices ${offset + 1}–${Math.min(offset + 50, documents.length)} of ${documents.length}...`)
@@ -45,6 +46,12 @@ export default function InvoiceExportImportPage() {
         if (!response.ok) throw new Error(data.error || `Batch failed (${response.status})`)
         totals.creates += data.creates || 0
         totals.updates += data.updates || 0
+        for (const account of data.accountCreateSample || []) {
+          if (accountCreateIds.has(account.zohoId)) continue
+          accountCreateIds.add(account.zohoId)
+          totals.accountsToCreate.push(account)
+        }
+        totals.accountCreates = accountCreateIds.size
         totals.unresolved += data.unresolved || 0
         totals.invalid += data.invalid || 0
         totals.received += data.received || 0
@@ -83,4 +90,3 @@ export default function InvoiceExportImportPage() {
     </div>
   </main>
 }
-

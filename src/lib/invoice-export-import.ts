@@ -118,6 +118,7 @@ export function invoiceExportRecord(rows: ExportRow[]) {
     invoiceNumber,
     accountZohoId: String(row["Customer ID"] || "").trim(),
     accountName: String(row["Customer Name"] || "").trim(),
+    salesperson: String(row["Sales person"] || "").trim(),
     update: {
       amount: total,
       status: normalizeInvoiceStatus(row["Invoice Status"]),

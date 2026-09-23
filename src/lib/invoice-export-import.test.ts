@@ -5,6 +5,7 @@ describe("invoice export import", () => {
   it("maps Zoho invoice financials without generating outbound work", () => {
     const record = invoiceExportRecord([{ "Invoice ID": "1", "Invoice Number": "100", "Invoice Date": "2026-01-02", "Invoice Status": "Closed", "Customer ID": "c1", "Customer Name": "Acme", Total: "1,250.50", Balance: "0", "Sales person": "Jane", "Item Name": "Blade", Quantity: "2", "Item Price": "500", "Item Total": "1000", "CF.PROFIT": "250.25", "CF.DEAD COST TOTAL": "700", "CF.SALESPERSON VIG": "1.3", "CF.COMMISSION FROM PROFIT %": "50", "CF.SALES COMMISSION": "125.125" }])
     expect(record.zohoId).toBe("1")
+    expect(record.salesperson).toBe("Jane")
     expect(record.update.status).toBe("Paid")
     expect(record.update.amount).toBe(1250.5)
     expect(record.update.computedProfit).toBe(250.25)
