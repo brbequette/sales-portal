@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAdministrator } from "@/lib/auth-helpers"
+import { deriveCampaignStatusPresentation } from "@/lib/campaign-status-presentation"
 
 export async function GET(req: Request) {
   const auth = await requireAdministrator(); if (auth.errorResponse) return auth.errorResponse
@@ -13,7 +14,11 @@ export async function GET(req: Request) {
   }
   if (detailJob) { const recipients = await prisma.campaignRecipient.findMany({ where: { campaignJobId: detailJob }, orderBy: { originalIndex: "asc" }, take: 250, select: { id: true, campaignJobId: true, originalIndex: true, accountId: true, contactId: true, normalizedPhone: true, state: true, deliveryStatus: true, dispositionReason: true, lastProviderCode: true, lastProviderMessage: true, acceptedAt: true, deliveredAt: true } }); return NextResponse.json({ recipients }, { headers: { "Cache-Control": "no-store" } }) }
   const jobs = await prisma.campaignJob.findMany({ orderBy: { createdAt: "desc" }, take: 50, include: { recipients: { select: { state: true, deliveryStatus: true } } } })
-  return NextResponse.json({ jobs: jobs.map(job => ({ id: job.id, name: job.campaignName, status: job.status, reviewState: job.reviewState, total: job.total, updatedAt: job.updatedAt, workerHeartbeatAt: job.workerHeartbeatAt, quarantineReason: job.quarantineReason, legacyRecordedAccepted: job.legacyRecordedAccepted, legacyRecordedFailed: job.legacyRecordedFailed, legacyRawMissingCount: job.legacyRawMissingCount, recipientCounts: Object.fromEntries(["PENDING","LEASED","SENDING","ACCEPTED","FAILED","AMBIGUOUS","SKIPPED"].map(state => [state, job.recipients.filter(r => r.state === state).length])), deliveryCounts: Object.fromEntries(["submitted","queued","sent","delivered","undeliverable","rejected","blocked","expired","unknown"].map(state => [state, job.recipients.filter(r => r.deliveryStatus === state).length])) })) }, { headers: { "Cache-Control": "no-store" } })
+  return NextResponse.json({ jobs: jobs.map(job => {
+    const recipientCounts = Object.fromEntries(["PENDING","LEASED","SENDING","ACCEPTED","FAILED","AMBIGUOUS","SKIPPED"].map(state => [state, job.recipients.filter(r => r.state === state).length]))
+    const deliveryCounts = Object.fromEntries(["submitted","queued","sent","delivered","undeliverable","rejected","blocked","expired","unknown"].map(state => [state, job.recipients.filter(r => r.deliveryStatus === state).length]))
+    return { id: job.id, name: job.campaignName, status: job.status, reviewState: job.reviewState, total: job.total, updatedAt: job.updatedAt, workerHeartbeatAt: job.workerHeartbeatAt, quarantineReason: job.quarantineReason, legacyRecordedAccepted: job.legacyRecordedAccepted, legacyRecordedFailed: job.legacyRecordedFailed, legacyRawMissingCount: job.legacyRawMissingCount, recipientCounts, deliveryCounts, presentation: deriveCampaignStatusPresentation({ status: job.status, reviewState: job.reviewState, recipientCounts, recipientRowCount: job.recipients.length }) }
+  }) }, { headers: { "Cache-Control": "no-store" } })
 }
 
 export async function POST(req: Request) {
