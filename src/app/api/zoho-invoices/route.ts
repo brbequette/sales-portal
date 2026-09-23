@@ -121,7 +121,10 @@ export async function GET(request: Request) {
       const scoped = scopeGlobalHeaderDocuments(scope, identity, invoicesWithOwners, ordersWithLinks);
       const summary = calculateGlobalHeaderMetrics(now, scoped.invoices, scoped.salesOrders);
       return NextResponse.json({ summary, scope, asOf: now.toISOString() }, {
-        headers: { 'Cache-Control': 'private, no-store, max-age=0, must-revalidate' },
+        // The Books webhook keeps the local database current. A short private
+        // browser cache prevents duplicate header queries during navigation
+        // without sharing financial data between users.
+        headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=120' },
       });
     }
 

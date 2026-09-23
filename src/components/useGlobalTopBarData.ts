@@ -74,7 +74,7 @@ export function useGlobalTopBarData() {
 
   const fetchStripStats = useCallback(async () => {
     try {
-      const res = await fetch("/api/zoho-invoices?summary=true", { cache: "no-store" })
+      const res = await fetch("/api/zoho-invoices?summary=true")
       const json = await res.json()
       const summary = res.ok ? parseGlobalHeaderSummary(json) : null
       if (!summary) {
@@ -97,12 +97,13 @@ export function useGlobalTopBarData() {
 
   useEffect(() => {
     fetchStripStats()
-    const handleVisibility = () => { if (document.visibilityState === 'visible') fetchStripStats() }
-    const refresh = window.setInterval(fetchStripStats, 15_000)
-    document.addEventListener('visibilitychange', handleVisibility)
+    // Books data is maintained by the authenticated Zoho webhook pipeline.
+    // Do not make every open browser tab recalculate company financials every
+    // 15 seconds. Record actions can request a refresh explicitly.
+    const handleBooksDataUpdated = () => { void fetchStripStats() }
+    window.addEventListener('books-data-updated', handleBooksDataUpdated)
     return () => {
-      window.clearInterval(refresh)
-      document.removeEventListener('visibilitychange', handleVisibility)
+      window.removeEventListener('books-data-updated', handleBooksDataUpdated)
     }
   }, [fetchStripStats])
 

@@ -142,8 +142,6 @@ export function DealPipeline({ onViewInvoice }: { onViewInvoice?: (invoice: any)
 
   useEffect(() => {
     fetchPipelineData()
-    const interval = setInterval(fetchPipelineData, 5 * 60 * 1000)
-    return () => clearInterval(interval)
   }, [])
 
   async function fetchPipelineData() {
