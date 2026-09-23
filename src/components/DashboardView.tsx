@@ -158,7 +158,6 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
     isVisible,
     calculateHours,
     handleToggleClock,
-    checkForUpdates,
     fetchRepStatsData,
     fetchCompanyStats,
     goalPct,

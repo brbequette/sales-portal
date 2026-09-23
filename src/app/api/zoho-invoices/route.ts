@@ -44,7 +44,11 @@ export async function GET(request: Request) {
 
     if (searchParams.get('summary') === 'true') {
       const now = new Date();
-      const scope = resolveGlobalHeaderScope(session.user.role);
+      // The top bar is company-wide for privileged users, while the dashboard
+      // explicitly requests the signed-in user's personal slice.
+      const scope = searchParams.get('personal') === 'true'
+        ? 'personal'
+        : resolveGlobalHeaderScope(session.user.role);
       const identity = { id: actorId, name: session.user.name, role: session.user.role };
       const recentStart = new Date(now.getTime() - 40 * 86_400_000);
       const salesOrders = await prisma.salesOrder.findMany({

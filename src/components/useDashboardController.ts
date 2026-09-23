@@ -178,7 +178,6 @@ export function getStatusBadgeClass(statusStr?: string): string {
 
 export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize }: DashboardViewProps) {
   const { zohoContext: currentUser } = useZoho()
-  const { data: rawData, isLoading, isError, refetch } = useRawDashboardData(repName)
   const [showCompanyWide, setShowCompanyWide] = useState<boolean>(false)
   const [timeEntry, setTimeEntry] = useState<any | null>(null)
   const [clockLoading, setClockLoading] = useState(false)
@@ -228,16 +227,12 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
-  const checkForUpdates = useCallback(async (sig: string, url: string) => {
-    try {
-      const separator = url.includes('?') ? '&' : '?'
-      const res = await fetch(`${url}${separator}checkOnly=true`)
-      const data = await res.json()
-      if (!data.checkOnly) return
-      const remoteSig = `${data.count}|${data.latestUpdatedAt ?? ''}`
-      if (remoteSig !== sig) setUpdateAvailable(true)
-    } catch {}
-  }, [])
+  const { data: rawData, isLoading, isError, refetch } = useRawDashboardData(
+    repName,
+    repStatsPeriod,
+    repStatsStartDate,
+    repStatsEndDate,
+  )
 
   // --- Company-Wide Stats (always all reps, same period) ---
   const [companyTotals, setCompanyTotals] = useState<any>({
@@ -252,30 +247,30 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
   const fetchRepStatsData = useCallback(async () => {
     try {
       setRepStatsLoading(true)
-      const params = new URLSearchParams()
-      params.set("repId", repStatsSelectedRepId)
-      params.set("period", repStatsPeriod)
-      if (repStatsPeriod === "custom") {
-        if (repStatsStartDate) params.set("startDate", repStatsStartDate)
-        if (repStatsEndDate) params.set("endDate", repStatsEndDate)
+      if (repStatsSelectedRepId === repName) {
+        await refetch()
+      } else {
+        const params = new URLSearchParams({
+          repId: repStatsSelectedRepId,
+          period: repStatsPeriod,
+        })
+        if (repStatsPeriod === "custom") {
+          if (repStatsStartDate) params.set("startDate", repStatsStartDate)
+          if (repStatsEndDate) params.set("endDate", repStatsEndDate)
+        }
+        const response = await fetch(`/api/get-rep-stats?${params.toString()}`)
+        const data = await response.json()
+        if (!response.ok || !data.success) throw new Error(data.error || "Failed to load representative statistics")
+        setRepStatsReps(data.reps || [])
+        if (data.totals) setRepStatsTotals(data.totals)
       }
-
-      const res = await fetch(`/api/get-rep-stats?${params.toString()}`, { cache: "no-store" })
-      const d = await res.json()
-      if (d.success) {
-        setRepStatsReps(d.reps || [])
-        if (d.totals) setRepStatsTotals(d.totals)
-
-        const sig = `${(d.reps || []).length}|${(d.reps || [])[0]?.repId ?? ''}`
-        setUpdateAvailable(false)
-        setTimeout(() => checkForUpdates(sig, `/api/get-rep-stats?${params.toString()}`), 2000)
-      }
+      setUpdateAvailable(false)
     } catch (e) {
       console.error("Failed to load rep stats on dashboard", e)
     } finally {
       setRepStatsLoading(false)
     }
-  }, [repStatsSelectedRepId, repStatsPeriod, repStatsStartDate, repStatsEndDate])
+  }, [refetch, repName, repStatsSelectedRepId, repStatsPeriod, repStatsStartDate, repStatsEndDate])
 
   const fetchCompanyStats = useCallback(async () => {
     try {
@@ -301,10 +296,21 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
   }, [repStatsPeriod, repStatsStartDate, repStatsEndDate])
 
   useEffect(() => {
-    fetchRepStatsData()
-    fetchCompanyStats()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [repStatsSelectedRepId, repStatsPeriod, repStatsStartDate, repStatsEndDate, refreshTrigger])
+    if (!rawData?.success) return
+    if (repStatsSelectedRepId !== repName) return
+    setRepStatsReps(rawData.reps || [])
+    if (rawData.totals) setRepStatsTotals(rawData.totals)
+  }, [rawData, repName, repStatsSelectedRepId])
+
+  useEffect(() => {
+    if (repStatsSelectedRepId !== repName) void fetchRepStatsData()
+  }, [repStatsSelectedRepId, repName, repStatsPeriod, repStatsStartDate, repStatsEndDate, fetchRepStatsData])
+
+  // Company-wide detail is intentionally lazy. The personal dashboard must not
+  // execute a second company aggregation during every ordinary page load.
+  useEffect(() => {
+    if (showCompanyWide) void fetchCompanyStats()
+  }, [showCompanyWide, fetchCompanyStats, refreshTrigger])
 
   const repStatsAllInvoices = useMemo(() => {
     let list: any[] = []
@@ -693,7 +699,6 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
     isVisible,
     calculateHours,
     handleToggleClock,
-    checkForUpdates,
     fetchRepStatsData,
     fetchCompanyStats,
     goalPct,

@@ -107,6 +107,7 @@ export default function CommissionsPage() {
     try {
       const queryParams = new URLSearchParams({
         includeHidden: "true",
+        includeClawback: "true",
         year: selectedYear,
         userId: user?.id || "",
         userEmail: user?.email || "",

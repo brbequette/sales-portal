@@ -52,7 +52,7 @@ const authenticatedHandler: Handler = async (event) => {
       return { statusCode: 403, headers: cors, body: JSON.stringify({ error: "Signed-in user is not linked to a local user record" }) }
     }
     const sessionIsAdmin = isAdminRole(sessionUser.role)
-    const { repId, year, includeHidden, checkOnly } = event.queryStringParameters || {}
+    const { repId, year, includeHidden, includeClawback, checkOnly } = event.queryStringParameters || {}
     const effectiveRepId = sessionIsAdmin && repId ? repId : (sessionIsAdmin ? undefined : sessionUser.id)
     const showHidden = sessionIsAdmin && includeHidden === 'true'
 
@@ -982,7 +982,7 @@ const authenticatedHandler: Handler = async (event) => {
 
     // Clawback is intentionally independent of the selected commission year.
     const clawbackByRep: Record<string, any[]> = {}
-    for (const inv of allInvoiceRecords) {
+    if (includeClawback === 'true') for (const inv of allInvoiceRecords) {
       if (inv.isPaid) continue
       const key = inv.repId
       if (!clawbackByRep[key]) clawbackByRep[key] = []
@@ -1015,7 +1015,7 @@ const authenticatedHandler: Handler = async (event) => {
       years,
       stats,
       clawbackSettings,
-      clawbackByRep,
+      ...(includeClawback === 'true' ? { clawbackByRep } : {}),
     })
 
     return { statusCode: 200, headers: cors, body: responseBody }
