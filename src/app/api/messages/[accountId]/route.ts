@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 // Using default auth for prototype
-import { getZohoAccessToken } from '@/lib/zoho-auth'
+import { getZohoVoiceAccessToken } from '@/lib/zoho-voice-auth'
 import FormData from 'form-data'
 import { checkAccountOwnership } from '@/lib/auth-helpers'
 import { guardSmsSend } from '@/lib/sms-suppression'
@@ -127,7 +127,7 @@ export async function POST(req: Request, context: { params: Promise<{ accountId:
     const guard = await guardSmsSend({ phone: phoneNumber, traffic: 'TRANSACTIONAL' })
     if (!guard.allowed) return NextResponse.json({ success: false, error: `SMS blocked: ${guard.reason}` }, { status: 409 })
 
-    const accessToken = await getZohoAccessToken()
+    const accessToken = await getZohoVoiceAccessToken()
     if (!accessToken) throw new Error('Failed to get Zoho Access Token')
 
     const zohoDc = process.env.ZOHO_DC || 'com'

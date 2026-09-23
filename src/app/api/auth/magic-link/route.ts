@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateMagicCode } from '@/lib/customer-auth';
 import { getZohoAccessToken, ZOHO_DC } from '@/lib/zoho-auth';
+import { getZohoVoiceAccessToken } from '@/lib/zoho-voice-auth';
 import { guardSmsSend } from '@/lib/sms-suppression';
 
 const ZOHO_MAIL_ACCOUNT_ID = process.env.ZOHO_MAIL_ACCOUNT_ID;
@@ -53,7 +54,7 @@ async function sendOtpSms(phoneNumber: string, code: string): Promise<void> {
   const guard = await guardSmsSend({ phone: normalized, traffic: 'TRANSACTIONAL' });
   if (!guard.allowed) throw new Error(`SMS blocked: ${guard.reason}`);
 
-  const token = await getZohoAccessToken();
+  const token = await getZohoVoiceAccessToken();
   const fromNumber = process.env.ZOHO_VOICE_FROM_NUMBER || '+14804702577';
 
   const formData = new FormData();
