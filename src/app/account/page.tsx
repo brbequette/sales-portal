@@ -268,7 +268,7 @@ function AccordionSection({
 
 function OverviewPanel({
   account, invoices, deals, quotes, salesOrders, notes,
-  onViewInvoice, onViewSalesDoc, onDrillDown, onNoteAdded, accountId, zohoId, tasks, onTaskSave,
+  onViewInvoice, onViewSalesDoc, onDrillDown, onOpenInvoiceFlipbook, onNoteAdded, accountId, zohoId, tasks, onTaskSave,
 }: {
   account: any
   invoices: any[]
@@ -279,6 +279,7 @@ function OverviewPanel({
   onViewInvoice: (zohoId: string) => void
   onViewSalesDoc: (type: "SalesOrder" | "Quote", doc: any) => void
   onDrillDown: (title: string, invs: any[]) => void
+  onOpenInvoiceFlipbook: () => void
   onNoteAdded: (note: any) => void
   accountId: string
   zohoId: string
@@ -311,14 +312,15 @@ function OverviewPanel({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {[
           { label: "LTV", value: `$${totalRevenue >= 1000000 ? `${(totalRevenue/1000000).toFixed(1)}M` : totalRevenue >= 1000 ? `${(totalRevenue/1000).toFixed(1)}k` : totalRevenue.toFixed(0)}`, color: "text-emerald-400" },
-          { label: "Invoices", value: invoices.length, color: "text-blue-400" },
+          { label: "Invoices", value: invoices.length, color: "text-blue-400", onClick: onOpenInvoiceFlipbook },
           { label: "Overdue", value: overdueTotal > 0 ? `$${overdueTotal.toLocaleString(undefined,{maximumFractionDigits:0})}` : "None", color: overdueTotal > 0 ? "text-red-400" : "text-neutral-500" },
           { label: "Paid", value: paidInvoices.length, color: "text-emerald-400" },
         ].map(k => (
-          <div key={k.label} className="glass-panel border border-white/10 rounded-xl px-3 py-2">
+          <button key={k.label} type="button" onClick={k.onClick} disabled={!k.onClick}
+            className={`glass-panel border border-white/10 rounded-xl px-3 py-2 text-left ${k.onClick ? "cursor-pointer hover:border-blue-400/50 hover:bg-blue-500/10 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all" : "cursor-default"}`}>
             <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-semibold">{k.label}</div>
             <div className={`text-sm font-extrabold ${k.color}`}>{k.value}</div>
-          </div>
+          </button>
         ))}
       </div>
 
@@ -578,6 +580,7 @@ function AccountHubContent() {
   const [isEditingAccount, setIsEditingAccount] = useState(false)
   const [reorderCart, setReorderCart] = useState<any[]>([])
   const [leftRailOpen, setLeftRailOpen] = useState(true)
+  const [showInvoiceFlipbook, setShowInvoiceFlipbook] = useState(false)
 
   const localTime = useLocalTime(account?.timeZone)
 
@@ -892,6 +895,7 @@ function AccountHubContent() {
               }}
               onViewSalesDoc={(type, doc) => setViewingSalesDoc({ type, doc })}
               onDrillDown={(title, invs) => { setDrillTitle(title); setDrillInvoices(invs) }}
+              onOpenInvoiceFlipbook={() => setShowInvoiceFlipbook(true)}
               onNoteAdded={(newNote: any) =>
                 setAccount((prev: any) => prev ? { ...prev, notes: [newNote, ...(prev.notes || [])] } : prev)
               }
@@ -906,6 +910,15 @@ function AccountHubContent() {
       </div>
 
       {/* Drill-down modal */}
+      {showInvoiceFlipbook && createPortal(
+        <DocumentFlipbook
+          invoices={account.invoices || []}
+          initialFullscreen
+          fullscreenOnly
+          onClose={() => setShowInvoiceFlipbook(false)}
+        />,
+        document.body,
+      )}
       {drillInvoices && createPortal(
         <div
           className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"

@@ -39,6 +39,9 @@ interface DocumentFlipbookProps {
   salesOrders?: any[]
   onViewInvoice?: (zohoId: string) => void
   onViewSalesDoc?: (type: 'SalesOrder' | 'Quote', doc: any) => void
+  initialFullscreen?: boolean
+  fullscreenOnly?: boolean
+  onClose?: () => void
 }
 
 export function DocumentFlipbook({
@@ -46,17 +49,25 @@ export function DocumentFlipbook({
   quotes = [],
   salesOrders = [],
   onViewInvoice,
-  onViewSalesDoc
+  onViewSalesDoc,
+  initialFullscreen = false,
+  fullscreenOnly = false,
+  onClose,
 }: DocumentFlipbookProps) {
   const [activeDoc, setActiveDoc] = useState<DocType>("invoices")
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(initialFullscreen || fullscreenOnly)
   const [zoomLevel, setZoomLevel] = useState(100)
 
   const docSets: Record<DocType, any[]> = { invoices, quotes, salesOrders }
   const docs = docSets[activeDoc]
   const cfg = docConfig[activeDoc]
   const current = docs[currentIndex]
+  const pdfSrc = (doc: any) => `/api/get-invoice-pdf?id=${doc.zohoId || doc.id}&type=${getDocTypeParam(activeDoc)}#zoom=${zoomLevel}`
+  const closeFullscreen = () => {
+    if (onClose) onClose()
+    else setIsFullscreen(false)
+  }
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -65,13 +76,24 @@ export function DocumentFlipbook({
         setCurrentIndex((prev) => Math.max(0, prev - 1));
       } else if (e.key === "ArrowRight") {
         setCurrentIndex((prev) => Math.min(docs.length - 1, prev + 1));
+      } else if (e.key === "Home") {
+        setCurrentIndex(0)
+      } else if (e.key === "End") {
+        setCurrentIndex(Math.max(0, docs.length - 1))
       } else if (e.key === "Escape" && isFullscreen) {
-        setIsFullscreen(false);
+        closeFullscreen()
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [docs.length, isFullscreen]);
+  }, [docs.length, isFullscreen, onClose]);
+
+  useEffect(() => {
+    if (!isFullscreen) return
+    const previous = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => { document.body.style.overflow = previous }
+  }, [isFullscreen])
 
   const switchTab = (tab: DocType) => {
     setActiveDoc(tab)
@@ -83,6 +105,7 @@ export function DocumentFlipbook({
 
   return (
     <div className="space-y-3">
+      {!fullscreenOnly && <>
       {/* Header + Tabs */}
       <div className="flex items-center justify-between">
         <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -243,6 +266,7 @@ export function DocumentFlipbook({
         </>
       )}
 
+      </>}
       {/* Immersive Fullscreen PDF Modal Viewer */}
       {isFullscreen && current && (
         <div className="fixed inset-0 z-[100] bg-black flex flex-col p-4 safe-top safe-bottom">
@@ -275,7 +299,7 @@ export function DocumentFlipbook({
                 <FiDownload /> Download
               </a>
               <button
-                onClick={() => setIsFullscreen(false)}
+                onClick={closeFullscreen}
                 className="glass-panel hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 text-neutral-400 hover:text-white p-2 rounded-lg border border-white/10 transition-all"
                 title="Exit Full Screen (Esc)"
               >
@@ -286,11 +310,15 @@ export function DocumentFlipbook({
 
           {/* Fullscreen Body */}
           <div className="flex-1 w-full bg-black/20 rounded-xl overflow-hidden border border-white/10 relative">
-            <iframe
-              src={`/api/get-invoice-pdf?id=${current.zohoId || current.id}&type=${getDocTypeParam(activeDoc)}#zoom=${zoomLevel}`}
-              className="w-full h-full border-0"
-              title={`${cfg.label} PDF Fullscreen`}
-            />
+            {[currentIndex - 1, currentIndex, currentIndex + 1].filter(index => index >= 0 && index < docs.length).map(index => (
+              <iframe
+                key={`${activeDoc}-${index}`}
+                src={pdfSrc(docs[index])}
+                className={`absolute inset-0 w-full h-full border-0 bg-white transition-opacity duration-150 ${index === currentIndex ? "opacity-100 z-10" : "opacity-0 pointer-events-none z-0"}`}
+                title={`${cfg.label} PDF ${index + 1}`}
+                aria-hidden={index !== currentIndex}
+              />
+            ))}
           </div>
 
           {/* Fullscreen Navigation Footer */}
