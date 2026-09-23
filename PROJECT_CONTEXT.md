@@ -1319,6 +1319,11 @@ live state before destructive changes or external writes.
 - All SMS and Voice runtime routes now use the dedicated Voice token provider. Utility scripts no longer contain embedded OAuth client secrets, refresh tokens, authorization codes, or fallback credentials. Focused credential-hygiene and Voice-auth contract tests pass (24 tests), and TypeScript passes with `tsc --noEmit`.
 - The replacement code was deployed and production campaign state was verified. The prior Self Client and its old grants were then revoked, obsolete `ZOHO_SMS_*` variables were removed, and the clean Netlify redeploy `6ab387ebbb77297f9382d7fb` published commit `ff1e197`. Books, Mail, and Voice remain operational; CRM remains blocked by the Zoho administrator policy described above.
 
+## Google Cloud Run migration paused (2026-09-23)
+
+- The user chose to remain on Netlify. No Cloud Run service, Cloud Storage bucket, scheduler, secret, database migration, billing link, production deployment, domain mapping, or DNS change was created. All development-only Cloud Run portability edits were removed.
+- The empty Google Cloud project `Titan Sales Portal` (`titan-sales-portal-2026`) remains inactive and unbilled. `titandiamondmarketing@gmail.com` and the original Future Factory account are temporary project owners; neither owner was removed and the project was not deleted.
+
 ## 2026-09-23 Titan AI qualification, knowledge, and engagement planning
 
 - Titan AI now grounds company how-to and operating questions in the canonical Training Hub content through `search_titan_knowledge`, alongside its existing live sales, account, invoice, commission, product, communication, and performance tools. Its system contract prohibits invented figures, unrestricted-access claims, and success claims without a tool result.
