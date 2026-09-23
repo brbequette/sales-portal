@@ -96,7 +96,10 @@ export async function POST(request: Request) {
             const response = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/invoices/${change.zohoId}?organization_id=${ORG_ID}`, {
               method: "PUT", signal: AbortSignal.timeout(20000),
               headers: { Authorization: `Zoho-oauthtoken ${token}`, "Content-Type": "application/json" },
-              body: JSON.stringify({ date: change.to }),
+              body: JSON.stringify({
+                date: change.to,
+                reason: `Correcting invoice date to match linked ${change.source} date (${change.to}).`,
+              }),
             })
             const result = await response.json().catch(() => ({})) as { code?: number; message?: string }
             if (!response.ok || (result.code != null && result.code !== 0)) throw new Error(result.message || `Zoho HTTP ${response.status}`)
