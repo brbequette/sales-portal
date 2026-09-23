@@ -9,6 +9,7 @@ export const maxDuration = 300
 const START = new Date("2025-01-01T00:00:00.000Z")
 const END = new Date("2027-01-01T00:00:00.000Z")
 const excluded = ["Void", "void", "Voided", "voided", "Draft", "draft", "Orphaned", "orphaned", "Deleted", "deleted"]
+const paidStatuses = new Set(["paid", "closed", "fulfilled"])
 const monthKey = (date: Date) => `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`
 const previousMonthKey = (key: string) => {
   const [year, month] = key.split("-").map(Number)
@@ -23,7 +24,7 @@ const storedNumber = (value: unknown) => {
 async function buildAudit(apply: boolean) {
   const ross = await prisma.user.findFirst({ where: { name: { equals: "ROSS HAISLER", mode: "insensitive" } } })
   if (!ross) throw new Error("Ross Haisler portal user was not found")
-  const [invoices, goals] = await Promise.all([
+  const [invoices, goals, payouts] = await Promise.all([
     prisma.invoice.findMany({
       where: {
         issueDate: { gte: START, lt: END },
@@ -34,6 +35,7 @@ async function buildAudit(apply: boolean) {
       orderBy: { issueDate: "asc" },
     }),
     prisma.monthlyVigGoal.findMany({ where: { repId: ross.id }, orderBy: { monthKey: "asc" } }),
+    prisma.payout.findMany({ where: { repId: ross.id, date: { gte: START, lte: new Date() } }, select: { amount: true } }),
   ])
   const goalByMonth = new Map(goals.map(goal => [goal.monthKey, goal]))
   const rates = new Map(goals.map(goal => [goal.monthKey, goal.manualVigRate ?? goal.lastSyncedVigRate]))
@@ -68,7 +70,7 @@ async function buildAudit(apply: boolean) {
     rates.set(mk, met ? 1.3 : 1.5)
     rateSource.set(mk, `PRIOR_GOAL_${met ? "MET" : "MISSED"}:${priorKey}`)
   }
-  const byMonth: Record<string, { invoices: number; updates: number; blocked: number; rate: number | null; rateSource: string | null; commissionBefore: number; commissionAfter: number }> = {}
+  const byMonth: Record<string, { invoices: number; updates: number; blocked: number; rate: number | null; rateSource: string | null; commissionBefore: number; commissionAfter: number; earnedBefore: number; earnedAfter: number; futureBefore: number; futureAfter: number }> = {}
   const updates: Array<{ id: string; data: any }> = []
   const exceptions: any[] = []
   const calculationSamples: any[] = []
@@ -76,7 +78,7 @@ async function buildAudit(apply: boolean) {
   for (const invoice of invoices) {
     const mk = monthKey(invoice.issueDate)
     const rate = rates.get(mk)
-    byMonth[mk] ||= { invoices: 0, updates: 0, blocked: 0, rate: rate ?? null, rateSource: rateSource.get(mk) || null, commissionBefore: 0, commissionAfter: 0 }
+    byMonth[mk] ||= { invoices: 0, updates: 0, blocked: 0, rate: rate ?? null, rateSource: rateSource.get(mk) || null, commissionBefore: 0, commissionAfter: 0, earnedBefore: 0, earnedAfter: 0, futureBefore: 0, futureAfter: 0 }
     byMonth[mk].invoices++
     const items = invoice.items && typeof invoice.items === "object" && !Array.isArray(invoice.items) ? invoice.items as Record<string, any> : {}
     if (rate == null || !Number.isFinite(rate)) {
@@ -90,8 +92,17 @@ async function buildAudit(apply: boolean) {
       exceptions.push({ invoiceNumber: invoice.invoiceNumber, zohoId: invoice.zohoId, monthKey: mk, reason: "MISSING_COST_BUCKETS" })
       continue
     }
-    byMonth[mk].commissionBefore += Number(items.commission ?? items.salesCommission ?? 0)
+    const commissionBefore = storedNumber(items.commission ?? items.salesCommission)
+    const isPaid = paidStatuses.has(String(invoice.status || "").toLowerCase())
+    byMonth[mk].commissionBefore += commissionBefore
     byMonth[mk].commissionAfter += calc.commission
+    if (isPaid) {
+      byMonth[mk].earnedBefore += commissionBefore
+      byMonth[mk].earnedAfter += calc.commission
+    } else {
+      byMonth[mk].futureBefore += commissionBefore
+      byMonth[mk].futureAfter += calc.commission
+    }
     const changed = differs(items.vigRate ?? items.vig, calc.vigRate)
       || differs(items.profit, calc.profit)
       || differs(items.deadCostPlusVig, calc.deadCostPlusVig)
@@ -130,15 +141,27 @@ async function buildAudit(apply: boolean) {
     })
   }
   for (const summary of Object.values(byMonth)) {
-    summary.commissionBefore = Math.round(summary.commissionBefore * 100) / 100
-    summary.commissionAfter = Math.round(summary.commissionAfter * 100) / 100
+    for (const key of ["commissionBefore", "commissionAfter", "earnedBefore", "earnedAfter", "futureBefore", "futureAfter"] as const) {
+      summary[key] = Math.round(summary[key] * 100) / 100
+    }
+  }
+  const sum = (key: "commissionBefore" | "commissionAfter" | "earnedBefore" | "earnedAfter" | "futureBefore" | "futureAfter") =>
+    Math.round(Object.values(byMonth).reduce((total, month) => total + month[key], 0) * 100) / 100
+  const totalPayouts = Math.round(payouts.reduce((total, payout) => total + payout.amount, 0) * 100) / 100
+  const impact = {
+    plannedBefore: sum("commissionBefore"), plannedAfter: sum("commissionAfter"),
+    earnedBefore: sum("earnedBefore"), earnedAfter: sum("earnedAfter"),
+    futureBefore: sum("futureBefore"), futureAfter: sum("futureAfter"),
+    payouts: totalPayouts,
+    balanceBefore: Math.round((sum("earnedBefore") - totalPayouts) * 100) / 100,
+    balanceAfter: Math.round((sum("earnedAfter") - totalPayouts) * 100) / 100,
   }
   if (apply && exceptions.length === 0) {
     for (let offset = 0; offset < updates.length; offset += 50) {
       await prisma.$transaction(updates.slice(offset, offset + 50).map(update => prisma.invoice.update({ where: { id: update.id }, data: update.data })))
     }
   }
-  return { ross: { id: ross.id, name: ross.name, payoutStructure: ross.payoutStructure }, invoiceCount: invoices.length, updateCount: updates.length, blockedCount: exceptions.length, byMonth, calculationSamples, exceptions: exceptions.slice(0, 100), applied: apply && exceptions.length === 0, zohoCalls: 0 }
+  return { ross: { id: ross.id, name: ross.name, payoutStructure: ross.payoutStructure }, invoiceCount: invoices.length, updateCount: updates.length, blockedCount: exceptions.length, impact, byMonth, calculationSamples, exceptions: exceptions.slice(0, 100), applied: apply && exceptions.length === 0, zohoCalls: 0 }
 }
 
 export async function GET() {
