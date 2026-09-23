@@ -2,11 +2,11 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAdministrator } from "@/lib/auth-helpers"
 import { getZohoAccessToken } from "@/lib/zoho-auth"
+import { Prisma } from "@prisma/client"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 300
 
-type JsonRecord = Record<string, unknown>
 const ZOHO_DC = process.env.ZOHO_DC || "com"
 const ORG_ID = process.env.ZOHO_ORG_ID || process.env.ZOHO_ORGANIZATION_ID
 
@@ -36,45 +36,59 @@ export async function POST(request: Request) {
     const start = startBase ? new Date(`${dateKey(startBase)}T00:00:00.000Z`) : null
     const end = endBase ? new Date(`${dateKey(endBase)}T23:59:59.999Z`) : null
 
+    const invoiceRange = start && end ? Prisma.sql`WHERE "issueDate" >= ${start} AND "issueDate" <= ${end}` : Prisma.empty
     const [invoices, salesOrders, estimates] = await Promise.all([
-      prisma.invoice.findMany({
-        where: start && end ? { issueDate: { gte: start, lte: end } } : undefined,
-        select: { id: true, invoiceNumber: true, zohoId: true, issueDate: true, items: true, salesOrderZohoId: true, salesorderNumber: true, estimateZohoId: true },
-        orderBy: { issueDate: "desc" },
-      }),
-      prisma.salesOrder.findMany({ select: { zohoId: true, orderDate: true, items: true } }),
-      prisma.quote.findMany({ select: { zohoId: true, items: true } }),
+      prisma.$queryRaw<Array<{
+        id: string; invoiceNumber: string | null; zohoId: string | null; issueDate: Date;
+        salesOrderZohoId: string | null; salesorderNumber: string | null; estimateZohoId: string | null;
+        itemSalesOrderId: string | null; itemSalesOrderIdAlt: string | null; itemSalesOrderNumber: string | null; itemSalesOrderNumberAlt: string | null;
+        itemEstimateId: string | null; itemEstimateNumber: string | null; itemEstimateNumberAlt: string | null;
+        itemInvoiceNumber: string | null; itemInvoiceNumberAlt: string | null; originalDate: string | null;
+      }>>(Prisma.sql`
+        SELECT id, "invoiceNumber", "zohoId", "issueDate", "salesOrderZohoId", "salesorderNumber", "estimateZohoId",
+          items->>'salesorder_id' AS "itemSalesOrderId", items->>'sales_order_id' AS "itemSalesOrderIdAlt",
+          items->>'salesorder_number' AS "itemSalesOrderNumber", items->>'salesOrderNumber' AS "itemSalesOrderNumberAlt",
+          items->>'estimate_id' AS "itemEstimateId", items->>'estimate_number' AS "itemEstimateNumber", items->>'estimateNumber' AS "itemEstimateNumberAlt",
+          items->>'invoiceNumber' AS "itemInvoiceNumber", items->>'invoice_number' AS "itemInvoiceNumberAlt",
+          items->>'invoiceDateBeforeLinkedBackfill' AS "originalDate"
+        FROM "Invoice" ${invoiceRange} ORDER BY "issueDate" DESC
+      `),
+      prisma.$queryRaw<Array<{ zohoId: string | null; orderDate: Date; itemId: string | null; itemIdAlt: string | null; itemNumber: string | null; itemNumberAlt: string | null }>>(Prisma.sql`
+        SELECT "zohoId", "orderDate", items->>'salesorder_id' AS "itemId", items->>'sales_order_id' AS "itemIdAlt",
+          items->>'salesorder_number' AS "itemNumber", items->>'salesOrderNumber' AS "itemNumberAlt" FROM "SalesOrder"
+      `),
+      prisma.$queryRaw<Array<{ zohoId: string | null; date: string | null; estimateDate: string | null; createdTime: string | null; itemId: string | null; itemNumber: string | null; itemNumberAlt: string | null }>>(Prisma.sql`
+        SELECT "zohoId", items->>'date' AS date, items->>'estimate_date' AS "estimateDate", items->>'created_time' AS "createdTime",
+          items->>'estimate_id' AS "itemId", items->>'estimate_number' AS "itemNumber", items->>'estimateNumber' AS "itemNumberAlt" FROM "Quote"
+      `),
     ])
 
     const salesOrderDates = new Map<string, Date>()
     for (const order of salesOrders) {
-      const items = (order.items as JsonRecord | null) || {}
-      const keys = [order.zohoId, items.salesorder_id, items.sales_order_id, items.salesorder_number, items.salesOrderNumber]
+      const keys = [order.zohoId, order.itemId, order.itemIdAlt, order.itemNumber, order.itemNumberAlt]
       for (const key of keys.map(clean).filter(Boolean)) salesOrderDates.set(key, order.orderDate)
     }
 
     const estimateDates = new Map<string, Date>()
     for (const estimate of estimates) {
-      const items = (estimate.items as JsonRecord | null) || {}
-      const estimateDate = dateFromValue(first(items.date, items.estimate_date, items.estimateDate, items.created_time))
+      const estimateDate = dateFromValue(first(estimate.date, estimate.estimateDate, estimate.createdTime))
       if (!estimateDate) continue
-      const keys = [estimate.zohoId, items.estimate_id, items.estimate_number, items.estimateNumber]
+      const keys = [estimate.zohoId, estimate.itemId, estimate.itemNumber, estimate.itemNumberAlt]
       for (const key of keys.map(clean).filter(Boolean)) estimateDates.set(key, estimateDate)
     }
 
-    const changes: Array<{ id: string; zohoId: string | null; invoiceNumber: string; from: string; to: string; source: "sales order" | "estimate"; items: JsonRecord }> = []
+    const changes: Array<{ id: string; zohoId: string | null; invoiceNumber: string; from: string; to: string; source: "sales order" | "estimate"; originalDate: string | null }> = []
     for (const invoice of invoices) {
-      const items = (invoice.items as JsonRecord | null) || {}
-      const salesOrderKeys = [invoice.salesOrderZohoId, invoice.salesorderNumber, items.salesorder_id, items.sales_order_id, items.salesorder_number, items.salesOrderNumber].map(clean).filter(Boolean)
-      const estimateKeys = [invoice.estimateZohoId, items.estimate_id, items.estimate_number, items.estimateNumber].map(clean).filter(Boolean)
+      const salesOrderKeys = [invoice.salesOrderZohoId, invoice.salesorderNumber, invoice.itemSalesOrderId, invoice.itemSalesOrderIdAlt, invoice.itemSalesOrderNumber, invoice.itemSalesOrderNumberAlt].map(clean).filter(Boolean)
+      const estimateKeys = [invoice.estimateZohoId, invoice.itemEstimateId, invoice.itemEstimateNumber, invoice.itemEstimateNumberAlt].map(clean).filter(Boolean)
       const salesOrderDate = salesOrderKeys.map(key => salesOrderDates.get(key)).find(Boolean)
       const estimateDate = estimateKeys.map(key => estimateDates.get(key)).find(Boolean)
       const sourceDate = salesOrderDate || estimateDate
       if (!sourceDate || dateKey(sourceDate) === dateKey(invoice.issueDate)) continue
       changes.push({
         id: invoice.id, zohoId: invoice.zohoId,
-        invoiceNumber: String(invoice.invoiceNumber || items.invoiceNumber || items.invoice_number || invoice.zohoId),
-        from: dateKey(invoice.issueDate), to: dateKey(sourceDate), source: salesOrderDate ? "sales order" : "estimate", items,
+        invoiceNumber: String(invoice.invoiceNumber || invoice.itemInvoiceNumber || invoice.itemInvoiceNumberAlt || invoice.zohoId),
+        from: dateKey(invoice.issueDate), to: dateKey(sourceDate), source: salesOrderDate ? "sales order" : "estimate", originalDate: invoice.originalDate,
       })
     }
 
@@ -103,15 +117,19 @@ export async function POST(request: Request) {
             })
             const result = await response.json().catch(() => ({})) as { code?: number; message?: string }
             if (!response.ok || (result.code != null && result.code !== 0)) throw new Error(result.message || `Zoho HTTP ${response.status}`)
-            await prisma.invoice.update({ where: { id: change.id }, data: {
-              issueDate: new Date(change.to + "T12:00:00.000Z"),
-              appModifiedAt: new Date(), lastSyncedAt: new Date(), syncConflict: false,
-              items: {
-                ...change.items, date: change.to,
-                invoiceDateBeforeLinkedBackfill: change.items.invoiceDateBeforeLinkedBackfill || change.from,
-                invoiceDateLinkedSource: change.source, invoiceDateLinkedBackfillAt: appliedAt,
-              },
-            } })
+            const auditPatch = JSON.stringify({
+              date: change.to,
+              invoiceDateBeforeLinkedBackfill: change.originalDate || change.from,
+              invoiceDateLinkedSource: change.source,
+              invoiceDateLinkedBackfillAt: appliedAt,
+            })
+            await prisma.$executeRaw(Prisma.sql`
+              UPDATE "Invoice" SET
+                "issueDate" = ${new Date(change.to + "T12:00:00.000Z")},
+                "appModifiedAt" = NOW(), "lastSyncedAt" = NOW(), "syncConflict" = false, "updatedAt" = NOW(),
+                items = COALESCE(items, '{}'::jsonb) || ${auditPatch}::jsonb
+              WHERE id = ${change.id}
+            `)
             updatedCount++
           } catch (error) {
             failures.push({ invoiceNumber: change.invoiceNumber, zohoId: change.zohoId, error: error instanceof Error ? error.message : "Unknown update error" })
