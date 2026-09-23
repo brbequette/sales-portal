@@ -299,7 +299,13 @@ export function resolveCommissionPct(
     f.label?.toUpperCase().includes("COMMISSION FROM PROFIT")
   )
   if (existingField?.value && parseFloat(existingField.value) > 0) {
-    return parseFloat(existingField.value)
+    const existingRate = parseFloat(existingField.value)
+    const documentDate = new Date(doc.date || doc.issueDate || doc.orderDate || doc.created_time || 0)
+    const documentYear = documentDate.getUTCFullYear()
+    // Approved correction: legacy 40% values on 2025–2026 Books documents
+    // are stale and must be normalized to the canonical 50% rate.
+    if (existingRate === 40 && (documentYear === 2025 || documentYear === 2026)) return 50
+    return existingRate
   }
 
   return settings.commission_rate_pct
