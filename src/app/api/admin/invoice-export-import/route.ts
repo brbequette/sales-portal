@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAdministrator } from "@/lib/auth-helpers"
 import { prisma } from "@/lib/prisma"
-import { ExportRow, invoiceExportRecord } from "@/lib/invoice-export-import"
+import { ExportRow, invoiceExportRecord, normalizeAccountName } from "@/lib/invoice-export-import"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 300
@@ -25,19 +25,33 @@ export async function POST(req: NextRequest) {
 
   const zohoIds = parsed.map(item => item.zohoId)
   const customerIds = [...new Set(parsed.map(item => item.accountZohoId).filter(Boolean))]
+  const customerNames = [...new Set(parsed.map(item => item.accountName).filter(Boolean))]
   const [existingInvoices, accounts] = await Promise.all([
     prisma.invoice.findMany({ where: { zohoId: { in: zohoIds } }, select: { id: true, zohoId: true, accountId: true } }),
-    prisma.account.findMany({ where: { zohoId: { in: customerIds } }, select: { id: true, zohoId: true, name: true } }),
+    prisma.account.findMany({
+      where: { OR: [
+        { zohoId: { in: customerIds } },
+        { name: { in: customerNames, mode: "insensitive" } },
+      ] },
+      select: { id: true, zohoId: true, name: true },
+    }),
   ])
   const invoiceByZoho = new Map(existingInvoices.map(item => [item.zohoId, item]))
   const accountByZoho = new Map(accounts.filter(item => item.zohoId).map(item => [item.zohoId!, item]))
+  const accountByName = new Map<string, typeof accounts[number] | null>()
+  for (const account of accounts) {
+    const key = normalizeAccountName(account.name)
+    accountByName.set(key, accountByName.has(key) ? null : account)
+  }
 
   const unresolved: Array<{ zohoId: string; invoiceNumber: string; customerId: string; customerName: string }> = []
   let creates = 0, updates = 0
   const operations = []
   for (const record of parsed) {
     const existing = invoiceByZoho.get(record.zohoId)
-    const accountId = existing?.accountId || accountByZoho.get(record.accountZohoId)?.id
+    const accountId = existing?.accountId
+      || accountByZoho.get(record.accountZohoId)?.id
+      || accountByName.get(normalizeAccountName(record.accountName))?.id
     if (!accountId) {
       unresolved.push({ zohoId: record.zohoId, invoiceNumber: record.invoiceNumber, customerId: record.accountZohoId, customerName: record.accountName })
       continue
@@ -82,4 +96,3 @@ export async function PUT(req: NextRequest) {
   })
   return NextResponse.json({ success: true, orphaned: result.count, zohoCalls: 0 })
 }
-

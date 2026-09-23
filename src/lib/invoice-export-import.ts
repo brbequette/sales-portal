@@ -2,6 +2,9 @@ import { Prisma } from "@prisma/client"
 
 export type ExportRow = Record<string, string>
 
+export const normalizeAccountName = (value: unknown): string =>
+  String(value ?? "").trim().replace(/\s+/g, " ").toUpperCase()
+
 const numeric = (value: unknown): number | null => {
   const cleaned = String(value ?? "").replace(/[$,%]/g, "").trim()
   if (!cleaned) return null
@@ -139,4 +142,3 @@ export function invoiceExportRecord(rows: ExportRow[]) {
     },
   }
 }
-

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { invoiceExportRecord, normalizeInvoiceStatus } from "./invoice-export-import"
+import { invoiceExportRecord, normalizeAccountName, normalizeInvoiceStatus } from "./invoice-export-import"
 
 describe("invoice export import", () => {
   it("maps Zoho invoice financials without generating outbound work", () => {
@@ -16,5 +16,9 @@ describe("invoice export import", () => {
     expect(normalizeInvoiceStatus("Open")).toBe("Sent")
     expect(normalizeInvoiceStatus("Void")).toBe("Void")
     expect(normalizeInvoiceStatus("Draft")).toBe("Draft")
+  })
+
+  it("normalizes exact customer-name fallback keys", () => {
+    expect(normalizeAccountName("  Three   Tier Construction ")).toBe("THREE TIER CONSTRUCTION")
   })
 })
