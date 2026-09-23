@@ -318,21 +318,40 @@ export default function BooksScriptsPage() {
         while (true) {
           setBulkProgress(`Processing page ${page}... (${totalProcessed} done, ${totalErrors} errors)`)
 
-          const res = await fetch('/api/admin/books/bulk-process-costs', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              entity: bulkEntity,
-              page,
-              filter: bulkFilter,
-              perPage: 25,
-              force: bulkForce,
-              applyTariff: bulkEntity === 'invoices' ? bulkApplyTariff : false,
-              ...(bulkFilter === 'daterange' ? { startDate: bulkStartDate, endDate: bulkEndDate } : {}),
-            })
+          const requestBody = JSON.stringify({
+            entity: bulkEntity,
+            page,
+            filter: bulkFilter,
+            perPage: 25,
+            force: bulkForce,
+            applyTariff: bulkEntity === 'invoices' ? bulkApplyTariff : false,
+            ...(bulkFilter === 'daterange' ? { startDate: bulkStartDate, endDate: bulkEndDate } : {}),
           })
-
-          const data = await res.json()
+          let data: any = null
+          let lastPageError = ''
+          for (let attempt = 1; attempt <= 5; attempt++) {
+            try {
+              const res = await fetch('/api/admin/books/bulk-process-costs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: requestBody,
+              })
+              const contentType = res.headers.get('content-type') || ''
+              if (!contentType.includes('application/json')) {
+                throw new Error(`temporary upstream response (${res.status})`)
+              }
+              data = await res.json()
+              if (res.ok || data?.success) break
+              lastPageError = data?.error || `request failed (${res.status})`
+            } catch (pageError: any) {
+              lastPageError = pageError?.message || 'temporary request failure'
+            }
+            if (attempt < 5) {
+              setBulkProgress(`Retrying page ${page} (${attempt}/5)... (${totalProcessed} done, ${totalErrors} errors)`)
+              await new Promise(resolve => setTimeout(resolve, attempt * 3000))
+            }
+          }
+          if (!data) throw new Error(`Page ${page} failed after 5 attempts: ${lastPageError}`)
           if (!data.success) {
             setResults(prev => ({ ...prev, 'bulk-costs': `Error on page ${page}: ${data.error}` }))
             break
