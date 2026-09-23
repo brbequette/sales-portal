@@ -72,11 +72,11 @@ export async function GET() {
   const [invoices, salesOrders] = await Promise.all([
     prisma.invoice.findMany({
       where: { issueDate: { gte: START, lt: END } },
-      select: { issueDate: true, status: true, items: true, computedProfit: true, computedVigRate: true },
+      select: { zohoId: true, invoiceNumber: true, issueDate: true, status: true, items: true, computedProfit: true, computedVigRate: true },
     }),
     prisma.salesOrder.findMany({
       where: { orderDate: { gte: START, lt: END } },
-      select: { orderDate: true, status: true, items: true },
+      select: { zohoId: true, orderDate: true, status: true, items: true },
     }),
   ])
 
@@ -86,5 +86,16 @@ export async function GET() {
     range: { start: START.toISOString(), endExclusive: END.toISOString() },
     invoices: summarize(invoices as Array<Record<string, any>>, "issueDate", "invoice"),
     salesOrders: summarize(salesOrders as Array<Record<string, any>>, "orderDate", "salesOrder"),
+    exceptions: {
+      invoicesWithRawCommission40: (invoices as Array<Record<string, any>>)
+        .filter(row => rawCommissionRate((row.items && typeof row.items === "object" ? row.items : {}) as Record<string, any>) === 40)
+        .map(row => ({ zohoId: row.zohoId, invoiceNumber: row.invoiceNumber, status: row.status, issueDate: row.issueDate })),
+      salesOrdersMissingFinancials: (salesOrders as Array<Record<string, any>>)
+        .filter(row => {
+          const items = row.items && typeof row.items === "object" ? row.items : {}
+          return finite(items.profit) == null || finite(items.commission) == null || finite(items.vigRate) == null
+        })
+        .map(row => ({ zohoId: row.zohoId, status: row.status, orderDate: row.orderDate })),
+    },
   })
 }
