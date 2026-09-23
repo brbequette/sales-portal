@@ -165,6 +165,7 @@ function MonthDocumentsModal({
                   <th className="p-3 text-right">Profit @ 1.3x</th>
                   <th className="p-3 text-right">Profit @ 1.5x</th>
                   <th className="p-3 text-right">Loss / Variance</th>
+                  <th className="p-3 text-right">Rep Pay Δ (50%)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -191,6 +192,9 @@ function MonthDocumentsModal({
                       ) : (
                         <span className="text-emerald-400">-$0</span>
                       )}
+                    </td>
+                    <td className="p-3 text-right font-mono font-bold text-violet-300">
+                      -${(Math.max(0, d.lossToTarget) * 0.5).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                   </tr>
                 ))}
@@ -857,6 +861,11 @@ export default function VigManagementBuilder() {
                                        : 0
                                      const isLoss = lossVal > 0
                                      const avgLoss = isLoss && md.invoiceCount > 0 ? Math.round(lossVal / md.invoiceCount) : 0
+                                     const baseline = 1.3
+                                     const atPenaltyRate = md.vigRate >= tgt - 0.001 && tgt > baseline
+                                     const payDifference = atPenaltyRate && dc > 0
+                                       ? Math.round((dc * (tgt - baseline) * 0.5 + Number.EPSILON) * 100) / 100
+                                       : 0
                                      return (
                                        <div className={`rounded-lg px-3 py-2 border ${isLoss ? 'bg-rose-950/20 border-rose-500/40' : 'bg-emerald-950/20 border-emerald-500/40'}`}>
                                          <div className="text-[9px] uppercase font-bold tracking-wider mb-1 flex items-center justify-between">
@@ -871,6 +880,13 @@ export default function VigManagementBuilder() {
                                              ? `${md.invoiceCount} inv × $${avgLoss.toLocaleString()} avg loss`
                                              : `VIG at or above ${tgt}x target`}
                                          </div>
+                                         {atPenaltyRate && <div className="mt-1.5 border-t border-violet-500/20 pt-1.5">
+                                           <div className="flex items-center justify-between gap-2 text-[9px] font-bold uppercase tracking-wide text-violet-300">
+                                             <span>Rep pay vs 1.30x</span>
+                                             <span className="font-mono text-xs">-${payDifference.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                           </div>
+                                           <div className="mt-0.5 text-[8px] text-neutral-500">50% commission impact across {md.invoiceCount} invoices at {tgt.toFixed(2)}x VIG</div>
+                                         </div>}
                                        </div>
                                      )
                                    })()}
