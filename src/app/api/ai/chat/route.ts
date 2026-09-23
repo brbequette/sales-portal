@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createHash } from 'node:crypto';
 import { prisma } from '@/lib/prisma';
 import { getZohoAccessToken, pushZohoNote } from '@/lib/zoho-auth';
 import { createAIChatCompletion } from '@/lib/ai-client';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { trainingModules } from '@/lib/trainingData';
+import {
+  canUseAiTool,
+  createAiConfirmationToken,
+  getBuiltinAiToolPolicy,
+  normalizeAiRole,
+  verifyAiConfirmationToken,
+  type AiRoleLevel,
+} from '@/lib/ai-action-policy';
 
 // Rate Limiter: 30 requests per minute per user
 const rateLimit = new Map<string, { count: number; resetTime: number }>();
@@ -29,7 +39,7 @@ function checkRateLimit(identifier: string): boolean {
 
 // Helpers
 function isAdmin(role: string): boolean {
-  return role?.toLowerCase().includes('admin') || role === 'ADMIN';
+  return ['MANAGER', 'ADMIN'].includes(normalizeAiRole(role));
 }
 
 function buildOwnerFilter(userRole: string, userId: string, repIdArg?: string) {
@@ -63,6 +73,11 @@ function getDateRange(period: string) {
 // Tool Implementation Logic
 async function executeTool(name: string, args: any, context: { userId: string, userRole: string, userName: string }) {
   const { userId, userRole } = context;
+
+  const policy = getBuiltinAiToolPolicy(name);
+  if (!canUseAiTool(userRole, policy.minimumRole)) {
+    return { success: false, error: `${policy.minimumRole} access is required for ${name}` };
+  }
 
   try {
     switch (name) {
@@ -219,6 +234,125 @@ async function executeTool(name: string, args: any, context: { userId: string, u
           priority: t.priority,
           dueDate: t.dueDate,
           accountName: t.account?.name || 'Unknown'
+        }));
+      }
+
+      case 'query_upcoming_engagements': {
+        const horizonDays = Math.min(Math.max(Number(args.horizonDays) || 7, 1), 30);
+        const limit = Math.min(Math.max(Number(args.limit) || 20, 1), 50);
+        const now = new Date();
+        const horizon = new Date(now.getTime() + horizonDays * 24 * 60 * 60 * 1000);
+        const ownerFilter = buildOwnerFilter(userRole, userId, args.repId);
+
+        const [tasks, assignments, deals] = await Promise.all([
+          prisma.task.findMany({
+            where: {
+              ...ownerFilter,
+              status: { notIn: ['Completed', 'completed', 'Closed', 'closed'] },
+              dueDate: { lte: horizon },
+            },
+            include: { account: { select: { name: true } }, deal: { select: { name: true } } },
+            orderBy: [{ dueDate: 'asc' }, { priority: 'asc' }],
+            take: limit,
+          }),
+          prisma.workAssignment.findMany({
+            where: {
+              ...(isAdmin(userRole) && args.repId ? { ownerId: args.repId } : isAdmin(userRole) ? {} : { ownerId: userId }),
+              status: 'OPEN',
+              OR: [{ dueAt: null }, { dueAt: { lte: horizon } }],
+            },
+            orderBy: [{ dueAt: 'asc' }, { priority: 'desc' }],
+            take: limit,
+          }),
+          prisma.deal.findMany({
+            where: ownerFilter,
+            select: { id: true, name: true, account: { select: { name: true } } },
+            take: 250,
+          }),
+        ]);
+
+        const dealById = new Map(deals.map(deal => [deal.id, deal]));
+        const automation = deals.length
+          ? await prisma.dealAutomationState.findMany({
+              where: {
+                dealId: { in: deals.map(deal => deal.id) },
+                status: 'ACTIVE',
+                nextExecuteAt: { lte: horizon },
+              },
+              orderBy: { nextExecuteAt: 'asc' },
+              take: limit,
+            })
+          : [];
+
+        return {
+          generatedAt: now.toISOString(),
+          horizonDays,
+          summary: {
+            overdueTasks: tasks.filter(task => task.dueDate && task.dueDate < now).length,
+            upcomingTasks: tasks.filter(task => task.dueDate && task.dueDate >= now).length,
+            workAssignments: assignments.length,
+            scheduledEngagementSteps: automation.length,
+          },
+          tasks: tasks.map(task => ({
+            id: task.id,
+            subject: task.subject,
+            dueAt: task.dueDate,
+            overdue: Boolean(task.dueDate && task.dueDate < now),
+            priority: task.priority,
+            accountName: task.account?.name,
+            dealName: task.deal?.name,
+            suggestedAction: task.type === 'Call' ? 'Offer to log or schedule the call' : 'Offer to complete or update the task',
+          })),
+          assignments: assignments.map(item => ({
+            id: item.id,
+            nextAction: item.nextAction,
+            dueAt: item.dueAt,
+            overdue: Boolean(item.dueAt && item.dueAt < now),
+            stage: item.stage,
+            priority: item.priority,
+            entityNumber: item.entityNumber,
+            blockedReason: item.blockedReason,
+          })),
+          engagementSteps: automation.map(item => {
+            const deal = dealById.get(item.dealId);
+            return {
+              dealId: item.dealId,
+              dealName: deal?.name,
+              accountName: deal?.account.name,
+              currentStep: item.currentStep,
+              nextExecuteAt: item.nextExecuteAt,
+              overdue: Boolean(item.nextExecuteAt && item.nextExecuteAt < now),
+              loop: item.loopCount,
+              metadata: item.metadata,
+              suggestedAction: 'Explain the upcoming engagement and offer the matching authorized action',
+            };
+          }),
+        };
+      }
+
+      case 'search_titan_knowledge': {
+        const query = String(args.query || '').trim().toLowerCase();
+        if (!query) return { success: false, error: 'A knowledge search query is required' };
+        const terms = [...new Set(query.split(/[^a-z0-9]+/).filter(term => term.length > 2))];
+        const matches = trainingModules
+          .map(module => {
+            const title = module.title.toLowerCase();
+            const category = module.category.toLowerCase();
+            const content = module.content.toLowerCase();
+            const score = terms.reduce((total, term) => total
+              + (title.includes(term) ? 8 : 0)
+              + (category.includes(term) ? 4 : 0)
+              + Math.min(content.split(term).length - 1, 5), 0);
+            return { module, score };
+          })
+          .filter(result => result.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, Math.min(Math.max(Number(args.limit) || 5, 1), 8));
+        return matches.map(({ module }) => ({
+          id: module.id,
+          title: module.title,
+          category: module.category,
+          content: module.content.trim().slice(0, 5000),
         }));
       }
 
@@ -653,6 +787,35 @@ async function executeTool(name: string, args: any, context: { userId: string, u
         return { success: true, action, time: now.toISOString(), entry };
       }
 
+      case 'update_task_outcome': {
+        const { taskId, outcomeType = 'UPDATE', summary, nextAction, followUpAt } = args;
+        if (!taskId || !String(summary || '').trim()) return { success: false, error: 'Task ID and outcome summary are required' };
+        const allowedOutcomes = new Set(['UPDATE', 'COMPLETED', 'NO_ANSWER', 'FOLLOW_UP', 'BLOCKED', 'CANCELLED']);
+        const normalizedOutcome = String(outcomeType).toUpperCase();
+        if (!allowedOutcomes.has(normalizedOutcome)) return { success: false, error: 'Unsupported task outcome' };
+        const task = await prisma.task.findFirst({ where: { OR: [{ id: String(taskId) }, { zohoId: String(taskId) }], ...buildOwnerFilter(userRole, userId) } });
+        if (!task) return { success: false, error: 'Task not found or not accessible' };
+        const followUpDate = followUpAt ? new Date(followUpAt) : null;
+        if (followUpDate && Number.isNaN(followUpDate.getTime())) return { success: false, error: 'Invalid follow-up date' };
+        const outcome = await prisma.taskOutcome.create({ data: {
+          taskId: task.id, outcomeType: normalizedOutcome, summary: String(summary).trim(),
+          nextAction: nextAction ? String(nextAction).trim() : null, followUpAt: followUpDate,
+          accountId: task.accountId,
+          documentType: task.invoiceId ? 'INVOICE' : task.salesOrderId ? 'SALES_ORDER' : task.quoteId || task.estimateId ? 'QUOTE' : null,
+          documentId: task.invoiceId || task.salesOrderId || task.quoteId || task.estimateId,
+          actorId: userId, actorName: context.userName,
+        } });
+        if (normalizedOutcome === 'COMPLETED' || normalizedOutcome === 'CANCELLED') {
+          await prisma.task.update({ where: { id: task.id }, data: { status: normalizedOutcome === 'COMPLETED' ? 'Completed' : 'Cancelled' } });
+        }
+        await prisma.operationalEvent.create({ data: {
+          entityType: 'TASK', entityId: task.id, accountId: task.accountId, eventType: 'TASK_OUTCOME',
+          title: `Task outcome: ${normalizedOutcome}`, detail: String(summary).trim(),
+          metadata: { nextAction: nextAction || null, followUpAt: followUpDate }, actorId: userId, actorName: context.userName,
+        } });
+        return { success: true, taskId: task.id, outcome };
+      }
+
       case 'create_task': {
         const { subject, description = '', priority = 'Normal', dueDate, accountName } = args;
         if (!subject) return { success: false, error: 'Subject is required' };
@@ -1044,6 +1207,36 @@ const TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'query_upcoming_engagements',
+      description: 'Review overdue and upcoming tasks, operational work assignments, and scheduled deal engagement steps. Use proactively when the user asks what to do next, opens a work-planning conversation, or asks about follow-ups.',
+      parameters: {
+        type: 'object',
+        properties: {
+          horizonDays: { type: 'number', description: 'How many days ahead to review, from 1 to 30 (default 7)' },
+          limit: { type: 'number', description: 'Maximum items per section' },
+          repId: { type: 'string', description: 'Manager/admin only: review a specific rep' }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'search_titan_knowledge',
+      description: 'Search Titan Diamond operating guidance, product workflow, sales procedures, collections, communications, commissions, timeclock, administration, and portal training. Use for any Titan question not answered by live transactional tools.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'The specific Titan Diamond question or topic' },
+          limit: { type: 'number', description: 'Number of relevant knowledge modules, default 5' }
+        },
+        required: ['query']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'query_rep_stats',
       description: 'Get overall summary statistics for the sales rep',
       parameters: {
@@ -1245,6 +1438,24 @@ const TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'update_task_outcome',
+      description: 'Record progress or an outcome for an accessible task, including completing it or scheduling the next follow-up. Always summarize the exact change before asking for confirmation.',
+      parameters: {
+        type: 'object',
+        properties: {
+          taskId: { type: 'string', description: 'Task ID returned by the engagement review' },
+          outcomeType: { type: 'string', enum: ['UPDATE', 'COMPLETED', 'NO_ANSWER', 'FOLLOW_UP', 'BLOCKED', 'CANCELLED'] },
+          summary: { type: 'string' },
+          nextAction: { type: 'string' },
+          followUpAt: { type: 'string', description: 'Optional ISO date/time for follow-up' }
+        },
+        required: ['taskId', 'outcomeType', 'summary']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'update_account_status_and_quality',
       description: 'Update the relationship status or quality rating tier of a customer account',
       parameters: {
@@ -1388,7 +1599,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { message, conversationHistory = [] } = body;
+    const { message, conversationHistory = [], confirmationToken } = body;
     const sessionUser = session.user as typeof session.user & { dbId?: string; id?: string; role?: string };
 
     if (typeof message !== 'string' || !message.trim()) {
@@ -1419,12 +1630,48 @@ export async function POST(req: NextRequest) {
       ? "You have full admin access to all data across all reps."
       : "You can view your own accounts, invoices, commissions, and tasks. You can also see company-wide aggregate totals but not other individual reps' data.";
 
+    if (confirmationToken) {
+      let confirmed;
+      try {
+        confirmed = verifyAiConfirmationToken(String(confirmationToken), dbUser.id);
+      } catch (error: any) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+      }
+      const idempotencyKey = `ai:${createHash('sha256').update(String(confirmationToken)).digest('hex')}`;
+      const priorAction = await prisma.operationalAction.findUnique({ where: { idempotencyKey } });
+      if (priorAction) {
+        return NextResponse.json({ success: priorAction.status === 'SUCCEEDED', response: priorAction.status === 'SUCCEEDED' ? 'That action was already completed. I did not run it twice.' : `That action was already submitted and is ${priorAction.status.toLowerCase()}.`, actionResult: priorAction.result });
+      }
+
+      let customTool = null;
+      let policy = getBuiltinAiToolPolicy(confirmed.toolName);
+      if (confirmed.customToolId) {
+        customTool = await prisma.aiCustomTool.findFirst({ where: { id: confirmed.customToolId, isActive: true } });
+        if (!customTool || customTool.name !== confirmed.toolName) return NextResponse.json({ success: false, error: 'This action is no longer available' }, { status: 409 });
+        policy = { minimumRole: customTool.minimumRole as AiRoleLevel, mutating: customTool.method.toUpperCase() !== 'GET', requiresConfirmation: customTool.requiresConfirmation };
+      }
+      if (!policy.mutating || !canUseAiTool(actualRole, policy.minimumRole)) return NextResponse.json({ success: false, error: 'You are not qualified to run this action' }, { status: 403 });
+
+      const audit = await prisma.operationalAction.create({ data: { idempotencyKey, actionType: `AI_${confirmed.toolName}`, entityType: 'AI_TOOL', entityId: dbUser.id, status: 'RUNNING', payload: confirmed.args as any, actorId: dbUser.id, actorName: dbUser.name, attemptCount: 1, startedAt: new Date() } });
+      try {
+        const result = customTool
+          ? await executeCustomTool(customTool, confirmed.args, dbUser.id, actualRole, req.headers.get('cookie') || '')
+          : await executeTool(confirmed.toolName, confirmed.args, { userId: dbUser.id, userRole: actualRole, userName: dbUser.name || 'Unknown' });
+        const succeeded = !(result && typeof result === 'object' && ('error' in result || result.success === false));
+        await prisma.operationalAction.update({ where: { id: audit.id }, data: { status: succeeded ? 'SUCCEEDED' : 'FAILED', result: result as any, errorMessage: succeeded ? null : String(result?.error || 'Action failed'), completedAt: new Date() } });
+        return NextResponse.json({ success: succeeded, response: succeeded ? `Done. I completed ${confirmed.toolName.replaceAll('_', ' ')} and recorded the result.` : `I could not complete that action: ${result?.error || 'the action failed'}`, actionResult: result }, { status: succeeded ? 200 : 409 });
+      } catch (error: any) {
+        await prisma.operationalAction.update({ where: { id: audit.id }, data: { status: 'FAILED', errorMessage: error.message, completedAt: new Date() } });
+        throw error;
+      }
+    }
+
     const now = new Date();
     const currentDate = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Phoenix' });
     const currentTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Phoenix' });
 
-    const systemPrompt = `You are Titan AI, the intelligent data assistant for Titan Diamond USA's sales platform.
-You have full access to the company's database and can answer questions about sales, invoices, commissions, accounts, deals, products, tasks, shipping, time tracking, VIG rates, leads, advances, and more.
+    const systemPrompt = `You are Titan AI, the grounded company assistant for Titan Diamond USA.
+Answer Titan Diamond questions with live data tools and the Titan knowledge tool. Never claim unrestricted access; access is limited by the signed-in user's role and record ownership.
 
 TODAY'S DATE: ${currentDate} at ${currentTime} (Phoenix, AZ time)
 Current user: ${dbUser.name || 'Unknown'} (Role: ${actualRole})
@@ -1440,16 +1687,20 @@ IMPORTANT RULES:
 - When showing financial summaries, always include invoice count
 - For commission calculations, use the real computedProfit, computedUpfront, and computedFinal values from invoices — never approximate
 - Always use the tools to query real data — never guess or hallucinate numbers
+- Search Titan knowledge before answering policy, workflow, product, or how-to questions
+- When planning work, review upcoming engagements and tasks, prioritize overdue/high-priority items, and offer the specific next action you can perform
+- Never say an action succeeded until its tool result confirms success
+- Write actions require explicit confirmation in the interface; explain what will happen and wait
+- If the user is not qualified for data or an action, say so and offer an authorized alternative
 `;
 
     // Load active database-defined custom tools dynamically
-    const customTools = admin
-      ? await prisma.aiCustomTool.findMany({ where: { isActive: true } }).catch(() => [])
-      : [];
+    const customTools = (await prisma.aiCustomTool.findMany({ where: { isActive: true } }).catch(() => []))
+      .filter(tool => canUseAiTool(actualRole, tool.minimumRole as AiRoleLevel));
 
     // Merge static and dynamic tools
     const allTools = [
-      ...TOOLS,
+      ...TOOLS.filter(tool => canUseAiTool(actualRole, getBuiltinAiToolPolicy(tool.function.name).minimumRole)),
       ...customTools.map(ct => ({
         type: 'function' as const,
         function: {
@@ -1477,6 +1728,7 @@ IMPORTANT RULES:
     ];
 
     let finalResponse = '';
+    const pendingActions: Array<{ toolName: string; summary: string; confirmationToken: string }> = [];
     const maxRounds = 5;
     
     for (let round = 0; round < maxRounds; round++) {
@@ -1511,7 +1763,22 @@ IMPORTANT RULES:
         const customTool = customTools.find(ct => ct.name === functionName);
         let toolResult: any;
 
-        if (customTool) {
+        const toolPolicy = customTool
+          ? {
+              minimumRole: customTool.minimumRole as AiRoleLevel,
+              mutating: customTool.method.toUpperCase() !== 'GET',
+              requiresConfirmation: customTool.requiresConfirmation,
+            }
+          : getBuiltinAiToolPolicy(functionName);
+
+        if (!canUseAiTool(actualRole, toolPolicy.minimumRole)) {
+          toolResult = { success: false, error: `${toolPolicy.minimumRole} access is required` };
+        } else if (toolPolicy.mutating && toolPolicy.requiresConfirmation) {
+          const token = createAiConfirmationToken({ userId: dbUser.id, toolName: functionName, args: functionArgs, customToolId: customTool?.id });
+          const summary = `${functionName.replaceAll('_', ' ')} with ${JSON.stringify(functionArgs)}`.slice(0, 500);
+          pendingActions.push({ toolName: functionName, summary, confirmationToken: token });
+          toolResult = { success: false, requiresConfirmation: true, summary, message: 'The user must confirm this action in the interface before it runs.' };
+        } else if (customTool) {
           toolResult = await executeCustomTool(
             customTool,
             functionArgs,
@@ -1563,6 +1830,7 @@ IMPORTANT RULES:
       success: true,
       response: finalResponse,
       logId,
+      pendingActions,
     });
   } catch (error: any) {
     console.error('AI Chat Error:', error?.message || error);

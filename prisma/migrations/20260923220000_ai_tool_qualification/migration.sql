@@ -1,0 +1,3 @@
+ALTER TABLE "AiCustomTool"
+  ADD COLUMN "minimumRole" TEXT NOT NULL DEFAULT 'ADMIN',
+  ADD COLUMN "requiresConfirmation" BOOLEAN NOT NULL DEFAULT true;
