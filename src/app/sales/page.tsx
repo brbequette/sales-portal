@@ -475,10 +475,10 @@ export default function SalesPage() {
       const emailQuery = userEmail ? `&email=${encodeURIComponent(userEmail)}` : ""
       const roleQuery = effectiveRole ? `&role=${encodeURIComponent(effectiveRole)}` : ""
 
-      // Load the local account snapshot in one request. Splitting the same
-      // snapshot into many concurrent requests repeated the expensive account,
-      // contact, invoice, and product-history aggregations for every page.
-      const accountPageSize = 10000
+      // Render the first useful account page quickly. The prior 10,000-row
+      // request blocked the entire screen on a very large DB query, JSON
+      // serialization, network transfer, parsing, and React state update.
+      const accountPageSize = 250
       const firstRes = await fetch(`/api/get-accounts?page=1&limit=${accountPageSize}${emailQuery}${roleQuery}`)
       const firstData = await firstRes.json()
       const firstBatch: any[] = firstData.accounts || []
@@ -503,10 +503,13 @@ export default function SalesPage() {
         // multiplied the request latency by the number of pages and re-rendered
         // the entire pipeline after every response.
         const totalCount = firstData.pagination?.totalCount || firstBatch.length
-        const totalPages = Math.min(10, Math.ceil(totalCount / accountPageSize))
+        const totalPages = Math.min(40, Math.ceil(totalCount / accountPageSize))
         const remainingPages = Array.from({ length: Math.max(0, totalPages - 1) }, (_, index) => index + 2)
-        const pageResults = await Promise.all(
-          remainingPages.map(async currentPage => {
+        const pageResults: any[][] = []
+        // Hydrate the rest in small background waves so normal navigation and
+        // API traffic are not starved by dozens of simultaneous DB requests.
+        for (let offset = 0; offset < remainingPages.length; offset += 4) {
+          const wave = await Promise.all(remainingPages.slice(offset, offset + 4).map(async currentPage => {
             try {
               const res = await fetch(`/api/get-accounts?page=${currentPage}&limit=${accountPageSize}${emailQuery}${roleQuery}`)
               if (!res.ok) return []
@@ -515,8 +518,9 @@ export default function SalesPage() {
             } catch {
               return []
             }
-          })
-        )
+          }))
+          pageResults.push(...wave)
+        }
         const allAccounts = [...firstBatch, ...pageResults.flat()]
         setAccounts(allAccounts)
         setAccountsTotalCount(totalCount)

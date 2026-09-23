@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
 import { extractDeadCostTotal, extractDeadProfit } from "@/lib/custom-field-extractor"
 import { requireTvAccess } from "@/lib/tv-access"
+import { invoiceReportingDate, reportingInvoiceQueryStart } from "@/lib/reporting-date"
 
 const terminalStatuses = new Set(["void", "voided", "declined", "cancelled", "canceled", "orphaned"])
 const excludedPipelineStatuses = new Set([...terminalStatuses, "draft"])
@@ -77,11 +78,13 @@ async function buildWeeklyPayload(
 ) {
   const now = new Date()
   const { monday, end: sunday } = arizonaWeek(now)
+  const invoiceQueryStart = reportingInvoiceQueryStart(monday)
+  const invoiceQueryEnd = new Date(monday.getTime() + 5 * 24 * 60 * 60 * 1000 - 1)
   const estimateCutoff = new Date(now.getTime() - 48 * 60 * 60 * 1000)
 
   const [invoices, salesOrders, quotes] = await Promise.all([
     prisma.invoice.findMany({
-      where: { issueDate: { gte: monday, lte: sunday } },
+      where: { issueDate: { gte: invoiceQueryStart, lte: invoiceQueryEnd } },
       select: {
         id: true, zohoId: true, amount: true, status: true, issueDate: true,
         items: true, salesOrderZohoId: true, estimateZohoId: true, salesorderNumber: true,
@@ -212,7 +215,8 @@ async function buildWeeklyPayload(
     const status = text(invoice.status)
     // Draft invoices are invoices and must appear in weekly sales. Only terminal
     // records are excluded from invoice totals.
-    if (terminalStatuses.has(status) || invoice.issueDate < monday || invoice.issueDate > sunday) continue
+    const reportingDate = invoiceReportingDate(invoice.issueDate)
+    if (terminalStatuses.has(status) || reportingDate < monday || reportingDate > sunday) continue
     const items = (invoice.items as Record<string, unknown>) || {}
     const invoiceSubtotal = subtotal(items, invoice.amount)
     const storedDeadCost = number(invoice.computedDeadCost ?? extractDeadCostTotal(items))
@@ -224,7 +228,7 @@ async function buildWeeklyPayload(
       subtotal: invoiceSubtotal,
       deadCost: hasStoredDeadCost ? storedDeadCost : 0,
       profit: hasStoredDeadCost ? number(invoice.computedDeadProfit ?? extractDeadProfit(items, invoiceSubtotal)) : 0,
-      date: invoice.issueDate.toISOString(),
+      date: reportingDate.toISOString(),
       salesperson: String(invoice.computedSalesperson || items.salesperson_name || items.salesperson || ""),
       repId: invoice.account.ownerId,
       costPending: !hasStoredDeadCost,

@@ -1,4 +1,5 @@
 import { extractCustomFieldValue } from "@/lib/custom-field-extractor"
+import { invoiceReportingDate } from "@/lib/reporting-date"
 
 export const HEADER_TERMINAL_STATUSES = new Set([
   "draft", "void", "voided", "declined", "cancelled", "canceled", "orphaned", "deleted",
@@ -191,10 +192,11 @@ export function calculateGlobalHeaderMetrics(
     const status = text(invoice.status)
     const subtotal = headerSubtotal(invoice.items, invoice.amount)
     const invoiceFields = fields(invoice.items)
-    if (invoice.issueDate >= weekStart && invoice.issueDate < weekEnd) {
+    const reportingDate = invoiceReportingDate(invoice.issueDate)
+    if (reportingDate >= weekStart && reportingDate < weekEnd) {
       totals.weeklySales += subtotal
     }
-    if (invoice.issueDate >= monthStart && invoice.issueDate < monthEnd) {
+    if (reportingDate >= monthStart && reportingDate < monthEnd) {
       totals.mtdSales += subtotal
       totals.mtdProfit += headerProfit(invoiceFields, invoice.computedProfit)
       totals.mtdCommission += headerCommission(invoiceFields)

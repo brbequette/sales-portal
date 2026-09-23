@@ -113,12 +113,38 @@ const authenticatedHandler: Handler = async (event, context) => {
       },
     }
 
+    // The account hub only needs document summaries for its initial render.
+    // Full Zoho payloads (especially line_items and custom-field arrays) can
+    // make established accounts several megabytes and delay parsing/rendering.
+    const compact = (value: unknown, keys: string[]) => {
+      const source = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+      return Object.fromEntries(keys.filter(key => source[key] !== undefined).map(key => [key, source[key]]))
+    }
+    account.invoices = account.invoices.map((invoice: any) => ({
+      ...invoice,
+      items: compact(invoice.items, ['invoiceNumber', 'invoice_number', 'profit', 'salesCommission', 'commission']),
+      rawData: undefined,
+    }))
+    account.salesOrders = account.salesOrders.map((order: any) => ({
+      ...order,
+      items: compact(order.items, ['salesOrderNumber', 'salesorder_number', 'date', 'salesorder_date']),
+      rawData: undefined,
+    }))
+    account.quotes = account.quotes.map((quote: any) => ({
+      ...quote,
+      items: compact(quote.items, ['estimateNumber', 'estimate_number', 'quoteNumber', 'date', 'estimateDate']),
+      rawData: undefined,
+    }))
+    account.deals = account.deals.map((deal: any) => ({ ...deal, rawData: undefined }))
+    account.rawData = undefined
+
     return {
       statusCode: 200,
       headers: { 
         "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*" 
-      },
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "private, max-age=30, stale-while-revalidate=120",
+      } as Record<string, string>,
       body: JSON.stringify({ success: true, account })
     }
 

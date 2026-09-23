@@ -4,6 +4,7 @@ import { prisma, Prisma } from "./lib/prisma"
 import { financialNumber, headerCommission } from "../../src/lib/global-header-metrics"
 import { isAdminRole } from "../../src/lib/roles"
 import { aggregateCompanyTarget, calculateTargetProgress, combineRepStatsDocuments, countCompanyWorkdays, eligibleRepIdsForYear, resolveRepStatsVigRate, type RepStatsTarget } from "../../src/lib/rep-stats-period"
+import { invoiceReportingDate, reportingInvoiceQueryStart } from "../../src/lib/reporting-date"
 
 function hasStoredCommission(items: Record<string, unknown>): boolean {
   return [items.salesCommission, items.commission, items.cf_commission_amount, items.cf_commision_amount, items.cf_commission_amount_unformatted]
@@ -130,6 +131,7 @@ const authenticatedHandler: Handler = async (event) => {
     const rosterYear = periodParam === 'all_time' || periodParam === 'all' ? now.getFullYear() : rangeStart.getUTCFullYear()
     const rosterYearStart = new Date(Date.UTC(rosterYear, 0, 1))
     const rosterYearEnd = new Date(Date.UTC(rosterYear + 1, 0, 1))
+    const invoiceRangeStart = reportingInvoiceQueryStart(rangeStart)
 
     const [
       users,
@@ -217,7 +219,7 @@ const authenticatedHandler: Handler = async (event) => {
           ) AS items
         FROM "Invoice" i
         JOIN "Account" a ON a.id = i."accountId"
-        WHERE i."issueDate" >= ${rangeStart} AND i."issueDate" <= ${rangeEnd}
+        WHERE i."issueDate" >= ${invoiceRangeStart} AND i."issueDate" <= ${rangeEnd}
           AND lower(i.status) NOT IN ('void','voided','draft','declined','cancelled','canceled','orphaned','deleted','written_off','writeoff','write_off','written off','bad debt')
           AND i."syncConflict" = false AND i."pendingZohoFetch" = false
           ${invoiceRepFilterSql}
@@ -298,7 +300,7 @@ const authenticatedHandler: Handler = async (event) => {
         where: { key: { in: ['sales_targets', 'holidays', 'default_vig_rate'] } },
         select: { key: true, value: true },
       }).catch(() => []),
-      prisma.$queryRaw<any[]>(Prisma.sql`
+      repIdFilter === 'all' ? prisma.$queryRaw<any[]>(Prisma.sql`
         SELECT s.id::text, s."zohoId", s.status, s."orderDate", s.amount,
           COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber') AS "salesOrderNumber",
           COALESCE(s.items->>'salesperson_name', s.items->>'salesperson') AS salesperson,
@@ -327,8 +329,8 @@ const authenticatedHandler: Handler = async (event) => {
               )
             )
           )
-      `).catch(() => []),
-      prisma.$queryRaw<Array<{ salesperson: string | null; legacySalesperson: string | null; accountOwnerId: string | null }>>(Prisma.sql`
+      `).catch(() => []) : Promise.resolve([]),
+      repIdFilter === 'all' ? prisma.$queryRaw<Array<{ salesperson: string | null; legacySalesperson: string | null; accountOwnerId: string | null }>>(Prisma.sql`
         SELECT i."computedSalesperson" AS salesperson, i.items->>'salesperson' AS "legacySalesperson",
           a."ownerId" AS "accountOwnerId"
         FROM "Invoice" i JOIN "Account" a ON a.id = i."accountId"
@@ -336,8 +338,8 @@ const authenticatedHandler: Handler = async (event) => {
           AND lower(i.status) NOT IN ('void','voided','draft','declined','cancelled','canceled','orphaned','deleted','written_off','writeoff','write_off','written off','bad debt')
           AND i."syncConflict" = false AND i."pendingZohoFetch" = false
           ${invoiceRepFilterSql}
-      `),
-      prisma.$queryRaw<Array<{ salesperson: string | null; accountOwnerId: string | null }>>(Prisma.sql`
+      `) : Promise.resolve([]),
+      repIdFilter === 'all' ? prisma.$queryRaw<Array<{ salesperson: string | null; accountOwnerId: string | null }>>(Prisma.sql`
         SELECT COALESCE(s.items->>'salesperson_name', s.items->>'salesperson') AS salesperson,
           a."ownerId" AS "accountOwnerId"
         FROM "SalesOrder" s JOIN "Account" a ON a.id = s."accountId"
@@ -354,7 +356,7 @@ const authenticatedHandler: Handler = async (event) => {
             )
           )
           ${salesOrderRepFilterSql}
-      `)
+      `) : Promise.resolve([])
     ])
 
     const settingMap = new Map(targetSettings.map(setting => [setting.key, setting.value]))
@@ -406,7 +408,7 @@ const authenticatedHandler: Handler = async (event) => {
     }
     rosterInvoices.forEach(row => addRosterDocument(resolveRosterRepId(row.salesperson, row.legacySalesperson, row.accountOwnerId), 'INVOICE'))
     rosterSalesOrders.forEach(row => addRosterDocument(resolveRosterRepId(row.salesperson, null, row.accountOwnerId), 'SALES_ORDER'))
-    const eligibleRepIds = eligibleRepIdsForYear(users.map(user => ({
+    const eligibleRepIds = requestedRep ? new Set([requestedRep.id]) : eligibleRepIdsForYear(users.map(user => ({
       repId: user.id,
       isSalesperson: user.isSalesperson === true,
       yearInvoiceCount: rosterCounts.get(user.id)?.yearInvoiceCount || 0,
@@ -474,6 +476,8 @@ const authenticatedHandler: Handler = async (event) => {
     // PERF: inv now comes from $queryRaw — items is a plain scalar JSON object,
     //       no line_items array. Uses computedProfit/deadProfit columns when available.
     allInvoices.forEach((inv: any) => {
+      const reportingDate = invoiceReportingDate(inv.issueDate)
+      if (reportingDate < rangeStart || reportingDate > rangeEnd) return
       const items = inv.items as any || {}
       const amount = parseFloat(items.sub_total || items.subTotal) || parseFloat(inv.amount as any) || 0
 
@@ -515,7 +519,7 @@ const authenticatedHandler: Handler = async (event) => {
         repStatsMap[repId].deadProfit += deadProfit
         repStatsMap[repId].commissions += commission
         repStatsMap[repId].invoiceCount++
-        const invDateForWeek = inv.issueDate ? new Date(inv.issueDate) : null
+        const invDateForWeek = inv.issueDate ? invoiceReportingDate(inv.issueDate) : null
         if (invDateForWeek && invDateForWeek >= weekMonday && invDateForWeek <= weekSunday) {
           repStatsMap[repId].weeklyRevenue += amount
         }
@@ -524,7 +528,7 @@ const authenticatedHandler: Handler = async (event) => {
           zohoId: inv.zohoId,
           accountZohoId: inv.accountZohoId || null,
           invoiceNumber: inv.computedInvoiceNumber || items.invoiceNumber || items.invoice_number || inv.zohoId || inv.id,
-          date: inv.issueDate || inv.createdAt,
+          date: reportingDate,
           customerName: inv.accountName || 'Unknown Customer',
           repName: repStatsMap[repId]?.repName || '',
           subtotal: amount,
