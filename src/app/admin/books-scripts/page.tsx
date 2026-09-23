@@ -423,7 +423,7 @@ export default function BooksScriptsPage() {
 
     if (!apply) return execute()
     toastConfirm(
-      `Apply linked sales-order/estimate dates to ${dateRepairScope === 'all' ? 'ALL invoices' : `invoices currently dated ${dateRepairStart} through ${dateRepairEnd}`}? Existing dates will be preserved in each invoice's audit data.`,
+      `Update linked sales-order/estimate dates in ZOHO BOOKS and the portal for ${dateRepairScope === 'all' ? 'ALL invoices' : `invoices currently dated ${dateRepairStart} through ${dateRepairEnd}`}? Existing dates will be preserved in each invoice's audit data.`,
       execute,
     )
   }
@@ -765,7 +765,7 @@ export default function BooksScriptsPage() {
               <div>
                 <h2 className="text-lg font-bold text-sky-400 flex items-center gap-2"><FiRefreshCw /> Set Invoice Dates from Linked Documents</h2>
                 <p className="text-sm text-neutral-400 mt-2 max-w-3xl">
-                  Uses the linked <strong className="text-white">sales-order date first</strong>, then the linked estimate date when no sales order is available. Preview before applying. The prior invoice date is preserved in audit data and Zoho document dates are not changed.
+                  Uses the linked <strong className="text-white">sales-order date first</strong>, then the linked estimate date when no sales order is available. Preview before applying. The prior date is preserved in audit data; successful changes update Zoho Books first and then the portal.
                 </p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
@@ -793,6 +793,11 @@ export default function BooksScriptsPage() {
                 {Array.isArray(dateRepairResult.sample) && dateRepairResult.sample.length > 0 && (
                   <div className="mt-2 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-1 font-mono text-[11px] text-neutral-300 max-h-28 overflow-y-auto">
                     {dateRepairResult.sample.map((row: any) => <span key={`${row.invoiceNumber}-${row.to}`}>#{row.invoiceNumber}: {row.from} → {row.to} ({row.source})</span>)}
+                  </div>
+                )}
+                {Array.isArray(dateRepairResult.failures) && dateRepairResult.failures.length > 0 && (
+                  <div className="mt-2 max-h-28 overflow-y-auto text-[11px] text-red-300">
+                    {dateRepairResult.failures.map((row: any) => <div key={`${row.zohoId}-${row.invoiceNumber}`}>#{row.invoiceNumber}: {row.error}</div>)}
                   </div>
                 )}
               </div>

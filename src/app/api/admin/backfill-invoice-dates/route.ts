@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAdministrator } from "@/lib/auth-helpers"
+import { getZohoAccessToken } from "@/lib/zoho-auth"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 300
 
 type JsonRecord = Record<string, unknown>
+const ZOHO_DC = process.env.ZOHO_DC || "com"
+const ORG_ID = process.env.ZOHO_ORG_ID || process.env.ZOHO_ORGANIZATION_ID
 
 const clean = (value: unknown) => String(value ?? "").trim().toLowerCase()
 const first = (...values: unknown[]) => values.find(value => clean(value))
@@ -59,7 +62,7 @@ export async function POST(request: Request) {
       for (const key of keys.map(clean).filter(Boolean)) estimateDates.set(key, estimateDate)
     }
 
-    const changes: Array<{ id: string; invoiceNumber: string; from: string; to: string; source: "sales order" | "estimate"; items: JsonRecord }> = []
+    const changes: Array<{ id: string; zohoId: string | null; invoiceNumber: string; from: string; to: string; source: "sales order" | "estimate"; items: JsonRecord }> = []
     for (const invoice of invoices) {
       const items = (invoice.items as JsonRecord | null) || {}
       const salesOrderKeys = [invoice.salesOrderZohoId, invoice.salesorderNumber, items.salesorder_id, items.sales_order_id, items.salesorder_number, items.salesOrderNumber].map(clean).filter(Boolean)
@@ -69,41 +72,59 @@ export async function POST(request: Request) {
       const sourceDate = salesOrderDate || estimateDate
       if (!sourceDate || dateKey(sourceDate) === dateKey(invoice.issueDate)) continue
       changes.push({
-        id: invoice.id,
+        id: invoice.id, zohoId: invoice.zohoId,
         invoiceNumber: String(invoice.invoiceNumber || items.invoiceNumber || items.invoice_number || invoice.zohoId),
         from: dateKey(invoice.issueDate), to: dateKey(sourceDate), source: salesOrderDate ? "sales order" : "estimate", items,
       })
     }
 
+    let updatedCount = 0
+    let zohoCalls = 0
+    const failures: Array<{ invoiceNumber: string; zohoId: string | null; error: string }> = []
     if (apply && changes.length) {
-      // Large all-history repairs can contain hundreds or thousands of rows.
-      // Keep each transaction small enough for the database connection and
-      // serverless request limits while retaining atomicity within each batch.
+      if (!ORG_ID) throw new Error("ZOHO_ORG_ID is not configured")
+      const token = await getZohoAccessToken()
       const appliedAt = new Date().toISOString()
-      for (let offset = 0; offset < changes.length; offset += 50) {
-        const batch = changes.slice(offset, offset + 50)
-        await prisma.$transaction(batch.map(change => prisma.invoice.update({
-          where: { id: change.id },
-          data: {
-            issueDate: new Date(change.to + "T12:00:00.000Z"),
-            items: {
-              ...change.items,
-              invoiceDateBeforeLinkedBackfill: change.items.invoiceDateBeforeLinkedBackfill || change.from,
-              invoiceDateLinkedSource: change.source,
-              invoiceDateLinkedBackfillAt: appliedAt,
-            },
-          },
-        })))
+      for (let offset = 0; offset < changes.length; offset += 5) {
+        await Promise.all(changes.slice(offset, offset + 5).map(async change => {
+          if (!change.zohoId) {
+            failures.push({ invoiceNumber: change.invoiceNumber, zohoId: null, error: "Missing Zoho Books invoice ID" })
+            return
+          }
+          try {
+            zohoCalls++
+            const response = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/invoices/${change.zohoId}?organization_id=${ORG_ID}`, {
+              method: "PUT", signal: AbortSignal.timeout(20000),
+              headers: { Authorization: `Zoho-oauthtoken ${token}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ date: change.to }),
+            })
+            const result = await response.json().catch(() => ({})) as { code?: number; message?: string }
+            if (!response.ok || (result.code != null && result.code !== 0)) throw new Error(result.message || `Zoho HTTP ${response.status}`)
+            await prisma.invoice.update({ where: { id: change.id }, data: {
+              issueDate: new Date(change.to + "T12:00:00.000Z"),
+              appModifiedAt: new Date(), lastSyncedAt: new Date(), syncConflict: false,
+              items: {
+                ...change.items, date: change.to,
+                invoiceDateBeforeLinkedBackfill: change.items.invoiceDateBeforeLinkedBackfill || change.from,
+                invoiceDateLinkedSource: change.source, invoiceDateLinkedBackfillAt: appliedAt,
+              },
+            } })
+            updatedCount++
+          } catch (error) {
+            failures.push({ invoiceNumber: change.invoiceNumber, zohoId: change.zohoId, error: error instanceof Error ? error.message : "Unknown update error" })
+          }
+        }))
       }
     }
 
     const bySource = changes.reduce((result, change) => { result[change.source]++; return result }, { "sales order": 0, estimate: 0 })
     return NextResponse.json({
       success: true, applied: apply, scannedCount: invoices.length, matchedCount: changes.length,
-      updatedCount: apply ? changes.length : 0, skippedCount: invoices.length - changes.length, bySource,
+      updatedCount, failedCount: failures.length, zohoCalls, skippedCount: invoices.length - changes.length, bySource,
+      failures: failures.slice(0, 100),
       sample: changes.slice(0, 25).map(({ invoiceNumber, from, to, source }) => ({ invoiceNumber, from, to, source })),
       message: apply
-        ? `Updated ${changes.length} invoice dates (${bySource["sales order"]} from sales orders, ${bySource.estimate} from estimates).`
+        ? `Updated ${updatedCount} invoice dates in Zoho Books and the portal; ${failures.length} failed.`
         : `Preview found ${changes.length} invoice dates to update (${bySource["sales order"]} from sales orders, ${bySource.estimate} from estimates).`,
     })
   } catch (error: unknown) {
