@@ -2,6 +2,9 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAdministrator } from "@/lib/auth-helpers"
 
+export const dynamic = "force-dynamic"
+export const maxDuration = 300
+
 type JsonRecord = Record<string, unknown>
 
 const clean = (value: unknown) => String(value ?? "").trim().toLowerCase()
@@ -73,18 +76,25 @@ export async function POST(request: Request) {
     }
 
     if (apply && changes.length) {
-      await prisma.$transaction(changes.map(change => prisma.invoice.update({
-        where: { id: change.id },
-        data: {
-          issueDate: new Date(change.to + "T12:00:00.000Z"),
-          items: {
-            ...change.items,
-            invoiceDateBeforeLinkedBackfill: change.items.invoiceDateBeforeLinkedBackfill || change.from,
-            invoiceDateLinkedSource: change.source,
-            invoiceDateLinkedBackfillAt: new Date().toISOString(),
+      // Large all-history repairs can contain hundreds or thousands of rows.
+      // Keep each transaction small enough for the database connection and
+      // serverless request limits while retaining atomicity within each batch.
+      const appliedAt = new Date().toISOString()
+      for (let offset = 0; offset < changes.length; offset += 50) {
+        const batch = changes.slice(offset, offset + 50)
+        await prisma.$transaction(batch.map(change => prisma.invoice.update({
+          where: { id: change.id },
+          data: {
+            issueDate: new Date(change.to + "T12:00:00.000Z"),
+            items: {
+              ...change.items,
+              invoiceDateBeforeLinkedBackfill: change.items.invoiceDateBeforeLinkedBackfill || change.from,
+              invoiceDateLinkedSource: change.source,
+              invoiceDateLinkedBackfillAt: appliedAt,
+            },
           },
-        },
-      })))
+        })))
+      }
     }
 
     const bySource = changes.reduce((result, change) => { result[change.source]++; return result }, { "sales order": 0, estimate: 0 })
