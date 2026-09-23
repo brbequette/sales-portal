@@ -51,7 +51,7 @@ function MonthDocumentsModal({
       <div className="fixed inset-0 z-[400] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
         <div className="bg-neutral-900 border border-white/10 rounded-2xl p-8 flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-xs text-neutral-300 font-bold">Loading {monthName} documents & VIG loss analysis...</p>
+          <p className="text-xs text-neutral-300 font-bold">Loading {monthName} documents & VIG penalty analysis...</p>
         </div>
       </div>
     )
@@ -106,20 +106,20 @@ function MonthDocumentsModal({
           </div>
 
           <div className="bg-black/50 border border-amber-500/30 rounded-xl p-3">
-            <div className="text-[10px] font-bold uppercase text-amber-400">Target @ {settings.targetVig}x VIG</div>
+            <div className="text-[10px] font-bold uppercase text-amber-400">Penalty @ {settings.targetVig}x VIG</div>
             <div className="text-base font-black text-amber-300 font-mono mt-0.5">${totals.targetProfit?.toLocaleString(undefined, { maximumFractionDigits: 0 }) || 0}</div>
-            <div className="text-[10px] text-neutral-500">Target 1.5x Goal</div>
+            <div className="text-[10px] text-neutral-500">Missed-goal penalty scenario</div>
           </div>
 
           <div className={`bg-black/50 border rounded-xl p-3 ${totals.lossToTarget > 0 ? "border-rose-500/40 bg-rose-950/20" : "border-emerald-500/40 bg-emerald-950/20"}`}>
             <div className="text-[10px] font-bold uppercase text-neutral-300">
-              {settings.targetVig}x vs {settings.baselineVig}x Loss
+              {settings.targetVig}x penalty vs {settings.baselineVig}x normal
             </div>
             <div className={`text-base font-black font-mono mt-0.5 ${totals.lossToTarget > 0 ? "text-rose-400" : "text-emerald-400"}`}>
-              {totals.lossToTarget > 0 ? `-$${totals.lossToTarget?.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "✓ Target Met"}
+              {totals.lossToTarget > 0 ? `-$${totals.lossToTarget?.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "$0"}
             </div>
             <div className="text-[10px] text-neutral-400">
-              {totals.lossToTarget > 0 ? "Potential loss to 1.5x target" : "Full 1.5x margin captured"}
+              {totals.lossToTarget > 0 ? "Representative profit reduction under penalty" : "No penalty difference"}
             </div>
           </div>
         </div>
@@ -164,7 +164,7 @@ function MonthDocumentsModal({
                   <th className="p-3 text-right">Subtotal</th>
                   <th className="p-3 text-right">Profit @ 1.3x</th>
                   <th className="p-3 text-right">Profit @ 1.5x</th>
-                  <th className="p-3 text-right">Loss / Variance</th>
+                  <th className="p-3 text-right">Penalty Profit Δ</th>
                   <th className="p-3 text-right">Rep Pay Δ (50%)</th>
                 </tr>
               </thead>
@@ -390,11 +390,11 @@ export default function VigManagementBuilder() {
         </div>
 
         <div className="glass-panel p-5 rounded-2xl border border-amber-500/20 space-y-2">
-          <label className="text-xs font-black uppercase tracking-wider text-amber-400 block">Target VIG Rate</label>
+          <label className="text-xs font-black uppercase tracking-wider text-amber-400 block">Penalty VIG Rate</label>
           <div className="flex items-center gap-3">
             <input type="number" step="0.05" value={targetVigRate} onChange={e => setTargetVigRate(e.target.value)}
               className="w-28 bg-black/40 border border-amber-500/30 rounded-xl px-3 py-2 text-amber-300 font-mono text-base font-bold focus:outline-none focus:border-amber-500"/>
-            <span className="text-[11px] text-neutral-400">1.50× Target</span>
+            <span className="text-[11px] text-neutral-400">1.50× after a missed goal</span>
           </div>
         </div>
 
@@ -664,7 +664,7 @@ export default function VigManagementBuilder() {
                                       title="View all invoices, sales orders, and estimates for this month"
                                     >
                                       <FiFileText size={12} />
-                                      <span>View Docs &amp; Loss</span>
+                                      <span>View Docs &amp; Penalty</span>
                                     </button>
 
                                     {/* Goal met/missed */}
@@ -852,33 +852,30 @@ export default function VigManagementBuilder() {
                                      </div>
                                    </div>
 
-                                   {/* VIG Rate Loss — per-invoice: deadCost × (targetRate - currentRate) */}
+                                   {/* VIG penalty impact: deadCost × (penaltyRate - normalRate) */}
                                    {(() => {
                                      const tgt = parseFloat(String(targetVigRate)) || 1.5
                                      const dc = md.deadCost || 0
-                                     const lossVal = md.vigRate < tgt && dc > 0
-                                       ? Math.round(dc * (tgt - md.vigRate))
-                                       : 0
-                                     const isLoss = lossVal > 0
-                                     const avgLoss = isLoss && md.invoiceCount > 0 ? Math.round(lossVal / md.invoiceCount) : 0
                                      const baseline = 1.3
                                      const atPenaltyRate = md.vigRate >= tgt - 0.001 && tgt > baseline
+                                     const penaltyImpact = dc > 0 && tgt > baseline ? Math.round(dc * (tgt - baseline)) : 0
+                                     const avgImpact = penaltyImpact > 0 && md.invoiceCount > 0 ? Math.round(penaltyImpact / md.invoiceCount) : 0
                                      const payDifference = atPenaltyRate && dc > 0
                                        ? Math.round((dc * (tgt - baseline) * 0.5 + Number.EPSILON) * 100) / 100
                                        : 0
                                      return (
-                                       <div className={`rounded-lg px-3 py-2 border ${isLoss ? 'bg-rose-950/20 border-rose-500/40' : 'bg-emerald-950/20 border-emerald-500/40'}`}>
+                                       <div className={`rounded-lg px-3 py-2 border ${atPenaltyRate ? 'bg-rose-950/20 border-rose-500/40' : 'bg-emerald-950/20 border-emerald-500/40'}`}>
                                          <div className="text-[9px] uppercase font-bold tracking-wider mb-1 flex items-center justify-between">
-                                           <span className={isLoss ? 'text-rose-400' : 'text-emerald-400'}>{md.vigRate}x vs {tgt}x VIG</span>
-                                           <span className="text-[8px] font-mono font-bold">{isLoss ? 'LOSS' : 'OK'}</span>
+                                           <span className={atPenaltyRate ? 'text-rose-400' : 'text-emerald-400'}>{baseline.toFixed(2)}x normal / {tgt.toFixed(2)}x penalty</span>
+                                           <span className="text-[8px] font-mono font-bold">{atPenaltyRate ? 'PENALTY APPLIED' : 'NORMAL RATE'}</span>
                                          </div>
-                                         <div className={`font-mono font-bold text-xs ${isLoss ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                           {isLoss ? `-$${lossVal.toLocaleString()}` : '✓ At Target'}
+                                         <div className={`font-mono font-bold text-xs ${atPenaltyRate ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                           {atPenaltyRate ? `-$${penaltyImpact.toLocaleString()} profit` : '✓ 1.30x normal VIG'}
                                          </div>
                                          <div className="text-[9px] text-neutral-400 mt-0.5 truncate">
-                                           {isLoss
-                                             ? `${md.invoiceCount} inv × $${avgLoss.toLocaleString()} avg loss`
-                                             : `VIG at or above ${tgt}x target`}
+                                           {atPenaltyRate
+                                             ? `${md.invoiceCount} inv × $${avgImpact.toLocaleString()} avg penalty impact`
+                                             : `1.50x applies only after a missed goal`}
                                          </div>
                                          {atPenaltyRate && <div className="mt-1.5 border-t border-violet-500/20 pt-1.5">
                                            <div className="flex items-center justify-between gap-2 text-[9px] font-bold uppercase tracking-wide text-violet-300">
