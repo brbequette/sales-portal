@@ -58,7 +58,9 @@ export default function BooksScriptsPage() {
   const [bulkFilter, setBulkFilter] = useState<'unpaid' | 'all' | 'recent' | 'daterange' | 'draft'>('daterange')
   const [bulkEntity, setBulkEntity] = useState<'invoices' | 'salesorders' | 'estimates'>('invoices')
   const [bulkForce, setBulkForce] = useState(false)
-  const [bulkApplyTariff, setBulkApplyTariff] = useState(true)
+  // Tariffs must be an explicit opt-in. Cost/commission reconciliation should
+  // never add a surcharge merely because the admin page was refreshed.
+  const [bulkApplyTariff, setBulkApplyTariff] = useState(false)
   const [bulkProgress, setBulkProgress] = useState("")
   const [bulkRunning, setBulkRunning] = useState(false)
   const nowY = new Date().getFullYear()
@@ -675,6 +677,17 @@ export default function BooksScriptsPage() {
         {bulkFilter === 'daterange' && (
           <div className="flex items-center gap-3 flex-wrap bg-indigo-950/30 border border-indigo-500/20 rounded-xl px-4 py-3">
             <span className="text-xs font-bold text-indigo-300">Date Range:</span>
+            <button
+              onClick={() => { setBulkStartDate('2025-01-01'); setBulkEndDate('2026-12-31') }}
+              disabled={anyBusy}
+              className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition-colors ${
+                bulkStartDate === '2025-01-01' && bulkEndDate === '2026-12-31'
+                  ? 'bg-indigo-600 border-indigo-400 text-white'
+                  : 'bg-neutral-800 border-neutral-700 text-neutral-300 hover:border-indigo-500 hover:text-white'
+              }`}
+            >
+              2025–2026
+            </button>
             {(() => {
               const today = new Date()
               const months = Array.from({ length: 6 }, (_, i) => {
