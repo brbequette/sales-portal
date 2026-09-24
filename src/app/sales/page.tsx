@@ -25,6 +25,7 @@ import { usePreferences } from "@/components/PreferencesProvider"
 import { DealPipeline } from "@/components/DealPipeline"
 import { ExclusivityCountdown } from "@/components/ExclusivityCountdown"
 import { CallTaskSidebar } from "@/components/CallTaskSidebar"
+import { SalesWorkspaceNav } from "@/components/SalesWorkspaceNav"
 
 
 import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiPhone, FiMail, FiMessageSquare, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiAlertCircle, FiBox, FiLayers, FiEye, FiTarget, FiImage, FiUserPlus } from "react-icons/fi"
@@ -919,20 +920,6 @@ export default function SalesPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="page-title">My Sales Pipeline</h1>
-                  <Link
-                    href="/sales/todays-calls"
-                    className="px-2.5 py-1 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 font-bold rounded-lg text-[10px] flex items-center gap-1.5 transition-all"
-                  >
-                    <FiTarget size={11} />
-                    <span>Sales Execution Workspace</span>
-                  </Link>
-                  <Link
-                    href="/sales/leads-calling"
-                    className="px-2.5 py-1 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold rounded-lg text-[10px] flex items-center gap-1.5 shadow-md transition-all"
-                  >
-                    <FiPhoneCall size={11} />
-                    <span>High-Velocity Lead Queue</span>
-                  </Link>
                 </div>
                 <p className="page-subtitle">Manage sales pipeline, cold calls, smart call queue, and deal lifecycle</p>
               </div>
@@ -980,6 +967,7 @@ export default function SalesPage() {
 
           {/* Page Body */}
           <div className="page-body space-y-6 pb-24">
+            <SalesWorkspaceNav />
             {/* Sub-header Tabs Navigation */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5">
             
