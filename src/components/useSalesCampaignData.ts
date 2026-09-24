@@ -11,9 +11,10 @@ interface UseSalesCampaignDataProps {
   accounts: any[]
   onClose: () => void
   onRefresh: () => void
+  autoStart?: boolean
 }
 
-export function useSalesCampaignData({ accounts, onClose, onRefresh }: UseSalesCampaignDataProps) {
+export function useSalesCampaignData({ accounts, onClose, onRefresh, autoStart = false }: UseSalesCampaignDataProps) {
   const { zohoContext: currentUser } = useZoho()
   const repName = currentUser?.name || "your sales rep"
 
@@ -39,7 +40,8 @@ export function useSalesCampaignData({ accounts, onClose, onRefresh }: UseSalesC
   const [defaultVigRate, setDefaultVigRate] = useState(1.3)
   const [commissionPct, setCommissionPct] = useState(50)
 
-  const [isPowerDialerActive, setIsPowerDialerActive] = useState(false)
+  const [isPowerDialerActive, setIsPowerDialerActive] = useState(autoStart)
+  const [isSavingDisposition, setIsSavingDisposition] = useState(false)
 
   const [timerSeconds, setTimerSeconds] = useState(0)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
@@ -315,7 +317,8 @@ export function useSalesCampaignData({ accounts, onClose, onRefresh }: UseSalesC
   }, [aiPrompt, aiType, aiChannel])
 
   const handleLogAndNext = useCallback(async () => {
-    if (!activeAccount) return;
+    if (!activeAccount || isSavingDisposition) return;
+    setIsSavingDisposition(true)
     try {
       const response = await fetch("/api/log-sales-call", {
         method: "POST",
@@ -361,8 +364,10 @@ export function useSalesCampaignData({ accounts, onClose, onRefresh }: UseSalesC
       }
     } catch (e: any) {
       toast.error("Error logging call: " + e.message)
+    } finally {
+      setIsSavingDisposition(false)
     }
-  }, [activeAccount, outcome, notes, repName, contactReached, spokeTo, followUpDate, timerSeconds, currentUser?.id, factFinding, orderLines, handleNext])
+  }, [activeAccount, isSavingDisposition, outcome, notes, repName, contactReached, spokeTo, followUpDate, timerSeconds, currentUser?.id, factFinding, orderLines, handleNext])
 
   return {
     currentIndex,
@@ -403,6 +408,7 @@ export function useSalesCampaignData({ accounts, onClose, onRefresh }: UseSalesC
     setCommissionPct,
     isPowerDialerActive,
     setIsPowerDialerActive,
+    isSavingDisposition,
     timerSeconds,
     setTimerSeconds,
     accountPurchases,

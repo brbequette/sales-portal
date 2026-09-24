@@ -1489,11 +1489,17 @@ export default function SalesPage() {
                                     </button>
 
                                     <button 
-                                      onClick={() => setShowCallCampaignModal(true)}
+                                      onClick={() => {
+                                        if (selectedAccountIds.length > 50) {
+                                          toast.error("The autodialer supports up to 50 accounts per queue.")
+                                          return
+                                        }
+                                        setShowCallCampaignModal(true)
+                                      }}
                                       className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all flex items-center gap-1.5 text-xs cursor-pointer shadow-md"
                                     >
                                       <FiPhone size={14} />
-                                      <span>Create Call Campaign ({selectedAccountIds.length})</span>
+                                      <span>Start Autodialer ({selectedAccountIds.length})</span>
                                     </button>
 
                                     <button 
@@ -2349,9 +2355,10 @@ export default function SalesPage() {
       {/* Call Campaign Modal - Portal */}
       {showCallCampaignModal && createPortal(
         <SalesCallCampaignModal
-          accounts={accounts.filter(a => selectedAccountIds.includes(a.id))}
+          accounts={selectedAccountIds.map(id => accounts.find(account => account.id === id)).filter(Boolean)}
           onClose={() => setShowCallCampaignModal(false)}
           onRefresh={() => fetchLocalData(1, false, true)}
+          autoStart
         />,
         document.body
       )}

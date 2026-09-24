@@ -24,10 +24,11 @@ interface SalesCallCampaignModalProps {
   accounts: any[]
   onClose: () => void
   onRefresh: () => void
+  autoStart?: boolean
 }
 
-export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCallCampaignModalProps) {
-  const data = useSalesCampaignData({ accounts, onClose, onRefresh })
+export function SalesCallCampaignModal({ accounts, onClose, onRefresh, autoStart = false }: SalesCallCampaignModalProps) {
+  const data = useSalesCampaignData({ accounts, onClose, onRefresh, autoStart })
   const {
     currentIndex, outcome, setOutcome, spokeTo, setSpokeTo, notes, setNotes,
     followUpDate, setFollowUpDate, contactReached, setContactReached,
@@ -36,7 +37,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
     isGeneratingAi, setIsGeneratingAi, showAiMagic, setShowAiMagic,
     orderLines, setOrderLines, catalogProducts, setCatalogProducts,
     defaultVigRate, setDefaultVigRate, commissionPct, setCommissionPct,
-    isPowerDialerActive, setIsPowerDialerActive, timerSeconds, setTimerSeconds,
+    isPowerDialerActive, setIsPowerDialerActive, isSavingDisposition, timerSeconds, setTimerSeconds,
     accountPurchases, accountNotes, isLoadingIntel, intelTab, setIntelTab,
     accountDetail, activeAccount, repName, primaryContact, displayPhone,
     cleanPhone, contactName, displayEmail, initiateCall, generateScript,
@@ -118,7 +119,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
             }`}
           >
             <FiZap size={10} />
-            {isPowerDialerActive ? "\u26a1 AUTO" : "Power Dialer"}
+            {isPowerDialerActive ? "\u26a1 AUTO · PAUSE" : "Resume Autodialer"}
           </button>
           <button
             onClick={onClose}
@@ -333,16 +334,19 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                 <button 
                   type="button" 
                   onClick={handleNext} 
-                  className="px-2.5 py-1 glass-panel border border-white/10 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 text-neutral-400 hover:text-neutral-200 font-bold text-[9px] rounded transition-all cursor-pointer uppercase tracking-wider"
+                  disabled={isPowerDialerActive}
+                  title={isPowerDialerActive ? "Save a disposition before advancing the autodialer" : "Skip this account"}
+                  className="px-2.5 py-1 glass-panel border border-white/10 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 text-neutral-400 hover:text-neutral-200 font-bold text-[9px] rounded cursor-pointer uppercase tracking-wider disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
                 >
-                  Skip
+                  {isPowerDialerActive ? "Disposition Required" : "Skip"}
                 </button>
                 <button 
                   type="button" 
                   onClick={handleLogAndNext} 
-                  className="flex items-center gap-0.5 px-3.5 py-1 bg-cyan-600 hover:bg-cyan-500 text-black font-extrabold text-[9px] rounded shadow-sm shadow-cyan-950/20 transition-all cursor-pointer uppercase tracking-wider"
+                  disabled={isSavingDisposition}
+                  className="flex items-center gap-0.5 px-3.5 py-1 bg-cyan-600 hover:bg-cyan-500 text-black font-extrabold text-[9px] rounded shadow-sm shadow-cyan-950/20 transition-all cursor-pointer uppercase tracking-wider disabled:cursor-wait disabled:opacity-50"
                 >
-                  <span>Log & Next</span>
+                  <span>{isSavingDisposition ? "Saving..." : isPowerDialerActive ? "Save Disposition & Dial Next" : "Log & Next"}</span>
                   <FiArrowRight size={10} />
                 </button>
               </div>
