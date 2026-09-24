@@ -1,6 +1,13 @@
 # Titan Diamond — Consolidated Project Context
 
-## Sales workspace navigation cleanup (preview, 2026-09-24)
+## Outstanding update reconciliation (pending final release, 2026-09-24)
+
+- PR #91 was merged as `5050e0e2c9029dc794cd3f8002aa801400e53b9d`, providing the shared Today → Accounts & Deals → Leads workspace navigation across the three sales entry surfaces.
+- The remaining valid work from PR #70 is integrated here: the installed Windows PowerShell provisioning runner intercepts console key input without echo or password-length asterisks, refuses to proceed when secure console input is unavailable, clears secret references, and retains the existing exact-target and explicit revoked-replacement guards. No credential is provisioned by validation.
+- The remaining valid work from PR #82 is integrated here: user-facing read routes are PostgreSQL-only, provider refreshes are explicit POST actions, missing local evidence fails closed, and the dependency-graph contract prevents accidental Zoho/OAuth access from page-facing GET handlers.
+- PR #40 is superseded by the more complete production sync recovery already on `main`, including its additive migration plus mailbox columns/indexes and expanded regression coverage. PR #22 is an obsolete pre-September integration snapshot that would remove later security, campaign, reconciliation, ownership, and AI work if merged; its still-valid operational functionality is represented by later releases.
+
+## Sales workspace navigation cleanup (released, 2026-09-24)
 
 - A preview-only cleanup branch consolidates the duplicated Today / pipeline / lead-queue header actions into one responsive `SalesWorkspaceNav` shared by `/sales`, `/sales/todays-calls`, and `/sales/leads-calling`. It removes page-specific navigation duplication while preserving data fetching, filters, queue position, and every sales write path.
 - The consistent flow is labeled Today → Accounts & Deals → Leads. Larger legacy sales-page decomposition and potentially overlapping calling surfaces remain documented follow-ups rather than being rewritten in this low-risk tranche.
@@ -30,7 +37,7 @@
 - Every callable Zoho Voice SMS/MMS surface now uses the shared number-level suppression guard. Protected opt-out/legal restrictions block all traffic; promotional, scheduled-promotional, and canary traffic also enforce technical suppression. The legacy bulk sender is retired. Campaign and Canary confirmation views expose suppression counts/reasons before submission, and account/contact phone badges expose the affected number's disposition without disabling peer numbers.
 - PR validation uses two disposable PostgreSQL 16 databases with workflow-local credentials: one applies and re-applies the complete migration chain, while the other rehearses the legacy upgrade and proves inconsistent/known jobs remain quarantined with no sendable recipients.
 
-## Database-only runtime reads (2026-09-22, PR pending)
+## Database-only runtime reads (2026-09-22, pending final reconciliation release)
 
 - User-facing dashboard/header, pipeline, processing, account/customer, documents/detail/PDF, commissions, Rep Stats, collections, tasks, shipping, catalog, search, product-image, and write-off health reads now use PostgreSQL only. Page-facing document reads moved to `/api/database-documents`; the legacy `/api/zoho-invoices` route remains a PostgreSQL-only compatibility alias.
 - Account, task, collections, catalog, shipping detail, document detail/PDF, and product-image GET fallbacks no longer obtain an access token or call Zoho. Missing local evidence returns `LOCAL_DATA_INCOMPLETE`; refresh failures clear stale client financial/queue/catalog state. Document rendering no longer launches cost processing, and shipping row expansion no longer synchronizes from Books.
