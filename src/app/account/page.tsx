@@ -268,7 +268,7 @@ function AccordionSection({
 
 function OverviewPanel({
   account, invoices, deals, quotes, salesOrders, notes,
-  onViewInvoice, onViewSalesDoc, onDrillDown, onOpenInvoiceFlipbook, onNoteAdded, accountId, zohoId, tasks, onTaskSave,
+  onViewInvoice, onViewSalesDoc, onDrillDown, onOpenInvoiceFlipbook, onNoteAdded, accountId, zohoId, tasks, onTaskSave, onNavigateTab, onAskAi,
 }: {
   account: any
   invoices: any[]
@@ -285,6 +285,8 @@ function OverviewPanel({
   zohoId: string
   tasks: any[]
   onTaskSave: () => void
+  onNavigateTab: (tab: ActiveTab) => void
+  onAskAi: (prompt: string) => void
 }) {
   const [historyMode, setHistoryMode] = useState<"data" | "pdf">("data")
   const primaryContact = account.contacts?.find((c: any) => c.isPrimary) || account.contacts?.[0]
@@ -297,6 +299,29 @@ function OverviewPanel({
   const recentInvoices = [...invoices].sort((a, b) => new Date(b.issueDate || 0).getTime() - new Date(a.issueDate || 0).getTime())
   const [showAllInvoices, setShowAllInvoices] = useState(false)
   const displayedInvoices = showAllInvoices ? recentInvoices : recentInvoices.slice(0, 3)
+  const now = new Date()
+  const openTasks = tasks.filter((task: any) => !['completed', 'cancelled', 'closed'].includes(String(task.status || '').toLowerCase()))
+  const overdueTasks = openTasks.filter((task: any) => task.dueDate && new Date(task.dueDate) < now)
+  const draftInvoices = invoices.filter((invoice: any) => String(invoice.status || '').toLowerCase() === 'draft')
+  const pendingOrders = salesOrders.filter((order: any) => ['draft', 'pending'].includes(String(order.status || '').toLowerCase()))
+  const attentionCount = overdueTasks.length + overdueInvoices.length + draftInvoices.length + pendingOrders.length
+  const riskTone = overdueTotal > 0 || overdueTasks.length > 0 ? 'red' : attentionCount > 0 ? 'amber' : 'emerald'
+  const nextAction = overdueTasks.length
+    ? `Complete ${overdueTasks.length} overdue task${overdueTasks.length === 1 ? '' : 's'}`
+    : overdueInvoices.length
+      ? `Follow up on ${overdueInvoices.length} overdue invoice${overdueInvoices.length === 1 ? '' : 's'}`
+      : pendingOrders.length
+        ? `Process ${pendingOrders.length} pending sales order${pendingOrders.length === 1 ? '' : 's'}`
+        : draftInvoices.length
+          ? `Finish ${draftInvoices.length} draft invoice${draftInvoices.length === 1 ? '' : 's'}`
+          : 'Maintain the relationship with a proactive check-in'
+  const accountTimeline = [
+    ...invoices.map((item: any) => ({ type: 'Invoice', date: item.issueDate || item.createdAt, title: `Invoice ${(item.items as any)?.invoiceNumber || (item.items as any)?.invoice_number || item.computedInvoiceNumber || item.zohoId}`, detail: `${item.status || 'Unknown'} · $${Number(item.amount || 0).toLocaleString()}`, color: 'text-sky-400', action: () => onViewInvoice(item.zohoId) })),
+    ...salesOrders.map((item: any) => ({ type: 'Sales order', date: item.orderDate || item.createdAt, title: `Sales order ${(item.items as any)?.salesorder_number || item.zohoId || item.id}`, detail: `${item.status || 'Unknown'} · $${Number(item.amount || 0).toLocaleString()}`, color: 'text-violet-400', action: () => onViewSalesDoc('SalesOrder', item) })),
+    ...deals.map((item: any) => ({ type: 'Deal', date: item.updatedAt || item.closingDate || item.createdAt, title: item.name || 'Deal activity', detail: `${item.stage || 'Open'} · $${Number(item.amount || 0).toLocaleString()}`, color: 'text-emerald-400' })),
+    ...tasks.map((item: any) => ({ type: 'Task', date: item.dueDate || item.updatedAt || item.createdAt, title: item.subject || 'Task', detail: `${item.status || 'Open'}${item.priority ? ` · ${item.priority}` : ''}`, color: 'text-amber-400' })),
+    ...notes.map((item: any) => ({ type: 'Note', date: item.createdAt || item.modifiedTime, title: 'Account note', detail: String(item.content || item.noteContent || '').slice(0, 140), color: 'text-neutral-400' })),
+  ].filter(item => item.date).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 12)
 
   const label = (v: string) => (
     <span className="text-[9px] text-neutral-500 block uppercase tracking-widest font-semibold mb-0.5">{v}</span>
@@ -307,6 +332,57 @@ function OverviewPanel({
 
   return (
     <div className="flex flex-col gap-2 p-2">
+
+      {/* AI-first account brief */}
+      <section className="overflow-hidden rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-500/[0.10] via-neutral-950 to-sky-500/[0.06] p-4 shadow-xl">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300"><FiZap /> AI account brief</div>
+            <h2 className="mt-2 text-lg font-black text-white">{nextAction}</h2>
+            <p className="mt-1 max-w-3xl text-xs leading-5 text-neutral-400">
+              {attentionCount > 0
+                ? `${attentionCount} item${attentionCount === 1 ? '' : 's'} need attention across tasks, collections, orders, and billing. Lifetime revenue is $${totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}.`
+                : `No urgent workflow exceptions are visible. Lifetime revenue is $${totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}; use the next touch to strengthen the relationship.`}
+            </p>
+          </div>
+          <div className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase ${riskTone === 'red' ? 'border-red-500/30 bg-red-500/10 text-red-300' : riskTone === 'amber' ? 'border-amber-500/30 bg-amber-500/10 text-amber-300' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'}`}>
+            {riskTone === 'red' ? 'Needs attention' : riskTone === 'amber' ? 'Work pending' : 'Healthy'}
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <button onClick={() => onNavigateTab('comms')} className="td-btn td-btn-sm td-btn-primary justify-center"><FiPhone /> Call / message</button>
+          <button onClick={() => onNavigateTab('quicksale')} className="td-btn td-btn-sm td-btn-ghost justify-center"><FiShoppingCart /> Create order</button>
+          <button onClick={() => window.location.assign(`/tasks/new?accountId=${encodeURIComponent(zohoId)}&accountName=${encodeURIComponent(account.name)}`)} className="td-btn td-btn-sm td-btn-ghost justify-center"><FiCheckSquare /> Add task</button>
+          <button onClick={() => onAskAi(`Give me the verified account intelligence and next-best action for ${account.name}. Link every supporting record.`)} className="td-btn td-btn-sm td-btn-ghost justify-center"><FiZap /> Ask AI</button>
+        </div>
+      </section>
+
+      {/* Attention queue */}
+      <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-3">
+        <div className="flex items-center justify-between"><div className="text-xs font-black uppercase tracking-wider text-white">What needs attention</div><span className="rounded-full bg-white/5 px-2 py-1 text-[10px] font-bold text-neutral-400">{attentionCount}</span></div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { label: 'Overdue tasks', value: overdueTasks.length, tone: 'text-red-300', action: () => onAskAi(`Review and prioritize overdue tasks for ${account.name}.`) },
+            { label: 'Overdue invoices', value: overdueInvoices.length, tone: 'text-red-300', action: () => onAskAi(`Review overdue collections for ${account.name} and offer the next actions.`) },
+            { label: 'Pending orders', value: pendingOrders.length, tone: 'text-violet-300', action: () => onAskAi(`Review pending sales orders for ${account.name} and offer the next processing action.`) },
+            { label: 'Draft invoices', value: draftInvoices.length, tone: 'text-sky-300', action: () => onAskAi(`Review draft invoices for ${account.name} and offer the next billing action.`) },
+          ].map(item => <button key={item.label} onClick={item.action} className="rounded-xl border border-white/10 bg-black/20 p-3 text-left hover:bg-white/[0.05]"><div className={`text-xl font-black ${item.value ? item.tone : 'text-neutral-600'}`}>{item.value}</div><div className="mt-1 text-[10px] font-bold uppercase text-neutral-500">{item.label}</div></button>)}
+        </div>
+      </section>
+
+      {/* Unified timeline */}
+      <AccordionSection title="Unified Activity Timeline" icon={<FiList size={12} />} badge={accountTimeline.length} defaultOpen>
+        <div className="divide-y divide-white/5">
+          {accountTimeline.map((item: any, index: number) => (
+            <button key={`${item.type}-${index}`} onClick={item.action} disabled={!item.action} className="flex w-full items-start gap-3 px-3 py-2.5 text-left hover:bg-white/[0.04] disabled:cursor-default">
+              <span className={`mt-1 h-2 w-2 shrink-0 rounded-full bg-current ${item.color}`} />
+              <span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-neutral-200">{item.title}</span><span className="block truncate text-[10px] text-neutral-500">{item.detail}</span></span>
+              <span className="shrink-0 text-[9px] text-neutral-600">{new Date(item.date).toLocaleDateString()}</span>
+            </button>
+          ))}
+          {!accountTimeline.length && <div className="p-5 text-center text-xs text-neutral-600">No dated activity is available.</div>}
+        </div>
+      </AccordionSection>
 
       {/* KPI Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -325,7 +401,7 @@ function OverviewPanel({
       </div>
 
       {/* Recent Invoices -- shown first for quick access */}
-      <AccordionSection title="Recent Invoices" icon={<FiDollarSign size={12} />} badge={invoices.length} defaultOpen>
+      <AccordionSection title="Recent Invoices" icon={<FiDollarSign size={12} />} badge={invoices.length} defaultOpen={false}>
         <div className="divide-y divide-neutral-800">
           {recentInvoices.length === 0 ? (
             <div className="p-4 text-center text-neutral-600 text-xs italic">No invoices found</div>
@@ -366,7 +442,7 @@ function OverviewPanel({
       </AccordionSection>
 
       {/* Contact & Addresses */}
-      <AccordionSection title="Contact & Addresses" icon={<FiMapPin size={12} />} defaultOpen>
+      <AccordionSection title="Contact & Addresses" icon={<FiMapPin size={12} />} defaultOpen={false}>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3">
           {/* Primary Contact */}
           <div className="glass-panel/60 border border-white/10 rounded-xl p-3">
@@ -417,7 +493,7 @@ function OverviewPanel({
       </AccordionSection>
 
       {/* Business Profile */}
-      <AccordionSection title="Business Profile" icon={<FiTool size={12} />} defaultOpen>
+      <AccordionSection title="Business Profile" icon={<FiTool size={12} />} defaultOpen={false}>
         <div className="p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {[
             { l: "Blade Sizes",      v: account.bladeSizes },
@@ -457,7 +533,7 @@ function OverviewPanel({
       </AccordionSection>
 
       {/* Analytics */}
-      <AccordionSection title="Analytics" icon={<FiTrendingUp size={12} />} defaultOpen>
+      <AccordionSection title="Analytics" icon={<FiTrendingUp size={12} />} defaultOpen={false}>
         <div className="p-3">
           <AccountAnalytics
             invoices={invoices}
@@ -916,6 +992,8 @@ function AccountHubContent() {
               zohoId={account.zohoId}
               tasks={account.tasks || []}
               onTaskSave={() => fetchAccountData(false)}
+              onNavigateTab={setActiveTab}
+              onAskAi={(prompt) => window.dispatchEvent(new CustomEvent('openTitanAi', { detail: { prompt } }))}
             />
           )}
 

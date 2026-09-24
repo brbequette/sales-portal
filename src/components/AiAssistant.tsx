@@ -133,6 +133,16 @@ export function AiAssistant({ user }: AiAssistantProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  useEffect(() => {
+    const handleOpenAi = (event: Event) => {
+      const prompt = (event as CustomEvent<{ prompt?: string }>).detail?.prompt;
+      setIsOpen(true);
+      if (prompt) setInputText(prompt);
+    };
+    window.addEventListener('openTitanAi', handleOpenAi);
+    return () => window.removeEventListener('openTitanAi', handleOpenAi);
+  }, []);
+
   // Initialize Speech Recognition
   useEffect(() => {
     if (typeof window !== 'undefined') {
