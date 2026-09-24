@@ -49,6 +49,14 @@ function isAdminRole(role?: string): boolean {
   return role.toLowerCase().includes('admin') || role === 'ADMIN';
 }
 
+interface ActionOpportunity {
+  id: string;
+  label: string;
+  detail: string;
+  count: number;
+  prompt: string;
+}
+
 function AssistantMessage({ content }: { content: string }) {
   const parts = content.split(/(\[[^\]]+\]\((?:\/[A-Za-z0-9_~!$&'()*+,;=:@%/?#.-]*)\))/g);
   return (
@@ -70,6 +78,7 @@ export function AiAssistant({ user }: AiAssistantProps) {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [dynamicPrompts, setDynamicPrompts] = useState<string[]>([]);
+  const [opportunities, setOpportunities] = useState<ActionOpportunity[] | null>(null);
   const pathname = usePathname();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -101,6 +110,16 @@ export function AiAssistant({ user }: AiAssistantProps) {
       fetchDynamicPrompts();
     }
   }, [isOpen, dynamicPrompts.length, fetchDynamicPrompts]);
+
+  useEffect(() => {
+    if (!isOpen || !user?.id) return;
+    fetch('/api/ai/action-opportunities', { cache: 'no-store' })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.success && Array.isArray(data.opportunities)) setOpportunities(data.opportunities);
+      })
+      .catch(() => undefined);
+  }, [isOpen, user?.id]);
 
   // Keyboard shortcut Ctrl+Shift+A
   useEffect(() => {
@@ -355,6 +374,33 @@ export function AiAssistant({ user }: AiAssistantProps) {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {user?.id && (
+          <section className="rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.06] p-3 shadow-inner">
+            <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-emerald-300">
+              <FiZap size={12} /> What I can do to help
+            </div>
+            <p className="mt-1 text-[10px] text-neutral-500">Live work that needs attention—select an item and I’ll review it with you.</p>
+            <div className="mt-3 space-y-1.5">
+              {opportunities === null && <div className="py-2 text-[10px] text-neutral-500">Checking your open work…</div>}
+              {opportunities?.length === 0 && <div className="py-2 text-[10px] font-semibold text-emerald-300">No urgent work is waiting right now.</div>}
+              {opportunities?.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => handleSend(item.prompt)}
+                  disabled={isLoading}
+                  className="group flex w-full items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-left hover:border-emerald-500/35 hover:bg-emerald-500/10 disabled:opacity-50"
+                >
+                  <span className="grid h-6 min-w-6 place-items-center rounded-full bg-emerald-500/15 px-1 text-[10px] font-black text-emerald-300">{item.count}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[11px] font-bold text-neutral-100 group-hover:text-emerald-200">{item.label}</span>
+                    <span className="block truncate text-[9px] text-neutral-500">{item.detail}</span>
+                  </span>
+                  <FiSend size={11} className="text-neutral-600 group-hover:text-emerald-300" />
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center space-y-5 py-6">
             <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shadow-inner">
