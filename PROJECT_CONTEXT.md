@@ -1,5 +1,12 @@
 # Titan Diamond — Consolidated Project Context
 
+## Admin control-center information architecture (pending PR, 2026-09-24)
+
+- The Admin navigation is organized around Company Settings, Sales Configuration, Compensation & Payroll, Automation & AI, Communications, Products & Data, Integrations, Operations, System Health, and Advanced / Developer Tools. Configuration, monitoring, and dangerous maintenance are now visually separated without changing underlying business logic.
+- Existing production pages and APIs remain at their established URLs. `/admin/data-integrations` redirects to `/admin/integrations`, `/admin/people-time` redirects to `/admin/company-settings`, and the existing backfill/geofence compatibility redirects remain intact.
+- Potentially data-changing one-time utilities are discoverable only from the warned Advanced workspace. No Admin route, API, database model, provider operation, or historical record was deleted. The detailed KEEP/MERGE/MOVE/ADVANCED/RETIRE audit is in `docs/admin-route-inventory.md`.
+- The shared workspace hub now provides responsive search, breadcrumbs, risk badges, and consistent cards. All workspaces retain the existing administrator-role gate; normal users cannot access the Admin shell.
+
 ## Durable campaign processing and deliverability (pending PR, 2026-09-22)
 
 - Campaign status reads are observation-only. New campaigns materialize one durable recipient row per selected account and are processed by bounded server-side workers plus a one-minute recovery watchdog; browser polling and local storage are no longer execution dependencies.
