@@ -85,12 +85,17 @@ export function DualScreenController() {
 
   const launch = () => {
     if (!("BroadcastChannel" in window)) { toast.error("This browser does not support same-computer display synchronization."); return }
-    const displayUrl = `/display?controller=${encodeURIComponent(sourceId.current)}`
+    const liveUrl = new URL(window.location.href)
+    const accountId = liveUrl.pathname === "/account" ? liveUrl.searchParams.get("id") : ""
+    const displayUrl = accountId
+      ? `/account?id=${encodeURIComponent(accountId)}&display=1`
+      : `/display?controller=${encodeURIComponent(sourceId.current)}`
     setDirectLink(displayUrl)
     const opened = window.open(displayUrl, "titan-diamond-second-display", "popup=yes,width=1600,height=900,resizable=yes,scrollbars=no")
     if (!opened) { setPopupBlocked(true); setPanelOpen(true); toast.error("The second display was blocked. Allow pop-ups, then use the direct display link."); return }
-    displayWindow.current = opened; setPopupBlocked(false); setPanelOpen(true); opened.focus()
-    window.setTimeout(() => sendState(), 350)
+    displayWindow.current = opened; setPopupBlocked(false); setPanelOpen(!accountId); opened.focus()
+    if (accountId) toast.success("Standalone communicator opened for this account")
+    if (!accountId) window.setTimeout(() => sendState(), 350)
   }
 
   const openPanel = () => {
@@ -99,14 +104,14 @@ export function DualScreenController() {
   }
 
   return <>
-    <button onClick={launch} className="hidden xl:flex items-center gap-2 rounded-lg border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-200 hover:bg-cyan-500/20" title="Open a synchronized full-screen display"><FiMonitor/>Launch Second Display</button>
+    <button onClick={launch} className="hidden xl:flex items-center gap-2 rounded-lg border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-200 hover:bg-cyan-500/20" title="Open the standalone communicator for this account"><FiMonitor/>Launch Communicator</button>
     <button onClick={openPanel} className="flex xl:hidden items-center justify-center rounded-lg border border-cyan-500/25 bg-cyan-500/10 p-2 text-cyan-200" aria-label="Second display controls"><FiMonitor/></button>
     {mounted && panelOpen && createPortal(<div className="fixed inset-0 z-[12000] flex items-center justify-center bg-black/70 p-4" onClick={() => setPanelOpen(false)}><section className="w-full max-w-lg rounded-2xl border border-white/15 bg-[#0b0e13] p-5 shadow-2xl" onClick={event => event.stopPropagation()}>
-      <div className="flex items-start justify-between"><div><div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-cyan-400"><FiRadio/>Dual-screen controller</div><h2 className="mt-1 text-xl font-black text-white">Second display</h2><p className="mt-1 text-sm text-neutral-500">Changes here appear on the second window in real time.</p></div><button onClick={() => setPanelOpen(false)} className="rounded-lg p-2 text-neutral-500 hover:bg-white/5 hover:text-white"><FiX/></button></div>
+      <div className="flex items-start justify-between"><div><div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-cyan-400"><FiRadio/>Dual-screen controller</div><h2 className="mt-1 text-xl font-black text-white">Standalone communicator</h2><p className="mt-1 text-sm text-neutral-500">Account pages open a dedicated calls, messages, email, and AI workspace.</p></div><button onClick={() => setPanelOpen(false)} className="rounded-lg p-2 text-neutral-500 hover:bg-white/5 hover:text-white"><FiX/></button></div>
       <div className={`mt-4 flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${connected ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-300" : "border-amber-500/25 bg-amber-500/10 text-amber-300"}`}>{connected ? <FiCheckCircle/> : <FiRadio/>}{connected ? "Second display connected" : "Waiting for second display"}</div>
-      <div className="mt-4 rounded-xl border border-cyan-400/25 bg-cyan-500/10 p-4"><div className="font-bold text-white">Current workspace follows automatically</div><div className="mt-1 text-xs leading-5 text-neutral-400">The second display shows the same page and information without the normal navigation shell, using the full screen for a wider, expanded workspace.</div><div className="mt-3 truncate rounded-lg bg-black/30 px-3 py-2 font-mono text-[11px] text-cyan-200">{pathname}</div></div>
+      <div className="mt-4 rounded-xl border border-cyan-400/25 bg-cyan-500/10 p-4"><div className="font-bold text-white">Communications take over screen 2</div><div className="mt-1 text-xs leading-5 text-neutral-400">On an account, screen 2 opens the full communicator with Voice, SMS/MMS, ingested email, AI assistance, order tools, and unified history. Other pages continue to mirror automatically.</div><div className="mt-3 truncate rounded-lg bg-black/30 px-3 py-2 font-mono text-[11px] text-cyan-200">{pathname}</div></div>
       {popupBlocked && <div className="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-sm text-amber-100"><b>Pop-up blocked.</b> Allow pop-ups for this site, or open the display directly using the link below.</div>}
-      <div className="mt-4 flex gap-2"><button onClick={launch} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-3 text-sm font-black text-white hover:bg-cyan-500"><FiMonitor/>{connected ? "Reopen display" : "Launch Second Display"}</button><a href={directLink} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-white"><FiExternalLink/>Direct link</a></div>
+      <div className="mt-4 flex gap-2"><button onClick={launch} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-3 text-sm font-black text-white hover:bg-cyan-500"><FiMonitor/>{connected ? "Reopen communicator" : "Launch Communicator"}</button><a href={directLink} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-white"><FiExternalLink/>Direct link</a></div>
     </section></div>, document.body)}
   </>
 }

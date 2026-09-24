@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { FiBriefcase, FiClock, FiDollarSign, FiEdit3, FiFileText, FiImage, FiMail, FiMapPin, FiPrinter, FiSearch, FiSend, FiTarget, FiUsers } from "react-icons/fi"
 import { CommunicationCenter } from "@/components/CommunicationCenter"
+import { CommunicatorCommandBar } from "@/components/CommunicatorCommandBar"
 
 type WorkspaceTab = "communications" | "account" | "timeline" | "campaigns" | "creative" | "postal"
 
@@ -177,18 +178,20 @@ export function AccountSecondScreenWorkspace({ accountId, account }: { accountId
     <header className="flex-none border-b border-white/10 bg-black/70 px-5 py-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[10px] font-black uppercase tracking-[.22em] text-cyan-400">Account communications workspace</div>
+          <div className="text-[10px] font-black uppercase tracking-[.22em] text-cyan-400">Titan standalone communicator</div>
           <h1 className="truncate text-xl font-black uppercase">{account?.name}</h1>
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-400">
             <span>{recipient}</span><span>{selectedContact?.phone || selectedContact?.mobilePhone || account?.booksContact?.phone || "No phone"}</span><span>{selectedContact?.email || account?.booksContact?.email || "No email"}</span>
           </div>
         </div>
-        <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">Paired to the account open on screen 1</div>
+        <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">Paired to screen 1 · calls, SMS, email, AI, orders, and history</div>
       </div>
       <nav className="mt-3 flex gap-1 overflow-x-auto">
         {tabs.map(item => <button key={item.id} onClick={() => setTab(item.id)} className={`flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-bold ${tab === item.id ? "bg-cyan-600 text-white" : "bg-white/5 text-neutral-400 hover:bg-white/10 hover:text-white"}`}>{item.icon}{item.label}</button>)}
       </nav>
     </header>
+
+    <CommunicatorCommandBar accountId={account?.id || accountId} />
 
     <main className="min-h-0 flex-1 overflow-hidden">
       {tab === "communications" && <div className="h-full overflow-y-auto p-4"><CommunicationCenter accountId={account?.id || accountId} account={account} contacts={account?.contacts || []} selectedContactId={selectedContactId} onContactChange={setSelectedContactId} /></div>}
