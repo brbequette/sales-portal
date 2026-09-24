@@ -17,6 +17,7 @@ interface Message {
   pendingActions?: Array<{ toolName: string; summary: string; confirmationToken: string }>;
   verified?: boolean;
   sourceCount?: number;
+  suggestedReplies?: string[];
 }
 
 const AGENT_QUICK_PROMPTS = [
@@ -267,6 +268,7 @@ export function AiAssistant({ user }: AiAssistantProps) {
         pendingActions: data.pendingActions || [],
         verified: data.verified === true,
         sourceCount: Number(data.sourceCount || 0),
+        suggestedReplies: Array.isArray(data.suggestedReplies) ? data.suggestedReplies.slice(0, 3) : [],
       };
       setMessages((prev) => [...prev, aiMessage]);
 
@@ -448,7 +450,22 @@ export function AiAssistant({ user }: AiAssistantProps) {
 
             {/* Assistant action row: listen + feedback */}
             {msg.role === 'assistant' && (
-              <div className="mt-1.5 flex flex-wrap items-center gap-3">
+              <div className="mt-1.5 flex max-w-[92%] flex-col items-start gap-2">
+                {!!msg.suggestedReplies?.length && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {msg.suggestedReplies.map(reply => (
+                      <button
+                        key={reply}
+                        onClick={() => handleSend(reply)}
+                        disabled={isLoading}
+                        className="rounded-full border border-amber-500/25 bg-amber-500/[0.07] px-2.5 py-1.5 text-left text-[10px] font-semibold text-amber-200 hover:border-amber-400/50 hover:bg-amber-500/15 disabled:opacity-50"
+                      >
+                        {reply}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="flex flex-wrap items-center gap-3">
                 {msg.verified && (
                   <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-bold" title={`${msg.sourceCount || 0} retrieved record(s) checked`}>
                     <FiCheckCircle size={11} /> Verified from records{msg.sourceCount ? ` (${msg.sourceCount})` : ''}
@@ -499,6 +516,7 @@ export function AiAssistant({ user }: AiAssistantProps) {
                     </button>
                   </div>
                 )}
+                </div>
               </div>
             )}
           </div>

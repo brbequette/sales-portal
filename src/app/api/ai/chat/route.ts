@@ -46,6 +46,35 @@ function requiresCompanyDataEvidence(message: string): boolean {
   return /\b(invoice|sales\s*order|estimate|quote|account|customer|contact|task|commission|payout|payment|collection|overdue|written[ -]?off|write[ -]?off|sales|profit|vig|goal|rep|lead|deal|time\s*entry|clock|inventory|product|order)\b/i.test(message);
 }
 
+function buildSuggestedReplies(toolNames: string[], answer: string, hasPendingActions: boolean): string[] {
+  const tools = new Set(toolNames);
+  if (/can(?:not|'t) verify|verification step failed|won't guess/i.test(answer)) {
+    return ['Search more broadly', 'What exact details do you need?', 'Show me where I can verify this'];
+  }
+  if (hasPendingActions) {
+    return ['Explain exactly what this action changes', 'Show me the affected records first', 'What happens after I confirm?'];
+  }
+  if (tools.has('query_sales_orders')) {
+    return ['Which order should I handle first?', 'Show only orders needing action', 'Offer the next processing action'];
+  }
+  if (tools.has('query_invoices') || tools.has('query_collections')) {
+    return ['Show me the highest-priority invoice', 'Explain the financial calculation', 'What action should I take next?'];
+  }
+  if (tools.has('query_tasks') || tools.has('query_upcoming_engagements')) {
+    return ['Prioritize these for me', 'Start with the most urgent task', 'Offer to handle the next step'];
+  }
+  if (tools.has('query_commissions_summary') || tools.has('query_payouts') || tools.has('query_vig_goals')) {
+    return ['Show the records behind this total', 'Explain the calculation', 'What still needs reconciliation?'];
+  }
+  if (tools.has('query_accounts') || tools.has('query_deals') || tools.has('query_leads')) {
+    return ['Open the most important record', 'What follow-up is due next?', 'Show the related activity'];
+  }
+  if (tools.has('search_products') || tools.has('search_titan_knowledge')) {
+    return ['Compare the best options', 'Give me the next recommendation', 'Explain that in more detail'];
+  }
+  return ['What should I do next?', 'Show me the supporting records', 'Tell me more'];
+}
+
 function buildOwnerFilter(userRole: string, userId: string, repIdArg?: string) {
   if (isAdmin(userRole)) {
     return repIdArg ? { ownerId: repIdArg } : {};
@@ -1880,6 +1909,7 @@ IMPORTANT RULES:
     }
 
     // Log the Q&A to AiChatLog for cataloging
+    const suggestedReplies = buildSuggestedReplies(allToolNames, finalResponse, pendingActions.length > 0);
     const toolsUsedStr = [...new Set(allToolNames)].join(', ');
     let logId: string | null = null;
     try {
@@ -1905,6 +1935,7 @@ IMPORTANT RULES:
       pendingActions,
       verified,
       sourceCount,
+      suggestedReplies,
     });
   } catch (error: any) {
     console.error('AI Chat Error:', error?.message || error);
