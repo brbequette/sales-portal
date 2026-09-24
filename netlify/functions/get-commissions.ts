@@ -479,7 +479,7 @@ const authenticatedHandler: Handler = async (event) => {
     //
     // Rep attribution: items.salesperson on the document — the rep who drove the sale.
     // Account owner is a CRM assignment only and does NOT drive commissions.
-    const allInvoiceRecords = await Promise.all(invoices.map(async (inv) => {
+    const allInvoiceRecords = invoices.map((inv) => {
       const items = inv.items as any || {}
       const salespersonName = (items.salesperson_name || items.salesperson) as string | null
       const subTotal = getSubTotal(items, inv.amount)
@@ -615,7 +615,7 @@ const authenticatedHandler: Handler = async (event) => {
         costQuality,
         type: "invoice" as const
       }
-    }))
+    })
 
     // Statements and commission totals remain scoped to the selected year.
     // Clawback candidates are returned separately from all years below.
@@ -630,7 +630,7 @@ const authenticatedHandler: Handler = async (event) => {
     // These SOs must be excluded — the Invoice is the source of truth.
     const INVOICED_SO_STATUSES = new Set(['Invoiced','invoiced','Converted','converted','Closed','closed'])
 
-    const salesOrderRecords = (await Promise.all(rawSalesOrders.map(async (so) => {
+    const salesOrderRecords = rawSalesOrders.map((so) => {
       const items = (so.items as any) || {}
       const salespersonName = items.salesperson as string | null
       const subTotal = getSubTotal(items, so.amount)
@@ -732,7 +732,7 @@ const authenticatedHandler: Handler = async (event) => {
         costQuality,
         type: "invoice" as const
       }
-    }))).filter(so => !INVOICED_SO_STATUSES.has(so.status || ''))
+    }).filter(so => !INVOICED_SO_STATUSES.has(so.status || ''))
 
     const allCommissionRecords = [...invoiceRecords, ...salesOrderRecords]
 

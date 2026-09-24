@@ -7,6 +7,7 @@ import { isAdministratorRole } from '@/lib/roles';
 import { Prisma } from '@prisma/client';
 import { calculateGlobalHeaderMetrics, resolveGlobalHeaderScope, scopeGlobalHeaderDocuments } from '@/lib/global-header-metrics';
 import { financialZohoLineItems } from '@/lib/zoho-line-items';
+import { databaseReadHeaders, getDatabaseFreshness, LOCAL_DATA_INCOMPLETE } from '@/lib/database-read-metadata';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,7 @@ function getSubTotal(items: any, amount: number) {
  * Returns all invoices + sales orders from the LOCAL database for Dashboard & Sales calculations.
  */
 export async function GET(request: Request) {
+  const startedAt = performance.now();
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
@@ -57,6 +59,7 @@ export async function GET(request: Request) {
           syncConflict: true, pendingZohoFetch: true,
           account: { select: { ownerId: true } },
         },
+        take: 2000,
       });
       const nonLinkableOrderStatuses = new Set([
         'paid', 'closed', 'draft', 'void', 'voided', 'declined', 'cancelled', 'canceled',
@@ -124,11 +127,9 @@ export async function GET(request: Request) {
       });
       const scoped = scopeGlobalHeaderDocuments(scope, identity, invoicesWithOwners, ordersWithLinks);
       const summary = calculateGlobalHeaderMetrics(now, scoped.invoices, scoped.salesOrders);
-      return NextResponse.json({ summary, scope, asOf: now.toISOString() }, {
-        // The Books webhook keeps the local database current. A short private
-        // browser cache prevents duplicate header queries during navigation
-        // without sharing financial data between users.
-        headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=120' },
+      const freshness = await getDatabaseFreshness(now);
+      return NextResponse.json({ summary, scope, asOf: now.toISOString(), freshness }, {
+        headers: databaseReadHeaders(startedAt, 4),
       });
     }
 
@@ -201,12 +202,14 @@ export async function GET(request: Request) {
         };
       };
 
+      const freshness = await getDatabaseFreshness();
       return NextResponse.json({
         deals: [
           ...pipelineOrders.map(record => makeDeal(record, 'salesorder')),
           ...pipelineInvoices.map(record => makeDeal(record, 'invoice')),
         ],
-      });
+        freshness,
+      }, { headers: databaseReadHeaders(startedAt, 3) });
     }
 
     // Fetch all invoices from local DB
@@ -325,16 +328,20 @@ export async function GET(request: Request) {
       return new Date(dateB).getTime() - new Date(dateA).getTime();
     });
 
-    return NextResponse.json({ invoices: combined });
+    const freshness = await getDatabaseFreshness();
+    return NextResponse.json({ invoices: combined, freshness }, { headers: databaseReadHeaders(startedAt, 3) });
   } catch (err: any) {
     console.error('zoho-invoices DB error:', err);
     if (new URL(request.url).searchParams.get('summary') === 'true') {
-      return NextResponse.json({ error: 'Global header summary unavailable' }, {
+      return NextResponse.json({ error: LOCAL_DATA_INCOMPLETE, message: 'Global header summary unavailable' }, {
         status: 500,
-        headers: { 'Cache-Control': 'private, no-store, max-age=0, must-revalidate' },
+        headers: databaseReadHeaders(startedAt, 0),
       });
     }
-    return NextResponse.json({ invoices: [], error: err.message });
+    return NextResponse.json({ invoices: [], deals: [], error: LOCAL_DATA_INCOMPLETE }, {
+      status: 500,
+      headers: databaseReadHeaders(startedAt, 0),
+    });
   }
 }
 

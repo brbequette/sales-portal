@@ -75,12 +75,16 @@ export default function AdminUsersPage() {
     setSyncing(true)
     setSyncMessage("")
     try {
-      const res = await fetch('/api/get-accounts?refresh=true&includeHidden=true')
+      const res = await fetch('/api/sync-now', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tables: ['accounts'], force: true }),
+      })
       const data = await res.json()
       if (data.success) {
         // Refresh the user list
         await fetchUsers()
-        setSyncMessage(`✅ Synced! ${users.length} users loaded from Zoho.`)
+        setSyncMessage(`✅ Account import completed. Local user list refreshed.`)
       } else {
         setSyncMessage(`❌ Sync failed: ${data.error || 'Unknown error'}`)
       }

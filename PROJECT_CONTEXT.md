@@ -1,6 +1,13 @@
 # Titan Diamond — Consolidated Project Context
 
-## Sales workspace navigation cleanup (preview, 2026-09-24)
+## Outstanding update reconciliation (pending final release, 2026-09-24)
+
+- PR #91 was merged as `5050e0e2c9029dc794cd3f8002aa801400e53b9d`, providing the shared Today → Accounts & Deals → Leads workspace navigation across the three sales entry surfaces.
+- The remaining valid work from PR #70 is integrated here: the installed Windows PowerShell provisioning runner intercepts console key input without echo or password-length asterisks, refuses to proceed when secure console input is unavailable, clears secret references, and retains the existing exact-target and explicit revoked-replacement guards. No credential is provisioned by validation.
+- The remaining valid work from PR #82 is integrated here: user-facing read routes are PostgreSQL-only, provider refreshes are explicit POST actions, missing local evidence fails closed, and the dependency-graph contract prevents accidental Zoho/OAuth access from page-facing GET handlers.
+- PR #40 is superseded by the more complete production sync recovery already on `main`, including its additive migration plus mailbox columns/indexes and expanded regression coverage. PR #22 is an obsolete pre-September integration snapshot that would remove later security, campaign, reconciliation, ownership, and AI work if merged; its still-valid operational functionality is represented by later releases.
+
+## Sales workspace navigation cleanup (released, 2026-09-24)
 
 - A preview-only cleanup branch consolidates the duplicated Today / pipeline / lead-queue header actions into one responsive `SalesWorkspaceNav` shared by `/sales`, `/sales/todays-calls`, and `/sales/leads-calling`. It removes page-specific navigation duplication while preserving data fetching, filters, queue position, and every sales write path.
 - The consistent flow is labeled Today → Accounts & Deals → Leads. Larger legacy sales-page decomposition and potentially overlapping calling surfaces remain documented follow-ups rather than being rewritten in this low-risk tranche.
@@ -29,6 +36,14 @@
 - Admin Campaign Management includes server-side recovery state, recipient/delivery counts, quarantine warnings, and exportable after-send review. Manual ambiguous retry requires explicit per-recipient confirmation; quarantined legacy messages require a separate reviewed campaign.
 - Every callable Zoho Voice SMS/MMS surface now uses the shared number-level suppression guard. Protected opt-out/legal restrictions block all traffic; promotional, scheduled-promotional, and canary traffic also enforce technical suppression. The legacy bulk sender is retired. Campaign and Canary confirmation views expose suppression counts/reasons before submission, and account/contact phone badges expose the affected number's disposition without disabling peer numbers.
 - PR validation uses two disposable PostgreSQL 16 databases with workflow-local credentials: one applies and re-applies the complete migration chain, while the other rehearses the legacy upgrade and proves inconsistent/known jobs remain quarantined with no sendable recipients.
+
+## Database-only runtime reads (2026-09-22, pending final reconciliation release)
+
+- User-facing dashboard/header, pipeline, processing, account/customer, documents/detail/PDF, commissions, Rep Stats, collections, tasks, shipping, catalog, search, product-image, and write-off health reads now use PostgreSQL only. Page-facing document reads moved to `/api/database-documents`; the legacy `/api/zoho-invoices` route remains a PostgreSQL-only compatibility alias.
+- Account, task, collections, catalog, shipping detail, document detail/PDF, and product-image GET fallbacks no longer obtain an access token or call Zoho. Missing local evidence returns `LOCAL_DATA_INCOMPLETE`; refresh failures clear stale client financial/queue/catalog state. Document rendering no longer launches cost processing, and shipping row expansion no longer synchronizes from Books.
+- Customer CRM update and shipping/provider refresh logic moved to explicit POST action routes. Zoho-prefixed mutation proxies no longer expose GET. Scheduled/webhook importers and explicit administrator/provider mutations remain separate and unchanged in purpose.
+- Shared freshness metadata reports PostgreSQL source, last successful bounded import, active run, sanitized last failure, and staleness. Read responses expose server timing, bounded DB query counts, and zero Zoho/OAuth counters. Dashboard/header concurrent summary requests are deduplicated without persistent caching; account/document/catalog result sizes are bounded; commission transforms no longer create unnecessary Promise arrays.
+- The strengthened static contract recursively inspects 16 major user-facing GET dependency graphs and rejects Zoho clients, application token providers, and sync/import functions. Detailed runtime corrections, performance bounds, remaining actions, and exceptions are documented in `docs/database-only-runtime-read-migration.md`.
 
 ## Rep Stats selected-year roster and company target correction (2026-09-21)
 
@@ -65,8 +80,9 @@
 
 ## Local Master Administrator provisioning security correction (2026-09-18)
 
-- The first production `LOCAL_MASTER` credential was revoked and retained for audit; no replacement credential exists or may be provisioned without a separate explicit production action.
-- Windows provisioning now uses a checked-in PowerShell boundary with `Read-Host -AsSecureString`; passwords are transferred only through redirected child stdin, never process arguments, environment variables, stdout, stderr, or command history. BSTR buffers are zero-freed and process environment state is restored after every invocation.
+- A second production `LOCAL_MASTER` credential was created after the first revoked credential, but its password and confirmation were visibly echoed by the real Codex-hosted Windows PowerShell 5.1 invocation. It is confirmed compromised and must be revoked without authentication, rotation, reuse, or replacement. Revocation remains pending because the prior standalone production environment file is absent and Netlify exposes the production database secret to this local session only as an encrypted placeholder.
+- The confirmed defect was host-dependent echo behavior from `Read-Host -AsSecureString`. Windows provisioning now requires a real console input handle and consumes every key with `[Console]::ReadKey($true)`, displaying neither characters nor password-length asterisks. It fails closed when interception cannot be established. Passwords are transferred only through redirected child stdin, never process arguments, environment variables, stdout, stderr, or command history. BSTR buffers are zero-freed and process environment state is restored after every invocation.
+- `scripts/install-production-master-admin-runner.ps1` replaces the real `.codex-tmp/run-production-master-admin-provisioning.ps1` invocation path byte-for-byte from the canonical checked-in wrapper and verifies its SHA-256 hash before use.
 - Every invocation freshly loads `DATABASE_URL` from the explicit protected production environment file `C:\Users\titan\Documents\ChatGPT\Titan Diamond.env`; the path is an operator-supplied wrapper parameter, not an application runtime constant. Missing, non-file, or malformed input fails before a database process starts. Preflight requires both exact normalized email and expected user ID, rejects missing/ambiguous/mismatched identities, and refuses active credentials. Revoked credentials require the explicit `ReplaceRevoked` mode.
 - Credential creation/reactivation and its sanitized audit event are revalidated and written in one database transaction. A failed audit or guard leaves no partial credential change.
 

@@ -1,7 +1,5 @@
 import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
-import { getZohoAccessToken, ZOHO_DC } from "./lib/zoho-auth"
-
 import { prisma } from "./lib/prisma"
 import { isAdminRole } from "../../src/lib/roles"
 const authenticatedHandler: Handler = async (event, context) => {
@@ -14,7 +12,6 @@ const authenticatedHandler: Handler = async (event, context) => {
     const {
       zohoId: requestedZohoId,
       email: requestedEmail,
-      refresh,
       ownerIdFilter,
       checkOnly,
     } = event.queryStringParameters || {}
@@ -64,132 +61,8 @@ const authenticatedHandler: Handler = async (event, context) => {
       }
     }
 
-    if (refresh === "true" && !isAdmin) {
-      return { statusCode: 403, body: JSON.stringify({ success: false, message: "Only administrators can run a live Zoho task refresh" }) }
-    }
+    // Refresh re-queries PostgreSQL only; provider task import is a separate action.
 
-    if (refresh === "true") {
-      // Sync tasks from Zoho CRM
-      try {
-        const token = await getZohoAccessToken()
-        
-        let url = `https://www.zohoapis.${ZOHO_DC}/crm/v3/Tasks?fields=Subject,Status,Priority,Due_Date,Owner,What_Id,Description`
-        if (isSalesOnly && user.zohoId) {
-          // If Sales-only, we only want to fetch tasks for this user
-          url = `https://www.zohoapis.${ZOHO_DC}/crm/v3/Tasks/search?criteria=(Owner:equals:${user.zohoId})&fields=Subject,Status,Priority,Due_Date,Owner,What_Id,Description`
-        }
-
-        const res = await fetch(url, { signal: AbortSignal.timeout(15000),
-          headers: { 'Authorization': `Zoho-oauthtoken ${token}` }
-        })
-
-        if (res.ok) {
-          const data = await res.json()
-          const zohoTasks = data.data || []
-
-          // Prefetch matching Accounts, Deals, and Users to avoid N+1 DB calls
-          const whatIds = Array.from(new Set(zohoTasks.map((t: any) => t.What_Id?.id).filter(Boolean))) as string[]
-          const ownerIds = Array.from(new Set(zohoTasks.map((t: any) => t.Owner?.id || user.zohoId).filter(Boolean))) as string[]
-
-          const [dbAccounts, dbDeals, dbUsers] = await Promise.all([
-            prisma.account.findMany({ take: 500, 
-              where: { zohoId: { in: whatIds } },
-              select: { id: true, zohoId: true }
-            }),
-            prisma.deal.findMany({ take: 500, 
-              where: { zohoId: { in: whatIds } },
-              select: { id: true, zohoId: true }
-            }),
-            prisma.user.findMany({ take: 500, 
-              where: { zohoId: { in: ownerIds } }
-            })
-          ])
-
-          const accountMap = new Map(dbAccounts.map(a => [a.zohoId, a.id]))
-          const dealMap = new Map(dbDeals.map(d => [d.zohoId, d.id]))
-          const userMap = new Map(dbUsers.map(u => [u.zohoId, u]))
-
-          const taskOps = []
-          for (const task of zohoTasks) {
-            const ownerId = task.Owner?.id || user.zohoId
-            
-            // Try to resolve accountId or dealId from What_Id using pre-fetched maps
-            let accountId = null
-            let dealId = null
-            
-            if (task.What_Id) {
-              const targetId = task.What_Id.id
-              if (accountMap.has(targetId)) {
-                accountId = accountMap.get(targetId) || null
-              } else if (dealMap.has(targetId)) {
-                dealId = dealMap.get(targetId) || null
-              }
-            }
-            
-            // Resolve internal owner user reference
-            const internalOwner = userMap.get(ownerId) || user
-
-            const subjLower = (task.Subject || "").toLowerCase()
-            let inferredType = "Task"
-            if (subjLower.includes("call")) inferredType = "Call"
-            else if (subjLower.includes("email")) inferredType = "Email"
-            else if (subjLower.includes("text") || subjLower.includes("sms")) inferredType = "Text"
-            else if (subjLower.includes("processing") || subjLower.includes("process")) inferredType = "Processing"
-
-            taskOps.push(
-              prisma.task.upsert({
-                where: { zohoId: task.id },
-                create: {
-                  zohoId: task.id,
-                  subject: task.Subject || "Untitled Task",
-                  status: task.Status || "Not Started",
-                  priority: task.Priority || "Normal",
-                  dueDate: task.Due_Date ? new Date(task.Due_Date) : null,
-                  description: task.Description || null,
-                  ownerId: internalOwner.id,
-                  accountId: accountId,
-                  dealId: dealId,
-                  type: inferredType
-                },
-                update: {
-                  subject: task.Subject || "Untitled Task",
-                  status: task.Status || "Not Started",
-                  priority: task.Priority || "Normal",
-                  dueDate: task.Due_Date ? new Date(task.Due_Date) : null,
-                  description: task.Description || null,
-                  ownerId: internalOwner.id,
-                  accountId: accountId,
-                  dealId: dealId
-                }
-              })
-            )
-          }
-
-          // Execute in transaction batches of 50 to minimize connection pool usage
-          for (let i = 0; i < taskOps.length; i += 50) {
-            const chunk = taskOps.slice(i, i + 50)
-            await prisma.$transaction(chunk)
-          }
-
-          // Delete tasks that no longer exist in Zoho
-          const syncedTaskZohoIds = new Set(zohoTasks.map((t: any) => t.id));
-          const ownerWhere = isSalesOnly ? { ownerId: user.id } : {};
-          const localTasks = await prisma.task.findMany({ take: 500, 
-            where: ownerWhere,
-            select: { id: true, zohoId: true }
-          });
-          const orphanedTaskIds = localTasks
-            .filter(t => t.zohoId && !syncedTaskZohoIds.has(t.zohoId))
-            .map(t => t.id);
-          if (orphanedTaskIds.length > 0) {
-            await prisma.task.deleteMany({ where: { id: { in: orphanedTaskIds } } });
-            console.log(`Deleted ${orphanedTaskIds.length} tasks removed from Zoho CRM.`);
-          }
-        }
-      } catch (syncErr) {
-        console.error("Task sync error:", syncErr)
-      }
-    }
 
     // Calculate where filter based on role and ownerIdFilter parameter
     let whereClause: any = {}
