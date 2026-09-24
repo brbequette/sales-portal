@@ -7,9 +7,9 @@ import { useEffect, useState, useSyncExternalStore } from "react"
 import { useSession } from "next-auth/react"
 import Link from "next/link"
 import {
-  FiShield, FiGrid, FiUsers, FiDollarSign, FiMessageSquare,
+  FiShield, FiGrid, FiDollarSign, FiMessageSquare,
   FiSettings, FiChevronLeft, FiTruck, FiMenu, FiX, FiCloud,
-  FiSliders, FiTrendingUp, FiCpu,
+  FiSliders, FiTrendingUp, FiCpu, FiPackage, FiActivity, FiTool,
 } from "react-icons/fi"
 
 import { ThemeSettingsModal, loadSavedTheme, applyThemeToCss } from "@/components/ThemeSettingsModal"
@@ -18,14 +18,16 @@ import { isAdminRole } from "@/lib/roles"
 const adminLinks = [
   { group: "Control", items: [
     { name: "Overview", href: "/admin", icon: FiGrid },
-    { name: "Data & Integrations", href: "/admin/data-integrations", icon: FiCloud },
-    { name: "Automation & AI", href: "/admin/automation-ai", icon: FiCpu },
+    { name: "Company Settings", href: "/admin/company-settings", icon: FiSettings },
     { name: "Sales Configuration", href: "/admin/sales-configuration", icon: FiTrendingUp },
     { name: "Compensation & Payroll", href: "/admin/compensation-center", icon: FiDollarSign },
-    { name: "People & Time", href: "/admin/people-time", icon: FiUsers },
+    { name: "Automation & AI", href: "/admin/automation-ai", icon: FiCpu },
     { name: "Communications", href: "/admin/communications-center", icon: FiMessageSquare },
+    { name: "Products & Data", href: "/admin/products-data", icon: FiPackage },
+    { name: "Integrations", href: "/admin/integrations", icon: FiCloud },
     { name: "Operations", href: "/admin/operations-center", icon: FiTruck },
-    { name: "Settings", href: "/admin/settings", icon: FiSettings },
+    { name: "System Health", href: "/admin/system-health", icon: FiActivity },
+    { name: "Advanced", href: "/admin/advanced", icon: FiTool },
   ]},
 ]
 
@@ -127,7 +129,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                   </div>
                   <div className="space-y-1">
                     {group.items.map(item => {
-                      const isActive = pathname === item.href
+                      const isActive = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(`${item.href}/`))
                       return (
                         <Link
                           key={item.href}
@@ -193,7 +195,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               </div>
               <div className="space-y-0.5">
                 {group.items.map(item => {
-                  const isActive = pathname === item.href
+                  const isActive = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(`${item.href}/`))
                   return (
                     <Link
                       key={item.href}

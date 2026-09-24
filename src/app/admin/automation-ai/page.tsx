@@ -20,8 +20,8 @@ type AIStatus = {
 }
 
 const automations = [
-  { name: "Zoho document sync", detail: "Delta sync, line items, payments and conflict detection", href: "/admin/data-integrations", icon: FiDatabase },
-  { name: "Cost and commission processing", detail: "Tariff, VIG, cost, profit and commission derivation", href: "/admin/data-integrations", icon: FiRefreshCw },
+  { name: "Zoho document sync", detail: "Delta sync, line items, payments and conflict detection", href: "/admin/integrations", icon: FiDatabase },
+  { name: "Cost and commission processing", detail: "Tariff, VIG, cost, profit and commission derivation", href: "/admin/system-health", icon: FiRefreshCw },
   { name: "Sales flow", detail: "Stage actions, scheduled calls and re-engagement", href: "/admin/sales-stages", icon: FiZap },
   { name: "Message delivery", detail: "Scheduled email and message processing", href: "/admin/communications", icon: FiMessageSquare },
   { name: "Email intelligence", detail: "Classification, suggested replies and follow-up tasks", href: "/messages", icon: FiMail },

@@ -1,3 +1,5 @@
+"use client"
+
 import { AdminWorkspaceHub } from "@/components/AdminWorkspaceHub"
 import { FiAward, FiBarChart2, FiCreditCard, FiDollarSign, FiSliders, FiTarget } from "react-icons/fi"
 
