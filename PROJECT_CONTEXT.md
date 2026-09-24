@@ -1,5 +1,12 @@
 # Titan Diamond — Consolidated Project Context
 
+## Zoho incremental request contract correction (pending deployment, 2026-09-24)
+
+- Production OAuth reauthorization was completed for the existing Runtime client and its separate Voice refresh token. Bounded read-only checks passed for CRM records/users, ordinary Books reads, Inventory reads, Voice SMS logs, and Voice call logs/recordings. No provider write, sync, import, campaign, or message was performed.
+- The historical CRM `INVALID_REQUEST` and Books `Invalid value passed for last_modified_time` errors are request-shape defects rather than permission failures. The unified manual sync reused a Books query parameter for CRM and reduced Books cursors to a date-only value.
+- The pending isolated correction sends CRM incremental cursors only as `If-Modified-Since` headers and formats Books cursors as full timestamps with a numeric UTC offset. Both retain a two-minute overlap. Bounded read-only provider checks returned CRM HTTP 200 and Books HTTP 200/provider code 0 with the corrected shapes.
+- Zoho Voice WebSDK is not exposed as a configurable integration in the current Voice account. Server-side Voice OAuth remains verified; no WebSDK credential was created or inferred.
+
 ## Outstanding update reconciliation (released, 2026-09-24)
 
 - PR #91 was merged as `5050e0e2c9029dc794cd3f8002aa801400e53b9d`, providing the shared Today → Accounts & Deals → Leads workspace navigation across the three sales entry surfaces.
