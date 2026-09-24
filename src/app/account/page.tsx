@@ -562,6 +562,7 @@ function AccountHubContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const id = searchParams.get("id") || ""
+  const invoiceParam = searchParams.get("invoice") || ""
   const tabParam = searchParams.get("tab")
   const isSecondDisplay = searchParams.get("display") === "1"
   const { isInitialized } = useZoho()
@@ -578,6 +579,18 @@ function AccountHubContent() {
   const [viewingSalesDoc, setViewingSalesDoc] = useState<{ type: "SalesOrder" | "Quote"; doc: any } | null>(null)
   const [historyViewMode, setHistoryViewMode] = useState<"data" | "pdf">("data")
   const [isEditingAccount, setIsEditingAccount] = useState(false)
+
+  useEffect(() => {
+    if (!invoiceParam || !account?.invoices?.length) return
+    const idx = account.invoices.findIndex((invoice: any) =>
+      String(invoice.zohoId || invoice.id) === invoiceParam ||
+      String(invoice.computedInvoiceNumber || invoice.invoiceNumber) === invoiceParam
+    )
+    if (idx >= 0) {
+      setViewingInvoice(account.invoices[idx])
+      setViewingInvoiceIndex(idx)
+    }
+  }, [account, invoiceParam])
   const [reorderCart, setReorderCart] = useState<any[]>([])
   const [leftRailOpen, setLeftRailOpen] = useState(true)
   const [showInvoiceFlipbook, setShowInvoiceFlipbook] = useState(false)

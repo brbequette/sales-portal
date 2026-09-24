@@ -82,7 +82,7 @@ async function executeTool(name: string, args: any, context: { userId: string, u
   try {
     switch (name) {
       case 'query_invoices': {
-        const { status, dateFrom, dateTo, accountName, limit = 20 } = args;
+        const { status, dateFrom, dateTo, accountName, invoiceNumber, limit = 20 } = args;
         const ownerFilter = buildOwnerFilter(userRole, userId);
         
         let accountFilter: any = { ...ownerFilter };
@@ -108,10 +108,13 @@ async function executeTool(name: string, args: any, context: { userId: string, u
             where.status = { equals: status, mode: 'insensitive' };
           }
         }
+        if (invoiceNumber) {
+          where.computedInvoiceNumber = { equals: String(invoiceNumber).replace(/^#/, ''), mode: 'insensitive' };
+        }
 
         const invoices = await prisma.invoice.findMany({
           where,
-          include: { account: { select: { name: true } } },
+          include: { account: { select: { name: true, zohoId: true } } },
           take: limit,
           orderBy: { issueDate: 'desc' }
         });
@@ -125,7 +128,8 @@ async function executeTool(name: string, args: any, context: { userId: string, u
           profit: inv.computedProfit,
           upfront: inv.computedUpfront,
           final: inv.computedFinal,
-          balance: inv.balance
+          balance: inv.balance,
+          internalUrl: `/account?id=${encodeURIComponent(inv.account.zohoId)}&invoice=${encodeURIComponent(inv.zohoId)}`
         }));
       }
 
@@ -152,7 +156,8 @@ async function executeTool(name: string, args: any, context: { userId: string, u
           billingCity: acc.billingCity,
           billingState: acc.billingState,
           contactCount: acc.contacts.length,
-          lastPurchaseAt: acc.lastPurchaseAt
+          lastPurchaseAt: acc.lastPurchaseAt,
+          internalUrl: `/account?id=${encodeURIComponent(acc.zohoId)}`
         }));
       }
 
@@ -223,7 +228,7 @@ async function executeTool(name: string, args: any, context: { userId: string, u
 
         const tasks = await prisma.task.findMany({
           where,
-          include: { account: { select: { name: true } } },
+          include: { account: { select: { name: true, zohoId: true } } },
           take: limit,
           orderBy: { dueDate: 'asc' }
         });
@@ -233,7 +238,10 @@ async function executeTool(name: string, args: any, context: { userId: string, u
           status: t.status,
           priority: t.priority,
           dueDate: t.dueDate,
-          accountName: t.account?.name || 'Unknown'
+          accountName: t.account?.name || 'Unknown',
+          internalUrl: t.account?.zohoId
+            ? `/account?id=${encodeURIComponent(t.account.zohoId)}&tab=overview`
+            : `/tasks?taskId=${encodeURIComponent(t.zohoId)}`
         }));
       }
 
@@ -457,7 +465,7 @@ async function executeTool(name: string, args: any, context: { userId: string, u
 
         const deals = await prisma.deal.findMany({
           where,
-          include: { account: { select: { name: true } } },
+          include: { account: { select: { name: true, zohoId: true } } },
           take: limit,
           orderBy: { closingDate: 'desc' }
         });
@@ -467,7 +475,8 @@ async function executeTool(name: string, args: any, context: { userId: string, u
           amount: d.amount,
           stage: d.stage,
           closingDate: d.closingDate,
-          accountName: d.account?.name || 'Unknown'
+          accountName: d.account?.name || 'Unknown',
+          internalUrl: `/account?id=${encodeURIComponent(d.account.zohoId)}&tab=overview`
         }));
       }
 
@@ -490,7 +499,7 @@ async function executeTool(name: string, args: any, context: { userId: string, u
 
         const orders = await prisma.salesOrder.findMany({
           where,
-          include: { account: { select: { name: true } } },
+          include: { account: { select: { name: true, zohoId: true } } },
           take: limit,
           orderBy: { orderDate: 'desc' }
         });
@@ -500,7 +509,8 @@ async function executeTool(name: string, args: any, context: { userId: string, u
           amount: o.amount,
           status: o.status,
           orderDate: o.orderDate,
-          accountName: o.account?.name || 'Unknown'
+          accountName: o.account?.name || 'Unknown',
+          internalUrl: `/account?id=${encodeURIComponent(o.account.zohoId)}&tab=overview`
         }));
       }
 
@@ -518,7 +528,7 @@ async function executeTool(name: string, args: any, context: { userId: string, u
 
         const invoices = await prisma.invoice.findMany({
           where,
-          include: { account: { select: { name: true } } },
+          include: { account: { select: { name: true, zohoId: true } } },
           orderBy: { dueDate: 'asc' }
         });
 
@@ -533,7 +543,8 @@ async function executeTool(name: string, args: any, context: { userId: string, u
             status: inv.status,
             dueDate: inv.dueDate,
             daysOverdue,
-            accountName: inv.account?.name || 'Unknown'
+            accountName: inv.account?.name || 'Unknown',
+            internalUrl: `/account?id=${encodeURIComponent(inv.account.zohoId)}&invoice=${encodeURIComponent(inv.zohoId)}`
           };
         }).filter((inv: any) => inv.daysOverdue >= minDaysOverdue).slice(0, limit);
 
@@ -1143,6 +1154,7 @@ const TOOLS = [
           dateFrom: { type: 'string', description: 'ISO date string' },
           dateTo: { type: 'string', description: 'ISO date string' },
           accountName: { type: 'string' },
+          invoiceNumber: { type: 'string', description: 'Exact invoice number, without the # prefix' },
           limit: { type: 'number' }
         }
       }
@@ -1682,6 +1694,8 @@ IMPORTANT RULES:
 - Format currency with $ and 2 decimal places
 - Format dates in readable format (e.g. "Aug 13, 2026")
 - When showing lists, use clean formatting with line breaks
+- Tool results can include internalUrl. Every named system record you mention (invoice, sales order, estimate, account, contact, task, payout, or other record) MUST be a Markdown link to its internalUrl, for example [Invoice 10489](/account?id=...&invoice=...). Never display a bare record number when its internalUrl is available.
+- Use only relative tdusales.com paths supplied by tools for system-record links. Do not invent record URLs or link records to Zoho.
 - If no data is found, say so clearly — do NOT make up or guess data
 - If a query fails, explain what went wrong
 - When showing financial summaries, always include invoice count

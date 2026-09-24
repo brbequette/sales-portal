@@ -47,6 +47,19 @@ function isAdminRole(role?: string): boolean {
   return role.toLowerCase().includes('admin') || role === 'ADMIN';
 }
 
+function AssistantMessage({ content }: { content: string }) {
+  const parts = content.split(/(\[[^\]]+\]\((?:\/[A-Za-z0-9_~!$&'()*+,;=:@%/?#.-]*)\))/g);
+  return (
+    <p className="whitespace-pre-wrap">
+      {parts.map((part, index) => {
+        const match = part.match(/^\[([^\]]+)\]\((\/[A-Za-z0-9_~!$&'()*+,;=:@%/?#.-]*)\)$/);
+        if (!match) return <React.Fragment key={index}>{part}</React.Fragment>;
+        return <a key={index} href={match[2]} className="font-bold text-amber-300 underline decoration-amber-500/50 underline-offset-2 hover:text-amber-200">{match[1]}</a>;
+      })}
+    </p>
+  );
+}
+
 export function AiAssistant({ user }: AiAssistantProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -378,7 +391,9 @@ export function AiAssistant({ user }: AiAssistantProps) {
                   : 'bg-neutral-900 text-neutral-100 border border-white/10 rounded-tl-xs shadow-md'
               }`}
             >
-              <p className="whitespace-pre-wrap">{msg.content}</p>
+              {msg.role === 'assistant'
+                ? <AssistantMessage content={msg.content} />
+                : <p className="whitespace-pre-wrap">{msg.content}</p>}
             </div>
 
             {/* Assistant action row: listen + feedback */}
