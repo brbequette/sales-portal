@@ -1,5 +1,10 @@
 # Titan Diamond — Consolidated Project Context
 
+## Sales workspace navigation cleanup (preview, 2026-09-24)
+
+- A preview-only cleanup branch consolidates the duplicated Today / pipeline / lead-queue header actions into one responsive `SalesWorkspaceNav` shared by `/sales`, `/sales/todays-calls`, and `/sales/leads-calling`. It removes page-specific navigation duplication while preserving data fetching, filters, queue position, and every sales write path.
+- The consistent flow is labeled Today → Accounts & Deals → Leads. Larger legacy sales-page decomposition and potentially overlapping calling surfaces remain documented follow-ups rather than being rewritten in this low-risk tranche.
+
 ## Admin control center and Titan AI release (2026-09-24)
 
 - PR #90 reorganizes Admin into searchable business workspaces and expands Account Assignment from only `Update Status` accounts to an explicit All Accounts / Update Status Only scope. Scope changes invalidate background pagination and clear stale selections and pending owner choices.

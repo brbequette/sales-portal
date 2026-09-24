@@ -3,8 +3,9 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react"
-import { FiArrowRight, FiBarChart2, FiCheckCircle, FiExternalLink, FiLoader, FiPhone, FiRefreshCw, FiSearch, FiTarget, FiUser, FiUsers, FiZap } from "react-icons/fi"
+import { FiArrowRight, FiCheckCircle, FiExternalLink, FiLoader, FiPhone, FiRefreshCw, FiSearch, FiTarget, FiUser, FiZap } from "react-icons/fi"
 import { SalesCallCoach } from "@/components/SalesCallCoach"
+import { SalesWorkspaceNav } from "@/components/SalesWorkspaceNav"
 
 type QueueItem = {
   id: string; name: string; status: string; quality?: string | null; timeZone?: string | null
@@ -106,8 +107,9 @@ export default function TodaysCallsPage() {
     <header className="shrink-0 border-b border-white/10 bg-neutral-950 px-4 py-3 md:px-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div><div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[.22em] text-emerald-400"><FiZap /> Sales execution workspace</div><h1 className="mt-0.5 text-xl font-black text-white md:text-2xl">Next Best Action</h1><p className="text-xs text-neutral-500">One prioritized customer, complete context, communication, selling, and follow-up.</p></div>
-        <div className="flex flex-wrap gap-2">{!working && <button onClick={() => { sessionStorage.setItem("titan-sales-workday-active", "1"); setWorking(true) }} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-orange-500 px-4 text-xs font-black text-black"><FiZap />Get to Work</button>}<Link href="/sales/leads-calling" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-orange-500/30 bg-orange-500/10 px-3 text-xs font-black text-orange-300"><FiUsers /> Work new leads</Link><Link href="/sales" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-white/10 px-3 text-xs font-bold text-neutral-300"><FiBarChart2 /> Pipeline</Link><button onClick={() => void load()} disabled={loading} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-emerald-500 px-3 text-xs font-black text-black disabled:opacity-50"><FiRefreshCw className={loading ? "animate-spin" : ""} /> Refresh</button></div>
+        <div className="flex flex-wrap gap-2">{!working && <button onClick={() => { sessionStorage.setItem("titan-sales-workday-active", "1"); setWorking(true) }} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-orange-500 px-4 text-xs font-black text-black"><FiZap />Get to Work</button>}<button onClick={() => void load()} disabled={loading} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-emerald-500 px-3 text-xs font-black text-black disabled:opacity-50"><FiRefreshCw className={loading ? "animate-spin" : ""} /> Refresh</button></div>
       </div>
+      <div className="mt-3"><SalesWorkspaceNav /></div>
       <div className="mt-3 grid grid-cols-3 gap-2"><Metric label="Urgent" value={urgentCount} tone="red" /><Metric label="Callable" value={callableCount} tone="emerald" /><Metric label="Open actions" value={dueTaskCount} tone="amber" /></div>
     </header>
 

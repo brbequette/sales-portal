@@ -10,6 +10,7 @@ import {
   FiUserPlus, FiUserX, FiStar, FiChevronLeft, FiChevronRight, FiGrid, FiList, FiSlash
 } from "react-icons/fi"
 import { PhoneLink } from "@/components/PhoneLink"
+import { SalesWorkspaceNav } from "@/components/SalesWorkspaceNav"
 
 export default function LeadsCallingPage() {
   const router = useRouter()
@@ -352,6 +353,7 @@ export default function LeadsCallingPage() {
 
       {/* ─── Body ───────────────────────────────────── */}
       <div className="page-body animate-fade-in space-y-4">
+        <SalesWorkspaceNav />
 
         {/* Batch Progress Tracker */}
         <div className="glass-panel border border-white/10 rounded-2xl p-4 space-y-2">
