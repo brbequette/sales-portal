@@ -7,6 +7,7 @@ import { isAdministratorRole } from "../../src/lib/roles"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 const authenticatedHandler: Handler = async (event) => {
+  let actionId: string | undefined
   const cors = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
@@ -35,13 +36,13 @@ const authenticatedHandler: Handler = async (event) => {
       }
     }
 
-    const { accountId, newOwnerId } = JSON.parse(event.body || "{}")
+    const { accountId, newOwnerId, expectedOwnerId, requestId } = JSON.parse(event.body || "{}")
 
-    if (!accountId || !newOwnerId) {
+    if (!accountId || !newOwnerId || !expectedOwnerId || !requestId) {
       return {
         statusCode: 400,
         headers: cors,
-        body: JSON.stringify({ success: false, message: "Missing accountId or newOwnerId" })
+        body: JSON.stringify({ success: false, message: "Missing accountId, newOwnerId, expectedOwnerId, or requestId" })
       }
     }
 
@@ -62,13 +63,50 @@ const authenticatedHandler: Handler = async (event) => {
       }
     }
 
+    if (account.ownerId !== expectedOwnerId) {
+      return {
+        statusCode: 409,
+        headers: cors,
+        body: JSON.stringify({ success: false, code: "OWNER_CHANGED", message: "This account owner changed after the page loaded. Refresh before assigning it again." })
+      }
+    }
+
     if (!newOwner || !newOwner.zohoId) {
       return {
         statusCode: 404,
         headers: cors,
-        body: JSON.stringify({ success: false, message: `New owner not found or missing Zoho User ID. Owner: ${newOwner?.name || 'not found'}, zohoId: ${newOwner?.zohoId || 'empty'}` })
+        body: JSON.stringify({ success: false, message: "New owner was not found or is not linked to Zoho CRM" })
       }
     }
+
+    const actorId = sessionUser.dbId || sessionUser.userId
+    const idempotencyKey = `account-owner:${actorId}:${requestId}`
+    const priorAction = await prisma.operationalAction.findUnique({ where: { idempotencyKey } })
+    if (priorAction) {
+      const priorResult = priorAction.result && typeof priorAction.result === "object" ? priorAction.result : {}
+      return {
+        statusCode: priorAction.status === "SUCCEEDED" ? 200 : 409,
+        headers: cors,
+        body: JSON.stringify({ success: priorAction.status === "SUCCEEDED", duplicatePrevented: true, message: priorAction.status === "SUCCEEDED" ? "This ownership change was already completed." : "This ownership change is already being processed or previously failed.", ...priorResult })
+      }
+    }
+
+    const action = await prisma.operationalAction.create({
+      data: {
+        idempotencyKey,
+        actionType: "ACCOUNT_OWNER_REASSIGNMENT",
+        entityType: "ACCOUNT",
+        entityId: account.id,
+        accountId: account.id,
+        status: "RUNNING",
+        payload: { previousOwnerId: account.ownerId, newOwnerId },
+        actorId,
+        attemptCount: 1,
+        maxAttempts: 1,
+        startedAt: new Date(),
+      }
+    })
+    actionId = action.id
 
     const token = await getZohoAccessToken()
     const authHeaders = {
@@ -97,7 +135,7 @@ const authenticatedHandler: Handler = async (event) => {
     // If ID is invalid, search CRM by account name to find the real CRM Account ID
     if (!result.ok || result.data.data?.[0]?.code !== "SUCCESS") {
       const invalidMsg = result.data.data?.[0]?.message || result.data.message || ""
-      console.log(`Direct update failed (${invalidMsg}), searching CRM for account: ${account.name}`)
+      console.warn(`Direct account owner update failed (${invalidMsg}); trying the bounded account lookup fallback`)
       
       try {
         const searchRes = await fetch(
@@ -108,8 +146,6 @@ const authenticatedHandler: Handler = async (event) => {
           const searchData: any = await searchRes.json()
           if (searchData.data && searchData.data.length > 0) {
             crmAccountId = searchData.data[0].id
-            console.log(`Found CRM Account ID: ${crmAccountId} for "${account.name}"`)
-            
             // Retry with the real CRM ID
             result = await attemptOwnerUpdate(crmAccountId)
             
@@ -120,7 +156,6 @@ const authenticatedHandler: Handler = async (event) => {
                   where: { id: accountId },
                   data: { zohoId: crmAccountId }
                 })
-                console.log(`Updated local zohoId from ${account.zohoId} to ${crmAccountId}`)
               } catch (e) {
                 console.error("Failed to update local zohoId:", e)
               }
@@ -133,15 +168,14 @@ const authenticatedHandler: Handler = async (event) => {
     }
 
     if (!result.ok || result.data.data?.[0]?.code !== "SUCCESS") {
-      console.error("Zoho CRM Account Owner Update Failed:", JSON.stringify(result.data))
       const detail = result.data.data?.[0]?.message || result.data.message || result.data.code || JSON.stringify(result.data)
+      await prisma.operationalAction.update({ where: { id: action.id }, data: { status: "FAILED", errorCode: String(result.data.data?.[0]?.code || result.data.code || "ZOHO_OWNER_UPDATE_FAILED"), errorMessage: String(detail).slice(0, 1000), completedAt: new Date() } })
       return {
         statusCode: 500,
         headers: cors,
         body: JSON.stringify({ 
           success: false, 
           message: `Failed to update account owner in Zoho CRM: ${detail}`,
-          details: result.data 
         })
       }
     }
@@ -196,10 +230,21 @@ const authenticatedHandler: Handler = async (event) => {
     }
 
     // 4. Update local database
-    const updatedAccount = await prisma.account.update({
-      where: { id: accountId },
+    const localUpdate = await prisma.account.updateMany({
+      where: { id: accountId, ownerId: expectedOwnerId },
       data: { ownerId: newOwnerId }
     })
+    if (localUpdate.count !== 1) {
+      await prisma.operationalAction.update({ where: { id: action.id }, data: { status: "FAILED", errorCode: "LOCAL_OWNER_CONFLICT", errorMessage: "Local owner changed while the Zoho update was in progress", result: { zohoAccountUpdated: true, contactsUpdated, contactErrors }, completedAt: new Date() } })
+      return { statusCode: 409, headers: cors, body: JSON.stringify({ success: false, partial: true, code: "LOCAL_OWNER_CONFLICT", message: "Zoho was updated, but the local owner changed concurrently. An administrator must review this account.", contactsUpdated, contactErrors }) }
+    }
+
+    const updatedAccount = await prisma.account.findUniqueOrThrow({ where: { id: accountId } })
+    const actionResult = { account: updatedAccount, contactsUpdated, contactErrors: contactErrors.length > 0 ? contactErrors : undefined, partial: contactErrors.length > 0 }
+    await prisma.$transaction([
+      prisma.operationalAction.update({ where: { id: action.id }, data: { status: "SUCCEEDED", result: actionResult, completedAt: new Date() } }),
+      prisma.operationalEvent.create({ data: { entityType: "ACCOUNT", entityId: account.id, accountId: account.id, eventType: "ACCOUNT_OWNER_REASSIGNED", title: "Account owner reassigned", detail: contactErrors.length > 0 ? "Account owner updated with related-contact warnings" : "Account and related ownership updated", status: contactErrors.length > 0 ? "WARNING" : "SUCCESS", metadata: { previousOwnerId: expectedOwnerId, newOwnerId, contactsUpdated, contactErrorCount: contactErrors.length, requestId }, actorId } })
+    ])
 
     return {
       statusCode: 200,
@@ -208,11 +253,15 @@ const authenticatedHandler: Handler = async (event) => {
         success: true,
         account: updatedAccount,
         contactsUpdated,
-        contactErrors: contactErrors.length > 0 ? contactErrors : undefined
+        contactErrors: contactErrors.length > 0 ? contactErrors : undefined,
+        partial: contactErrors.length > 0
       })
     }
 
   } catch (error: any) {
+    if (actionId) {
+      await prisma.operationalAction.update({ where: { id: actionId }, data: { status: "FAILED", errorCode: "UNEXPECTED_ERROR", errorMessage: String(error?.message || error).slice(0, 1000), completedAt: new Date() } }).catch(() => undefined)
+    }
     console.error("Account Owner Update Error:", error)
     return {
       statusCode: 500,

@@ -43,7 +43,7 @@ export default function AdminUpdateAccountsPage() {
   const [showDoNotCall, setShowDoNotCall] = useState(false)
 
   const normalizedRole = currentUser?.role?.toLowerCase() || ""
-  const isAdmin = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("collections") || normalizedRole.includes("manager")
+  const isAdmin = normalizedRole.includes("admin") || normalizedRole === "administrator"
 
   const fetchAccounts = useCallback(async (pageNum = 1, append = false, currentSearch = searchQuery, scope = accountScope) => {
     try {
@@ -135,15 +135,17 @@ export default function AdminUpdateAccountsPage() {
     setSuccessMsg(null)
 
     try {
+      const current = accounts.find(account => account.id === accountId)
+      if (!current?.ownerId) throw new Error("Current account owner is unavailable. Refresh and try again.")
       const res = await fetch("/api/update-account-owner", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountId, newOwnerId })
+        body: JSON.stringify({ accountId, newOwnerId, expectedOwnerId: current.ownerId, requestId: crypto.randomUUID() })
       })
       const data = await res.json()
       
       if (data.success) {
-        setSuccessMsg("Account successfully reassigned!")
+        setSuccessMsg(data.partial ? "Account reassigned with related-contact warnings. Review the audit result." : "Account successfully reassigned!")
         setAccounts(prev => prev.map(a => a.id === accountId ? { ...a, ownerId: newOwnerId } : a))
         setPendingOwners(prev => {
           const next = { ...prev }
@@ -169,17 +171,21 @@ export default function AdminUpdateAccountsPage() {
     const ids = Array.from(selectedIds)
     let successes = 0
     let failures = 0
+    let partials = 0
 
     for (let i = 0; i < ids.length; i++) {
       try {
+        const current = accounts.find(account => account.id === ids[i])
+        if (!current?.ownerId) throw new Error("Current owner unavailable")
         const res = await fetch("/api/update-account-owner", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ accountId: ids[i], newOwnerId: bulkOwnerId })
+          body: JSON.stringify({ accountId: ids[i], newOwnerId: bulkOwnerId, expectedOwnerId: current.ownerId, requestId: crypto.randomUUID() })
         })
         const data = await res.json()
         if (data.success) {
           successes++
+          if (data.partial) partials++
           setAccounts(prev => prev.map(a => a.id === ids[i] ? { ...a, ownerId: bulkOwnerId } : a))
         } else {
           failures++
@@ -194,7 +200,7 @@ export default function AdminUpdateAccountsPage() {
     setSelectedIds(new Set())
     setBulkOwnerId("")
     if (failures === 0) {
-      setSuccessMsg(`${successes} account${successes > 1 ? "s" : ""} reassigned successfully!`)
+      setSuccessMsg(`${successes} account${successes > 1 ? "s" : ""} reassigned successfully${partials ? `; ${partials} completed with related-contact warnings` : ""}!`)
     } else {
       setApiError(`${successes} succeeded, ${failures} failed`)
     }

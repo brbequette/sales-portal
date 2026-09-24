@@ -1835,7 +1835,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { message, conversationHistory = [], confirmationToken } = body;
+    const { message, conversationHistory = [], confirmationToken, context = {}, contextKey } = body;
     const sessionUser = session.user as typeof session.user & { dbId?: string; id?: string; role?: string };
 
     if (typeof message !== 'string' || !message.trim()) {
@@ -1869,7 +1869,7 @@ export async function POST(req: NextRequest) {
     if (confirmationToken) {
       let confirmed;
       try {
-        confirmed = verifyAiConfirmationToken(String(confirmationToken), dbUser.id);
+        confirmed = verifyAiConfirmationToken(String(confirmationToken), dbUser.id, typeof contextKey === 'string' ? contextKey : undefined);
       } catch (error: any) {
         return NextResponse.json({ success: false, error: error.message }, { status: 400 });
       }
@@ -1911,6 +1911,7 @@ Answer Titan Diamond questions with live data tools and the Titan knowledge tool
 
 TODAY'S DATE: ${currentDate} at ${currentTime} (Phoenix, AZ time)
 Current user: ${dbUser.name || 'Unknown'} (Role: ${actualRole})
+Current application context: ${JSON.stringify({ page: context.page, query: context.query, activeTab: context.activeTab, selectedRecord: context.selectedRecord }).slice(0, 1500)}
 ${roleNote}
 
 IMPORTANT RULES:
@@ -2015,7 +2016,7 @@ IMPORTANT RULES:
         if (!canUseAiTool(actualRole, toolPolicy.minimumRole)) {
           toolResult = { success: false, error: `${toolPolicy.minimumRole} access is required` };
         } else if (toolPolicy.mutating && toolPolicy.requiresConfirmation) {
-          const token = createAiConfirmationToken({ userId: dbUser.id, toolName: functionName, args: functionArgs, customToolId: customTool?.id });
+          const token = createAiConfirmationToken({ userId: dbUser.id, toolName: functionName, args: functionArgs, customToolId: customTool?.id, contextKey: typeof contextKey === 'string' ? contextKey : undefined });
           const summary = `${functionName.replaceAll('_', ' ')} with ${JSON.stringify(functionArgs)}`.slice(0, 500);
           pendingActions.push({ toolName: functionName, summary, confirmationToken: token });
           toolResult = { success: false, requiresConfirmation: true, summary, message: 'The user must confirm this action in the interface before it runs.' };

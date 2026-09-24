@@ -34,4 +34,11 @@ describe("AI action policy", () => {
     expect(() => verifyAiConfirmationToken(`${token}x`, "u1")).toThrow("Invalid")
     expect(() => verifyAiConfirmationToken(token, "u2")).toThrow("another user")
   })
+
+  it("binds confirmations to the page and record context", () => {
+    process.env.NEXTAUTH_SECRET = "test-only-secret"
+    const token = createAiConfirmationToken({ userId: "u1", toolName: "create_task", args: { subject: "Call" }, contextKey: "/account?id=account-1" })
+    expect(verifyAiConfirmationToken(token, "u1", "/account?id=account-1").toolName).toBe("create_task")
+    expect(() => verifyAiConfirmationToken(token, "u1", "/account?id=account-2")).toThrow("another page or record")
+  })
 })

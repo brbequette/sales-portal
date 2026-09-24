@@ -20,6 +20,12 @@ interface Message {
   suggestedReplies?: string[];
 }
 
+const AI_HISTORY_VERSION = 1;
+
+function historyKey(userId: string) {
+  return `titan-ai-history:v${AI_HISTORY_VERSION}:${userId}`;
+}
+
 const AGENT_QUICK_PROMPTS = [
   "Review my upcoming engagement steps and offer the next actions",
   "Show me today's sales",
@@ -84,6 +90,63 @@ export function AiAssistant({ user }: AiAssistantProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const admin = isAdminRole(user?.role);
+  const [pageContext, setPageContext] = useState<{ activeTab?: string; selectedRecord?: string }>({});
+  const hydratedUserRef = useRef<string | null>(null);
+  const skipPersistRef = useRef(false);
+
+  const currentContext = useCallback(() => {
+    const query = typeof window === 'undefined' ? '' : window.location.search;
+    const contextKey = `${pathname}${query}`;
+    return {
+      contextKey,
+      context: { page: pathname, query, ...pageContext },
+    };
+  }, [pathname, pageContext]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      hydratedUserRef.current = null;
+      skipPersistRef.current = true;
+      queueMicrotask(() => setMessages([]));
+      return;
+    }
+    if (hydratedUserRef.current === user.id) return;
+    hydratedUserRef.current = user.id;
+    skipPersistRef.current = true;
+    queueMicrotask(() => setMessages([]));
+    try {
+      const saved = localStorage.getItem(historyKey(user.id));
+      if (!saved) return;
+      const parsed = JSON.parse(saved) as { messages?: Array<Omit<Message, 'timestamp'> & { timestamp: string }> };
+      if (Array.isArray(parsed.messages)) {
+        queueMicrotask(() => setMessages(parsed.messages!.slice(-50).map(message => ({ ...message, timestamp: new Date(message.timestamp) }))));
+      }
+    } catch {
+      localStorage.removeItem(historyKey(user.id));
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || hydratedUserRef.current !== user.id) return;
+    if (skipPersistRef.current) {
+      skipPersistRef.current = false;
+      return;
+    }
+    try {
+      localStorage.setItem(historyKey(user.id), JSON.stringify({ messages: messages.slice(-50) }));
+    } catch {
+      // History persistence is helpful but must never prevent assistant use.
+    }
+  }, [messages, user?.id]);
+
+  useEffect(() => {
+    const updateContext = (event: Event) => {
+      const detail = (event as CustomEvent<{ activeTab?: string; selectedRecord?: string }>).detail || {};
+      setPageContext({ activeTab: detail.activeTab, selectedRecord: detail.selectedRecord });
+    };
+    window.addEventListener('titanAiContext', updateContext);
+    return () => window.removeEventListener('titanAiContext', updateContext);
+  }, []);
 
   // Determine which static prompts to show as fallback
   const staticPrompts = user?.id
@@ -104,7 +167,7 @@ export function AiAssistant({ user }: AiAssistantProps) {
     } catch {
       // Silently fail — static prompts are always available
     }
-  }, [user?.id, user?.role]);
+  }, [user]);
 
   useEffect(() => {
     if (isOpen && dynamicPrompts.length === 0) {
@@ -247,19 +310,21 @@ export function AiAssistant({ user }: AiAssistantProps) {
     setIsLoading(true);
 
     try {
+      const { context, contextKey } = currentContext();
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text,
           context: {
-            page: pathname,
+            ...context,
             userId: user?.id,
             userRole: user?.role,
             userName: user?.name,
           },
           conversationHistory: messages.slice(-20).map((m) => ({ role: m.role, content: m.content })),
           confirmationToken,
+          contextKey,
         }),
       });
 

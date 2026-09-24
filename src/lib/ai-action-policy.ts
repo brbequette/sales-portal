@@ -46,6 +46,7 @@ interface ConfirmationPayload {
   toolName: string
   args: unknown
   customToolId?: string
+  contextKey?: string
   expiresAt: number
 }
 
@@ -64,7 +65,7 @@ export function createAiConfirmationToken(
   return `${encoded}.${signature}`
 }
 
-export function verifyAiConfirmationToken(token: string, expectedUserId: string): ConfirmationPayload {
+export function verifyAiConfirmationToken(token: string, expectedUserId: string, expectedContextKey?: string): ConfirmationPayload {
   const [encoded, suppliedSignature] = token.split(".")
   if (!encoded || !suppliedSignature) throw new Error("Invalid action confirmation")
   const expectedSignature = createHmac("sha256", confirmationSecret()).update(encoded).digest("base64url")
@@ -75,6 +76,9 @@ export function verifyAiConfirmationToken(token: string, expectedUserId: string)
   }
   const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as ConfirmationPayload
   if (payload.userId !== expectedUserId) throw new Error("Action confirmation belongs to another user")
+  if (payload.contextKey && payload.contextKey !== expectedContextKey) {
+    throw new Error("Action confirmation belongs to another page or record")
+  }
   if (!payload.expiresAt || payload.expiresAt < Date.now()) throw new Error("Action confirmation expired")
   return payload
 }

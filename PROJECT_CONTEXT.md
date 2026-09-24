@@ -1,5 +1,11 @@
 # Titan Diamond — Consolidated Project Context
 
+## Admin control center and Titan AI release (2026-09-24)
+
+- PR #90 reorganizes Admin into searchable business workspaces and expands Account Assignment from only `Update Status` accounts to an explicit All Accounts / Update Status Only scope. Scope changes invalidate background pagination and clear stale selections and pending owner choices.
+- Account ownership remains a dedicated administrator-only write path. Each write now carries the owner observed by the browser plus a unique request ID; the server rejects concurrent owner changes, durably prevents duplicate submissions, records the result in the operational audit trail, and reports related-contact partial failures without representing them as a clean success.
+- Titan AI remains mounted in the application shell. Authenticated conversation history is now persisted in bounded, user-keyed browser storage across navigation, refresh, and reopening. Requests refresh route, query, active-tab, and selected-record context; mutating confirmation tokens are bound to their originating page/query so a pending action cannot be confirmed after switching records.
+
 ## Admin control-center information architecture (pending PR, 2026-09-24)
 
 - The Admin navigation is organized around Company Settings, Sales Configuration, Compensation & Payroll, Automation & AI, Communications, Products & Data, Integrations, Operations, System Health, and Advanced / Developer Tools. Configuration, monitoring, and dangerous maintenance are now visually separated without changing underlying business logic.
