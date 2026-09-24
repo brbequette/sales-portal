@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useEffect, useState, useCallback, useRef, useMemo } from "react"
 import { FiTarget, FiAlertTriangle, FiArrowLeft, FiCheckCircle, FiX, FiSearch, FiArrowUp, FiArrowDown, FiCheckSquare, FiSquare, FiUsers, FiDollarSign } from "react-icons/fi"
+import { accountAssignmentStatusQuery, type AccountAssignmentScope } from "@/lib/account-assignment-scope"
 
 type SortKey = "name" | "lastPurchaseAt" | "totalRev" | "totalProf" | "owner"
 type SortDir = "asc" | "desc"
@@ -24,6 +25,7 @@ export default function AdminUpdateAccountsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [localSearch, setLocalSearch] = useState("")
   const [pendingOwners, setPendingOwners] = useState<Record<string, string>>({})
+  const [accountScope, setAccountScope] = useState<AccountAssignmentScope>("ALL")
 
   // Sort & Filter
   const [sortKey, setSortKey] = useState<SortKey>("lastPurchaseAt")
@@ -43,7 +45,7 @@ export default function AdminUpdateAccountsPage() {
   const normalizedRole = currentUser?.role?.toLowerCase() || ""
   const isAdmin = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("collections") || normalizedRole.includes("manager")
 
-  const fetchAccounts = useCallback(async (pageNum = 1, append = false, currentSearch = searchQuery) => {
+  const fetchAccounts = useCallback(async (pageNum = 1, append = false, currentSearch = searchQuery, scope = accountScope) => {
     try {
       setApiError(null)
       const ts = Date.now()
@@ -52,8 +54,9 @@ export default function AdminUpdateAccountsPage() {
         : `email=${currentUser?.email}`
       const roleQuery = currentUser?.role ? `&role=${encodeURIComponent(currentUser.role)}` : ""
       const searchParam = currentSearch ? `&search=${encodeURIComponent(currentSearch)}` : ""
+      const statusParam = accountAssignmentStatusQuery(scope)
       
-      const res = await fetch(`/api/get-accounts?${query}${roleQuery}&page=${pageNum}${searchParam}&includeDocs=true&statusFilter=Update Status&includeHidden=true&_t=${ts}`)
+      const res = await fetch(`/api/get-accounts?${query}${roleQuery}&page=${pageNum}${searchParam}&includeDocs=true${statusParam}&includeHidden=true&_t=${ts}`)
       const data = await res.json()
 
       if (data.success) {
@@ -69,7 +72,7 @@ export default function AdminUpdateAccountsPage() {
         if (data.reps) setReps(data.reps)
         
         if (data.pagination?.hasMore && pageNum === 1) {
-          autoLoadAllAccounts(data.pagination.totalCount, data.accounts.length, currentSearch)
+          autoLoadAllAccounts(data.pagination.totalCount, data.accounts.length, currentSearch, scope)
         }
       } else {
         setApiError(data.error || data.message || "Failed to load accounts")
@@ -79,10 +82,10 @@ export default function AdminUpdateAccountsPage() {
     } finally {
       setLoading(false)
     }
-  }, [currentUser, searchQuery])
+  }, [accountScope, currentUser, searchQuery])
 
   const autoLoadRef = useRef(0)
-  const autoLoadAllAccounts = async (totalCount: number, currentCount: number, currentSearch: string) => {
+  const autoLoadAllAccounts = async (totalCount: number, currentCount: number, currentSearch: string, scope: AccountAssignmentScope) => {
     autoLoadRef.current++
     const myId = autoLoadRef.current
     let loaded = currentCount
@@ -94,7 +97,8 @@ export default function AdminUpdateAccountsPage() {
         const query = currentUser?.id && !currentUser.id.includes("@") ? `zohoId=${currentUser.id}` : `email=${currentUser?.email}`
         const roleQuery = currentUser?.role ? `&role=${encodeURIComponent(currentUser.role)}` : ""
         const searchParam = currentSearch ? `&search=${encodeURIComponent(currentSearch)}` : ""
-        const res = await fetch(`/api/get-accounts?${query}${roleQuery}&page=${page}${searchParam}&includeDocs=true&statusFilter=Update Status&includeHidden=true&_t=${ts}`)
+        const statusParam = accountAssignmentStatusQuery(scope)
+        const res = await fetch(`/api/get-accounts?${query}${roleQuery}&page=${page}${searchParam}&includeDocs=true${statusParam}&includeHidden=true&_t=${ts}`)
         const data = await res.json()
         if (data.success && data.accounts) {
           setAccounts(prev => {
@@ -317,8 +321,8 @@ export default function AdminUpdateAccountsPage() {
             <FiTarget className="text-purple-500" size={17} />
           </div>
           <div>
-            <h1 className="page-title">Update Accounts</h1>
-            <p className="page-subtitle">Manually reassign accounts marked as 'Update Status'</p>
+            <h1 className="page-title">Account Assignment</h1>
+            <p className="page-subtitle">Change the record owner for any account, including accounts marked as Update Status</p>
           </div>
         </div>
       </div>
@@ -390,9 +394,27 @@ export default function AdminUpdateAccountsPage() {
           
           {/* Toolbar: Count + Search + Filter */}
           <div className="p-4 border-b border-white/10 flex flex-col gap-3">
+            <div className="inline-flex w-full rounded-xl border border-white/10 bg-black/20 p-1 sm:w-fit" role="group" aria-label="Account assignment scope">
+              <button
+                type="button"
+                onClick={() => { autoLoadRef.current++; setLoading(true); setAccounts([]); setAccountScope("ALL"); setSelectedIds(new Set()); setPendingOwners({}) }}
+                aria-pressed={accountScope === "ALL"}
+                className={`min-h-10 rounded-lg px-4 text-xs font-black transition-colors ${accountScope === "ALL" ? "bg-purple-600 text-white" : "text-neutral-400 hover:text-white"}`}
+              >
+                All Accounts
+              </button>
+              <button
+                type="button"
+                onClick={() => { autoLoadRef.current++; setLoading(true); setAccounts([]); setAccountScope("UPDATE_STATUS"); setSelectedIds(new Set()); setPendingOwners({}) }}
+                aria-pressed={accountScope === "UPDATE_STATUS"}
+                className={`min-h-10 rounded-lg px-4 text-xs font-black transition-colors ${accountScope === "UPDATE_STATUS" ? "bg-purple-600 text-white" : "text-neutral-400 hover:text-white"}`}
+              >
+                Update Status Only
+              </button>
+            </div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <h2 className="text-sm font-bold text-white">
-                {sorted.length}{sorted.length !== accountsWithStats.length ? ` of ${accountsWithStats.length}` : ""} Update Accounts
+                {sorted.length}{sorted.length !== accountsWithStats.length ? ` of ${accountsWithStats.length}` : ""} {accountScope === "ALL" ? "Accounts" : "Update Accounts"}
               </h2>
               <div className="flex items-center gap-2">
                 {/* Instant local filter */}

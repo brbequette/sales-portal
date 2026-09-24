@@ -6,6 +6,7 @@
 - Existing production pages and APIs remain at their established URLs. `/admin/data-integrations` redirects to `/admin/integrations`, `/admin/people-time` redirects to `/admin/company-settings`, and the existing backfill/geofence compatibility redirects remain intact.
 - Potentially data-changing one-time utilities are discoverable only from the warned Advanced workspace. No Admin route, API, database model, provider operation, or historical record was deleted. The detailed KEEP/MERGE/MOVE/ADVANCED/RETIRE audit is in `docs/admin-route-inventory.md`.
 - The shared workspace hub now provides responsive search, breadcrumbs, risk badges, and consistent cards. All workspaces retain the existing administrator-role gate; normal users cannot access the Admin shell.
+- Account Assignment now defaults to all accounts so administrators can change record ownership regardless of account status. The established Update Status queue remains available as an explicit filter; both views use the same administrator-only owner-change path and preserve synchronized account/contact ownership behavior.
 
 ## Durable campaign processing and deliverability (pending PR, 2026-09-22)
 

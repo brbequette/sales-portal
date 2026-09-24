@@ -27,7 +27,7 @@ Legend: **KEEP** is an everyday production control; **MERGE** is represented by 
 | `/admin/sales-stages` | Pipeline stages and stage automation flow | Sales-stage/automation configuration; can execute flow | Sales Configuration | KEEP |
 | `/admin/scripts` | Representative call scripts | Script templates | Sales Configuration | KEEP |
 | `/admin/intro-offer` | Introductory offer configuration/content | Offer settings | Sales Configuration | KEEP |
-| `/admin/update-accounts` | Bulk owner reassignment | Account ownership | Sales Configuration | KEEP |
+| `/admin/update-accounts` | Search and reassign any account, with an explicit Update Status-only scope | Account and contact ownership in local PostgreSQL and Zoho CRM | Sales Configuration | KEEP |
 | `/admin/lead-discrepancies` | Lead/ownership discrepancy review | Account/lead repair | Sales Configuration / System Health | KEEP |
 | `/admin/update-config` | Portal activity, assignment and target defaults | Update configuration; reassignment action | Sales Configuration | KEEP |
 | `/admin/product-offers` | Product volume, package and gift tiers | Product offer configuration | Products & Data; removed from Sales hub | MOVE |
