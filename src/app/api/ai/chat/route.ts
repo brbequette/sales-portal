@@ -54,6 +54,18 @@ function buildSuggestedReplies(toolNames: string[], answer: string, hasPendingAc
   if (hasPendingActions) {
     return ['Explain exactly what this action changes', 'Show me the affected records first', 'What happens after I confirm?'];
   }
+  if (tools.has('query_daily_command_center')) {
+    return ['Start with the highest-priority item', 'Show only work I can complete now', 'Build my action plan for today'];
+  }
+  if (tools.has('query_financial_exceptions')) {
+    return ['Prioritize the highest financial risk', 'Show the records behind each exception', 'Offer the qualified fixes'];
+  }
+  if (tools.has('query_management_forecast')) {
+    return ['Explain the forecast calculation', 'What risks could change this result?', 'Build an action plan to improve it'];
+  }
+  if (tools.has('query_account_intelligence')) {
+    return ['What should happen next on this account?', 'Show only unresolved activity', 'Prepare the next follow-up'];
+  }
   if (tools.has('query_sales_orders')) {
     return ['Which order should I handle first?', 'Show only orders needing action', 'Offer the next processing action'];
   }
@@ -104,7 +116,7 @@ function getDateRange(period: string) {
 }
 
 // Tool Implementation Logic
-async function executeTool(name: string, args: any, context: { userId: string, userRole: string, userName: string }) {
+async function executeTool(name: string, args: any, context: { userId: string, userRole: string, userName: string, cookie?: string, origin?: string }) {
   const { userId, userRole } = context;
 
   const policy = getBuiltinAiToolPolicy(name);
@@ -599,6 +611,117 @@ async function executeTool(name: string, args: any, context: { userId: string, u
         return overdueInvoices;
       }
 
+      case 'query_daily_command_center': {
+        const limit = Math.min(Math.max(Number(args.limit) || 10, 1), 25);
+        const now = new Date();
+        const accountScope = isAdmin(userRole) ? {} : { account: { ownerId: userId } };
+        const taskScope = isAdmin(userRole) ? {} : { ownerId: userId };
+        const [tasks, orders, invoices] = await Promise.all([
+          prisma.task.findMany({
+            where: { ...taskScope, status: { notIn: ['Completed', 'completed', 'Cancelled', 'cancelled'] }, dueDate: { lte: new Date(now.getTime() + 7 * 86400000) } },
+            include: { account: { select: { name: true, zohoId: true } } }, orderBy: [{ dueDate: 'asc' }, { priority: 'asc' }], take: limit,
+          }),
+          prisma.salesOrder.findMany({
+            where: { ...accountScope, status: { in: ['Draft', 'draft', 'Pending', 'pending'] } },
+            include: { account: { select: { name: true, zohoId: true } } }, orderBy: { orderDate: 'asc' }, take: limit,
+          }),
+          prisma.invoice.findMany({
+            where: { ...accountScope, OR: [
+              { pendingCostSync: true }, { costsCalculatedAt: null },
+              { balance: { gt: 0 }, dueDate: { lt: now }, status: { notIn: ['void', 'Void', 'paid', 'Paid'] } },
+            ] },
+            include: { account: { select: { name: true, zohoId: true } } }, orderBy: { dueDate: 'asc' }, take: limit,
+          }),
+        ]);
+        return {
+          generatedAt: now.toISOString(),
+          summary: {
+            overdueTasks: tasks.filter(t => t.dueDate && t.dueDate < now).length,
+            upcomingTasks: tasks.filter(t => !t.dueDate || t.dueDate >= now).length,
+            pendingOrders: orders.length,
+            financialExceptions: invoices.length,
+          },
+          tasks: tasks.map(t => ({ id: t.id, subject: t.subject, dueDate: t.dueDate, priority: t.priority, accountName: t.account?.name, internalUrl: t.account ? `/account?id=${encodeURIComponent(t.account.zohoId)}&tab=overview` : '/tasks' })),
+          orders: orders.map(o => ({ id: o.zohoId || o.id, status: o.status, amount: o.amount, orderDate: o.orderDate, accountName: o.account.name, internalUrl: `/account?id=${encodeURIComponent(o.account.zohoId)}&tab=overview` })),
+          exceptions: invoices.map(inv => ({ invoiceNumber: inv.computedInvoiceNumber || inv.zohoId, accountName: inv.account.name, balance: inv.balance, dueDate: inv.dueDate, pendingCostSync: inv.pendingCostSync, costsCalculated: Boolean(inv.costsCalculatedAt), internalUrl: `/account?id=${encodeURIComponent(inv.account.zohoId)}&invoice=${encodeURIComponent(inv.zohoId)}` })),
+        };
+      }
+
+      case 'query_account_intelligence': {
+        const accountName = String(args.accountName || '').trim();
+        const limit = Math.min(Math.max(Number(args.limit) || 30, 5), 100);
+        if (!accountName) return { success: false, error: 'Account name is required' };
+        const account = await prisma.account.findFirst({ where: { ...buildOwnerFilter(userRole, userId), name: { contains: accountName, mode: 'insensitive' } } });
+        if (!account) return { success: false, error: `No accessible account matched "${accountName}"` };
+        const [invoices, orders, deals, tasks, calls, messages, notes] = await Promise.all([
+          prisma.invoice.findMany({ where: { accountId: account.id }, orderBy: { issueDate: 'desc' }, take: limit }),
+          prisma.salesOrder.findMany({ where: { accountId: account.id }, orderBy: { orderDate: 'desc' }, take: limit }),
+          prisma.deal.findMany({ where: { accountId: account.id }, orderBy: { updatedAt: 'desc' }, take: limit }),
+          prisma.task.findMany({ where: { accountId: account.id }, orderBy: { dueDate: 'desc' }, take: limit }),
+          prisma.callLog.findMany({ where: { accountId: account.id }, orderBy: { createdAt: 'desc' }, take: limit }),
+          prisma.smsMessage.findMany({ where: { accountId: account.id }, orderBy: { createdAt: 'desc' }, take: limit }),
+          prisma.note.findMany({ where: { accountId: account.id }, orderBy: { createdAt: 'desc' }, take: limit }),
+        ]);
+        const accountUrl = `/account?id=${encodeURIComponent(account.zohoId)}`;
+        const timeline = [
+          ...invoices.map(i => ({ type: 'invoice', date: i.issueDate, title: `Invoice ${i.computedInvoiceNumber || i.zohoId}`, status: i.status, amount: i.amount, internalUrl: `${accountUrl}&invoice=${encodeURIComponent(i.zohoId)}` })),
+          ...orders.map(o => ({ type: 'sales_order', date: o.orderDate, title: `Sales order ${o.zohoId || o.id}`, status: o.status, amount: o.amount, internalUrl: `${accountUrl}&tab=overview` })),
+          ...deals.map(d => ({ type: 'deal', date: d.updatedAt, title: d.name, status: d.stage, amount: d.amount, internalUrl: `${accountUrl}&tab=overview` })),
+          ...tasks.map(t => ({ type: 'task', date: t.dueDate || t.updatedAt, title: t.subject, status: t.status, internalUrl: `${accountUrl}&tab=overview` })),
+          ...calls.map(c => ({ type: 'call', date: c.createdAt, title: c.status, detail: c.notes, internalUrl: `${accountUrl}&tab=comms` })),
+          ...messages.map(m => ({ type: 'sms', date: m.createdAt, title: `${m.direction} SMS`, detail: m.body, internalUrl: `${accountUrl}&tab=comms` })),
+          ...notes.map(n => ({ type: 'note', date: n.createdAt, title: 'Account note', detail: n.content, internalUrl: accountUrl })),
+        ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, limit);
+        return { account: { name: account.name, status: account.status, quality: account.quality, ownerId: account.ownerId, internalUrl: accountUrl }, summary: { invoices: invoices.length, salesOrders: orders.length, deals: deals.length, openTasks: tasks.filter(t => !['Completed', 'completed', 'Cancelled', 'cancelled'].includes(t.status)).length }, timeline };
+      }
+
+      case 'query_financial_exceptions': {
+        const limit = Math.min(Math.max(Number(args.limit) || 25, 1), 100);
+        const accountScope = isAdmin(userRole) ? {} : { account: { ownerId: userId } };
+        const invoices = await prisma.invoice.findMany({
+          where: { ...accountScope, status: { notIn: ['void', 'Void'] }, OR: [
+            { pendingCostSync: true }, { costsCalculatedAt: null }, { syncConflict: true },
+            { computedProfit: { lt: 0 } }, { computedUpfront: null }, { computedFinal: null },
+          ] },
+          include: { account: { select: { name: true, zohoId: true } } }, orderBy: { issueDate: 'desc' }, take: limit,
+        });
+        return invoices.map(inv => ({
+          invoiceNumber: inv.computedInvoiceNumber || inv.zohoId, accountName: inv.account.name, issueDate: inv.issueDate, amount: inv.amount,
+          profit: inv.computedProfit, upfront: inv.computedUpfront, final: inv.computedFinal, pendingCostSync: inv.pendingCostSync,
+          costsCalculated: Boolean(inv.costsCalculatedAt), syncConflict: inv.syncConflict,
+          exceptions: [inv.pendingCostSync && 'pending cost sync', !inv.costsCalculatedAt && 'costs not calculated', inv.syncConflict && 'sync conflict', Number(inv.computedProfit || 0) < 0 && 'negative profit', inv.computedUpfront == null && 'missing upfront commission', inv.computedFinal == null && 'missing final commission'].filter(Boolean),
+          internalUrl: `/account?id=${encodeURIComponent(inv.account.zohoId)}&invoice=${encodeURIComponent(inv.zohoId)}`,
+        }));
+      }
+
+      case 'query_management_forecast': {
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        const ninetyDaysAgo = new Date(now.getTime() - 90 * 86400000);
+        const accountScope = isAdmin(userRole) ? {} : { account: { ownerId: userId } };
+        const [monthInvoices, trailingInvoices, pipelineOrders, overdueInvoices] = await Promise.all([
+          prisma.invoice.findMany({ where: { ...accountScope, issueDate: { gte: monthStart, lte: monthEnd }, status: { notIn: ['void', 'Void'] } } }),
+          prisma.invoice.findMany({ where: { ...accountScope, issueDate: { gte: ninetyDaysAgo, lte: now }, status: { notIn: ['void', 'Void'] } } }),
+          prisma.salesOrder.findMany({ where: { ...accountScope, status: { notIn: ['void', 'Void', 'cancelled', 'Cancelled', 'invoiced', 'Invoiced'] } } }),
+          prisma.invoice.findMany({ where: { ...accountScope, balance: { gt: 0 }, dueDate: { lt: now }, status: { notIn: ['void', 'Void', 'paid', 'Paid'] } } }),
+        ]);
+        const mtdSales = monthInvoices.reduce((sum, inv) => sum + Number(inv.amount || 0), 0);
+        const mtdProfit = monthInvoices.reduce((sum, inv) => sum + Number(inv.computedProfit || 0), 0);
+        const elapsedDays = Math.max(1, Math.min(now.getDate(), monthEnd.getDate()));
+        const daysInMonth = monthEnd.getDate();
+        const salesForecast = (mtdSales / elapsedDays) * daysInMonth;
+        const profitForecast = (mtdProfit / elapsedDays) * daysInMonth;
+        const trailingSales = trailingInvoices.reduce((sum, inv) => sum + Number(inv.amount || 0), 0);
+        return {
+          asOf: now.toISOString(), period: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
+          actuals: { mtdSales, mtdProfit, invoiceCount: monthInvoices.length },
+          forecast: { sales: salesForecast, profit: profitForecast, method: `MTD daily pace (${elapsedDays} elapsed calendar days × ${daysInMonth} days)` },
+          context: { trailing90DaySales: trailingSales, trailing90DayInvoiceCount: trailingInvoices.length, openPipelineValue: pipelineOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0), openPipelineOrders: pipelineOrders.length, overdueCash: overdueInvoices.reduce((sum, inv) => sum + Number(inv.balance || 0), 0), overdueInvoiceCount: overdueInvoices.length },
+          caveat: 'Pace forecast is a deterministic projection, not a guarantee. Pipeline is reported separately and is not automatically added to the forecast.',
+        };
+      }
+
       case 'query_time_entries': {
         const { dateFrom, dateTo, limit = 20 } = args;
         const where: any = { userId };
@@ -1069,6 +1192,19 @@ async function executeTool(name: string, args: any, context: { userId: string, u
         return { success: true, accountName: updatedAcc.name, status: updatedAcc.status, quality: updatedAcc.quality };
       }
 
+      case 'process_invoice_financials': {
+        const invoiceNumber = String(args.invoiceNumber || '').replace(/^#/, '').trim();
+        if (!invoiceNumber) return { success: false, error: 'Invoice number is required' };
+        if (!context.origin || !context.cookie) return { success: false, error: 'A signed-in portal session is required' };
+        const response = await fetch(new URL('/api/process-invoice-costs', context.origin), {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: context.cookie },
+          body: JSON.stringify({ invoiceNumber, writeBack: true }), signal: AbortSignal.timeout(90000),
+        });
+        const result = await response.json().catch(() => ({ success: false, error: `HTTP ${response.status}` }));
+        if (!response.ok || result.success === false || result.error) return { success: false, error: result.error || 'Invoice financial processing failed', details: result };
+        return { success: true, invoiceNumber, result };
+      }
+
       case 'query_communication_history': {
         const { accountName, limit = 10 } = args;
         if (!accountName) return { success: false, error: 'AccountName is required' };
@@ -1371,6 +1507,38 @@ const TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'query_daily_command_center',
+      description: 'Build a prioritized live command center of overdue tasks, upcoming engagement work, pending orders, and financial exceptions. Use this for daily planning and when the user asks what needs attention.',
+      parameters: { type: 'object', properties: { limit: { type: 'number' } } }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'query_account_intelligence',
+      description: 'Get a unified linked account timeline across invoices, sales orders, deals, tasks, calls, SMS messages, and notes.',
+      parameters: { type: 'object', properties: { accountName: { type: 'string' }, limit: { type: 'number' } }, required: ['accountName'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'query_financial_exceptions',
+      description: 'Continuously audit accessible invoices for missing cost calculations, pending cost sync, sync conflicts, negative profit, or missing commission calculations.',
+      parameters: { type: 'object', properties: { limit: { type: 'number' } } }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'query_management_forecast',
+      description: 'Calculate an explainable deterministic month-end sales and profit pace forecast, open pipeline, trailing sales, and overdue cash exposure.',
+      parameters: { type: 'object', properties: {} }
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'query_time_entries',
       description: 'Get time clock entries',
       parameters: {
@@ -1527,6 +1695,14 @@ const TOOLS = [
         },
         required: ['accountName']
       }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'process_invoice_financials',
+      description: 'Recalculate and synchronize an invoice’s authoritative costs, VIG, profit, payment enrichment, and commissions. This writes to Zoho Books and the portal, so explain the exact invoice and wait for confirmation.',
+      parameters: { type: 'object', properties: { invoiceNumber: { type: 'string' } }, required: ['invoiceNumber'] }
     }
   },
   {
@@ -1716,7 +1892,7 @@ export async function POST(req: NextRequest) {
       try {
         const result = customTool
           ? await executeCustomTool(customTool, confirmed.args, dbUser.id, actualRole, req.headers.get('cookie') || '')
-          : await executeTool(confirmed.toolName, confirmed.args, { userId: dbUser.id, userRole: actualRole, userName: dbUser.name || 'Unknown' });
+          : await executeTool(confirmed.toolName, confirmed.args, { userId: dbUser.id, userRole: actualRole, userName: dbUser.name || 'Unknown', cookie: req.headers.get('cookie') || '', origin: req.nextUrl.origin });
         const succeeded = !(result && typeof result === 'object' && ('error' in result || result.success === false));
         await prisma.operationalAction.update({ where: { id: audit.id }, data: { status: succeeded ? 'SUCCEEDED' : 'FAILED', result: result as any, errorMessage: succeeded ? null : String(result?.error || 'Action failed'), completedAt: new Date() } });
         return NextResponse.json({ success: succeeded, response: succeeded ? `Done. I completed ${confirmed.toolName.replaceAll('_', ' ')} and recorded the result.` : `I could not complete that action: ${result?.error || 'the action failed'}`, actionResult: result }, { status: succeeded ? 200 : 409 });
@@ -1751,6 +1927,8 @@ IMPORTANT RULES:
 - Always use the tools to query real data — never guess or hallucinate numbers
 - Search Titan knowledge before answering policy, workflow, product, or how-to questions
 - When planning work, review upcoming engagements and tasks, prioritize overdue/high-priority items, and offer the specific next action you can perform
+- Treat the assistant as an operating layer: use query_daily_command_center for daily priorities, query_account_intelligence for account questions, query_financial_exceptions for audits, and query_management_forecast for outlook questions.
+- For forecasts, state the deterministic method and caveat. Never present a projection as a guaranteed result.
 - Never say an action succeeded until its tool result confirms success
 - Write actions require explicit confirmation in the interface; explain what will happen and wait
 - If the user is not qualified for data or an action, say so and offer an authorized alternative
@@ -1853,7 +2031,9 @@ IMPORTANT RULES:
           toolResult = await executeTool(functionName, functionArgs, {
             userId: dbUser.id,
             userRole: actualRole,
-            userName: dbUser.name || 'Unknown'
+            userName: dbUser.name || 'Unknown',
+            cookie: req.headers.get('cookie') || '',
+            origin: req.nextUrl.origin,
           });
         }
 

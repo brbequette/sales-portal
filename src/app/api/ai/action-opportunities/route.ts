@@ -42,7 +42,7 @@ export async function GET() {
     prisma.task.count({ where: { ...taskScope, status: incomplete, dueDate: { gte: now, lte: nextWeek } } }),
     prisma.salesOrder.count({ where: { ...accountScope, status: { in: ['Draft', 'draft', 'Pending', 'pending'] } } }),
     prisma.invoice.count({ where: { ...accountScope, status: { in: ['Draft', 'draft'] } } }),
-    prisma.invoice.count({ where: { ...accountScope, OR: [{ pendingCostSync: true }, { costsCalculatedAt: null }] } }),
+    prisma.invoice.count({ where: { ...accountScope, status: { notIn: ['void', 'Void'] }, OR: [{ pendingCostSync: true }, { costsCalculatedAt: null }, { syncConflict: true }, { computedProfit: { lt: 0 } }, { computedUpfront: null }, { computedFinal: null }] } }),
     prisma.invoice.count({ where: { ...accountScope, balance: { gt: 0 }, dueDate: { lt: now }, status: { notIn: ['void', 'Void', 'paid', 'Paid'] } } }),
   ])
 
@@ -53,6 +53,7 @@ export async function GET() {
     costExceptions && { id: 'costs', label: 'Fix financial calculations', detail: 'Find invoices missing completed cost processing', count: costExceptions, urgency: 75, prompt: 'Review invoices with pending or missing cost calculations. Link the affected records and offer to process the qualified fixes.' },
     overdueInvoices && { id: 'collections', label: 'Handle overdue collections', detail: 'Prioritize unpaid balances and follow-up work', count: overdueInvoices, urgency: 70, prompt: 'Review overdue collections, prioritize the accounts, link every invoice and account, and offer the follow-up actions you can perform.' },
     upcomingTasks && { id: 'upcoming', label: 'Prepare upcoming work', detail: 'Review engagement steps due in the next 7 days', count: upcomingTasks, urgency: 60, prompt: 'Review my tasks and engagement steps due in the next 7 days. Link each record and offer to handle the next actions.' },
+    admin && { id: 'forecast', label: 'Review forecast and risks', detail: 'Project month-end sales, profit, pipeline, and cash exposure', count: 1, urgency: 55, prompt: 'Give me the verified management forecast. Explain the projection method, pipeline, overdue cash risk, and the actions you recommend.' },
   ].filter(Boolean) as Opportunity[]
 
   opportunities.sort((a, b) => b.urgency - a.urgency)
