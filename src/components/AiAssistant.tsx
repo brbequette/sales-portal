@@ -15,6 +15,8 @@ interface Message {
   logId?: string; // AiChatLog id for feedback
   feedback?: boolean | null; // null = no feedback, true = helpful, false = not helpful
   pendingActions?: Array<{ toolName: string; summary: string; confirmationToken: string }>;
+  verified?: boolean;
+  sourceCount?: number;
 }
 
 const AGENT_QUICK_PROMPTS = [
@@ -244,6 +246,8 @@ export function AiAssistant({ user }: AiAssistantProps) {
         logId: data.logId,
         feedback: null,
         pendingActions: data.pendingActions || [],
+        verified: data.verified === true,
+        sourceCount: Number(data.sourceCount || 0),
       };
       setMessages((prev) => [...prev, aiMessage]);
 
@@ -399,6 +403,11 @@ export function AiAssistant({ user }: AiAssistantProps) {
             {/* Assistant action row: listen + feedback */}
             {msg.role === 'assistant' && (
               <div className="mt-1.5 flex flex-wrap items-center gap-3">
+                {msg.verified && (
+                  <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-bold" title={`${msg.sourceCount || 0} retrieved record(s) checked`}>
+                    <FiCheckCircle size={11} /> Verified from records{msg.sourceCount ? ` (${msg.sourceCount})` : ''}
+                  </span>
+                )}
                 {msg.pendingActions?.map(action => (
                   <button
                     key={action.confirmationToken}

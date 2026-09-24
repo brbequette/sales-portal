@@ -42,6 +42,10 @@ function isAdmin(role: string): boolean {
   return ['MANAGER', 'ADMIN'].includes(normalizeAiRole(role));
 }
 
+function requiresCompanyDataEvidence(message: string): boolean {
+  return /\b(invoice|sales\s*order|estimate|quote|account|customer|contact|task|commission|payout|payment|collection|overdue|written[ -]?off|write[ -]?off|sales|profit|vig|goal|rep|lead|deal|time\s*entry|clock|inventory|product|order)\b/i.test(message);
+}
+
 function buildOwnerFilter(userRole: string, userId: string, repIdArg?: string) {
   if (isAdmin(userRole)) {
     return repIdArg ? { ownerId: repIdArg } : {};
@@ -102,14 +106,27 @@ async function executeTool(name: string, args: any, context: { userId: string, u
           where.issueDate = dateFilter;
         }
         if (status && status !== 'all') {
-          if (status === 'unpaid') {
+          if (status === 'written_off') {
+            where.OR = [
+              { isWrittenOff: true },
+              { writtenOffAt: { not: null } },
+              { status: { in: ['written_off', 'write_off', 'writeoff', 'bad debt'], mode: 'insensitive' } }
+            ];
+          } else if (status === 'unpaid') {
             where.status = { notIn: ['paid', 'Paid', 'void', 'Void'] };
           } else {
             where.status = { equals: status, mode: 'insensitive' };
           }
         }
         if (invoiceNumber) {
-          where.computedInvoiceNumber = { equals: String(invoiceNumber).replace(/^#/, ''), mode: 'insensitive' };
+          const normalizedNumber = String(invoiceNumber).replace(/^#/, '').trim();
+          const numberMatchers = [
+            { computedInvoiceNumber: { equals: normalizedNumber, mode: 'insensitive' } },
+            { zohoId: normalizedNumber },
+            { rawData: { path: ['invoice_number'], equals: normalizedNumber } },
+            { items: { path: ['invoice_number'], equals: normalizedNumber } }
+          ];
+          where.AND = [...(where.AND || []), { OR: numberMatchers }];
         }
 
         const invoices = await prisma.invoice.findMany({
@@ -129,6 +146,8 @@ async function executeTool(name: string, args: any, context: { userId: string, u
           upfront: inv.computedUpfront,
           final: inv.computedFinal,
           balance: inv.balance,
+          isWrittenOff: inv.isWrittenOff,
+          writtenOffAt: inv.writtenOffAt,
           internalUrl: `/account?id=${encodeURIComponent(inv.account.zohoId)}&invoice=${encodeURIComponent(inv.zohoId)}`
         }));
       }
@@ -1150,7 +1169,7 @@ const TOOLS = [
       parameters: {
         type: 'object',
         properties: {
-          status: { type: 'string', enum: ['paid', 'unpaid', 'overdue', 'all'] },
+          status: { type: 'string', enum: ['paid', 'unpaid', 'overdue', 'written_off', 'all'] },
           dateFrom: { type: 'string', description: 'ISO date string' },
           dateTo: { type: 'string', description: 'ISO date string' },
           accountName: { type: 'string' },
@@ -1742,6 +1761,7 @@ IMPORTANT RULES:
     ];
 
     let finalResponse = '';
+    const evidence: Array<{ tool: string; arguments: unknown; result: unknown }> = [];
     const pendingActions: Array<{ toolName: string; summary: string; confirmationToken: string }> = [];
     const maxRounds = 5;
     
@@ -1808,6 +1828,10 @@ IMPORTANT RULES:
           });
         }
 
+        if (!toolPolicy.mutating) {
+          evidence.push({ tool: functionName, arguments: functionArgs, result: toolResult });
+        }
+
         messages.push({
           tool_call_id: toolCall.id,
           role: 'tool',
@@ -1819,6 +1843,40 @@ IMPORTANT RULES:
 
     if (!finalResponse) {
       finalResponse = "I have completed the data gathering but failed to generate a final response.";
+    }
+
+    const dataQuestion = requiresCompanyDataEvidence(safeMessage);
+    let verified = !dataQuestion;
+    let sourceCount = 0;
+
+    for (const item of evidence) {
+      if (Array.isArray(item.result)) sourceCount += item.result.length;
+      else if (item.result && typeof item.result === 'object' && !(item.result as any).error) sourceCount += 1;
+    }
+
+    if (dataQuestion && evidence.length === 0 && pendingActions.length === 0) {
+      finalResponse = "I can’t verify that from the company records yet, so I won’t guess. Please try the question again or provide the exact record number or account name.";
+    } else if (dataQuestion && evidence.length > 0 && pendingActions.length === 0) {
+      try {
+        const evidenceJson = JSON.stringify(evidence).slice(0, 24000);
+        const { response: verificationResponse } = await createAIChatCompletion({
+          messages: [
+            {
+              role: 'system',
+              content: `You are the final factual verifier for Titan Diamond's internal assistant. Rewrite the draft answer using ONLY facts explicitly present in the supplied tool evidence. Do not use memory, assumptions, arithmetic not directly supported by the evidence, or prior conversation claims. Preserve relative internalUrl links and make every named record a Markdown link. If evidence is empty, contradictory, contains an error, or does not prove the requested answer, say exactly what could not be verified and do not guess. Never turn an absence from an improperly scoped search into a claim that no records exist. Be concise.`
+            },
+            {
+              role: 'user',
+              content: `QUESTION:\n${safeMessage}\n\nDRAFT:\n${finalResponse}\n\nTOOL EVIDENCE:\n${evidenceJson}`
+            }
+          ]
+        });
+        finalResponse = verificationResponse.choices[0].message.content || "I couldn’t verify the answer from the retrieved records, so I won’t guess.";
+        verified = true;
+      } catch (verificationError) {
+        console.error('AI answer verification failed:', verificationError);
+        finalResponse = "I retrieved company data, but the verification step failed. I won’t present an unverified answer—please try again.";
+      }
     }
 
     // Log the Q&A to AiChatLog for cataloging
@@ -1845,6 +1903,8 @@ IMPORTANT RULES:
       response: finalResponse,
       logId,
       pendingActions,
+      verified,
+      sourceCount,
     });
   } catch (error: any) {
     console.error('AI Chat Error:', error?.message || error);
