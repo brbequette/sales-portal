@@ -5,6 +5,7 @@ import { evaluateZohoSmsResponse } from "./lib/zoho-sms-response"
 import { buildZohoSmsFormData, loadZohoMmsMedia } from "./lib/zoho-mms-media"
 import { prisma } from "./lib/prisma"
 import { guardSmsSend } from "../../src/lib/sms-suppression"
+import { sendEmail } from "./lib/zoho-mail"
 
 // Runs every 10 minutes to process scheduled texts
 export const handler = schedule("*/10 * * * *", async () => {
@@ -37,13 +38,41 @@ export const handler = schedule("*/10 * * * *", async () => {
     // Get Zoho voice token once for the batch
     const accessToken = await getZohoVoiceAccessToken()
     if (!accessToken) {
-      console.error("Failed to authenticate with Zoho Voice API for scheduled batch.")
-      return { statusCode: 500 }
+      console.error("Failed to authenticate with Zoho Voice API; scheduled email can continue but SMS items will fail.")
     }
 
     for (const msg of messages) {
-      const contact = msg.account.contacts.find((c: any) => c.isPrimary) || msg.account.contacts[0]
+      const contact = msg.contactId ? msg.account.contacts.find((c: any) => c.id === msg.contactId) : (msg.account.contacts.find((c: any) => c.isPrimary) || msg.account.contacts[0])
+
+      if (msg.channel === "EMAIL") {
+        const toAddress = contact?.email
+        if (!toAddress) {
+          await prisma.scheduledMessage.update({ where: { id: msg.id }, data: { status: "FAILED", errorMessage: "Account has no primary contact email", sentAt: now } })
+          continue
+        }
+        try {
+          const zohoAccountId = process.env.ZOHO_MAIL_ACCOUNT_ID
+          const fromAddress = process.env.COMPANY_FROM_EMAIL
+          if (!zohoAccountId || !fromAddress) throw new Error("Zoho Mail sender is not configured")
+          const result = await sendEmail(zohoAccountId, { fromAddress, toAddress, subject: msg.fromNumber, content: msg.body })
+          const providerMessageId = String(result.data?.messageId || "").trim()
+          if (!providerMessageId) throw new Error(result.status?.description || "Zoho Mail returned no message ID")
+          await prisma.$transaction([
+            prisma.scheduledMessage.update({ where: { id: msg.id }, data: { status: "SENT", sentAt: now } }),
+            prisma.email.create({ data: { zohoMailId: providerMessageId, zohoAccountId, subject: msg.fromNumber, body: msg.body, fromAddress, toAddress, direction: "OUTBOUND", status: "REPLIED", sentAt: now, accountId: msg.accountId, contactId: contact?.id || null, userId: msg.authorId } }),
+            prisma.communicationEvent.create({ data: { accountId: msg.accountId, contactId: contact?.id || null, actorId: msg.authorId, channel: "EMAIL", direction: "OUTBOUND", eventType: "AUTODIALER_EMAIL_SENT", sourceType: "ScheduledMessage", sourceId: msg.id, subject: msg.fromNumber, summary: msg.body.slice(0, 1000), occurredAt: now } }),
+          ])
+        } catch (error: any) {
+          await prisma.scheduledMessage.update({ where: { id: msg.id }, data: { status: "FAILED", errorMessage: error.message || "Scheduled email failed", sentAt: now } })
+        }
+        continue
+      }
       const rawPhoneNumber = contact?.mobilePhone || contact?.phone
+
+      if (!accessToken) {
+        await prisma.scheduledMessage.update({ where: { id: msg.id }, data: { status: "FAILED", errorMessage: "Zoho Voice is not authenticated", sentAt: now } })
+        continue
+      }
 
       if (!rawPhoneNumber) {
         await prisma.scheduledMessage.update({

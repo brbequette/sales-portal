@@ -19,16 +19,18 @@ import { PhoneLink } from "@/components/PhoneLink"
 import { toast } from 'react-hot-toast';
 import { useSalesCampaignData } from "./useSalesCampaignData";
 import { Skeleton } from '@/components/ui/skeleton'
+import type { AutodialerPlan } from '@/lib/autodialer-plan'
 
 interface SalesCallCampaignModalProps {
   accounts: any[]
   onClose: () => void
   onRefresh: () => void
   autoStart?: boolean
+  plan?: AutodialerPlan | null
 }
 
-export function SalesCallCampaignModal({ accounts, onClose, onRefresh, autoStart = false }: SalesCallCampaignModalProps) {
-  const data = useSalesCampaignData({ accounts, onClose, onRefresh, autoStart })
+export function SalesCallCampaignModal({ accounts, onClose, onRefresh, autoStart = false, plan = null }: SalesCallCampaignModalProps) {
+  const data = useSalesCampaignData({ accounts, onClose, onRefresh, autoStart, plan })
   const {
     currentIndex, outcome, setOutcome, spokeTo, setSpokeTo, notes, setNotes,
     followUpDate, setFollowUpDate, contactReached, setContactReached,

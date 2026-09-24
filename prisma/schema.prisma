@@ -217,6 +217,7 @@ model Contact {
   callLogs            CallLog[]
   communicationEvents CommunicationEvent[]
   salesCommitments    SalesCommitment[]
+  scheduledMessages   ScheduledMessage[]
 
   @@index([accountId, isPrimary])
 }
@@ -1403,6 +1404,7 @@ model NotificationTemplate {
 model ScheduledMessage {
   id              String    @id @default(cuid())
   accountId       String
+  contactId       String?
   authorId        String
   campaignBlastId String?
   channel         String    @default("SMS")
@@ -1417,12 +1419,14 @@ model ScheduledMessage {
   updatedAt       DateTime  @updatedAt
 
   account       Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  contact       Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
   author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
   campaignBlast CampaignBlast? @relation(fields: [campaignBlastId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([scheduledTime])
   @@index([accountId])
+  @@index([contactId])
 }
 
 model PerformanceGoalBonus {

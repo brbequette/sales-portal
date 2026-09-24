@@ -6,15 +6,17 @@ import { EMPTY_FACT_FINDING, type FactFindingValues } from "@/components/FactFin
 import { type OrderLine } from "@/components/OrderBuilder"
 import { toast } from 'react-hot-toast'
 import { makeZohoVoiceCall } from '@/lib/zoho-voice-websdk'
+import type { AutodialerPlan } from '@/lib/autodialer-plan'
 
 interface UseSalesCampaignDataProps {
   accounts: any[]
   onClose: () => void
   onRefresh: () => void
   autoStart?: boolean
+  plan?: AutodialerPlan | null
 }
 
-export function useSalesCampaignData({ accounts, onClose, onRefresh, autoStart = false }: UseSalesCampaignDataProps) {
+export function useSalesCampaignData({ accounts, onClose, onRefresh, autoStart = false, plan = null }: UseSalesCampaignDataProps) {
   const { zohoContext: currentUser } = useZoho()
   const repName = currentUser?.name || "your sales rep"
 
@@ -176,6 +178,12 @@ export function useSalesCampaignData({ accounts, onClose, onRefresh, autoStart =
   }, [currentIndex, activeAccount, primaryContact])
 
   const generateScript = useCallback(() => {
+    if (plan?.callScript) {
+      return plan.callScript
+        .replaceAll("{{contactName}}", contactName)
+        .replaceAll("{{accountName}}", activeAccount?.name || "your company")
+        .replaceAll("{{repName}}", repName)
+    }
     const timeOfDay = new Date().getHours() < 12 ? "morning" : "afternoon"
     
     const overdueInvoices = (activeAccount?.invoices || []).filter((i: any) => i.status === "Overdue" || i.status?.toLowerCase() === "overdue")
@@ -233,7 +241,7 @@ export function useSalesCampaignData({ accounts, onClose, onRefresh, autoStart =
 
     scriptText += `Is there anything we can quote or ship out for you today?`
     return scriptText
-  }, [activeAccount, callType, contactName, repName, accountPurchases, factFinding])
+  }, [plan, activeAccount, callType, contactName, repName, accountPurchases, factFinding])
 
   const getBladeRecommendation = useCallback(() => {
     const mat = (factFinding.materialsCut || '').toLowerCase()
@@ -358,6 +366,15 @@ export function useSalesCampaignData({ accounts, onClose, onRefresh, autoStart =
       })
       const data = await response.json()
       if (data.success) {
+        if (plan && (plan.smsEnabled || plan.emailEnabled)) {
+          const followupResponse = await fetch("/api/autodialer/schedule-followups", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accountId: activeAccount.id, contactId: activeAccount.dialerContactId || primaryContact?.id, plan }) })
+          const followup = await followupResponse.json()
+          if (!followupResponse.ok) {
+            setIsPowerDialerActive(false)
+            throw new Error(`Disposition saved, but follow-ups were not scheduled: ${followup.error || "unknown error"}`)
+          }
+          toast.success(`Disposition saved · ${followup.scheduled} follow-up${followup.scheduled === 1 ? "" : "s"} scheduled`)
+        }
         handleNext()
       } else {
         toast.error(data.error || "Failed to log call outcome.")
@@ -367,7 +384,7 @@ export function useSalesCampaignData({ accounts, onClose, onRefresh, autoStart =
     } finally {
       setIsSavingDisposition(false)
     }
-  }, [activeAccount, isSavingDisposition, outcome, notes, repName, contactReached, spokeTo, followUpDate, timerSeconds, currentUser?.id, factFinding, orderLines, handleNext])
+  }, [activeAccount, primaryContact?.id, isSavingDisposition, outcome, notes, repName, contactReached, spokeTo, followUpDate, timerSeconds, currentUser?.id, factFinding, orderLines, plan, handleNext])
 
   return {
     currentIndex,

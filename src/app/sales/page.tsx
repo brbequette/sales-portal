@@ -7,6 +7,8 @@ import { resolvePermissions } from "@/lib/permissions"
 import { useZoho } from "@/components/ZohoProvider"
 import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 import { SalesCallCampaignModal } from "@/components/SalesCallCampaignModal"
+import { AutodialerSetupModal } from "@/components/AutodialerSetupModal"
+import type { AutodialerPlan } from "@/lib/autodialer-plan"
 import { OrderNextSteps } from "@/components/OrderNextSteps"
 import { NewCustomerModal } from "@/components/NewCustomerModal"
 import { NewLeadModal } from "@/components/NewLeadModal"
@@ -278,6 +280,8 @@ export default function SalesPage() {
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([])
   const [showCampaignModal, setShowCampaignModal] = useState(false)
   const [showCallCampaignModal, setShowCallCampaignModal] = useState(false)
+  const [showAutodialerSetup, setShowAutodialerSetup] = useState(false)
+  const [autodialerPlan, setAutodialerPlan] = useState<AutodialerPlan | null>(null)
   const [campaignName, setCampaignName] = useState("")
   const [campaignChannel, setCampaignChannel] = useState<"SMS" | "EMAIL" | "WHATSAPP">("SMS")
   const [campaignText, setCampaignText] = useState("")
@@ -1494,7 +1498,7 @@ export default function SalesPage() {
                                           toast.error("The autodialer supports up to 50 accounts per queue.")
                                           return
                                         }
-                                        setShowCallCampaignModal(true)
+                                        setShowAutodialerSetup(true)
                                       }}
                                       className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all flex items-center gap-1.5 text-xs cursor-pointer shadow-md"
                                     >
@@ -2353,12 +2357,25 @@ export default function SalesPage() {
       )}
 
       {/* Call Campaign Modal - Portal */}
+      {showAutodialerSetup && createPortal(
+        <AutodialerSetupModal
+          count={selectedAccountIds.length}
+          onClose={() => setShowAutodialerSetup(false)}
+          onStart={plan => { setAutodialerPlan(plan); setShowAutodialerSetup(false); setShowCallCampaignModal(true) }}
+        />,
+        document.body
+      )}
       {showCallCampaignModal && createPortal(
         <SalesCallCampaignModal
-          accounts={selectedAccountIds.map(id => accounts.find(account => account.id === id)).filter(Boolean)}
+          accounts={selectedAccountIds.map(id => accounts.find(account => account.id === id)).filter(Boolean).flatMap(account => {
+            if (autodialerPlan?.contactMode !== "ALL") return [account]
+            const callable = (account.contacts || []).filter((contact: any) => contact.phone || contact.mobilePhone)
+            return callable.length ? callable.map((contact: any) => ({ ...account, contacts: [contact], dialerContactId: contact.id })) : [account]
+          })}
           onClose={() => setShowCallCampaignModal(false)}
           onRefresh={() => fetchLocalData(1, false, true)}
           autoStart
+          plan={autodialerPlan}
         />,
         document.body
       )}
