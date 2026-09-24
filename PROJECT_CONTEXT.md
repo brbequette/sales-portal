@@ -1,5 +1,19 @@
 # Titan Diamond — Consolidated Project Context
 
+## Admin control center and Titan AI release (2026-09-24)
+
+- PR #90 reorganizes Admin into searchable business workspaces and expands Account Assignment from only `Update Status` accounts to an explicit All Accounts / Update Status Only scope. Scope changes invalidate background pagination and clear stale selections and pending owner choices.
+- Account ownership remains a dedicated administrator-only write path. Each write now carries the owner observed by the browser plus a unique request ID; the server rejects concurrent owner changes, durably prevents duplicate submissions, records the result in the operational audit trail, and reports related-contact partial failures without representing them as a clean success.
+- Titan AI remains mounted in the application shell. Authenticated conversation history is now persisted in bounded, user-keyed browser storage across navigation, refresh, and reopening. Requests refresh route, query, active-tab, and selected-record context; mutating confirmation tokens are bound to their originating page/query so a pending action cannot be confirmed after switching records.
+
+## Admin control-center information architecture (pending PR, 2026-09-24)
+
+- The Admin navigation is organized around Company Settings, Sales Configuration, Compensation & Payroll, Automation & AI, Communications, Products & Data, Integrations, Operations, System Health, and Advanced / Developer Tools. Configuration, monitoring, and dangerous maintenance are now visually separated without changing underlying business logic.
+- Existing production pages and APIs remain at their established URLs. `/admin/data-integrations` redirects to `/admin/integrations`, `/admin/people-time` redirects to `/admin/company-settings`, and the existing backfill/geofence compatibility redirects remain intact.
+- Potentially data-changing one-time utilities are discoverable only from the warned Advanced workspace. No Admin route, API, database model, provider operation, or historical record was deleted. The detailed KEEP/MERGE/MOVE/ADVANCED/RETIRE audit is in `docs/admin-route-inventory.md`.
+- The shared workspace hub now provides responsive search, breadcrumbs, risk badges, and consistent cards. All workspaces retain the existing administrator-role gate; normal users cannot access the Admin shell.
+- Account Assignment now defaults to all accounts so administrators can change record ownership regardless of account status. The established Update Status queue remains available as an explicit filter; both views use the same administrator-only owner-change path and preserve synchronized account/contact ownership behavior.
+
 ## Durable campaign processing and deliverability (pending PR, 2026-09-22)
 
 - Campaign status reads are observation-only. New campaigns materialize one durable recipient row per selected account and are processed by bounded server-side workers plus a one-minute recovery watchdog; browser polling and local storage are no longer execution dependencies.

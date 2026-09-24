@@ -1012,7 +1012,7 @@ const authenticatedHandler: Handler = async (event, context) => {
       )
       SELECT
         a.id::text, a."zohoId", a.name, a.tags, a.status, a.quality,
-        a."lastCalledAt", a."lastPurchaseAt", a."ownerId", a.industry, a."timeZone",
+        a."lastCalledAt", a."lastPurchaseAt", a."ownerId", a."updatedAt", a.industry, a."timeZone",
         a."billingStreet", a."billingCity", a."billingState", a."billingZip",
         a."shippingStreet", a."shippingCity", a."shippingState", a."shippingZip",
         a."bladeSizes", a."materialsCut", a."currentSupplier", a."averageBladeCost",
@@ -1100,7 +1100,7 @@ const authenticatedHandler: Handler = async (event, context) => {
       WHERE 1=1 ${scopeSql} ${statusSql} ${searchSql}
       GROUP BY
         a.id, a."zohoId", a.name, a.tags, a.status, a.quality,
-        a."lastCalledAt", a."lastPurchaseAt", a."ownerId", a.industry, a."timeZone",
+        a."lastCalledAt", a."lastPurchaseAt", a."ownerId", a."updatedAt", a.industry, a."timeZone",
         a."billingStreet", a."billingCity", a."billingState", a."billingZip",
         a."shippingStreet", a."shippingCity", a."shippingState", a."shippingZip",
         a."bladeSizes", a."materialsCut", a."currentSupplier", a."averageBladeCost",
@@ -1120,6 +1120,7 @@ const authenticatedHandler: Handler = async (event, context) => {
       lastCalledAt: acc.lastCalledAt,
       lastPurchaseAt: acc.lastPurchaseAt || acc.latestInvoiceDate,
       ownerId: acc.ownerId,
+      updatedAt: acc.updatedAt,
       industry: acc.industry,
       timeZone: acc.timeZone,
       billingStreet: acc.billingStreet, billingCity: acc.billingCity,
