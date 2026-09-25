@@ -31,6 +31,7 @@ Status: follow-up reconciliation implementation in progress; not released and no
 - RFD-50A060 product reconciliation is read-only upstream and idempotent locally. It verifies exact identity, active state, positive sales/purchase rates, purchase-capable goods type, non-inventory mode, and the exact active preferred vendor before persisting authoritative cost evidence.
 - Gift selection retains the exact Books item `1254360000043727500` with $0 sales price and $20 authoritative cost; focused regression coverage remains in place.
 - Production acceptance found two provider-shape mismatches: a locally converted Lead must not be created upstream with the local-only terminal `Converted` status, and Books may return an inventory account while explicitly setting `track_inventory` false. The hotfix maps only that terminal status to `New Lead` for the create-before-convert step and honors the explicit tracking boolean. Neither an inventory account nor zero stock authorizes dropship.
+- A second CRM acceptance attempt still returned `INVALID_DATA`, while the token lacked field-metadata scope needed to prove custom picklists. The final create payload therefore omits unverified optional `Lead_Status`, `Industry`, and `Time_Zone` fields and lets CRM apply its configured defaults. The authoritative local values remain unchanged; they are not guessed into unsupported CRM fields.
 
 ## Still required before release
 

@@ -13,8 +13,23 @@ type ProviderResult = {
   message?: string
 }
 
-export function normalizeCrmLeadStatus(status: string | null | undefined) {
-  return status === 'Converted' ? 'New Lead' : (status || 'New Lead')
+// Prisma Lead plus its selected owner; provider fields are runtime-normalized.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function buildCrmLeadCreatePayload(lead: any) {
+  return {
+    Company: lead.company,
+    Last_Name: lead.lastName || lead.company,
+    First_Name: lead.firstName || undefined,
+    Email: lead.email || undefined,
+    Phone: lead.phone || undefined,
+    Mobile: lead.mobile || undefined,
+    Designation: lead.title || undefined,
+    Street: lead.street || undefined,
+    City: lead.city || undefined,
+    State: lead.state || undefined,
+    Zip_Code: lead.zip || undefined,
+    Owner: lead.owner?.zohoId ? { id: lead.owner.zohoId } : undefined,
+  }
 }
 
 function fingerprint(value: unknown): string {
@@ -53,23 +68,7 @@ export async function persistPortalLeadToCrm(leadId: string): Promise<ProviderRe
   if (!lead) throw new Error('Lead not found')
   if (lead.crmLeadId) return { state: 'SUCCEEDED', crmLeadId: lead.crmLeadId }
 
-  const payload = {
-    Company: lead.company,
-    Last_Name: lead.lastName || lead.company,
-    First_Name: lead.firstName || undefined,
-    Email: lead.email || undefined,
-    Phone: lead.phone || undefined,
-    Mobile: lead.mobile || undefined,
-    Designation: lead.title || undefined,
-    Industry: lead.industry || undefined,
-    Lead_Status: normalizeCrmLeadStatus(lead.status),
-    Street: lead.street || undefined,
-    City: lead.city || undefined,
-    State: lead.state || undefined,
-    Zip_Code: lead.zip || undefined,
-    Time_Zone: lead.timeZone || undefined,
-    Owner: lead.owner.zohoId ? { id: lead.owner.zohoId } : undefined,
-  }
+  const payload = buildCrmLeadCreatePayload(lead)
   const operationKey = `crm:lead:create:${lead.id}`
   const operation = await prisma.providerWriteOperation.upsert({
     where: { operationKey },
