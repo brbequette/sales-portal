@@ -112,6 +112,12 @@ if (!AUTH_SECRET) {
 
 export async function proxy(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
+
+  // This native background function authenticates with its own shared secret.
+  // The scheduled dispatcher has no browser session; preserve every other gate.
+  if (pathname === '/.netlify/functions/telegram-agent-background') {
+    return NextResponse.next();
+  }
   
   // Allow an explicitly enabled E2E bypass only in non-production builds.
   // Localhost alone is not a security boundary: browsers and reverse proxies
