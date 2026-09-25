@@ -1,5 +1,10 @@
 # Titan Diamond — Consolidated Project Context
 
+## Shared-deal identity boundary (2026-09-25)
+
+- Reconciliation checks Books customer identity on every invoice in a shared deal, and the CRM write boundary independently rejects conflicting packages. This prevents an otherwise valid sibling invoice from publishing another customer's data. The guarded CRM canary and replay passed; full historical activation still requires production publication and queue acceptance.
+- The exact Books invoice-potential-CRM deal-account crosswalk was refreshed and applied with one-to-one identity, account-version guards, private before-images and independent readback. No company-name inference, provider account mutation, or owner reassignment occurred. Detailed counts remain private in the original workspace.
+
 ## Books customer identity guard (2026-09-25 follow-up)
 
 - Follow-up acceptance supersedes the earlier OAuth blocker: the repaired shared token successfully reads Deals metadata. CRM now has a verified unique `Portal_Deal_ID` field. An exact-account/exact-owner existing-deal canary wrote and downloaded its complete JSON package successfully; bulk activation is still pending final deployment and queue acceptance. Native notes require the CRM v8 `fields` parameter, and new deals must populate the observed required `Invoiced_Items` field (2,000-character index with full contents in the package).

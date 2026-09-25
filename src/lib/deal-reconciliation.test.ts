@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-const state = vi.hoisted(() => ({ invoice: {} as any, deals: [] as any[], quote: null as any, created: [] as any[], users: [] as any[] }))
+const state = vi.hoisted(() => ({ invoice: {} as any, siblings: [] as any[], deals: [] as any[], quote: null as any, created: [] as any[], users: [] as any[] }))
 vi.mock('./prisma', () => {
   const tx: any = {
     $executeRaw: vi.fn(),
     invoice: {
       findUnique: async () => state.invoice,
       updateMany: async ({ data }: any) => { Object.assign(state.invoice, data); return { count: 1 } },
-      findMany: async () => [state.invoice],
+      findMany: async () => [state.invoice, ...state.siblings],
     },
     deal: {
       findUnique: async ({ where }: any) => state.deals.find(d => d.zohoId === where.zohoId) || null,
@@ -25,9 +25,16 @@ vi.mock('./prisma', () => {
 import { reconcileInvoiceDeal } from './deal-reconciliation'
 beforeEach(() => {
   state.invoice = { id: 'invoice', zohoId: 'books-invoice', accountId: 'account', invoiceNumber: 'INV-12', amount: 100, status: 'sent', balance: 100, paymentMade: 0, dueDate: null, isWrittenOff: false, deal: null, dealId: null, account: { name: 'Fixture', ownerId: 'account-owner' }, updatedAt: new Date(), issueDate: new Date() }
-  state.deals = []; state.created = []; state.quote = null; state.users = []
+  state.deals = []; state.created = []; state.quote = null; state.users = []; state.siblings = []
 })
 describe('invoice deal identity reconciliation', () => {
+  it('holds the whole shared deal when a sibling invoice has a conflicting Books customer', async () => {
+    state.invoice.account.booksCustomerId = 'books-account'
+    state.invoice.items = { customer_id: 'books-account' }
+    state.invoice.deal = { id: 'existing', accountId: 'account', stage: 'Invoiced', amount: 100 }; state.invoice.dealId = 'existing'
+    state.siblings = [{ ...state.invoice, id: 'sibling', items: { customer_id: 'books-other' } }]
+    await expect(reconcileInvoiceDeal('invoice')).rejects.toThrow('BOOKS_CUSTOMER_ID_MISMATCH')
+  })
   it('rejects a provider customer mismatch before any deal creation or relinking', async () => {
     state.invoice.items = { customer_id: 'books-other' }
     state.invoice.account.booksCustomerId = 'books-account'
