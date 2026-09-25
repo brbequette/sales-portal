@@ -30,6 +30,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Missing zohoCallId' }, { status: 400 })
     }
 
+    // Audited manual associations must not be replaced by inferred phone/name
+    // matches or stale webhook payloads. Refresh these through scoped review.
+    const manualAssociation = await prisma.operationalAction.findUnique({
+      where: { idempotencyKey: `voice-manual-association:${zohoCallId}` }, select: { status: true },
+    })
+    if (manualAssociation?.status === "SUCCEEDED") return NextResponse.json({ success: true, message: 'Audited call preserved; use scoped reconciliation to refresh' })
+
     // Try to match agent email to local User
     let authorId = 'SYSTEM'
     if (agentEmail) {

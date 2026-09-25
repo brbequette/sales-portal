@@ -127,6 +127,11 @@ export async function POST(req: Request) {
         const zohoCallId = log.logid?.toString() || log.logId?.toString() || log.id?.toString()
         if (!zohoCallId) continue
 
+        const manualAssociation = await prisma.operationalAction.findUnique({
+          where: { idempotencyKey: `voice-manual-association:${zohoCallId}` }, select: { status: true },
+        })
+        if (manualAssociation?.status === "SUCCEEDED") continue
+
         const fromNumber = log.caller_id_number || log.fromNumber || log.caller || ''
         const toNumber = log.destination_number || log.toNumber || log.called || ''
         

@@ -1460,3 +1460,9 @@ live state before destructive changes or external writes.
 - Branch rebased onto origin/main d68f00b3. Existing replay safeguards retained.
 - Official Zoho transcription response uses serialized transcribeObj with transcriptJson; the former parser could return the raw JSON as transcript text. A pure parser now extracts segment text, supports existing wrappers, rejects provider errors/analysis-only or malformed JSON, and bounds nesting. Five additional regression cases pass (10 focused tests total); focused lint passes.
 - The TEST follow-up has since been saved in production and independently verified as CRM task 6821836000027791003. Do not duplicate it. Native CallLog/recording import, audited preview/apply, protected playback and CRM Calls synchronization remain unimplemented and must not be represented as complete.
+
+## Scoped Voice reconciliation implementation (unreleased)
+- Added administrator-only exact-ID Zoho preview/apply, five-minute actor-bound signed preview, stale-call checks, serializable local transaction, source-key audit/replay verification, existing-task linkage and transcript-backed CommunicationEvent persistence. Does not create a CRM Calls record or send communications.
+- Added explicit authenticated recording POST with a fixed provider host and provider-returned filename requirement; redirects, non-audio responses and guessed filenames are rejected.
+- Added administrative preview/apply UI and link from Communications. Sequential webhook/bulk replays skip manually audited calls. Simultaneous bulk-write races still require database integration testing/stronger shared serialization before release.
+- 20 focused tests passed; TypeScript and focused new-file lint passed. Native CRM Calls durable write/reconciliation, recording payload verification, concurrency integration tests and build/deployment verification remain release gates. Never deploy this as complete native synchronization yet.

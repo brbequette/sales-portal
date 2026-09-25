@@ -17,3 +17,8 @@ Required before release:
 7. Test provider rejection, malformed/wrong/multiple IDs, stale preview, duplicate/out-of-order deliveries, concurrency, unknown direction, business numbers, ambiguous identity, missing transcripts/recordings and denied playback. Run migration/build/function checks as applicable, PR review, controlled deploy and independent portal/CRM verification.
 
 Local implemented scope only: callback replay safeguards and transcript parser; no scoped import route, preview UI, recording proxy or native CRM Calls write has been implemented yet.
+
+## Implementation status update
+Scoped preview/apply routes, administrator UI and protected recording retrieval are now implemented locally. Twenty focused tests passed. The earlier statement that no scoped route exists is superseded by this section.
+
+Still release-blocking: database integration tests covering concurrent bulk/webhook versus manual apply; durable CRM Calls provider writes and ambiguity reconciliation; actual provider recording filename/authorization validation; build/function checks and independent production verification. The provider filename may be absent in a single-call response; absence is deliberately blocked rather than fabricated. Retell reference remains human-confirmed, not an independently fetched Retell record.

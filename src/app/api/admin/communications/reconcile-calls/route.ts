@@ -20,6 +20,14 @@ async function reconcile(apply: boolean) {
   for (const call of calls) {
     if (call.transcript?.trim()) totals.transcripts++
     if (holding?.id === call.accountId) totals.holding++
+    const manualAssociation = call.zohoCallId ? await prisma.operationalAction.findUnique({
+      where: { idempotencyKey: `voice-manual-association:${call.zohoCallId}` }, select: { status: true, accountId: true },
+    }) : null
+    if (manualAssociation?.status === "SUCCEEDED") {
+      if (manualAssociation.accountId === call.accountId) totals.confirmed++
+      else totals.unresolved++
+      continue
+    }
     const external = call.direction.toUpperCase() === "INBOUND" ? call.fromNumber : call.toNumber
     const normalized = normalizeVoicePhone(external)
     const matches = phoneMap.get(normalized) || []

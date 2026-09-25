@@ -100,6 +100,7 @@ export default function CommunicationsDashboard() {
 
   return (
     <div className="page-content">
+      <a href="/admin/communications/reconcile-call" className="inline-block mb-4 underline">Reconcile one voice call</a>
       {/* ─── Header ─────────────────────────────────── */}
       <div className="page-header">
         <div className="flex items-center gap-3">
