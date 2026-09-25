@@ -7,6 +7,7 @@ const ZOHO_DC = process.env.ZOHO_DC || 'com';
 import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
 import { financialZohoLineItems } from "../../src/lib/zoho-line-items"
 import { isPioneerCalifornia, validateDirectDropshipEvidence } from "../../src/lib/dropship-policy"
+import { isAdministratorRole } from "../../src/lib/roles"
 import { prisma } from "./lib/prisma"
 
 export const handler: Handler = async (event) => {
@@ -15,15 +16,16 @@ export const handler: Handler = async (event) => {
     return { statusCode: 405, body: JSON.stringify({ success: false, message: "Method Not Allowed" }) }
   }
 
+  let sessionUser: Awaited<ReturnType<typeof authenticateFunction>>
   try {
-    await authenticateFunction(event)
+    sessionUser = await authenticateFunction(event)
   } catch (error) {
     return authErrorResponse(error, headers)
   }
 
   try {
     const body = JSON.parse(event.body || "{}")
-    const { action, salesOrderId, vendorId, items, trackingNumber, requestId } = body
+    const { action, salesOrderId, vendorId, items, trackingNumber, requestId, purchaseOrderId } = body
 
     if (!action || !salesOrderId) {
       return { statusCode: 400, body: JSON.stringify({ success: false, message: "Missing required fields" }) }
@@ -63,6 +65,134 @@ export const handler: Handler = async (event) => {
           salesorderNumber: so.salesorder_number,
           packages: so.packages || [],
         })
+      }
+    }
+
+    if (action === "EmailPurchaseOrder") {
+      if (!isAdministratorRole(sessionUser.role)) {
+        return { statusCode: 403, body: JSON.stringify({ success: false, message: "Administrator access is required to email a purchase order." }) }
+      }
+      if (typeof purchaseOrderId !== "string" || !purchaseOrderId.trim()) {
+        return { statusCode: 400, body: JSON.stringify({ success: false, message: "Purchase order ID is required." }) }
+      }
+      if (typeof requestId !== "string" || !/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(requestId)) {
+        return { statusCode: 400, body: JSON.stringify({ success: false, message: "A stable UUID requestId is required for duplicate-safe purchase-order email." }) }
+      }
+
+      const recipientEmail = String(body.recipientEmail || "").trim().toLowerCase()
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
+        return { statusCode: 400, body: JSON.stringify({ success: false, message: "A valid recipient email is required." }) }
+      }
+
+      const [localPurchaseOrder, localSalesOrder] = await Promise.all([
+        prisma.purchaseOrder.findUnique({ where: { zohoId: purchaseOrderId } }),
+        prisma.salesOrder.findUnique({
+          where: { zohoId: salesOrderId },
+          include: { account: { include: { contacts: true } } },
+        }),
+      ])
+      if (!localPurchaseOrder || !localPurchaseOrder.isDropshipment || localPurchaseOrder.salesOrderId !== salesOrderId) {
+        return { statusCode: 422, body: JSON.stringify({ success: false, message: "The purchase order is not the exact locally linked dropship order for this sales order." }) }
+      }
+      if (!localSalesOrder?.account) {
+        return { statusCode: 422, body: JSON.stringify({ success: false, message: "The sales order is not linked to a local account." }) }
+      }
+      const approvedContact = localSalesOrder.account.contacts.find(contact =>
+        String(contact.email || "").trim().toLowerCase() === recipientEmail
+      )
+      if (!approvedContact) {
+        return { statusCode: 422, body: JSON.stringify({ success: false, message: "Recipient must exactly match a contact on the linked account; vendor and arbitrary recipients are blocked." }) }
+      }
+
+      const poReadRes = await fetch(`${baseUrl}/purchaseorders/${purchaseOrderId}?organization_id=${ORG_ID}`, {
+        signal: AbortSignal.timeout(15000),
+        headers: { Authorization: `Zoho-oauthtoken ${token}` },
+      })
+      const poReadData = await poReadRes.json().catch(() => null)
+      if (!poReadRes.ok || poReadData?.code !== 0 || poReadData?.purchaseorder?.purchaseorder_id !== purchaseOrderId) {
+        return { statusCode: 422, body: JSON.stringify({ success: false, message: "The exact purchase order could not be verified in Zoho Books." }) }
+      }
+      const providerPurchaseOrder = poReadData.purchaseorder
+      const purchaseOrderNumber = String(providerPurchaseOrder.purchaseorder_number || "").trim()
+      const salesOrderNumber = String(so.salesorder_number || localPurchaseOrder.salesOrderNumber || "").trim()
+      const subject = `TEST ONLY - Purchase Order ${purchaseOrderNumber || purchaseOrderId}`
+      const emailBody = `Internal test purchase order${purchaseOrderNumber ? ` ${purchaseOrderNumber}` : ""}${salesOrderNumber ? ` for Sales Order ${salesOrderNumber}` : ""}. Do not forward to the vendor or fulfill this order.`
+      const requestFingerprint = createHash("sha256").update(JSON.stringify({ salesOrderId, purchaseOrderId, recipientEmail, subject, emailBody })).digest("hex")
+      const operationKey = `books:purchaseorders:email:${requestId}`
+      const operation = await prisma.providerWriteOperation.upsert({
+        where: { operationKey },
+        update: {},
+        create: {
+          operationKey,
+          provider: "ZOHO_BOOKS",
+          entityType: "PURCHASE_ORDER",
+          entityId: purchaseOrderId,
+          operation: "EMAIL_PURCHASE_ORDER",
+          requestFingerprint,
+        },
+      })
+      if (operation.requestFingerprint !== requestFingerprint) {
+        return { statusCode: 409, body: JSON.stringify({ success: false, message: "requestId was already used with different purchase-order email data." }) }
+      }
+      if (operation.state === "SUCCEEDED") {
+        return { statusCode: 200, body: JSON.stringify({ success: true, alreadyProcessed: true, purchaseOrderId, recipientEmail, providerMessage: operation.providerMessage }) }
+      }
+      if (operation.state === "SYNCING" || operation.state === "AMBIGUOUS") {
+        return { statusCode: 202, body: JSON.stringify({ success: false, providerState: operation.state, message: "This purchase-order email is in progress or requires reconciliation; it was not resubmitted." }) }
+      }
+      if (operation.state === "FAILED") {
+        return { statusCode: 422, body: JSON.stringify({ success: false, providerState: "FAILED", code: operation.providerCode, message: operation.providerMessage || "The prior email attempt failed and was not retried." }) }
+      }
+      const claimed = await prisma.providerWriteOperation.updateMany({
+        where: { operationKey, state: "PENDING" },
+        data: { state: "SYNCING", attemptCount: { increment: 1 }, lastAttemptAt: new Date() },
+      })
+      if (claimed.count !== 1) {
+        return { statusCode: 202, body: JSON.stringify({ success: false, providerState: "SYNCING", message: "Purchase-order email is already in progress." }) }
+      }
+
+      let emailRes: Response
+      let emailData: any
+      try {
+        emailRes = await fetch(`${baseUrl}/purchaseorders/${purchaseOrderId}/email?organization_id=${ORG_ID}&send_attachment=true`, {
+          signal: AbortSignal.timeout(15000),
+          method: "POST",
+          headers: { Authorization: `Zoho-oauthtoken ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ to_mail_ids: [recipientEmail], cc_mail_ids: [], bcc_mail_ids: [], subject, body: emailBody }),
+        })
+        emailData = await emailRes.json().catch(() => null)
+      } catch (providerError) {
+        const message = providerError instanceof Error ? providerError.message : "Unknown Books email submission error"
+        await prisma.providerWriteOperation.update({
+          where: { operationKey },
+          data: { state: "AMBIGUOUS", lastError: message, providerMessage: "Email submission outcome is unknown; exact reconciliation is required before retry." },
+        })
+        return { statusCode: 202, body: JSON.stringify({ success: false, providerState: "AMBIGUOUS", message: "Books email outcome is unknown and was not retried." }) }
+      }
+      if (!emailRes.ok || emailData?.code !== 0) {
+        const code = String(emailData?.code ?? `HTTP_${emailRes.status}`)
+        const message = String(emailData?.message || "Zoho Books rejected the purchase-order email.")
+        await prisma.providerWriteOperation.update({
+          where: { operationKey },
+          data: { state: "FAILED", providerCode: code, providerMessage: message, lastError: message, completedAt: new Date() },
+        })
+        return { statusCode: 422, body: JSON.stringify({ success: false, providerState: "FAILED", code, message }) }
+      }
+
+      await prisma.providerWriteOperation.update({
+        where: { operationKey },
+        data: {
+          state: "SUCCEEDED",
+          providerCode: String(emailData.code),
+          providerMessage: String(emailData.message || "Purchase order email accepted."),
+          providerRecordIds: { purchaseOrderId, recipientContactId: approvedContact.id },
+          completedAt: new Date(),
+          lastError: null,
+        },
+      })
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ success: true, purchaseOrderId, purchaseOrderNumber, recipientEmail, providerCode: emailData.code, providerMessage: emailData.message }),
       }
     }
 
