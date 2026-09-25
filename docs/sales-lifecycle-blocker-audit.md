@@ -1,6 +1,6 @@
 # Sales lifecycle blocker audit
 
-Status: follow-up reconciliation implementation in progress; not released and not production-verified.
+Status: authoritative mapping and task acceptance released and production-verified; communication, financial-document, payment, and fulfillment acceptance remain gated.
 
 ## Confirmed root causes
 
@@ -33,9 +33,10 @@ Status: follow-up reconciliation implementation in progress; not released and no
 - Production acceptance found two provider-shape mismatches: a locally converted Lead must not be created upstream with the local-only terminal `Converted` status, and Books may return an inventory account while explicitly setting `track_inventory` false. The hotfix maps only that terminal status to `New Lead` for the create-before-convert step and honors the explicit tracking boolean. Neither an inventory account nor zero stock authorizes dropship.
 - CRM diagnostics identified the remaining rejected nested field as `id`, originating from the legacy `User.zohoId` submitted as `Owner.id`. Because that value is not an authoritative CRM Users mapping, the create payload now also omits `Owner`; local ownership remains unchanged and CRM applies its configured default until a dedicated CRM-user mapping exists. The payload continues to omit unverified optional `Lead_Status`, `Industry`, and `Time_Zone` fields.
 
-## Still required before release
+## Remaining acceptance gates
 
-- Mocked provider concurrency, rejection, accepted-timeout, lock-expiry, and transaction-failure coverage.
-- Deploy and invoke the restricted reconciliation path for local TEST account `cmug0bjgs0002z35hikn7od9w` and lead `cmufz988p00012v293aj45jas`, then verify the resulting exact CRM/Books mappings.
-- Remaining fulfillment idempotency, address/shipping/tax preview, and truthful pending/ambiguous UI feedback corrections.
-- Full lint, build, function bundle, preview, reviewed merge, backup, production deploy, and browser/provider acceptance.
+- Provider-response tests reject HTTP errors, per-record errors, malformed bodies, and missing IDs. Durable create/convert paths preserve explicit syncing, failed, and ambiguous outcomes; broader end-to-end concurrency and transaction-interruption simulation remains a follow-up where not already covered by focused unit contracts.
+- The restricted reconciliation path was deployed and invoked for local TEST Account `cmug0bjgs0002z35hikn7od9w` and Lead `cmufz988p00012v293aj45jas`. CRM Lead/Account/Contact and Books Customer/Contact mappings all verify as authoritative 19-digit identifiers. Exactly one CRM-backed Task was created against the same local Account.
+- Production preflight confirms the approved contact controls and address, zero prior financial-document spend, and authoritative RFD-50A060 price/cost/vendor evidence. Dropship remains blocked because no explicit provider eligibility flag exists; zero stock and vendor presence are deliberately insufficient.
+- Financial-document, payment, reminder, campaign, purchase-order, package/shipment, and label acceptance are NOT RUN. They require the promised just-in-time user confirmation and, for the dropship path, authoritative eligibility evidence. No communication or financial transaction was sent during mapping/task acceptance.
+- PR #103 and PR #104 passed lifecycle/migration CI and Netlify previews before merge. Production main is `9a65046417d4131aec67fc6063034fe872d84c4b`; Netlify deploy `6ab602ed6c36160008c4be1e` is ready and the production root returns HTTP 200.
