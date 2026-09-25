@@ -65,7 +65,7 @@ export const handler: Handler = async (event, context) => {
       throw new Error("Account not found")
     }
 
-    const fulfillmentPlan = (Array.isArray(lineItems) ? lineItems : []).map((line: any) => ({
+    const fulfillmentPlan: Array<Record<string, any>> = (Array.isArray(lineItems) ? lineItems : []).map((line: any) => ({
       itemId: line.itemId || null,
       sku: String(line.sku || ''),
       name: String(line.name || ''),
