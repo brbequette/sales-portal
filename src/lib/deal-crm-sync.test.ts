@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const state = vi.hoisted(() => ({ operation: null as any, updates: [] as any[], pkg: null as any, deal: null as any }))
 vi.mock('./prisma', () => ({ prisma: { deal: { findUniqueOrThrow: async () => state.deal }, providerWriteOperation: {
+  findUnique: vi.fn(async () => state.operation),
   upsert: vi.fn(async ({ create }: any) => state.operation ||= { id: 'op1', state: 'PENDING', ...create }),
   updateMany: vi.fn(async () => { if (state.operation.state !== 'PENDING') return { count: 0 }; state.operation.state = 'SYNCING'; return { count: 1 } }),
   update: vi.fn(async ({ data }: any) => { state.updates.push(data); Object.assign(state.operation, data) }),
@@ -75,5 +76,18 @@ describe('CRM rejection diagnostics', () => {
   it('does not include provider free text or unsafe detail values', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({data:[{status:'error',code:'INVALID_DATA',details:{api_name:'private customer name'},message:'private'}]}), {status:400})))
     await expect(crmRequest('Deals')).rejects.toThrow(/^CRM_400_INVALID_DATA$/)
+  })
+})
+
+describe('new CRM deal owner preflight', () => {
+  it.each(['disabled', 'deleted', undefined])('holds a new deal with owner status %s before claiming a write', async status => {
+    state.pkg = { invoices: [], account: { id: 'account', crmAccountId: '6821836000027811002' }, deal: { owner: { zohoId: '6821836000000636001' } }, lifecycle: { disposition: 'Voided' } }
+    state.deal = { zohoId: 'invoice:123', rawData: {} }
+    const read = vi.fn().mockResolvedValueOnce(new Response(null, {status:204})).mockResolvedValueOnce(new Response(JSON.stringify({users:[{id:'6821836000000636001',status}]})))
+    vi.stubGlobal('fetch', read)
+    await expect(syncDealToCrm('deal', {enabled:true,identityField:'Portal_Deal_ID',portalUrl:'https://example.com',stages:{Voided:'Closed Lost'}})).rejects.toThrow('CRM_ACTIVE_OWNER_REQUIRED')
+    expect(read).toHaveBeenCalledTimes(2)
+    expect(read.mock.calls.every(([, options]) => !options.method || options.method === 'GET')).toBe(true)
+    expect(state.operation).toBeNull()
   })
 })
