@@ -188,14 +188,13 @@ export const handler: Handler = async (event) => {
       if (so.salesperson_id) {
         payload.zcrm_owner_id = so.salesperson_id
       }
-      if (so.salesperson_name) {
-        payload.custom_fields = [
-          {
-            api_name: "cf_sales_person",
-            value: so.salesperson_name
-          }
-        ]
-      }
+
+      // Do not copy the sales-order display name into the purchase-order
+      // `cf_sales_person` dropdown. Books validates dropdowns against their
+      // configured option values, and a valid sales-order salesperson name is
+      // not necessarily a valid purchase-order dropdown option. Ownership is
+      // carried by the provider identifier above; an invalid descriptive
+      // custom field must never block an otherwise valid dropship PO.
 
       const operationKey = `books:purchaseorders:dropship:create:${requestId}`
       const requestFingerprint = createHash("sha256").update(JSON.stringify({ salesOrderId, vendorId, line_items: poLineItems })).digest("hex")
