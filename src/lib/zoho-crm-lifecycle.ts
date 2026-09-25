@@ -36,7 +36,7 @@ function fingerprint(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex')
 }
 
-async function lookupAcceptedLead(email: string | null, company: string, token: string): Promise<string | null> {
+export async function lookupAcceptedLead(email: string | null, company: string, token: string): Promise<string | null> {
   if (!email) return null
   const criteria = encodeURIComponent(`(Email:equals:${email})`)
   const response = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Leads/search?criteria=${criteria}&fields=id,Company,Email`, {
@@ -81,9 +81,11 @@ export async function persistPortalLeadToCrm(leadId: string): Promise<ProviderRe
   }
 
   const token = await getZohoAccessToken()
+  const existingId = await lookupAcceptedLead(lead.email, lead.company, token)
+  if (existingId) {
+    return completeLeadWrite(lead.id, operationKey, existingId, 'LOOKUP_MATCH', 'Recovered an existing CRM lead by exact email and company.')
+  }
   if (operation.state === 'AMBIGUOUS') {
-    const existingId = await lookupAcceptedLead(lead.email, lead.company, token)
-    if (existingId) return completeLeadWrite(lead.id, operationKey, existingId, 'LOOKUP_MATCH', 'Recovered an accepted CRM create by exact email and company.')
     return { state: 'AMBIGUOUS', message: 'Prior submission remains ambiguous and requires review.' }
   }
 
