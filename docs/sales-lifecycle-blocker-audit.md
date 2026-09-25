@@ -30,6 +30,7 @@ Status: follow-up reconciliation implementation in progress; not released and no
 - Task creation resolves the submitted local Account ID first, requires its authoritative `crmAccountId`, submits that ID as CRM `What_Id`, and persists the Task against the same local Account. Provider codes/messages remain readable instead of becoming `[object Object]`.
 - RFD-50A060 product reconciliation is read-only upstream and idempotent locally. It verifies exact identity, active state, positive sales/purchase rates, purchase-capable goods type, non-inventory mode, and the exact active preferred vendor before persisting authoritative cost evidence.
 - Gift selection retains the exact Books item `1254360000043727500` with $0 sales price and $20 authoritative cost; focused regression coverage remains in place.
+- Production acceptance found two provider-shape mismatches: a locally converted Lead must not be created upstream with the local-only terminal `Converted` status, and Books may return an inventory account while explicitly setting `track_inventory` false. The hotfix maps only that terminal status to `New Lead` for the create-before-convert step and honors the explicit tracking boolean. Neither an inventory account nor zero stock authorizes dropship.
 
 ## Still required before release
 

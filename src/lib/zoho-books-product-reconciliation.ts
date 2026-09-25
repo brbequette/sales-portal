@@ -36,6 +36,8 @@ export async function reconcileExactBooksProduct(sku: string, booksItemId?: stri
   const token = await getZohoAccessToken()
   if (!exactItemId) {
     const search = await getBooks(`/items?search_text=${encodeURIComponent(exactSku)}&per_page=25`, token)
+    // Provider JSON is runtime-validated by exact identity below.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const exactMatches = (Array.isArray(search?.items) ? search.items : []).filter((item: any) => String(item?.sku || item?.name || '').trim() === exactSku && String(item?.item_id || '').trim())
     if (exactMatches.length !== 1) return { state: 'FAILED', sku: exactSku, dropshipEligibility: 'BLOCKED_UNKNOWN', message: 'Books did not return exactly one item with the exact SKU.' }
     exactItemId = String(exactMatches[0].item_id).trim()
@@ -50,7 +52,8 @@ export async function reconcileExactBooksProduct(sku: string, booksItemId?: stri
   const status = String(item?.status || '').toLowerCase()
   const itemType = String(item?.item_type || '').toLowerCase()
   const productType = String(item?.product_type || '').toLowerCase()
-  const inventoryTracked = item?.track_inventory === true || Boolean(item?.inventory_account_id)
+  // Inventory account presence is not inventory-tracking or dropship evidence.
+  const inventoryTracked = item?.track_inventory === true
   if (returnedId !== exactItemId || returnedSku !== exactSku) return { state: 'FAILED', sku: exactSku, dropshipEligibility: 'BLOCKED_UNKNOWN', message: 'Books returned a different item identity.' }
   if (status !== 'active' || !Number.isFinite(salesRate) || salesRate <= 0 || !Number.isFinite(purchaseRate) || purchaseRate <= 0) {
     return { state: 'FAILED', sku: exactSku, dropshipEligibility: 'BLOCKED_UNKNOWN', message: 'Books item is not active or lacks authoritative positive sales and purchase rates.' }

@@ -13,6 +13,10 @@ type ProviderResult = {
   message?: string
 }
 
+export function normalizeCrmLeadStatus(status: string | null | undefined) {
+  return status === 'Converted' ? 'New Lead' : (status || 'New Lead')
+}
+
 function fingerprint(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex')
 }
@@ -27,6 +31,8 @@ async function lookupAcceptedLead(email: string | null, company: string, token: 
   if (response.status === 204) return null
   if (!response.ok) return null
   const payload = await response.json()
+  // Provider JSON is runtime-validated below.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const exact = (payload?.data || []).filter((candidate: any) =>
     String(candidate.Email || '').toLowerCase() === email.toLowerCase()
     && String(candidate.Company || '').toLowerCase() === company.toLowerCase())
@@ -56,7 +62,7 @@ export async function persistPortalLeadToCrm(leadId: string): Promise<ProviderRe
     Mobile: lead.mobile || undefined,
     Designation: lead.title || undefined,
     Industry: lead.industry || undefined,
-    Lead_Status: lead.status || 'New Lead',
+    Lead_Status: normalizeCrmLeadStatus(lead.status),
     Street: lead.street || undefined,
     City: lead.city || undefined,
     State: lead.state || undefined,
@@ -176,6 +182,8 @@ async function lookupConvertedEntities(email: string | null, company: string, to
   })
   if (response.status === 204 || !response.ok) return null
   const body = await response.json().catch(() => null)
+  // Provider JSON is runtime-validated below.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const matches = (body?.data || []).filter((contact: any) =>
     String(contact?.Email || '').trim().toLowerCase() === email.trim().toLowerCase()
     && String(contact?.Account_Name?.name || '').trim().toLowerCase() === company.trim().toLowerCase()
