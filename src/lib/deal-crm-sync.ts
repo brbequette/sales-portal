@@ -26,7 +26,8 @@ export async function crmMetadata() { return (await crmRequest('settings/fields?
 export function validateDealSyncConfig(config: DealSyncConfig, fields: any[]) {
   if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(config.identityField)) throw new Error('INVALID_IDENTITY_FIELD')
   const identity = fields.find(f => f.api_name === config.identityField)
-  if (!identity || !identity.unique || identity.data_type !== 'text' || identity.field_read_only === true) throw new Error('CRM_UNIQUE_IDENTITY_FIELD_REQUIRED')
+  // Zoho returns {} for ordinary fields, and { case_sensitive: boolean } for unique fields.
+  if (!identity || typeof identity.unique?.case_sensitive !== 'boolean' || identity.data_type !== 'text' || identity.field_read_only === true || identity.read_only === true || identity.operation_type?.api_create === false || identity.operation_type?.api_update === false) throw new Error('CRM_UNIQUE_IDENTITY_FIELD_REQUIRED')
   if (fields.some(f => f.api_name === 'Pipeline' && f.system_mandatory) && !config.pipeline) throw new Error('CRM_PIPELINE_REQUIRED')
   const stages = new Set((fields.find(f => f.api_name === 'Stage')?.pick_list_values || []).map((v: any) => v.actual_value))
   for (const disposition of ['Needs Review','Written Off','Voided','Draft Invoice','Credited / Refunded','Settled — Review Payment','Overdue','Partially Paid','Invoiced','Paid','Complete']) {
@@ -44,6 +45,17 @@ export function mergePackageDescription(description: string | null | undefined, 
   const next = startIndex < 0 ? `${original}${original ? '\n\n' : ''}${block}` : `${original.slice(0, startIndex)}${block}${original.slice(endIndex + end.length)}`
   if (next.length > 32000) throw new Error('CRM_DESCRIPTION_CAPACITY_EXCEEDED')
   return next
+}
+
+/** CRM's required small text field is an index; the full line data stays in the package. */
+export function invoiceItemIndex(invoices: Array<{ invoiceNumber?: string | null; zohoId: string; items?: unknown }>) {
+  const lines = invoices.map(invoice => {
+    const items = object(invoice.items)
+    const source = Array.isArray(items.line_items) ? items.line_items : []
+    return `${invoice.invoiceNumber || invoice.zohoId}: ${source.length ? source.map((line: any) => `${line.quantity ?? '?'} x ${line.name || line.item_name || line.description || line.item_id || 'Item details unavailable'}`).join('; ') : 'See linked invoice and complete deal package'}`
+  }).join('\n')
+  const suffix = '\n[Continued in complete deal package]'
+  return lines.length > 2000 ? lines.slice(0, 2000 - suffix.length) + suffix : lines || 'See complete deal package'
 }
 
 /** A timeout/unknown result is never automatically re-issued. Reconciliation is read-only. */
@@ -98,7 +110,7 @@ export async function syncDealToCrm(dealId: string, config: DealSyncConfig) {
   if (remote?.[identity] && remote[identity] !== dealId) throw new Error('CRM_IDENTITY_CONFLICT')
   if (!remote) {
     // Stable create payload; mutable totals/stage follow in the guarded update after identity exists.
-    const createPayload = { [identity]: dealId, Deal_Name: deal.name, Account_Name: { id: crmAccountId }, Owner: { id: pkg.deal.owner.zohoId }, Stage: targetStage, Closing_Date: (deal.closingDate || deal.createdAt).toISOString().slice(0, 10), ...(config.pipeline ? { Pipeline: config.pipeline } : {}) }
+    const createPayload = { [identity]: dealId, Deal_Name: deal.name, Account_Name: { id: crmAccountId }, Owner: { id: pkg.deal.owner.zohoId }, Stage: targetStage, Closing_Date: (deal.closingDate || deal.createdAt).toISOString().slice(0, 10), Invoiced_Items: invoiceItemIndex(pkg.invoices), ...(config.pipeline ? { Pipeline: config.pipeline } : {}) }
     const crmId = await guardedWrite(`deal-create:${dealId}`, dealId, createPayload,
       async () => successId(await crmRequest('Deals', { method: 'POST', body: JSON.stringify({ data: [createPayload], trigger: [], skip_feature_execution: [{ name: 'cadences' }] }) })),
       async () => (await search())?.id || null)
@@ -109,7 +121,7 @@ export async function syncDealToCrm(dealId: string, config: DealSyncConfig) {
   if (remote.Owner?.id !== pkg.deal.owner.zohoId) throw new Error('CRM_OWNER_MISMATCH')
   const crmNotes: any[] = []
   for (let page = 1; page <= 50; page++) {
-    const response = await crmRequest(`Deals/${remote.id}/Notes?per_page=200&page=${page}`)
+    const response = await crmRequest(`Deals/${remote.id}/Notes?fields=id,Note_Title,Note_Content,Owner,Created_Time,Modified_Time,Created_By,Modified_By,Parent_Id&per_page=200&page=${page}`)
     crmNotes.push(...(response.data || []))
     if (!response.info?.more_records) break
     if (page === 50) throw new Error('CRM_NOTES_PAGINATION_LIMIT')

@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from './prisma'
-import { dispositionDeal, exactDocumentReference, verifiedCompletion, isCrmId } from './deal-lifecycle'
+import { dispositionDeal, exactDocumentReference, verifiedCompletion, isCrmId, booksCustomerConflicts } from './deal-lifecycle'
 import { object } from './deal-package'
 
 /** Guard existing associations; legacy name references qualify only within the exact Account. */
@@ -8,6 +8,7 @@ export async function reconcileInvoiceDeal(invoiceId: string) {
   return prisma.$transaction(async tx => {
     const invoice = await tx.invoice.findUnique({ where: { id: invoiceId }, include: { account: true, deal: true } })
     if (!invoice) throw new Error('INVOICE_NOT_FOUND')
+    if (booksCustomerConflicts(object(invoice.items).customer_id, invoice.account)) throw new Error('BOOKS_CUSTOMER_ID_MISMATCH')
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`deal-account:${invoice.accountId}`}))`
     let deal = invoice.deal
     // Books owns the document-to-opportunity identity. Never fall back to names

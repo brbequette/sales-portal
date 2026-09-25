@@ -43,6 +43,12 @@ export function exactDocumentReference(name: string, number: string) {
 }
 export function isCrmId(value: unknown): value is string { return typeof value === 'string' && /^\d{15,20}$/.test(value) }
 
+/** A provider customer ID must match an explicit Books identity, never a name. */
+export function booksCustomerConflicts(customerId: unknown, account: { booksCustomerId?: string | null; zohoId?: string | null }) {
+  if (customerId === undefined || customerId === null || customerId === '') return false
+  return typeof customerId !== 'string' || ![account.booksCustomerId, account.zohoId].includes(customerId)
+}
+
 export function verifiedCompletion(
   invoices: Array<InvoiceEvidence & { id: string; zohoId: string; salesOrderZohoId: string | null }>,
   packages: Array<{ id: string; salesOrderId: string | null; status: string | null }>,

@@ -14,6 +14,8 @@
   NODE_VERSION = "20.18.0"
   NEXT_TELEMETRY_DISABLED = "1"
   PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK = "1"
+  # Public origin used in generated links; it is not a credential.
+  SECRETS_SCAN_OMIT_KEYS = "TELEGRAM_PUBLIC_ORIGIN"
 
 [[headers]]
   for = "/*"

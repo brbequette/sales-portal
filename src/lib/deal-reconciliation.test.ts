@@ -28,6 +28,12 @@ beforeEach(() => {
   state.deals = []; state.created = []; state.quote = null; state.users = []
 })
 describe('invoice deal identity reconciliation', () => {
+  it('rejects a provider customer mismatch before any deal creation or relinking', async () => {
+    state.invoice.items = { customer_id: 'books-other' }
+    state.invoice.account.booksCustomerId = 'books-account'
+    await expect(reconcileInvoiceDeal('invoice')).rejects.toThrow('BOOKS_CUSTOMER_ID_MISMATCH')
+    expect(state.created).toHaveLength(0); expect(state.invoice.dealId).toBeNull()
+  })
   it('uses Books potential identity ahead of a stale local relationship', async () => {
     state.invoice.items = { zcrm_potential_id: '6821836000000673964' }
     state.invoice.deal = { id: 'stale', accountId: 'other-account' }; state.invoice.dealId = 'stale'

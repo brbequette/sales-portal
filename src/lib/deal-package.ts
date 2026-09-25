@@ -1,5 +1,5 @@
 import { prisma } from './prisma'
-import { dispositionDeal, verifiedCompletion } from './deal-lifecycle'
+import { dispositionDeal, verifiedCompletion, booksCustomerConflicts } from './deal-lifecycle'
 
 export const object = (value: unknown): Record<string, any> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, any> : {}
 
@@ -32,10 +32,12 @@ export async function getDealPackage(dealId: string) {
   ])
   const rawData = object(deal.rawData)
   const { _portalSync, _portalCrmNotes, ...crmFields } = rawData
-  const complete = verifiedCompletion(deal.invoices, packages, checklists)
-  const lifecycle = complete ? 'Complete' : dispositionDeal(deal.invoices) || deal.stage
+  const identityConflict = deal.invoices.some(i => i.accountId !== deal.accountId || booksCustomerConflicts(object(i.items).customer_id, deal.account))
+  const complete = !identityConflict && verifiedCompletion(deal.invoices, packages, checklists)
+  const lifecycle = identityConflict ? 'Needs Review' : complete ? 'Complete' : dispositionDeal(deal.invoices) || deal.stage
   const activeInvoices = deal.invoices.filter(i => !['void','voided','orphaned'].includes(i.status.toLowerCase()))
   const unknowns: string[] = []
+  if (identityConflict) unknowns.push('Books customer identity conflicts with this deal account; reconciliation is required.')
   if (deal.invoices.some(i => i.balance === null)) unknowns.push('One or more invoice balances are unknown.')
   if (deal.invoices.some(i => i.computedProfit === null)) unknowns.push('One or more invoice profit calculations are unavailable.')
   if (!packages.length) unknowns.push('No linked package evidence; fulfillment is unverified.')

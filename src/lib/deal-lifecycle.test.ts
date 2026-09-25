@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { dispositionInvoice, dispositionDeal, exactDocumentReference, isCrmId, verifiedCompletion } from './deal-lifecycle'
+import { dispositionInvoice, dispositionDeal, exactDocumentReference, isCrmId, verifiedCompletion, booksCustomerConflicts } from './deal-lifecycle'
 const base = { status: 'sent', amount: 100, balance: 100, paymentMade: 0, dueDate: null, isWrittenOff: false }
+
+it('checks explicit and legacy Books customer IDs without accepting names or numeric coercion', () => {
+  expect(booksCustomerConflicts('books-1', { booksCustomerId: 'books-1' })).toBe(false)
+  expect(booksCustomerConflicts('books-1', { zohoId: 'books-1' })).toBe(false)
+  expect(booksCustomerConflicts(undefined, { zohoId: 'books-1' })).toBe(false)
+  expect(booksCustomerConflicts('books-2', { booksCustomerId: 'books-1' })).toBe(true)
+  expect(booksCustomerConflicts(123, { booksCustomerId: '123' })).toBe(true)
+})
 describe('invoice-driven deal dispositions', () => {
   it.each([
     [{ status: 'paid', balance: 0 }, 'Paid'],

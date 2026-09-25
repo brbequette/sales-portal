@@ -6,7 +6,7 @@ vi.mock('./prisma', () => ({ prisma: { providerWriteOperation: {
   update: vi.fn(async ({ data }: any) => { state.updates.push(data); Object.assign(state.operation, data) }),
 } } }))
 vi.mock('./zoho-auth', () => ({ getZohoAccessToken: vi.fn(), ZOHO_DC: 'com' }))
-import { guardedWrite, mergePackageDescription, validateDealSyncConfig } from './deal-crm-sync'
+import { guardedWrite, mergePackageDescription, validateDealSyncConfig, invoiceItemIndex } from './deal-crm-sync'
 beforeEach(() => { state.operation = null; state.updates = [] })
 describe('durable provider writes', () => {
   it('verifies before declaring success', async () => {
@@ -35,7 +35,11 @@ describe('durable provider writes', () => {
   })
 })
 describe('CRM preservation and configuration', () => {
+  it('supplies the required invoice item index from source evidence', () => expect(invoiceItemIndex([{zohoId:'123', invoiceNumber:'INV-1', items:{line_items:[{name:'Blade',quantity:2}]}}])).toBe('INV-1: 2 x Blade'))
+  it('caps the provider small-text field and points to complete package content', () => { const index=invoiceItemIndex([{zohoId:'123',items:{line_items:[{name:'a'.repeat(3000),quantity:1}]}}]); expect(index.length).toBe(2000); expect(index).toMatch(/Continued in complete deal package/); })
   it('preserves user description before and after the managed block', () => expect(mergePackageDescription('Human note\n[Titan deal package]\nold\n[/Titan deal package]\nOther note','new')).toBe('Human note\n[Titan deal package]\nnew\n[/Titan deal package]\nOther note'))
   it('refuses malformed markers instead of truncating notes', () => expect(() => mergePackageDescription('Human note [Titan deal package]','new')).toThrow('MALFORMED'))
   it('requires a provider-enforced unique identity field', () => expect(() => validateDealSyncConfig({ enabled: true, identityField: 'Portal_Deal_ID', stages: {}, portalUrl: 'https://example.com' }, [{ api_name: 'Portal_Deal_ID', data_type: 'text' }])).toThrow('UNIQUE_IDENTITY'))
+  it.each([{}, { case_sensitive: 'false' }, null])('rejects non-unique provider metadata %j', unique => expect(() => validateDealSyncConfig({ enabled: true, identityField: 'Portal_Deal_ID', stages: {}, portalUrl: 'https://example.com' }, [{ api_name: 'Portal_Deal_ID', data_type: 'text', unique }])).toThrow('UNIQUE_IDENTITY'))
+  it.each([true, false])('accepts explicit provider uniqueness with case sensitivity %s', case_sensitive => expect(() => validateDealSyncConfig({ enabled: true, identityField: 'Portal_Deal_ID', stages: {}, portalUrl: 'https://example.com' }, [{ api_name: 'Portal_Deal_ID', data_type: 'text', unique: { case_sensitive } }])).toThrow('STAGE_MAPPING'))
 })
