@@ -26,7 +26,8 @@ export async function crmMetadata() { return (await crmRequest('settings/fields?
 export function validateDealSyncConfig(config: DealSyncConfig, fields: any[]) {
   if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(config.identityField)) throw new Error('INVALID_IDENTITY_FIELD')
   const identity = fields.find(f => f.api_name === config.identityField)
-  if (!identity || !identity.unique || identity.data_type !== 'text' || identity.field_read_only === true) throw new Error('CRM_UNIQUE_IDENTITY_FIELD_REQUIRED')
+  // Zoho returns {} for ordinary fields, and { case_sensitive: boolean } for unique fields.
+  if (!identity || typeof identity.unique?.case_sensitive !== 'boolean' || identity.data_type !== 'text' || identity.field_read_only === true || identity.read_only === true || identity.operation_type?.api_create === false || identity.operation_type?.api_update === false) throw new Error('CRM_UNIQUE_IDENTITY_FIELD_REQUIRED')
   if (fields.some(f => f.api_name === 'Pipeline' && f.system_mandatory) && !config.pipeline) throw new Error('CRM_PIPELINE_REQUIRED')
   const stages = new Set((fields.find(f => f.api_name === 'Stage')?.pick_list_values || []).map((v: any) => v.actual_value))
   for (const disposition of ['Needs Review','Written Off','Voided','Draft Invoice','Credited / Refunded','Settled — Review Payment','Overdue','Partially Paid','Invoiced','Paid','Complete']) {
