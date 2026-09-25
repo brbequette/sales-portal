@@ -51,6 +51,7 @@ const SKIP_PATTERNS = [
 
 // API routes that don't require authentication
 const PUBLIC_API_PATTERNS = [
+  '/api/telegram/webhook', // Authenticated by Telegram webhook secret; link routes remain private
   '/api/auth/',      // NextAuth routes + magic link
   '/api/webhooks/',  // Webhook endpoints (use their own token auth)
   '/api/public/',    // Explicitly public endpoints

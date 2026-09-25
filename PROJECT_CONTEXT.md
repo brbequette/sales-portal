@@ -1,5 +1,14 @@
 # Titan Diamond — Consolidated Project Context
 
+## Telegram agents (isolated development, 2026-09-25)
+
+- User requested Telegram agents for themselves and sales reps: accounting, graphics, operations, collections, sales, and product expertise. They require actionable recommendations, task execution, evidence-grounded answers, and an observed confidence history before automatic approval can be enabled.
+- The isolated `codex/telegram-sales-agents` worktree implements portal pairing, private-chat webhook verification, a durable background reply queue, six role/tool profiles, scoped database retrieval, approved portal task creation/completion, and branded SVG flyer drafts. Each action has an actor-bound expiring approval, concurrency guards, audit, and read-back verification. Telegram and provider credentials have not been configured; nothing is deployed or connected.
+- Readiness is computed from human-reviewed, verified outcomes per user/agent/action, not model confidence. Initial eligibility requires 50 reviewed outcomes, 98% correct, score 95+, and no recent failures. Explicit management enablement is additionally required. Only portal-only task creation can initially qualify; this never enables financial writes or customer sends.
+- No zero-hallucination guarantee is made. Tools expose source timestamps, coverage, and bounded samples; a second model pass checks answers against evidence. Existing missing account links/transcripts and unsupported source integrations remain visible limitations. No live Zoho reader was added alongside the ongoing transcript import.
+- `docs/telegram-agents.md` documents actual capabilities, activation requirements, and gaps. Domain-specific financial writes/customer communications, full-corpus analysis, persistent conversational memory, additional operational hardening, and management configuration of other reps' auto-approval remain follow-ups. User is creating a new bot through BotFather; its username/token configuration and release acceptance are pending.
+- Validation: 16 focused authorization/action/confidence tests pass; TypeScript, the isolated Next.js webpack production build, and both Netlify worker bundles compile. No live Telegram or AI-provider acceptance has been performed. Development did not write production business data or send messages.
+
 ## Browser-retest lifecycle repairs (production plus reconciliation follow-up, 2026-09-25)
 
 - PR #108 merged as `f7ae55df09a8ce5a00ea647c5e60ef6a85190625` and Netlify deploy `6ab647a19b05db0008ab9d98` published the POS, gift, bundle, address-payload, and communication repairs. Production browser review verified the TEST Account, exact dropship vendor, $0.36 COGS, $0.91 subtotal, and full local Centralia addresses without submitting a document.
