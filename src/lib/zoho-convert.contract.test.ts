@@ -18,6 +18,13 @@ describe('Zoho document conversion safety contract', () => {
     expect(handler).toContain('state: "SUCCEEDED"')
   })
 
+  it('reopens only a definitively failed operation after the corrected payload changes', () => {
+    expect(handler).toContain('operation.state !== "FAILED"')
+    expect(handler).toContain('where: { operationKey, state: "FAILED", requestFingerprint: operation.requestFingerprint }')
+    expect(handler).toContain('requestFingerprint,\n          state: "PENDING"')
+    expect(handler).toContain('operation.state === "FAILED" && operation.requestFingerprint === requestFingerprint')
+  })
+
   it('preserves provider diagnostics in the UI', () => {
     expect(ui).toContain('const data = await res.json().catch(() => null)')
     expect(ui).toContain('data?.providerState')

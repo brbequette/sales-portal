@@ -136,7 +136,24 @@ export const handler: Handler = async (event, context) => {
       },
     })
     if (operation.requestFingerprint !== requestFingerprint) {
-      return { statusCode: 409, body: JSON.stringify({ success: false, providerState: operation.state, message: "The source document changed after conversion was prepared. Review it before trying again." }) }
+      if (operation.state !== "FAILED") {
+        return { statusCode: 409, body: JSON.stringify({ success: false, providerState: operation.state, message: "The source document changed after conversion was prepared. Review it before trying again." }) }
+      }
+      const reopened = await prisma.providerWriteOperation.updateMany({
+        where: { operationKey, state: "FAILED", requestFingerprint: operation.requestFingerprint },
+        data: {
+          requestFingerprint,
+          state: "PENDING",
+          providerCode: null,
+          providerMessage: null,
+          providerRecordIds: undefined,
+          lastError: null,
+          completedAt: null,
+        },
+      })
+      if (reopened.count !== 1) {
+        return { statusCode: 409, body: JSON.stringify({ success: false, providerState: "FAILED", message: "The failed conversion changed concurrently and was not retried." }) }
+      }
     }
     if (operation.state === "SUCCEEDED") {
       const prior = operation.providerRecordIds as { newDocumentId?: string } | null
@@ -145,7 +162,7 @@ export const handler: Handler = async (event, context) => {
     if (operation.state === "SYNCING" || operation.state === "AMBIGUOUS") {
       return { statusCode: 202, body: JSON.stringify({ success: false, providerState: operation.state, message: "This conversion is already in progress or has an unknown provider outcome. It was not resubmitted." }) }
     }
-    if (operation.state === "FAILED") {
+    if (operation.state === "FAILED" && operation.requestFingerprint === requestFingerprint) {
       return { statusCode: 422, body: JSON.stringify({ success: false, providerState: "FAILED", code: operation.providerCode, message: operation.providerMessage || "The prior conversion failed and was not retried automatically." }) }
     }
     const claimed = await prisma.providerWriteOperation.updateMany({
