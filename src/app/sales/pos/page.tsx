@@ -8,6 +8,8 @@ import { StandaloneOrderBuilder } from "@/components/StandaloneOrderBuilder"
 interface Account {
   id: string
   zohoId: string
+  crmAccountId?: string
+  booksCustomerId?: string
   name: string
   status?: string
   timeZone?: string
@@ -94,7 +96,9 @@ export default function StandalonePosPage() {
             </div>
             <div>
               <div className="text-xs font-bold text-white leading-none mb-0.5">{selectedAccount.name}</div>
-              <div className="text-[10px] text-neutral-400 font-mono leading-none">Zoho ID: {selectedAccount.zohoId}</div>
+              <div className="text-[10px] text-neutral-400 font-mono leading-none">
+                CRM: {selectedAccount.crmAccountId || "Not mapped"} · Books: {selectedAccount.booksCustomerId || "Not mapped"}
+              </div>
             </div>
             <button
               onClick={handleClearSelection}
@@ -162,7 +166,7 @@ export default function StandalonePosPage() {
                         </div>
                       </div>
                       <span className="font-mono text-[9px] text-neutral-600 bg-neutral-950 px-2 py-0.5 rounded border border-white/5">
-                        {acc.zohoId}
+                        {acc.crmAccountId ? `CRM ${acc.crmAccountId}` : acc.id}
                       </span>
                     </button>
                   ))}
@@ -180,7 +184,7 @@ export default function StandalonePosPage() {
           /* OrderBuilder View */
           <div className="flex-1 flex flex-col min-h-0 bg-white/[0.01] border border-white/10 rounded-2xl p-5 shadow-inner">
             <StandaloneOrderBuilder
-              accountId={selectedAccount.zohoId}
+              accountId={selectedAccount.id}
               accountName={selectedAccount.name}
               accountDetail={selectedAccount}
               onCancel={handleClearSelection}

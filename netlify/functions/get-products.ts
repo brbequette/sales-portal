@@ -11,15 +11,24 @@ const authenticatedHandler: Handler = async (event, context) => {
   }
 
   try {
+    const search = String(event.queryStringParameters?.search || "").trim()
     const products = await prisma.product.findMany({
+      where: search ? {
+        OR: [
+          { sku: { contains: search, mode: "insensitive" } },
+          { name: { contains: search, mode: "insensitive" } },
+          { category: { contains: search, mode: "insensitive" } },
+        ],
+      } : undefined,
       orderBy: { name: "asc" },
-      take: 2000,
+      take: search ? 25 : 2000,
     })
 
     const cors = {
       "Content-Type": "application/json",
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "Content-Type"
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Cache-Control": "no-store"
     }
 
     return {
