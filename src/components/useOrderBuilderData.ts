@@ -338,7 +338,7 @@ export function useOrderBuilderData({
           sku: p.sku as string,
           price: (p.price || 0) as number,
           cost: Number(p.unitCost ?? desc.cost ?? 0),
-          costQuality: (p.costQuality === 'VERIFIED_ZERO' || Number(p.unitCost ?? desc.cost) > 0) ? (p.costQuality === 'VERIFIED_ZERO' ? 'VERIFIED_ZERO' : 'AUTHORITATIVE') : 'UNKNOWN',
+          costQuality: (p.costQuality === 'VERIFIED_ZERO' || Number(p.unitCost ?? desc.cost) > 0) ? (p.costQuality === 'VERIFIED_ZERO' ? 'VERIFIED_ZERO' as const : 'AUTHORITATIVE' as const) : 'UNKNOWN' as const,
           application: matchApplication(p.name, p.category || ""),
           size: extractSize(p.name),
           type: matchType(p.name, p.category || ""),
