@@ -124,11 +124,12 @@ export function buildInvoiceUpdateData(input: {
     zohoModifiedTime: zohoModTime, lastZohoModifiedTime: zohoModTime, lastSyncedAt: new Date(), appModifiedAt: new Date(),
     syncConflict: input.conflictResult.hasConflict, conflictFields: input.conflictResult.hasConflict ? JSON.parse(JSON.stringify(input.conflictResult.fields)) : undefined,
     pendingZohoFetch: false, actualShippingCost: finite(input.calcItems.actualShippingCost), shippingCostBreakdown: String(input.calcItems.shippingCostBreakdown || '').trim() || null,
+    costsCalculatedAt: new Date(),
     computedProfit: finite(input.calcItems.profit), computedDeadProfit: finite(input.calcItems.deadProfitActual), computedDeadCost: finite(input.calcItems.deadCostTotal), computedVigRate: finite(input.calcItems.vigRate),
     computedSalesperson: String(input.zohoDoc.salesperson_name || '').trim() || null, computedInvoiceNumber: String(input.zohoDoc.invoice_number || '').trim() || null,
     computedUpfront: commission == null ? null : commission / 2, computedFinal: commission == null ? null : (isPaid ? commission / 2 : 0),
     paymentMade: parseFloat(String(input.zohoDoc.payment_made ?? '0')) || 0, paymentExpected: input.paymentSummary.paymentExpected, lastPaymentDate: input.paymentSummary.lastPaymentDate, balance: input.paymentSummary.balance,
-    items: JSON.parse(JSON.stringify(mergedItems)),
+    items: JSON.parse(JSON.stringify({ ...mergedItems, zcrm_potential_id: input.zohoDoc.zcrm_potential_id ?? currentItems.zcrm_potential_id, zcrm_potential_name: input.zohoDoc.zcrm_potential_name ?? currentItems.zcrm_potential_name })),
   }
 }
 
@@ -197,8 +198,9 @@ export async function fetchInvoicePaymentsFromZoho(zohoInvoiceId: string): Promi
   if (!token) throw new Error("No Zoho token")
   const response = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/invoices/${zohoInvoiceId}/payments?organization_id=${ORG_ID}`, { headers: { Authorization: `Zoho-oauthtoken ${token}` } })
   if (!response.ok) throw new Error(`[sync-engine] Payment fetch returned ${response.status} for invoice ${zohoInvoiceId}`)
-  const payload = await response.json() as { payments?: ZohoPayment[] }
-  return payload.payments ?? []
+  const payload = await response.json() as { code?: number; payments?: ZohoPayment[] }
+  if (payload.code !== 0 || !Array.isArray(payload.payments)) throw new Error('Invoice payment evidence unavailable')
+  return payload.payments
 }
 
 /** Pure, replay-safe normalization of payment rows and summary values. */
@@ -506,6 +508,8 @@ export async function updateInvoiceRecord(opts: {
   const mergedItems = {
     ...currentItems,
     // Zoho-owned snapshot
+    zcrm_potential_id:   zohoDoc.zcrm_potential_id ?? currentItems.zcrm_potential_id,
+    zcrm_potential_name: zohoDoc.zcrm_potential_name ?? currentItems.zcrm_potential_name,
     status:             zohoDoc.status,
     customer_name:      zohoDoc.customer_name,
     salesperson_name:   zohoDoc.salesperson_name,
@@ -608,6 +612,8 @@ export async function updateSalesOrderRecord(opts: {
     line_items:       zohoDoc.line_items,
     custom_fields:    zohoDoc.custom_fields,
     shipping_address: zohoDoc.shipping_address || (currentItems as any).shipping_address || null,
+    zcrm_potential_id: zohoDoc.zcrm_potential_id ?? currentItems.zcrm_potential_id,
+    zcrm_potential_name: zohoDoc.zcrm_potential_name ?? currentItems.zcrm_potential_name,
     billing_address:  zohoDoc.billing_address || (currentItems as any).billing_address || null,
     ...calcItems,
   }
@@ -658,6 +664,8 @@ export async function updateQuoteRecord(opts: {
 
   const mergedItems = {
     ...currentItems,
+    zcrm_potential_id: zohoDoc.zcrm_potential_id ?? currentItems.zcrm_potential_id,
+    zcrm_potential_name: zohoDoc.zcrm_potential_name ?? currentItems.zcrm_potential_name,
     status:           zohoDoc.status,
     customer_name:    zohoDoc.customer_name,
     salesperson_name: zohoDoc.salesperson_name,

@@ -16,6 +16,8 @@ import { prisma } from "./prisma"
 import { getSystemSettings, AppSettings } from "./settings"
 import { extractCcFees, extractAdditionalCosts, extractInsurance, extractActualShippingCost, extractShippingCostBreakdown } from "../../../src/lib/custom-field-extractor"
 import { financialZohoLineItems } from "../../../src/lib/zoho-line-items"
+import { calculateCardProcessingFee, resolveCardFeeBase, isCardPaymentMode } from "../../../src/lib/invoice-card-fee"
+export { calculateCardProcessingFee, resolveCardFeeBase } from "../../../src/lib/invoice-card-fee"
 
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -55,18 +57,6 @@ export interface CostCalculationResult {
   shippingRollup: Record<string, unknown>
   lineItemDetails: LineItemDetail[]
   lineItemBreakdownStrings: string[]
-}
-
-/** Approved rule: card processing is 4.5% of the invoice grand total. */
-export function calculateCardProcessingFee(grandTotal: number, ratePercent = 4.5): number {
-  const base = Number.isFinite(grandTotal) && grandTotal > 0 ? grandTotal : 0
-  return Number((base * (ratePercent / 100)).toFixed(2))
-}
-
-export function resolveCardFeeBase(doc: any, subtotal: number): { base: number; reviewReason?: 'MISSING_GRAND_TOTAL' } {
-  const grandTotal = Number(doc?.total_amount ?? doc?.grand_total ?? doc?.total)
-  if (Number.isFinite(grandTotal) && grandTotal > 0) return { base: grandTotal }
-  return { base: subtotal, reviewReason: 'MISSING_GRAND_TOTAL' }
 }
 
 export function requiresManagerReview(profit: number, giftOrSwag: boolean): boolean {
@@ -227,6 +217,12 @@ export async function resolveVigRate(
   // 1. Up to end of 2024 (through Dec 31, 2024):
   //    Monty is 1.0 VIG; everyone else is 1.3 VIG.
   if (year <= 2024) {
+    if (!isMontgomery && (doc.invoice_id !== undefined || doc.invoice_number !== undefined) && salespersonName) {
+      const rep = await prisma.user.findFirst({ where: { name: { equals: salespersonName, mode: 'insensitive' } } })
+      if (rep?.constantVigEnabled && rep.constantVigValue != null) return rep.constantVigValue
+      const month = rep ? await prisma.monthlyVigGoal.findUnique({ where: { repId_monthKey: { repId: rep.id, monthKey: docDate.toISOString().substring(0, 7) } } }) : null
+      if (month?.manualVigRate != null && month.manualVigRate > 0) return month.manualVigRate
+    }
     return isMontgomery ? 1.0 : 1.3
   }
 
@@ -261,6 +257,10 @@ export async function resolveVigRate(
         return user.constantVigValue
       }
 
+      const authoritativeMonth = doc.invoice_id !== undefined || doc.invoice_number !== undefined
+        ? await prisma.monthlyVigGoal.findUnique({ where: { repId_monthKey: { repId: user.id, monthKey: docDate.toISOString().substring(0, 7) } } }) : null
+      if (authoritativeMonth?.manualVigRate != null && authoritativeMonth.manualVigRate > 0) return authoritativeMonth.manualVigRate
+
       // Check monthly VIG goal override in SystemSettings
       const vigSettings = await prisma.systemSetting.findUnique({ where: { key: "vig_settings" } })
       const allVig = vigSettings ? JSON.parse(vigSettings.value) : {}
@@ -283,6 +283,9 @@ export async function resolveVigRate(
     }
   }
 
+  const historicalVig = doc.custom_fields?.find((f: any) => f.api_name === 'cf_salesperson_vig' || String(f.label || '').toUpperCase().trim() === 'SALESPERSON VIG')
+  const historicalRate = Number(historicalVig?.value)
+  if ((doc.invoice_id !== undefined || doc.invoice_number !== undefined) && [1, 1.3, 1.5].includes(historicalRate)) return historicalRate
   return settings.default_vig_rate || 1.3
 }
 
@@ -323,6 +326,7 @@ export async function calculateDocumentCosts(
     manualVigRate?: number | null
     manualCommPct?: number | null
     noVigOverrides?: Record<string, boolean>
+    paymentRecords?: Array<{ amount: number; mode?: string | null; payment_mode?: string | null }>
   } = {}
 ): Promise<CostCalculationResult> {
   const { manualVigRate, manualCommPct, noVigOverrides } = options
@@ -390,7 +394,7 @@ export async function calculateDocumentCosts(
   const isInvoice = doc.invoice_id !== undefined || doc.invoice_number !== undefined
   if (isInvoice && invoiceId) {
     try {
-      const dbPayments = await prisma.payment.findMany({
+      const dbPayments = options.paymentRecords ?? await prisma.payment.findMany({
         where: {
           OR: [
             { invoiceId: String(invoiceId) },
@@ -398,19 +402,10 @@ export async function calculateDocumentCosts(
           ]
         }
       })
-      const hasCardPayment = dbPayments.some(p => {
-        const mode = (p.mode || '').toLowerCase()
-        return mode.includes('authorize') ||
-               mode.includes('stripe') ||
-               mode.includes('zelle') ||
-               mode.includes('card') ||
-               mode.includes('square') ||
-               mode.includes('forte') ||
-               mode.includes('leap payment') ||
-               mode.includes('paypal')
-      })
+      const hasCardPayment = dbPayments.some(p => p.amount > 0 && isCardPaymentMode('payment_mode' in p ? p.payment_mode : p.mode))
       if (hasCardPayment) {
         const feeBase = resolveCardFeeBase(doc, subTotal)
+        if (feeBase.reviewReason) throw new Error('MISSING_GRAND_TOTAL')
         ccFees = calculateCardProcessingFee(feeBase.base, settings.cc_fee_rate)
       } else if (dbPayments.length > 0) {
         // If there are payments but none are card (e.g. check or cash), fee is 0
@@ -418,6 +413,7 @@ export async function calculateDocumentCosts(
       }
     } catch (e) {
       console.error("Error checking payments for cc fees calculation:", e)
+      throw e
     }
   }
 

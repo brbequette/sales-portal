@@ -43,7 +43,7 @@ export function createZohoTokenProvider({ env = {}, cache = {}, fetchImpl = glob
       } catch { /* cache failures are classified below only when persistence is required */ }
     }
     if (required.some(key => !config[key])) { const e = new Error('other_oauth_failure'); e.oauthCode = 'other_oauth_failure'; throw e; }
-    const body = new URLSearchParams({ ...config, grant_type: 'refresh_token' }).toString();
+    const body = new URLSearchParams({ client_id: config.ZOHO_CLIENT_ID, client_secret: config.ZOHO_CLIENT_SECRET, refresh_token: config.ZOHO_REFRESH_TOKEN, grant_type: 'refresh_token' }).toString();
     let response;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
