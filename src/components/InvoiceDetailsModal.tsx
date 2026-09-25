@@ -111,6 +111,12 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
     preferences,
   } = useInvoiceDetailsData({ invoice, type, onClose, invoiceList, currentIndex, onNavigate })
 
+  const calculatedValue = displayData?.costsCalculatedAt || displayData?.items?.costsCalculatedAt
+  const calculatedDate = calculatedValue ? new Date(calculatedValue) : null
+  const lastCalculated = calculatedDate && Number.isFinite(calculatedDate.getTime())
+    ? calculatedDate.toLocaleString('en-US', { timeZone: 'America/Phoenix', dateStyle: 'medium', timeStyle: 'short' }) + ' AZ'
+    : 'Not calculated'
+
   return createPortal(
     <div className="fixed inset-0 z-[400] flex items-center justify-center p-3 sm:p-6 animate-fade-in overflow-hidden">
       <div className="fixed inset-0 bg-black/85 backdrop-blur-sm" onClick={onClose} />
@@ -196,6 +202,9 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                   </button>
                 )}
               </div>
+              {currentType === 'Invoice' && (
+                <p className="mt-1 text-[10px] text-neutral-400">Last calculated: {lastCalculated}</p>
+              )}
             </div>
             {/* Prev / Next navigation */}
             {hasList && (
@@ -513,6 +522,12 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                   <div>
                     <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Due Date</label>
                     <div className="text-sm text-white">{new Date(displayData.due_date).toLocaleDateString(undefined, { timeZone: 'UTC' })}</div>
+                  </div>
+                )}
+                {currentType === 'Invoice' && (
+                  <div>
+                    <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Last calculated</label>
+                    <div className="text-sm text-white">{lastCalculated}</div>
                   </div>
                 )}
                 {(displayData.reference_number || displayData.items?.reference_number) && (
