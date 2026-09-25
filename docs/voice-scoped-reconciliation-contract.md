@@ -39,3 +39,19 @@ Still release-blocking: database integration tests covering concurrent bulk/webh
 - Manual apply now resolves the exact account-match exception and moves source-linked commitment associations atomically. Local replay reports CRM verification NOT_CHECKED rather than incorrectly declaring an already-synced call incomplete.
 - CRM-only administrator endpoint tests added (47 focused mocked tests total). Disposable PostgreSQL lock/rollback tests, complete migration chain and upgrade rehearsal passed in GitHub run 36139154048.
 - Live CRM read-only preflight: exact source-subject search HTTP 204; existing native call readback confirmed Call_Duration 00:07 means 7 seconds. The exact TEST transcript returned four matching segments via transcribeObj.transcriptJson. Recording buffer limit reduced to 4 MiB for bounded serverless playback.
+
+## Production acceptance ? September 25, 2026
+
+PR 116 is released: merge 6e496e604a6aa87385a33a788a97f1d3a508a254, production deploy 6ab674912a24e70008476b13 published 13:22:45.628 UTC. This supersedes earlier unreleased-status notes. Final validation passed: 49 voice tests (including two real PostgreSQL concurrency tests), 21 lifecycle/sync tests, five order-builder tests, migration-chain/upgrade checks, TypeScript, focused lint, Netlify build/bundling and preview checks. CI run 36139547326.
+
+The authorized TEST call was applied through the production administrator UI. Portal call cmugzrxut00025hlhcyeaxl0u, association audit cmugzrxxf00065hlhp6h9nu91, CRM Calls 6821836000027793001 and operation cmugzsb8500085hlhjoqx6rft (SUCCEEDED, attemptCount 1) were independently verified. CRM account/contact 6821836000027779001 / 6821836000027779002 match. Existing task 6821836000027791003 was preserved. Repeated apply and CRM verification retained exactly one call with no additional provider submission. The account Comm Center displays the full transcript and 85-second inbound call.
+
+Recording bytes are authenticated and verified MP3 (111744 bytes); browser decoding reports 27.936 seconds. A collapsed-player layout defect found during acceptance is corrected by PR 117, merge fcf41b7a8c280deb146f706af35647da05496a15; final deployment/playback evidence follows.
+
+Limitations: caller identity remains human-confirmed. Native CRM Description contains transcript and source IDs; dedicated Call Transcription, Voice Recording and Telephony External ID fields remain blank. No broad synchronization, outbound calls/messages, transactions or routing changes were performed. Ben-only queues remain unchanged. No uncertain product facts were written to the account.
+
+## Final recording playback acceptance
+
+PR 117 production deploy 6ab678290435190008a14df3 published September 25, 2026 at 13:37:11.507 UTC, exact merge fcf41b7a8c280deb146f706af35647da05496a15. Browser reloaded published UI, replay verified the existing association, and authenticated recording loaded successfully. Native Play changed to Pause, media currentTime advanced from 0.075492 to 7.681463 seconds with paused=false, readyState=4 and error=null. Player height is 54px; duration 27.936 seconds. Playback was then paused. Actual browser playback: PASS. Audio intelligibility was not independently assessed.
+
+PR 116 and PR 117 code is merged and published; scoped acceptance is complete. Remaining broader caller-ID correlation, dedicated CRM telephony-field mapping, transfer-outcome and recording-notice work remains explicitly outside this acceptance.
