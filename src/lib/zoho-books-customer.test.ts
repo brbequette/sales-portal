@@ -1,0 +1,26 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const mocks = vi.hoisted(() => ({ findAccount: vi.fn(), updateContact: vi.fn(), token: vi.fn() }))
+vi.mock('@/lib/prisma', () => ({ prisma: { account: { findUnique: mocks.findAccount }, contact: { update: mocks.updateContact } } }))
+vi.mock('@/lib/zoho-auth', () => ({ getZohoAccessToken: mocks.token }))
+
+import { reconcileBooksPrimaryContact } from './zoho-books-customer'
+
+describe('Books primary contact reconciliation', () => {
+  beforeEach(() => { vi.clearAllMocks(); process.env.ZOHO_ORGANIZATION_ID = 'test-org'; mocks.token.mockResolvedValue('token') })
+
+  it('persists one contact person matched by exact email without creating a customer', async () => {
+    mocks.findAccount.mockResolvedValue({ id: 'a1', booksCustomerId: 'bc1', contacts: [{ id: 'c1', email: 'test@example.com', phone: null, mobilePhone: null, booksContactId: null }] })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ code: 0, contact: { contact_persons: [{ contact_person_id: 'bp1', email: 'test@example.com' }] } }) }))
+    await expect(reconcileBooksPrimaryContact('a1')).resolves.toMatchObject({ state: 'SUCCEEDED', booksCustomerId: 'bc1', booksContactId: 'bp1' })
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(mocks.updateContact).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'c1' }, data: expect.objectContaining({ booksContactId: 'bp1' }) }))
+  })
+
+  it('refuses ambiguous exact matches', async () => {
+    mocks.findAccount.mockResolvedValue({ id: 'a1', booksCustomerId: 'bc1', contacts: [{ id: 'c1', email: 'same@example.com', booksContactId: null }] })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ code: 0, contact: { contact_persons: [{ contact_person_id: 'bp1', email: 'same@example.com' }, { contact_person_id: 'bp2', email: 'same@example.com' }] } }) }))
+    await expect(reconcileBooksPrimaryContact('a1')).resolves.toMatchObject({ state: 'FAILED' })
+    expect(mocks.updateContact).not.toHaveBeenCalled()
+  })
+})

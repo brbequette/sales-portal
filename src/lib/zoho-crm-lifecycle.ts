@@ -129,9 +129,15 @@ export async function convertPersistedCrmLead(leadId: string, accountId: string)
   })
   if (operation.state === 'SUCCEEDED') {
     const ids = operation.providerRecordIds as { crmAccountId?: string; crmContactId?: string } | null
-    return { state: 'SUCCEEDED', crmAccountId: ids?.crmAccountId, crmContactId: ids?.crmContactId }
+    if (!ids?.crmAccountId) return { state: 'FAILED', message: 'Completed conversion operation is missing its CRM Account ID.' }
+    return completeConversionPersistence(lead.id, accountId, operationKey, ids.crmAccountId, ids.crmContactId || '', operation.providerCode || undefined, operation.providerMessage || undefined)
   }
-  if (operation.state === 'AMBIGUOUS') return { state: 'AMBIGUOUS', message: 'Prior conversion outcome is ambiguous and requires provider reconciliation.' }
+  if (operation.state === 'AMBIGUOUS') {
+    const token = await getZohoAccessToken()
+    const recovered = await lookupConvertedEntities(lead.email, lead.company, token)
+    if (recovered) return completeConversionPersistence(lead.id, accountId, operationKey, recovered.crmAccountId, recovered.crmContactId, 'LOOKUP_MATCH', 'Recovered conversion by exact Contact email and linked Account name.')
+    return { state: 'AMBIGUOUS', message: 'Prior conversion outcome is ambiguous and exact provider reconciliation found no unique match.' }
+  }
 
   const claimed = await prisma.providerWriteOperation.updateMany({ where: { operationKey, state: { in: ['PENDING', 'FAILED'] } }, data: { state: 'SYNCING', attemptCount: { increment: 1 }, lastAttemptAt: new Date(), lastError: null } })
   if (claimed.count !== 1) return { state: 'SYNCING', message: 'CRM conversion is already in progress.' }
@@ -151,15 +157,7 @@ export async function convertPersistedCrmLead(leadId: string, accountId: string)
       await prisma.account.update({ where: { id: accountId }, data: { providerSyncState: 'FAILED', providerSyncError: `${code}: ${message}` } })
       return { state: 'FAILED', code, message }
     }
-    const crmAccountId = result.accountId!
-    const crmContactId = result.contactId || ''
-    const primaryContact = await prisma.contact.findFirst({ where: { accountId, isPrimary: true }, select: { id: true } })
-    await prisma.$transaction([
-      prisma.account.update({ where: { id: accountId }, data: { crmAccountId, providerSyncState: 'SUCCEEDED', providerSyncError: null, providerSyncedAt: new Date() } }),
-      ...(primaryContact && crmContactId ? [prisma.contact.update({ where: { id: primaryContact.id }, data: { crmContactId, providerSyncState: 'SUCCEEDED', providerSyncError: null, providerSyncedAt: new Date() } })] : []),
-      prisma.providerWriteOperation.update({ where: { operationKey }, data: { state: 'SUCCEEDED', providerRecordIds: { crmLeadId: lead.crmLeadId, crmAccountId, crmContactId: crmContactId || null }, providerCode: result.code, providerMessage: result.message, completedAt: new Date(), lastError: null } }),
-    ])
-    return { state: 'SUCCEEDED', crmAccountId, crmContactId: crmContactId || undefined }
+    return completeConversionPersistence(lead.id, accountId, operationKey, result.accountId!, result.contactId || '', result.code, result.message)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown provider conversion error'
     await prisma.$transaction([
@@ -168,4 +166,32 @@ export async function convertPersistedCrmLead(leadId: string, accountId: string)
     ])
     return { state: 'AMBIGUOUS', message: 'CRM conversion outcome is unknown and requires reconciliation.' }
   }
+}
+
+async function lookupConvertedEntities(email: string | null, company: string, token: string) {
+  if (!email) return null
+  const criteria = encodeURIComponent(`(Email:equals:${email})`)
+  const response = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Contacts/search?criteria=${criteria}&fields=id,Email,Account_Name`, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` }, signal: AbortSignal.timeout(CRM_TIMEOUT_MS),
+  })
+  if (response.status === 204 || !response.ok) return null
+  const body = await response.json().catch(() => null)
+  const matches = (body?.data || []).filter((contact: any) =>
+    String(contact?.Email || '').trim().toLowerCase() === email.trim().toLowerCase()
+    && String(contact?.Account_Name?.name || '').trim().toLowerCase() === company.trim().toLowerCase()
+    && String(contact?.Account_Name?.id || '').trim()
+    && String(contact?.id || '').trim())
+  if (matches.length !== 1) return null
+  return { crmAccountId: String(matches[0].Account_Name.id), crmContactId: String(matches[0].id) }
+}
+
+async function completeConversionPersistence(leadId: string, accountId: string, operationKey: string, crmAccountId: string, crmContactId: string, code?: string, message?: string) {
+  const lead = await prisma.lead.findUnique({ where: { id: leadId }, select: { crmLeadId: true } })
+  const primaryContact = await prisma.contact.findFirst({ where: { accountId, isPrimary: true }, select: { id: true } })
+  await prisma.$transaction([
+    prisma.account.update({ where: { id: accountId }, data: { crmAccountId, providerSyncState: 'SUCCEEDED', providerSyncError: null, providerSyncedAt: new Date() } }),
+    ...(primaryContact && crmContactId ? [prisma.contact.update({ where: { id: primaryContact.id }, data: { crmContactId, providerSyncState: 'SUCCEEDED', providerSyncError: null, providerSyncedAt: new Date() } })] : []),
+    prisma.providerWriteOperation.update({ where: { operationKey }, data: { state: 'SUCCEEDED', providerRecordIds: { crmLeadId: lead?.crmLeadId || null, crmAccountId, crmContactId: crmContactId || null }, providerCode: code || null, providerMessage: message || null, completedAt: new Date(), lastError: null } }),
+  ])
+  return { state: 'SUCCEEDED' as const, crmAccountId, crmContactId: crmContactId || undefined, code, message }
 }
