@@ -76,8 +76,8 @@ export function DocumentLifecycle({ zohoId, type, refreshToken, onNavigateDoc }:
       return
     }
 
-    if (docType === 'Purchase Order' && (data.purchaseorder_id || data.id)) {
-      window.open(getZohoBooksUrl('purchaseorders', data.purchaseorder_id || data.id), '_blank')
+    if (docType === 'Purchase Order' && (data.zohoId || data.purchaseorder_id || data.id)) {
+      window.open(getZohoBooksUrl('purchaseorders', data.zohoId || data.purchaseorder_id || data.id), '_blank')
       return
     }
 
@@ -109,7 +109,7 @@ export function DocumentLifecycle({ zohoId, type, refreshToken, onNavigateDoc }:
         <Node 
           icon={FiShoppingBag} 
           title="Sales Order" 
-          subtitle={salesOrder?.items?.salesOrderNumber || salesOrder?.salesorder_number || 'N/A'} 
+          subtitle={salesOrder?.items?.salesOrderNumber || salesOrder?.items?.salesorder_number || salesOrder?.salesorder_number || 'N/A'}
           color="emerald"
           isCompleted={!!salesOrder}
           onClick={() => openDoc('SalesOrder', salesOrder)}
