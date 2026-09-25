@@ -1,18 +1,10 @@
+import { withVoiceCallLock, hasConfirmedVoiceAssociation } from "@/lib/voice-call-lock"
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getZohoVoiceAccessToken } from '@/lib/zoho-voice-auth'
 import { requireAdministrator } from '@/lib/auth-helpers'
-import { transcriptText } from '@/lib/voice-account-matching'
+import { transcriptText, matchVoiceContacts } from '@/lib/voice-account-matching'
 import { indexCallAndCreateSafeFollowUp } from '@/lib/communication-automation'
-
-function normalizePhone(num: string | null | undefined): string {
-  if (!num) return ''
-  let cleaned = num.replace(/[^\d]/g, '')
-  if (cleaned.startsWith('1') && cleaned.length === 11) {
-    cleaned = cleaned.substring(1)
-  }
-  return cleaned
-}
 
 export async function POST(req: Request) {
   try {
@@ -65,34 +57,6 @@ export async function POST(req: Request) {
       select: { id: true, accountId: true, phone: true, mobilePhone: true, firstName: true, lastName: true }
     })
 
-    const phoneToContactMap = new Map<string, Array<{ contactId: string, accountId: string }>>()
-    const contactNameToContactMap = new Map<string, Array<{ contactId: string, accountId: string }>>()
-
-    for (const c of contacts) {
-      const p = normalizePhone(c.phone)
-      if (p) {
-        phoneToContactMap.set(p, [...(phoneToContactMap.get(p) || []), { contactId: c.id, accountId: c.accountId }])
-      }
-      const m = normalizePhone(c.mobilePhone)
-      if (m) {
-        phoneToContactMap.set(m, [...(phoneToContactMap.get(m) || []), { contactId: c.id, accountId: c.accountId }])
-      }
-      const fullName = `${c.firstName || ''} ${c.lastName || ''}`.replace(/\s+/g, ' ').trim().toLowerCase()
-      if (fullName) {
-        contactNameToContactMap.set(fullName, [...(contactNameToContactMap.get(fullName) || []), { contactId: c.id, accountId: c.accountId }])
-      }
-    }
-
-    // Load all accounts to match company/account name in memory
-    const accounts = await prisma.account.findMany({ select: { id: true, name: true } })
-    const accountNameToIdMap = new Map<string, string[]>()
-    for (const a of accounts) {
-      if (a.name) {
-        const name = a.name.toLowerCase().trim()
-        accountNameToIdMap.set(name, [...(accountNameToIdMap.get(name) || []), a.id])
-      }
-    }
-
     let syncedCount = 0
     let transcriptCount = 0
     let ambiguousCount = 0
@@ -127,6 +91,11 @@ export async function POST(req: Request) {
         const zohoCallId = log.logid?.toString() || log.logId?.toString() || log.id?.toString()
         if (!zohoCallId) continue
 
+        const manualAssociation = await prisma.operationalAction.findUnique({
+          where: { idempotencyKey: `voice-manual-association:${zohoCallId}` }, select: { status: true },
+        })
+        if (manualAssociation?.status === "SUCCEEDED") continue
+
         const fromNumber = log.caller_id_number || log.fromNumber || log.caller || ''
         const toNumber = log.destination_number || log.toNumber || log.called || ''
         
@@ -140,68 +109,21 @@ export async function POST(req: Request) {
           duration = parts.reduce((acc: number, val: string) => (acc * 60) + (parseInt(val, 10) || 0), 0)
         }
         
-        const status = log.hangup_cause_displayname === 'Successful call' ? 'completed' : (log.status || 'completed')
-        const direction = log.call_type === 'incoming' || log.direction === 'INBOUND' ? 'INBOUND' : 'OUTBOUND'
+        const status = log.hangup_cause_displayname === 'Successful call' ? 'completed' : (log.hangup_cause_displayname || log.status || 'unknown')
+        const direction = log.call_type === 'incoming' || log.direction === 'INBOUND' ? 'INBOUND' : log.call_type === 'outgoing' || log.direction === 'OUTBOUND' ? 'OUTBOUND' : 'UNKNOWN'
         
-        const rawRelated = direction === 'INBOUND' ? fromNumber : toNumber
-        const cleanRelated = normalizePhone(rawRelated)
-        
-        let contactId: string | null = null
-        let accountId: string | null = null
+        const match = matchVoiceContacts({ direction, fromNumber, toNumber }, contacts)
+        const contactId = match.status === "MATCHED" ? match.contactId : null
+        let accountId = match.status === "MATCHED" ? match.accountId : null
+        if (match.status === "AMBIGUOUS") ambiguousCount++
 
-        // 1. Phone number match
-        if (cleanRelated) {
-          const matches = phoneToContactMap.get(cleanRelated) || []
-          const uniqueAccounts = new Set(matches.map(match => match.accountId))
-          if (uniqueAccounts.size === 1) {
-            contactId = matches[0].contactId
-            accountId = matches[0].accountId
-          } else if (uniqueAccounts.size > 1) {
-            ambiguousCount++
-            await prisma.integrationException.upsert({
-              where: { integration_entityType_externalId_exceptionType: { integration: "ZOHO_VOICE", entityType: "CALL_LOG", externalId: zohoCallId, exceptionType: "ACCOUNT_MATCH" } },
-              update: { status: "OPEN", summary: "Multiple accounts share the exact call phone number; review required.", proposedMatches: matches },
-              create: { integration: "ZOHO_VOICE", entityType: "CALL_LOG", externalId: zohoCallId, externalNumber: cleanRelated, exceptionType: "ACCOUNT_MATCH", summary: "Multiple accounts share the exact call phone number; review required.", proposedMatches: matches, confidence: 0 },
-            })
-          }
-        }
-
-        // 2. Account Name fallback match
         if (!accountId) {
-          const zohoAccountName = (log.account_name || log.accountName || log.company || log.company_name || '').toLowerCase().trim()
-          const matches = accountNameToIdMap.get(zohoAccountName) || []
-          if (matches.length === 1) {
-            accountId = matches[0]
-          }
-        }
-
-        // 3. Contact Name fallback match
-        if (!accountId) {
-          const zohoContactName = (log.contact_name || log.contactName || log.customer_name || log.customerName || log.display_name || '').replace(/\s+/g, ' ').trim().toLowerCase()
-          const matches = contactNameToContactMap.get(zohoContactName) || []
-          const uniqueAccounts = new Set(matches.map(match => match.accountId))
-          if (uniqueAccounts.size === 1) {
-            contactId = matches[0].contactId
-            accountId = matches[0].accountId
-          }
-        }
-
-        const existingCall = await prisma.callLog.findUnique({ where: { zohoCallId }, select: { accountId: true } })
-        const holdingAccount = await prisma.account.findUnique({ where: { zohoId: 'unknown-voice-caller' }, select: { id: true } })
-        if (!accountId && existingCall && existingCall.accountId !== holdingAccount?.id) {
-          accountId = existingCall.accountId
-        }
-        if (!accountId) {
-          const holding = holdingAccount || await prisma.account.create({
-            data: { name: 'Unknown Voice Caller', zohoId: 'unknown-voice-caller', status: 'Lead', ownerId: fallbackUserId },
+          const holding = await prisma.account.upsert({
+            where: { zohoId: 'unknown-voice-caller' }, update: {},
+            create: { name: 'Unknown Voice Caller', zohoId: 'unknown-voice-caller', status: 'Lead', ownerId: fallbackUserId },
             select: { id: true },
           })
           accountId = holding.id
-          await prisma.integrationException.upsert({
-            where: { integration_entityType_externalId_exceptionType: { integration: 'ZOHO_VOICE', entityType: 'CALL_LOG', externalId: zohoCallId, exceptionType: 'ACCOUNT_MATCH' } },
-            update: { status: 'OPEN', externalNumber: cleanRelated, summary: 'No unique account match was found; administrator review required.' },
-            create: { integration: 'ZOHO_VOICE', entityType: 'CALL_LOG', externalId: zohoCallId, externalNumber: cleanRelated, exceptionType: 'ACCOUNT_MATCH', summary: 'No unique account match was found; administrator review required.', confidence: 0 },
-          })
         }
 
         if (accountId) {
@@ -233,7 +155,14 @@ export async function POST(req: Request) {
             authorId = userNameToIdMap.get(agentName)!
           }
           
-          const savedCall = await prisma.callLog.upsert({
+          const persisted = await withVoiceCallLock(String(zohoCallId), async tx => {
+            if (await hasConfirmedVoiceAssociation(tx, String(zohoCallId))) return false
+            if (match.status !== "MATCHED") await tx.integrationException.upsert({
+              where: { integration_entityType_externalId_exceptionType: { integration: 'ZOHO_VOICE', entityType: 'CALL_LOG', externalId: zohoCallId, exceptionType: 'ACCOUNT_MATCH' } },
+              update: { status: 'OPEN', externalNumber: match.normalized, summary: 'No unique customer identity; review required.', proposedMatches: match.matches.map(item => ({ accountId: item.accountId, contactId: item.id })) },
+              create: { integration: 'ZOHO_VOICE', entityType: 'CALL_LOG', externalId: zohoCallId, externalNumber: match.normalized, exceptionType: 'ACCOUNT_MATCH', summary: 'No unique customer identity; review required.', confidence: 0 },
+            })
+          const savedCall = await tx.callLog.upsert({
             where: { zohoCallId: zohoCallId },
             update: {
               duration,
@@ -244,7 +173,7 @@ export async function POST(req: Request) {
               zohoSentiment: zohoSentiment || undefined,
               aiSummary: aiSummary || undefined,
               accountId,
-              contactId: contactId || undefined,
+              contactId,
               updatedAt: new Date()
             },
             create: {
@@ -266,20 +195,23 @@ export async function POST(req: Request) {
               updatedAt: new Date()
             }
           })
-          await indexCallAndCreateSafeFollowUp(savedCall)
+          await indexCallAndCreateSafeFollowUp(savedCall, tx)
           
           // Update Account lastCalledAt
-          const acc = await prisma.account.findUnique({ where: { id: accountId } })
+          const acc = await tx.account.findUnique({ where: { id: accountId } })
           if (acc) {
             const currentLastCalled = acc.lastCalledAt ? new Date(acc.lastCalledAt).getTime() : 0
             if (createdAtDate.getTime() > currentLastCalled) {
-              await prisma.account.update({
+              await tx.account.update({
                 where: { id: accountId },
                 data: { lastCalledAt: createdAtDate }
               })
             }
           }
           
+            return true
+          })
+          if (!persisted) continue
           syncedCount++
         }
       }

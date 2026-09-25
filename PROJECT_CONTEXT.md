@@ -1451,3 +1451,35 @@ live state before destructive changes or external writes.
 - PR #106 merged as `0d8fe768fe421646359a0f21bcfd8683939e9c2a` and Netlify deploy `6ab61f2fd7716b0008cd1ca2` published that exact commit. Backup `netlify-20260925-001213.dump` was 331,748,748 bytes, SHA-256 `8D6985735A5BFDF81264669EB98449F0EAB9DFD715F8F41DA8122AA7767E04E4`, and produced a readable 660-entry restore list.
 - The exact RFD-50A060/CONTINENTAL ABRASIVES approval was then applied once through a guarded, idempotent production transaction and recorded in `OperationalAction`; no Zoho request or financial document was created. Read-only verification shows the approved TEST Account and contact mappings remain authoritative, the exact address is present, cumulative document/shipping spend remains $0, and the existing CRM-backed lifecycle Task remains unique.
 - Browser acceptance exposed a separate POS defect after the authorization: `StandaloneOrderBuilder` loaded only the first 100 products, omitted the local Account ID from the shared transaction hook, and displayed an independent success toast that never submitted a transaction. A follow-up must route the POS through the shared authenticated/idempotent order builder, add bounded catalog search, and show explicit CRM/Books mappings instead of the legacy `Account.zohoId` placeholder. No transaction was attempted through the defective control.
+
+## Voice follow-up replay safeguards (local, unreleased, 2026-09-25)
+- Branch codex/voice-followup-replay-safety: callback deadlines derive from call time, replay preserves user task edits, recommendations use a deterministic primary key, reviewed legacy recommendations are retained, and unmatched holding-account events do not schedule customer work.
+- Five mocked regression tests pass. No production writes/deployments; full release gates remain open. Caller-leg reconciliation and CRM persistence are not established. User explicitly approved assigning the 04:51 test call to TEST Incorporated; this authorization has not been applied to production.
+
+## Transcript parser repair (local, unreleased, 2026-09-25)
+- Branch rebased onto origin/main d68f00b3. Existing replay safeguards retained.
+- Official Zoho transcription response uses serialized transcribeObj with transcriptJson; the former parser could return the raw JSON as transcript text. A pure parser now extracts segment text, supports existing wrappers, rejects provider errors/analysis-only or malformed JSON, and bounds nesting. Five additional regression cases pass (10 focused tests total); focused lint passes.
+- The TEST follow-up has since been saved in production and independently verified as CRM task 6821836000027791003. Do not duplicate it. Native CallLog/recording import, audited preview/apply, protected playback and CRM Calls synchronization remain unimplemented and must not be represented as complete.
+
+## Scoped Voice reconciliation implementation (unreleased)
+- Added administrator-only exact-ID Zoho preview/apply, five-minute actor-bound signed preview, stale-call checks, serializable local transaction, source-key audit/replay verification, existing-task linkage and transcript-backed CommunicationEvent persistence. Does not create a CRM Calls record or send communications.
+- Added explicit authenticated recording POST with a fixed provider host and provider-returned filename requirement; redirects, non-audio responses and guessed filenames are rejected.
+- Added administrative preview/apply UI and link from Communications. Sequential webhook/bulk replays skip manually audited calls. Simultaneous bulk-write races still require database integration testing/stronger shared serialization before release.
+- 20 focused tests passed; TypeScript and focused new-file lint passed. Native CRM Calls durable write/reconciliation, recording payload verification, concurrency integration tests and build/deployment verification remain release gates. Never deploy this as complete native synchronization yet.
+
+## Shared locking and native CRM Calls implementation (unreleased)
+- All provider ingestion/reconciliation paths now use a transaction-scoped PostgreSQL advisory lock and re-read the manual audit inside READ COMMITTED. Call indexing shares the transaction. Analysis rejects stale source versions; legacy edits cannot alter audited provider evidence.
+- Added durable CRM Calls operations: exact CRM mappings, source references and transcript; atomic pending-only submission claim; explicit provider rejection handling; uncertain outcomes are never automatically resent. Accepted IDs are retained before independent field-by-field readback. Existing task 6821836000027791003 remains untouched.
+- Added protected recording tests and disposable PostgreSQL CI lock/rollback coverage. Local focused suites: 38 tests passed before final validation. Database concurrency execution, full build, provider filename/playback verification and production acceptance remain pending.
+- CRM form inspected read-only: Call Duration explicitly uses minutes and seconds. CRM task remains visible with its TEST account association. No production call record, message or deployment was created.
+
+## Live provider contract verification, 2026-09-25
+- Exact read-only Voice GET for 3437f313-1e67-4745-af19-f5f3013cc26f returned status SUCCESS, call_log.uuid, duration 01:25, start_time 1790337109000 and nested call_recording.recording_filename. Added exact-ID validation for this live envelope alongside the published logs sample.
+- Provider returned 3437f313-1e67-4745-af19-f5f3013cc26f_recording.mp3. Uppercase mode=Play was rejected with ZVT015; lowercase mode=play returned HTTP 200, application/octet-stream, 111744 bytes and an MP3 frame header. Proxy now validates audio signatures and limits buffering to 25 MB. Full portal playback still requires deployed browser verification.
+- Shared caller matching excludes known Titan routing numbers (plus additive VOICE_BUSINESS_NUMBERS), removes name-only fallback and international suffix collisions, and keeps multiple-account matches ambiguous. No bulk production reconciliation was run.
+- 44 focused mocked tests pass. Native CRM Calls code is implemented locally but no CRM Calls write has been made. Real PostgreSQL concurrency CI and deployment checks remain required.
+
+## Review follow-up
+- Manual apply now resolves the exact account-match exception and moves source-linked commitment associations atomically. Local replay reports CRM verification NOT_CHECKED rather than incorrectly declaring an already-synced call incomplete.
+- CRM-only administrator endpoint tests added (47 focused mocked tests total). Disposable PostgreSQL lock/rollback tests, complete migration chain and upgrade rehearsal passed in GitHub run 36139154048.
+- Live CRM read-only preflight: exact source-subject search HTTP 204; existing native call readback confirmed Call_Duration 00:07 means 7 seconds. The exact TEST transcript returned four matching segments via transcribeObj.transcriptJson. Recording buffer limit reduced to 4 MiB for bounded serverless playback.

@@ -1,3 +1,4 @@
+import { withVoiceCallLock } from "@/lib/voice-call-lock"
 import { NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
@@ -64,7 +65,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       }
     }
 
-    const updatedCall = await prisma.callLog.update({
+    const analysis = await withVoiceCallLock(call.zohoCallId || call.id, async tx => {
+      const current = await tx.callLog.findUnique({ where: { id } })
+      if (!current || current.updatedAt.getTime() !== call.updatedAt.getTime()) return null
+    const updatedCall = await tx.callLog.update({
       where: { id },
       data: {
         aiSentiment,
@@ -72,9 +76,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       }
     })
 
-    await prisma.communicationEvent.upsert({
+    await tx.communicationEvent.upsert({
       where: { sourceType_sourceId_eventType: { sourceType: 'CALL_LOG', sourceId: call.id, eventType: 'CALL_ANALYSIS' } },
-      update: { summary: aiSummary, metadata: (insights || { sentiment: aiSentiment }) as Prisma.InputJsonValue },
+      update: { accountId: call.accountId, contactId: call.contactId, summary: aiSummary, metadata: (insights || { sentiment: aiSentiment }) as Prisma.InputJsonValue },
       create: {
         accountId: call.accountId,
         contactId: call.contactId,
@@ -95,13 +99,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     for (const commitment of proposedCommitments) {
       const description = typeof commitment.description === 'string' ? commitment.description.trim().slice(0, 1000) : ''
       if (!description) continue
-      const existing = await prisma.salesCommitment.findFirst({
+      const existing = await tx.salesCommitment.findFirst({
         where: { sourceType: 'CALL_LOG', sourceId: call.id, description },
         select: { id: true },
       })
       if (existing) continue
       const parsedDueAt = commitment.dueAt ? new Date(commitment.dueAt) : null
-      await prisma.salesCommitment.create({
+      await tx.salesCommitment.create({
         data: {
           accountId: call.accountId,
           contactId: call.contactId,
@@ -115,6 +119,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         },
       })
     }
+
+      return { updatedCall, proposedCommitments }
+    })
+    if (!analysis) return NextResponse.json({ success: false, error: "Call changed during analysis; refresh before retrying" }, { status: 409 })
+    const { updatedCall, proposedCommitments } = analysis
 
     return NextResponse.json({
       success: true,

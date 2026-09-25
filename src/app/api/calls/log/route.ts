@@ -1,3 +1,4 @@
+import { withVoiceCallLock, hasConfirmedVoiceAssociation } from "@/lib/voice-call-lock"
 import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from "next/server"
 import { checkAccountOwnership } from "@/lib/auth-helpers"
@@ -18,11 +19,15 @@ export async function POST(req: NextRequest) {
     } = body
 
     if (id) {
-      const existing = await prisma.callLog.findUnique({ where: { id }, select: { accountId: true } })
+      const existing = await prisma.callLog.findUnique({ where: { id }, select: { accountId: true, zohoCallId: true } })
       if (!existing) return NextResponse.json({ error: "Call log not found" }, { status: 404 })
       const access = await checkAccountOwnership(existing.accountId)
       if (!access.authorized) return access.errorResponse
-      const updatedLog = await prisma.callLog.update({
+      const updatedLog = await withVoiceCallLock(existing.zohoCallId || id, async tx => {
+        const current = await tx.callLog.findUnique({ where: { id } })
+        if (!current || current.accountId !== existing.accountId) return null
+        if (await hasConfirmedVoiceAssociation(tx, existing.zohoCallId || id)) return null
+        return tx.callLog.update({
         where: { id },
         data: {
           duration,
@@ -31,6 +36,8 @@ export async function POST(req: NextRequest) {
           editedAt: new Date()
         }
       })
+      })
+      if (!updatedLog) return NextResponse.json({ error: "Call association changed or requires scoped provider review" }, { status: 409 })
       return NextResponse.json({ success: true, callLog: updatedLog })
     } else {
       // Create new Call Log
@@ -48,7 +55,7 @@ export async function POST(req: NextRequest) {
       const authorId = String(access.user?.dbId || "")
       if (!authorId) return NextResponse.json({ error: "User is not linked to a local account" }, { status: 403 })
 
-      const newLog = await prisma.$transaction(async tx => {
+      const newLog = await withVoiceCallLock(zohoCallId, async tx => {
         const savedLog = await tx.callLog.create({
           data: {
             accountId: account.id,
