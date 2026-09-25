@@ -4,7 +4,7 @@
 
 - CRM error handling retains allowlisted provider error codes and field/JSON-path identifiers from nested record failures, including HTTP 200/207 envelopes. It excludes provider free-text and customer values. Unknown-write reconciliation and no-blind-retry guards remain unchanged.
 - A historical create remains held after an HTTP 400 whose previous handler discarded the record-level reason. No replacement create has been issued. A missing search result alone does not authorize repeating an unknown write.
-- CRM UI inspection confirmed Closed Lost exists in Blade Sales and no Deals validation/layout rules are configured. Internal Approval is absent from that pipeline despite current review disposition configuration; operational reconciliation remains outstanding.
+- CRM UI inspection confirmed Closed Lost exists in Blade Sales and no Deals validation/layout rules are configured. Added the existing Internal Approval stage to Blade Sales for configured review dispositions, retaining all 11 prior stages. Historical operational reconciliation remains outstanding.
 
 ## Guarded dropship purchase-order email (production, 2026-09-25)
 
