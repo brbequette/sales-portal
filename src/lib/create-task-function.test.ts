@@ -3,13 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   authenticate: vi.fn(), token: vi.fn(), findUser: vi.fn(), findAccount: vi.fn(), findDeal: vi.fn(), createTask: vi.fn(),
 }))
-vi.mock('./lib/auth-middleware', () => ({ authenticateFunction: mocks.authenticate, withFunctionAuth: (handler: unknown) => handler }))
-vi.mock('./lib/zoho-auth', () => ({ getZohoAccessToken: mocks.token }))
-vi.mock('./lib/prisma', () => ({ prisma: {
+vi.mock('../../netlify/functions/lib/auth-middleware', () => ({ authenticateFunction: mocks.authenticate, withFunctionAuth: (handler: unknown) => handler }))
+vi.mock('../../netlify/functions/lib/zoho-auth', () => ({ getZohoAccessToken: mocks.token }))
+vi.mock('../../netlify/functions/lib/prisma', () => ({ prisma: {
   user: { findUnique: mocks.findUser }, account: { findFirst: mocks.findAccount }, deal: { findFirst: mocks.findDeal }, task: { create: mocks.createTask },
 } }))
 
-import { authenticatedHandler } from './create-task'
+import { authenticatedHandler } from '../../netlify/functions/create-task'
 
 describe('create task account linkage and errors', () => {
   beforeEach(() => {
