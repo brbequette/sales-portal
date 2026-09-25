@@ -28,7 +28,7 @@ async function resolveExactGiftProduct(booksItemId: string): Promise<GiftProduct
   const name = String(item?.name || '').trim()
   const rate = Number(item?.rate)
   const cost = Number(item?.purchase_rate)
-  if (returnedId !== booksItemId || !sku || !name || String(item?.status || '').toLowerCase() !== 'active') {
+  if (returnedId !== booksItemId || !name || String(item?.status || '').toLowerCase() !== 'active') {
     throw new Error('Books returned an inactive or different gift item identity.')
   }
   if (rate !== 0 || !Number.isFinite(cost) || cost <= 0) {
@@ -36,7 +36,11 @@ async function resolveExactGiftProduct(booksItemId: string): Promise<GiftProduct
   }
 
   const candidates = await prisma.product.findMany({
-    where: { OR: [{ sku }, { name: { equals: name, mode: 'insensitive' } }] },
+    where: { OR: [
+      ...(sku ? [{ sku }] : []),
+      { sku: booksItemId },
+      { name: { equals: name, mode: 'insensitive' as const } },
+    ] },
     take: 3,
   })
   if (candidates.length > 1) throw new Error('Multiple local products match the exact Books gift identity; no mapping was changed.')
@@ -57,7 +61,7 @@ async function resolveExactGiftProduct(booksItemId: string): Promise<GiftProduct
   return prisma.product.create({
     data: {
       ...authoritative,
-      sku,
+      sku: sku || booksItemId,
       description: String(item?.description || 'Zoho Books gift item'),
       category: 'Gifts',
       subjectToVig: false,

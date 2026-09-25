@@ -69,4 +69,24 @@ describe('audited gift profit override', () => {
     expect(mocks.transaction).toHaveBeenCalledTimes(1)
     vi.unstubAllGlobals()
   })
+
+  it('reuses a unique exact-name gift when Books has no SKU', async () => {
+    const shirt = { id: 'shirt-l', booksItemId: null, sku: '1254360000001558383', name: 'T-SHIRT - LARGE', giftItem: true, unitCost: null, costQuality: 'UNKNOWN', attributes: {} }
+    mocks.findProduct.mockResolvedValue(null)
+    mocks.findProducts.mockResolvedValue([shirt])
+    mocks.updateProduct.mockResolvedValue({ ...shirt, booksItemId: '1254360000001558383', unitCost: 20, costQuality: 'AUTHORITATIVE' })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      code: 0,
+      item: { item_id: '1254360000001558383', sku: '', name: 'T-SHIRT - LARGE', status: 'active', rate: 0, purchase_rate: 20 },
+    }), { status: 200 })))
+
+    const response = await POST(request({ booksItemId: '1254360000001558383', reason: 'Available shirt gift.' }))
+    expect(response.status).toBe(200)
+    expect(mocks.updateProduct).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'shirt-l' },
+      data: expect.objectContaining({ booksItemId: '1254360000001558383', price: 0, unitCost: 20, giftItem: true }),
+    }))
+    expect(mocks.createProduct).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
+  })
 })
