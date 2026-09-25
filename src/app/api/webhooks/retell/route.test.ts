@@ -15,7 +15,7 @@ it("verifies the unmodified raw body before any database work", async () => {
 })
 it("accepts sparse signed transfer events without inventing a transcript", async () => {
   expect((await POST(request())).status).toBe(204)
-  expect(mocks.persist).toHaveBeenCalledWith(expect.objectContaining({ transcript: null, callId: "call_test" }), "transfer_bridged", null, expect.any(String))
+  expect(mocks.persist).toHaveBeenCalledWith(expect.objectContaining({ transcript: null, agentId: null, callId: "call_test" }), "transfer_bridged", null, expect.any(String))
 })
 it("does not attach unmatched calls to any account", async () => {
   mocks.association.mockResolvedValue(null)

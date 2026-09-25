@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     if (!RETELL_EVENTS.includes(String(body.event)) || !validRetellId(call.call_id)) return new Response(null, { status: 204 })
     // Transfer notifications can contain only a call ID; this is still signed
     // event evidence, never sufficient to manufacture a transcript or identity.
-    const evidence = retellEvidence({ ...call, agent_id: typeof call.agent_id === "string" ? call.agent_id : "not_supplied_in_signed_event" }, call.call_id)
+    const evidence = retellEvidence(call, call.call_id, true)
     if (!await confirmedRetellAssociation(call.call_id)) {
       // Durably retain events without guessing identity from a forwarded number.
       // A later audited reconciliation can use the exact call ID to read them.
