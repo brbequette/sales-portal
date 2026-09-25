@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), findProduct: vi.fn(), findAction: vi.fn(), transaction: vi.fn(), updateProduct: vi.fn(), upsertAction: vi.fn() }))
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), token: vi.fn(), findProduct: vi.fn(), findProducts: vi.fn(), createProduct: vi.fn(), findAction: vi.fn(), transaction: vi.fn(), updateProduct: vi.fn(), upsertAction: vi.fn() }))
 vi.mock('@/lib/session-user', () => ({ getAuthenticatedDbUser: mocks.auth }))
+vi.mock('@/lib/zoho-auth', () => ({ getZohoAccessToken: mocks.token }))
 vi.mock('@/lib/prisma', () => ({ prisma: {
-  product: { findUnique: mocks.findProduct, update: mocks.updateProduct },
+  product: { findUnique: mocks.findProduct, findMany: mocks.findProducts, create: mocks.createProduct, update: mocks.updateProduct },
   operationalAction: { findUnique: mocks.findAction, upsert: mocks.upsertAction },
   $transaction: mocks.transaction,
 } }))
@@ -14,8 +15,12 @@ const request = (body: object) => new Request('https://example.test/api/admin/li
 describe('audited gift profit override', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    process.env.ZOHO_ORGANIZATION_ID = 'test-org'
     mocks.auth.mockResolvedValue({ isAdmin: true, user: { id: 'admin-1', name: 'Admin' } })
+    mocks.token.mockResolvedValue('protected-token')
     mocks.findProduct.mockResolvedValue({ id: 'hat-1', booksItemId: '1254360000043727500', sku: 'HAT', giftItem: true, unitCost: 20, costQuality: 'AUTHORITATIVE', attributes: {} })
+    mocks.findProducts.mockResolvedValue([])
+    mocks.createProduct.mockResolvedValue({ id: 'hat-1', booksItemId: '1254360000043727500', sku: 'HAT', giftItem: true, unitCost: 20, costQuality: 'AUTHORITATIVE', attributes: {} })
     mocks.findAction.mockResolvedValue(null)
     mocks.updateProduct.mockReturnValue({ kind: 'product-update' })
     mocks.upsertAction.mockReturnValue({ kind: 'audit-upsert' })
@@ -46,5 +51,22 @@ describe('audited gift profit override', () => {
       create: expect.objectContaining({ actionType: 'APPROVE_GIFT_PROFIT_OVERRIDE', result: { cost: 20 } }),
     }))
     expect(mocks.transaction).toHaveBeenCalledTimes(1)
+  })
+
+  it('creates one exact local catalog projection from authoritative Books data when the mapping is missing', async () => {
+    mocks.findProduct.mockResolvedValue(null)
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      code: 0,
+      item: { item_id: '1254360000043727500', sku: 'REAL-HAT', name: 'Titan Gift Hat', status: 'active', rate: 0, purchase_rate: 20, description: 'Gift hat' },
+    }), { status: 200 })))
+
+    const response = await POST(request({ booksItemId: '1254360000043727500', reason: 'Authorized lifecycle test gift.' }))
+    expect(response.status).toBe(200)
+    expect(mocks.createProduct).toHaveBeenCalledWith({ data: expect.objectContaining({
+      booksItemId: '1254360000043727500', sku: 'REAL-HAT', price: 0, unitCost: 20,
+      costQuality: 'AUTHORITATIVE', giftItem: true, subjectToVig: false,
+    }) })
+    expect(mocks.transaction).toHaveBeenCalledTimes(1)
+    vi.unstubAllGlobals()
   })
 })
