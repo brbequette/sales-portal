@@ -1,5 +1,13 @@
 # Titan Diamond — Consolidated Project Context
 
+## Complete gift shortcut selection (pending release, 2026-09-25)
+
+- The catalog product `giftItem` selection is the source of truth for order-builder gift shortcuts. Every active marked product with a Books item ID and authoritative positive or explicitly verified-zero cost is available at a $0 sales price; its actual cost remains included in profit.
+- The shortcut no longer depends on current cart profit and is no longer capped at ten entries. Administrative, inactive, unmapped, and unknown-cost rows remain excluded. The authoritative Titan gift hat (`1254360000043727500`) remains available even if its local gift flag is stale.
+- Product information now labels the existing Gift Item checkbox as the control that adds the product to the order shortcut list. This change does not write to Zoho or create a financial document.
+- The POS preview now renders complete billing and shipping addresses and explicitly distinguishes document subtotal from shipping and tax. Fulfillment stays visibly unselected until a later workflow chooses it; the preview no longer implies that $0 shipping, no tax, or a fulfillment method has already been approved. The selected-account header also exposes a one-click, account-linked follow-up task action.
+- Successful POS creation now returns the local/provider document identity to the UI and keeps the Account selected. A post-create action workspace embeds the existing document action panel directly in POS and provides shortcuts into fulfillment/shipping, account-linked follow-up, and the Account workspace. Conversion, invoicing, payment, PO, package, and label writes therefore remain behind their established confirmations and audited handlers rather than being silently chained or reimplemented.
+
 ## Sales lifecycle persistence and bounded sync repair (in progress, 2026-09-25)
 
 - The isolated `codex/repair-sales-lifecycle-blockers` branch starts from released PR #94 merge `eb3897cf272d83e266943e078246cbbf38c4242e`. No production write, transaction, communication, migration, or deployment has been performed by this follow-up.

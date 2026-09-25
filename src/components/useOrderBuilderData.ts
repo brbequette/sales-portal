@@ -30,7 +30,7 @@ export interface UseOrderBuilderDataProps {
   accountId?: string
   dealId?: string
   onCancel?: () => void
-  onSuccess?: () => void
+  onSuccess?: (result?: { type: 'Quote' | 'SalesOrder'; localId?: string; booksId?: string; documentNumber?: string; alreadyProcessed?: boolean }) => void
 }
 
 export const APPLICATIONS = [
@@ -106,6 +106,7 @@ export function getBooksItemId(product: any): string | undefined {
 function isAdministrativeCatalogProduct(product: any) {
   const haystack = `${product?.name || ""} ${product?.sku || ""} ${product?.category || ""}`.toLowerCase()
   return /\b(shipping|freight|discount|adjustment|credit|tax|payment|deposit|fee|tracking)\b/.test(haystack)
+    || /\bfree\s*ship(?:ping)?\b/.test(haystack)
 }
 
 function isSignatureBlade(product: any) {
@@ -267,7 +268,13 @@ export function useOrderBuilderData({
             ? `${documentLabel} saved locally in development. Zoho was not contacted.`
             : `${documentLabel} created successfully in Zoho Books.`
         )
-        if (onSuccess) onSuccess()
+        if (onSuccess) onSuccess({
+          type: transactionType,
+          localId: data.transaction?.id,
+          booksId: data.booksRefId || data.transaction?.zohoId,
+          documentNumber: data.documentNumber || data.transaction?.items?.estimateNumber || data.transaction?.items?.salesOrderNumber,
+          alreadyProcessed: Boolean(data.alreadyProcessed),
+        })
         submissionIdRef.current = null
         setShowMockOrder(false)
         if (!isControlled) setInternalOrderLines([])
@@ -378,10 +385,6 @@ export function useOrderBuilderData({
   const topBladeProducts = useMemo(() => activeBlades.slice(0, 10), [activeBlades])
 
   const qualifyingGifts = useMemo(() => {
-    const subtotal = orderLines.reduce((sum, line) => sum + (line.isPromo ? 0 : line.quantity * line.unitPrice), 0)
-    const cost = orderLines.reduce((sum, line) => sum + line.quantity * line.cost * (line.subjectToVig === false || line.giftItem ? 1 : vigRate), 0)
-    const availableProfit = Math.max(0, subtotal - cost)
-    const allowance = availableProfit * 0.2
     const giftCatalog = catalogProducts.some(product => getBooksItemId(product) === TITAN_GIFT_HAT_BOOKS_ITEM_ID)
       ? catalogProducts
       : [...catalogProducts, TITAN_GIFT_HAT]
@@ -389,16 +392,25 @@ export function useOrderBuilderData({
       .filter(product => {
         const desc = parseDesc(product.description)
         const cost = Number(product.unitCost ?? desc.cost ?? product.cost ?? 0)
+        const costQuality = product.costQuality === 'VERIFIED_ZERO'
+          ? 'VERIFIED_ZERO'
+          : cost > 0
+            ? 'AUTHORITATIVE'
+            : 'UNKNOWN'
         const isApprovedGift = product.giftItem || getBooksItemId(product) === TITAN_GIFT_HAT_BOOKS_ITEM_ID
-        return isApprovedGift && !isAdministrativeCatalogProduct(product) && desc.status !== "inactive" && cost <= allowance
+        return isApprovedGift
+          && !isAdministrativeCatalogProduct(product)
+          && desc.status !== "inactive"
+          && Boolean(getBooksItemId(product))
+          && costQuality !== 'UNKNOWN'
       })
       .map(product => {
         const desc = parseDesc(product.description)
-        return { name: product.name, sku: product.sku, price: 0, cost: Number(product.unitCost ?? desc.cost ?? product.cost ?? 0), costQuality: 'AUTHORITATIVE' as const, giftItem: true, subjectToVig: false, itemId: getBooksItemId(product) }
+        const cost = Number(product.unitCost ?? desc.cost ?? product.cost ?? 0)
+        return { name: product.name, sku: product.sku, price: 0, cost, costQuality: (product.costQuality === 'VERIFIED_ZERO' ? 'VERIFIED_ZERO' : 'AUTHORITATIVE') as 'VERIFIED_ZERO' | 'AUTHORITATIVE', giftItem: true, subjectToVig: false, itemId: getBooksItemId(product) }
       })
       .sort((a, b) => a.cost - b.cost)
-      .slice(0, 10)
-  }, [catalogProducts, orderLines, vigRate])
+  }, [catalogProducts])
 
   const previousPurchasesNoGifts = useMemo(() => {
     const raw = externalAccountPurchases || fetchedPurchases || []

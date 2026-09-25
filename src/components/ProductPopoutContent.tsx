@@ -396,8 +396,11 @@ export function ProductPopoutContent({ productId, onClose }: ProductPopoutConten
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={editForm.giftItem} onChange={e => setEditForm({...editForm, giftItem: e.target.checked})} className="rounded bg-black/40 border-white/10 text-purple-500 focus:ring-purple-500" />
-                  <span className="text-sm font-semibold text-neutral-300">Gift Item</span>
+                  <span className="text-sm font-semibold text-neutral-300">Gift Item — add to order shortcut list</span>
                 </label>
+                <p className="pl-6 text-xs text-neutral-500">
+                  Active gift items with a Books item ID and authoritative cost appear in the order builder at a $0 sales price.
+                </p>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={editForm.showOnWeb} disabled={editForm.giftItem} onChange={e => setEditForm({...editForm, showOnWeb: e.target.checked})} className="rounded bg-black/40 border-white/10 text-sky-500 focus:ring-sky-500 disabled:opacity-40" />
                   <span className="text-sm font-semibold text-neutral-300">Show on web</span>

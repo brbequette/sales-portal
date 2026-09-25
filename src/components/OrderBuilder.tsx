@@ -50,10 +50,29 @@ export interface OrderBuilderProps {
   accountId?: string
   dealId?: string
   onCancel?: () => void
-  onSuccess?: () => void
+  onSuccess?: (result?: OrderCreationResult) => void
+}
+
+export interface OrderCreationResult {
+  type: "Quote" | "SalesOrder"
+  localId?: string
+  booksId?: string
+  documentNumber?: string
+  alreadyProcessed?: boolean
 }
 
 const TIER_LABELS = ["Good", "Better", "Best"] as const
+
+export function formatOrderAddress(account: any, kind: "billing" | "shipping") {
+  const fallback = kind === "shipping" ? "billing" : kind
+  const street = account?.[`${kind}Street`] || account?.[`${fallback}Street`]
+  const city = account?.[`${kind}City`] || account?.[`${fallback}City`]
+  const state = account?.[`${kind}State`] || account?.[`${fallback}State`]
+  const zip = account?.[`${kind}Zip`] || account?.[`${kind}Code`] || account?.[`${fallback}Zip`] || account?.[`${fallback}Code`]
+  const country = account?.[`${kind}Country`] || account?.[`${fallback}Country`]
+  const locality = [city, state].filter(Boolean).join(", ")
+  return [street, [locality, zip].filter(Boolean).join(" "), country].filter(Boolean).join("\n")
+}
 const TIER_COLORS = {
   Good: { 
     bg: "bg-neutral-900/60 hover:bg-neutral-800/80", 
@@ -210,6 +229,8 @@ export function OrderBuilder({
     onCancel,
     onSuccess,
   })
+  const billingAddress = formatOrderAddress(accountDetail, "billing")
+  const shippingAddress = formatOrderAddress(accountDetail, "shipping")
 
   // ────────────────────────────────────────────────────────────────────────────
   return (
@@ -466,8 +487,8 @@ export function OrderBuilder({
 
         {qualifyingGifts.length > 0 && (
           <details className="group rounded-2xl border border-purple-500/20 bg-purple-950/10 p-3">
-            <summary className="flex cursor-pointer list-none items-center justify-between text-[10px] font-black uppercase tracking-widest text-purple-300"><span>🎁 Qualifying promotional gifts</span><FiChevronDown className="transition group-open:rotate-180" /></summary>
-            <p className="mt-2 text-[11px] text-neutral-500">Collapsed by default and limited by current order profit. Confirm the approved promotion before offering a gift.</p>
+            <summary className="flex cursor-pointer list-none items-center justify-between text-[10px] font-black uppercase tracking-widest text-purple-300"><span>🎁 Gift shortcuts</span><FiChevronDown className="transition group-open:rotate-180" /></summary>
+            <p className="mt-2 text-[11px] text-neutral-500">Active catalog products marked as Gift Item appear here at a $0 sales price. Authoritative cost remains included in profit.</p>
             <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto scrollbar-thin pr-1">
               {qualifyingGifts.map(gift => (
                 <button
@@ -815,17 +836,33 @@ export function OrderBuilder({
                   <div>
                     <p className="text-neutral-500 uppercase tracking-widest font-black mb-1 border-b border-white/5 pb-0.5">Bill To</p>
                     <p className="text-white font-bold text-xs">{accountName}</p>
-                    {accountDetail?.billingStreet && <p className="text-neutral-400 mt-1 leading-relaxed">{accountDetail.billingStreet}</p>}
+                    {billingAddress ? <p className="text-neutral-400 mt-1 leading-relaxed whitespace-pre-line">{billingAddress}</p> : <p className="mt-1 text-amber-400">Address not configured</p>}
                   </div>
                   <div>
                     <p className="text-neutral-500 uppercase tracking-widest font-black mb-1 border-b border-white/5 pb-0.5">Ship To</p>
                     <p className="text-white font-bold text-xs">{accountName}</p>
-                    {(accountDetail?.shippingStreet || accountDetail?.billingStreet) && (
-                      <p className="text-neutral-400 mt-1 leading-relaxed">{accountDetail.shippingStreet || accountDetail.billingStreet}</p>
-                    )}
+                    {shippingAddress ? <p className="text-neutral-400 mt-1 leading-relaxed whitespace-pre-line">{shippingAddress}</p> : <p className="mt-1 text-amber-400">Address not configured</p>}
                   </div>
                 </div>
               )}
+
+              <div className="grid gap-3 sm:grid-cols-3 text-[10px]">
+                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                  <p className="font-black uppercase tracking-wider text-neutral-500">Fulfillment</p>
+                  <p className="mt-1 font-bold text-amber-300">Not selected</p>
+                  <p className="mt-1 text-neutral-500">Choose dropship, warehouse, or pickup after the document exists.</p>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                  <p className="font-black uppercase tracking-wider text-neutral-500">Shipping</p>
+                  <p className="mt-1 font-bold text-amber-300">Not calculated</p>
+                  <p className="mt-1 text-neutral-500">No shipping charge is included in this draft.</p>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                  <p className="font-black uppercase tracking-wider text-neutral-500">Tax</p>
+                  <p className="mt-1 font-bold text-amber-300">Calculated by Books</p>
+                  <p className="mt-1 text-neutral-500">Final tax is not included in the preview subtotal.</p>
+                </div>
+              </div>
 
               {/* Sold Items Preview Table */}
               {paidLines.length > 0 && (
@@ -904,9 +941,10 @@ export function OrderBuilder({
                   <span className="text-xs font-bold text-white">{orderLines.reduce((s, l) => s + l.quantity, 0)} units</span>
                 </div>
                 <div className="flex justify-between px-1 pt-2.5 border-t border-white/10">
-                  <span className="text-xs font-black text-white">ORDER TOTAL</span>
+                  <span className="text-xs font-black text-white">DOCUMENT SUBTOTAL</span>
                   <span className="text-base font-black text-amber-400 tracking-tight">${orderTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
+                <p className="px-1 text-right text-[10px] text-neutral-500">Before any provider-calculated tax or later shipping charge.</p>
               </div>
 
               {/* Profit breakdown for internal review */}

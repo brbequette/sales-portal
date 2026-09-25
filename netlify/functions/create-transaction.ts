@@ -124,7 +124,7 @@ export const handler: Handler = async (event, context) => {
         const prior = ids?.booksRefId
           ? await (type === "Quote" ? prisma.quote.findFirst({ where: { zohoId: ids.booksRefId } }) : prisma.salesOrder.findFirst({ where: { zohoId: ids.booksRefId } }))
           : null
-        return { statusCode: 200, body: JSON.stringify({ success: true, transaction: prior, booksRefId: ids?.booksRefId || null, alreadyProcessed: true }) }
+        return { statusCode: 200, body: JSON.stringify({ success: true, transaction: prior, booksRefId: ids?.booksRefId || null, documentNumber: (ids as { booksDocNumber?: string } | null)?.booksDocNumber || null, alreadyProcessed: true }) }
       }
       if (operation.state === "AMBIGUOUS" || operation.state === "SYNCING") {
         return { statusCode: 202, body: JSON.stringify({ success: false, providerState: operation.state, message: "This transaction is already in progress or requires reconciliation; it was not resubmitted." }) }
@@ -341,7 +341,7 @@ export const handler: Handler = async (event, context) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ success: true, transaction, booksRefId, localDevelopmentTransaction })
+      body: JSON.stringify({ success: true, transaction, booksRefId, documentNumber: booksDocNumber, localDevelopmentTransaction })
     }
 
   } catch (error: any) {

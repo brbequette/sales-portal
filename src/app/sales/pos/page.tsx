@@ -1,9 +1,12 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { createPortal } from "react-dom"
 import Link from "next/link"
-import { FiArrowLeft, FiSearch, FiUser, FiInfo, FiRefreshCw, FiX } from "react-icons/fi"
+import { FiArrowLeft, FiSearch, FiUser, FiRefreshCw, FiX, FiCheckSquare, FiTruck, FiClipboard, FiExternalLink } from "react-icons/fi"
 import { StandaloneOrderBuilder } from "@/components/StandaloneOrderBuilder"
+import type { OrderCreationResult } from "@/components/OrderBuilder"
+import { DocumentPopoutContent } from "@/components/DocumentPopoutContent"
 
 interface Account {
   id: string
@@ -28,6 +31,8 @@ export default function StandalonePosPage() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null)
+  const [lastCreatedDocument, setLastCreatedDocument] = useState<OrderCreationResult | null>(null)
+  const [showDocumentActions, setShowDocumentActions] = useState(false)
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Fetch accounts when search query changes (debounced)
@@ -61,12 +66,16 @@ export default function StandalonePosPage() {
 
   const handleSelectAccount = (account: Account) => {
     setSelectedAccount(account)
+    setLastCreatedDocument(null)
+    setShowDocumentActions(false)
     setSearchQuery("")
     setAccounts([])
   }
 
   const handleClearSelection = () => {
     setSelectedAccount(null)
+    setLastCreatedDocument(null)
+    setShowDocumentActions(false)
   }
 
   return (
@@ -90,7 +99,7 @@ export default function StandalonePosPage() {
           </div>
         </div>
         {selectedAccount && (
-          <div className="flex items-center gap-3 bg-violet-500/10 border border-violet-500/30 px-4 py-2 rounded-xl">
+          <div className="flex flex-wrap items-center gap-3 bg-violet-500/10 border border-violet-500/30 px-4 py-2 rounded-xl">
             <div className="w-8 h-8 rounded-lg bg-violet-600/20 text-violet-400 flex items-center justify-center">
               <FiUser size={16} />
             </div>
@@ -100,9 +109,15 @@ export default function StandalonePosPage() {
                 CRM: {selectedAccount.crmAccountId || "Not mapped"} · Books: {selectedAccount.booksCustomerId || "Not mapped"}
               </div>
             </div>
+            <Link
+              href={`/tasks/new?accountId=${encodeURIComponent(selectedAccount.id)}&accountName=${encodeURIComponent(selectedAccount.name)}`}
+              className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-[10px] font-bold text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              <FiCheckSquare size={12} /> Add follow-up task
+            </Link>
             <button
               onClick={handleClearSelection}
-              className="ml-2 text-neutral-400 hover:text-white transition-colors"
+              className="text-neutral-400 hover:text-white transition-colors"
               title="Change Account"
             >
               <FiX size={16} />
@@ -182,17 +197,61 @@ export default function StandalonePosPage() {
           </div>
         ) : (
           /* OrderBuilder View */
-          <div className="flex-1 flex flex-col min-h-0 bg-white/[0.01] border border-white/10 rounded-2xl p-5 shadow-inner">
+          <div className="flex-1 flex flex-col min-h-0 gap-4 bg-white/[0.01] border border-white/10 rounded-2xl p-5 shadow-inner">
+            {lastCreatedDocument && (
+              <section className="rounded-2xl border border-emerald-500/30 bg-emerald-950/15 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[.2em] text-emerald-400">Created successfully</p>
+                    <h2 className="mt-1 text-base font-black text-white">
+                      {lastCreatedDocument.type === "SalesOrder" ? "Sales order" : "Estimate"} {lastCreatedDocument.documentNumber || "created"}
+                    </h2>
+                    <p className="mt-1 text-xs text-neutral-400">The customer stays selected so you can continue without searching again.</p>
+                  </div>
+                  <button type="button" onClick={() => setLastCreatedDocument(null)} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-neutral-300 hover:bg-white/10 hover:text-white">
+                    Build another document
+                  </button>
+                </div>
+                <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  <button type="button" disabled={!lastCreatedDocument.booksId} onClick={() => setShowDocumentActions(true)} className="td-btn td-btn-primary justify-center disabled:cursor-not-allowed disabled:opacity-40"><FiClipboard /> Open document actions</button>
+                  <Link href="/shipping" className="td-btn td-btn-ghost justify-center"><FiTruck /> Fulfillment &amp; shipping</Link>
+                  <Link href={`/tasks/new?accountId=${encodeURIComponent(selectedAccount.id)}&accountName=${encodeURIComponent(selectedAccount.name)}`} className="td-btn td-btn-ghost justify-center"><FiCheckSquare /> Add follow-up</Link>
+                  <Link href={`/account?id=${encodeURIComponent(selectedAccount.id)}`} className="td-btn td-btn-ghost justify-center"><FiExternalLink /> Account workspace</Link>
+                </div>
+                <p className="mt-3 text-[10px] text-neutral-500">Conversion, invoicing, payment, dropship PO, package, and label actions remain in their established review screens so every provider write shows its exact confirmation and outcome.</p>
+              </section>
+            )}
             <StandaloneOrderBuilder
               accountId={selectedAccount.id}
               accountName={selectedAccount.name}
               accountDetail={selectedAccount}
               onCancel={handleClearSelection}
-              onSuccess={handleClearSelection}
+              onSuccess={result => setLastCreatedDocument(result || null)}
             />
           </div>
         )}
       </div>
+      {showDocumentActions && lastCreatedDocument?.booksId && createPortal(
+        <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm">
+          <div className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-neutral-950 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[.2em] text-violet-400">POS lifecycle actions</p>
+                <p className="text-sm font-bold text-white">{lastCreatedDocument.documentNumber || lastCreatedDocument.booksId}</p>
+              </div>
+              <button type="button" onClick={() => setShowDocumentActions(false)} className="rounded-lg border border-white/10 bg-white/5 p-2 text-neutral-400 hover:bg-white/10 hover:text-white" aria-label="Close document actions"><FiX size={18} /></button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <DocumentPopoutContent
+                entityId={lastCreatedDocument.booksId}
+                entityType={lastCreatedDocument.type === "SalesOrder" ? "salesorder" : "quote"}
+                onClose={() => setShowDocumentActions(false)}
+              />
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
     </div>
   )
