@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { beforeEach, expect, it, vi } from "vitest"
-const mocks = vi.hoisted(() => ({ verify: vi.fn(), association: vi.fn(), persist: vi.fn() }))
+const mocks = vi.hoisted(() => ({ verify: vi.fn(), association: vi.fn(), persist: vi.fn(), inbox: vi.fn() }))
 vi.mock("retell-sdk", () => ({ default: { verify: mocks.verify } }))
-vi.mock("@/lib/retell-sync", () => ({ confirmedRetellAssociation: mocks.association, persistRetellEvidence: mocks.persist }))
+vi.mock("@/lib/retell-sync", () => ({ confirmedRetellAssociation: mocks.association, persistRetellEvidence: mocks.persist, persistUnassignedRetellEvidence: mocks.inbox }))
 import { POST } from "./route"
 const raw = '{ "event":"transfer_bridged", "call":{"call_id":"call_test"} }'
 const request = (signature = "signed") => new Request("https://portal.test/api/webhooks/retell", { method: "POST", headers: { "x-retell-signature": signature }, body: raw })
@@ -21,6 +21,11 @@ it("does not attach unmatched calls to any account", async () => {
   mocks.association.mockResolvedValue(null)
   expect((await POST(request())).status).toBe(204)
   expect(mocks.persist).not.toHaveBeenCalled()
+  expect(mocks.inbox).toHaveBeenCalledOnce()
+})
+it("does not acknowledge an unassigned event when inbox persistence fails", async () => {
+  mocks.association.mockResolvedValue(null); mocks.inbox.mockRejectedValue(new Error("rollback"))
+  expect((await POST(request())).status).toBe(503)
 })
 it("returns retryable failure on database failure instead of discarding an event", async () => {
   mocks.association.mockRejectedValue(new Error("database unavailable"))
