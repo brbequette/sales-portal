@@ -199,7 +199,7 @@ export default function NewTaskPage() {
       if (data.success) {
         router.push('/dashboard')
       } else {
-        toast.error("Failed to create task: " + data.error)
+        toast.error(data.message || (typeof data.error === 'string' ? data.error : JSON.stringify(data.error || data)))
       }
     } catch (err: any) {
       toast.error("Error saving task: " + err.message)
@@ -321,11 +321,11 @@ export default function NewTaskPage() {
                 className="w-full bg-[#111214] border border-white/15 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
               >
                 <option value="">-- No Linked Account (Company Task) --</option>
-                {preselectedAccountName && !accounts.some(a => a.zohoId === taskWhatId) && (
+                {preselectedAccountName && !accounts.some(a => a.id === taskWhatId) && (
                   <option value={taskWhatId}>{preselectedAccountName} ✍"</option>
                 )}
                 {accounts.map(a => (
-                  <option key={a.id} value={a.zohoId}>{a.name}</option>
+                  <option key={a.id} value={a.id}>{a.name}</option>
                 ))}
               </select>
             </div>

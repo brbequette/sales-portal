@@ -6,7 +6,7 @@ import { prisma } from "./lib/prisma"
 import { isAdminRole } from "../../src/lib/roles"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
-const authenticatedHandler: Handler = async (event, context) => {
+export const authenticatedHandler: Handler = async (event, context) => {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: JSON.stringify({ success: false, message: "Method Not Allowed" }) }
   }
@@ -53,11 +53,23 @@ const authenticatedHandler: Handler = async (event, context) => {
       return { statusCode: 403, body: JSON.stringify({ success: false, message: "Only administrators can assign tasks to another user" }) }
     }
 
+    let linkedAccount: { id: string; ownerId: string; crmAccountId: string | null } | null = null
+    let linkedDeal: { id: string; ownerId: string; zohoId: string } | null = null
+    if (whatId) {
+      linkedAccount = await prisma.account.findFirst({
+        where: { OR: [{ id: whatId }, { crmAccountId: whatId }, { zohoId: whatId }] },
+        select: { id: true, ownerId: true, crmAccountId: true },
+      })
+      if (!linkedAccount) {
+        linkedDeal = await prisma.deal.findFirst({ where: { OR: [{ id: whatId }, { zohoId: whatId }] }, select: { id: true, ownerId: true, zohoId: true } })
+      }
+      if (!linkedAccount && !linkedDeal) return { statusCode: 404, body: JSON.stringify({ success: false, message: 'Linked account or deal was not found.' }) }
+      if (linkedAccount && !linkedAccount.crmAccountId) {
+        return { statusCode: 409, body: JSON.stringify({ success: false, message: 'This account must be reconciled to an authoritative CRM Account before a CRM task can be created.', code: 'CRM_ACCOUNT_MAPPING_REQUIRED' }) }
+      }
+    }
+
     if (!administrator && whatId) {
-      const [linkedAccount, linkedDeal] = await Promise.all([
-        prisma.account.findUnique({ where: { zohoId: whatId }, select: { ownerId: true } }),
-        prisma.deal.findUnique({ where: { zohoId: whatId }, select: { ownerId: true } }),
-      ])
       const linkedOwnerId = linkedAccount?.ownerId || linkedDeal?.ownerId
       if (linkedOwnerId && linkedOwnerId !== actorId) {
         return { statusCode: 403, body: JSON.stringify({ success: false, message: "Linked record belongs to another representative" }) }
@@ -93,8 +105,8 @@ const authenticatedHandler: Handler = async (event, context) => {
 
     // What_Id refers to Account, Deal, etc.
     if (whatId) {
-      taskData.What_Id = { id: whatId }
-      taskData.$se_module = "Accounts"
+      taskData.What_Id = { id: linkedAccount?.crmAccountId || linkedDeal?.zohoId }
+      taskData.$se_module = linkedAccount ? "Accounts" : "Deals"
     }
 
     const payload = {
@@ -115,7 +127,9 @@ const authenticatedHandler: Handler = async (event, context) => {
 
     if (!res.ok || recordDetails?.code !== "SUCCESS") {
       console.error("Zoho Task Create failed:", JSON.stringify(zohoData))
-      return { statusCode: 400, body: JSON.stringify({ success: false, message: "Failed to create task in Zoho", error: zohoData }) }
+      const providerCode = String(recordDetails?.code || zohoData?.code || `HTTP_${res.status}`)
+      const providerMessage = String(recordDetails?.message || zohoData?.message || 'Zoho CRM rejected task creation.')
+      return { statusCode: 400, body: JSON.stringify({ success: false, message: `Failed to create task in Zoho: ${providerCode}: ${providerMessage}`, code: providerCode, providerMessage, providerError: zohoData }) }
     }
 
     const newZohoId = recordDetails.details.id
@@ -123,14 +137,8 @@ const authenticatedHandler: Handler = async (event, context) => {
     // Try to resolve What_Id locally for Prisma relations
     let accountId = null
     let dealId = null
-    if (whatId) {
-       const acc = await prisma.account.findUnique({ where: { zohoId: whatId } })
-       if (acc) accountId = acc.id
-       else {
-         const deal = await prisma.deal.findUnique({ where: { zohoId: whatId } })
-         if (deal) dealId = deal.id
-       }
-    }
+    if (linkedAccount) accountId = linkedAccount.id
+    if (linkedDeal) dealId = linkedDeal.id
 
     // Create locally
     const newTask = await prisma.task.create({
@@ -164,7 +172,7 @@ const authenticatedHandler: Handler = async (event, context) => {
     console.error("Create Task Error:", error)
     return {
       statusCode: 500,
-      body: JSON.stringify({ success: false, error: error.message })
+      body: JSON.stringify({ success: false, message: error.message, error: error.message })
     }
   }
 }

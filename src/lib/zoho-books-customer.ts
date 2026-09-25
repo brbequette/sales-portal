@@ -3,14 +3,75 @@ import { prisma } from '@/lib/prisma'
 import { getZohoAccessToken } from '@/lib/zoho-auth'
 
 const ZOHO_DC = process.env.ZOHO_DC?.trim() || 'com'
-const ORG_ID = process.env.ZOHO_ORGANIZATION_ID?.trim() || ''
 const TIMEOUT_MS = 15000
+
+function organizationId() { return process.env.ZOHO_ORGANIZATION_ID?.trim() || '' }
 
 type BooksCustomerResult = {
   state: 'SUCCEEDED' | 'SYNCING' | 'FAILED' | 'AMBIGUOUS'
   booksCustomerId?: string
+  booksContactId?: string
   code?: string
   message?: string
+}
+
+function normalizePhone(value: unknown) {
+  const digits = String(value || '').replace(/\D/g, '')
+  return digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits
+}
+
+function contactPersonId(value: any) {
+  return String(value?.contact_person_id || value?.id || '').trim()
+}
+
+async function fetchBooksCustomer(booksCustomerId: string, token: string) {
+  const response = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/contacts/${encodeURIComponent(booksCustomerId)}?organization_id=${encodeURIComponent(organizationId())}`, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  })
+  const body = await response.json().catch(() => null)
+  if (!response.ok || Number(body?.code) !== 0 || !body?.contact) {
+    throw new Error(String(body?.message || `Zoho Books contact lookup failed (HTTP ${response.status}).`))
+  }
+  return body.contact
+}
+
+function resolveExactContactPerson(primary: any, providerContact: any) {
+  const people = Array.isArray(providerContact?.contact_persons) ? providerContact.contact_persons : []
+  const email = String(primary?.email || '').trim().toLowerCase()
+  const phones = new Set([normalizePhone(primary?.phone), normalizePhone(primary?.mobilePhone)].filter(Boolean))
+  const matches = people.filter((person: any) => {
+    const emailMatch = email && String(person?.email || '').trim().toLowerCase() === email
+    const providerPhones = [normalizePhone(person?.phone), normalizePhone(person?.mobile)].filter(Boolean)
+    const phoneMatch = providerPhones.some((phone: string) => phones.has(phone))
+    return emailMatch || phoneMatch
+  }).filter((person: any) => contactPersonId(person))
+  return matches.length === 1 ? contactPersonId(matches[0]) : null
+}
+
+export async function reconcileBooksPrimaryContact(accountId: string): Promise<BooksCustomerResult> {
+  const account = await prisma.account.findUnique({
+    where: { id: accountId },
+    include: { contacts: { orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }] } },
+  })
+  if (!account) throw new Error('Account not found')
+  if (!account.booksCustomerId) return { state: 'FAILED', message: 'The account has no authoritative Books customer ID.' }
+  const primary = account.contacts[0]
+  if (!primary) return { state: 'FAILED', booksCustomerId: account.booksCustomerId, message: 'The account has no local contact to reconcile.' }
+  if (primary.booksContactId) return { state: 'SUCCEEDED', booksCustomerId: account.booksCustomerId, booksContactId: primary.booksContactId }
+  if (!organizationId()) throw new Error('ZOHO_ORGANIZATION_ID is not configured')
+
+  const token = await getZohoAccessToken()
+  const providerContact = await fetchBooksCustomer(account.booksCustomerId, token)
+  const booksContactId = resolveExactContactPerson(primary, providerContact)
+  if (!booksContactId) {
+    return { state: 'FAILED', booksCustomerId: account.booksCustomerId, message: 'No unique Books contact person matched the local primary contact by exact email or phone.' }
+  }
+  await prisma.contact.update({
+    where: { id: primary.id },
+    data: { booksContactId, providerSyncState: 'SUCCEEDED', providerSyncError: null, providerSyncedAt: new Date() },
+  })
+  return { state: 'SUCCEEDED', booksCustomerId: account.booksCustomerId, booksContactId }
 }
 
 function fingerprint(value: unknown) {
@@ -18,7 +79,7 @@ function fingerprint(value: unknown) {
 }
 
 async function findByCrmAccountId(crmAccountId: string, token: string): Promise<string | null> {
-  const response = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/contacts?organization_id=${encodeURIComponent(ORG_ID)}&zcrm_account_id=${encodeURIComponent(crmAccountId)}`, {
+  const response = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/contacts?organization_id=${encodeURIComponent(organizationId())}&zcrm_account_id=${encodeURIComponent(crmAccountId)}`, {
     headers: { Authorization: `Zoho-oauthtoken ${token}` },
     signal: AbortSignal.timeout(TIMEOUT_MS),
   })
@@ -46,8 +107,8 @@ export async function ensureBooksCustomer(accountId: string): Promise<BooksCusto
     include: { contacts: { orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }] } },
   })
   if (!account) throw new Error('Account not found')
-  if (account.booksCustomerId) return { state: 'SUCCEEDED', booksCustomerId: account.booksCustomerId }
-  if (!ORG_ID) throw new Error('ZOHO_ORGANIZATION_ID is not configured')
+  if (account.booksCustomerId) return reconcileBooksPrimaryContact(account.id)
+  if (!organizationId()) throw new Error('ZOHO_ORGANIZATION_ID is not configured')
 
   const primary = account.contacts[0]
   const payload = {
@@ -83,7 +144,7 @@ export async function ensureBooksCustomer(accountId: string): Promise<BooksCusto
   if (claimed.count !== 1) return { state: 'SYNCING', message: 'Books customer creation is already in progress.' }
 
   try {
-    const response = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/contacts?organization_id=${encodeURIComponent(ORG_ID)}`, {
+    const response = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/contacts?organization_id=${encodeURIComponent(organizationId())}`, {
       method: 'POST', headers: { Authorization: `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(payload), signal: AbortSignal.timeout(TIMEOUT_MS),
     })
@@ -95,7 +156,17 @@ export async function ensureBooksCustomer(accountId: string): Promise<BooksCusto
       await prisma.providerWriteOperation.update({ where: { operationKey }, data: { state: 'FAILED', providerCode: code, providerMessage: message, lastError: message, completedAt: new Date() } })
       return { state: 'FAILED', code, message }
     }
-    return persistBooksCustomer(account.id, operationKey, id, String(body.code), String(body.message || 'success'))
+    await persistBooksCustomer(account.id, operationKey, id, String(body.code), String(body.message || 'success'))
+    try {
+      const returnedContactId = resolveExactContactPerson(primary, body.contact)
+      if (primary && returnedContactId) {
+        await prisma.contact.update({ where: { id: primary.id }, data: { booksContactId: returnedContactId, providerSyncState: 'SUCCEEDED', providerSyncError: null, providerSyncedAt: new Date() } })
+        return { state: 'SUCCEEDED', booksCustomerId: id, booksContactId: returnedContactId, code: String(body.code), message: String(body.message || 'success') }
+      }
+      return await reconcileBooksPrimaryContact(account.id)
+    } catch (contactError) {
+      return { state: 'SUCCEEDED', booksCustomerId: id, code: String(body.code), message: `Books customer created; contact-person reconciliation remains pending: ${contactError instanceof Error ? contactError.message : String(contactError)}` }
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown Books customer submission error'
     await prisma.providerWriteOperation.update({ where: { operationKey }, data: { state: 'AMBIGUOUS', lastError: message, providerMessage: 'Submission outcome is unknown; exact reconciliation is required.' } })

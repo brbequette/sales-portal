@@ -352,7 +352,7 @@ function OverviewPanel({
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <button onClick={() => onNavigateTab('comms')} className="td-btn td-btn-sm td-btn-primary justify-center"><FiPhone /> Call / message</button>
           <button onClick={() => onNavigateTab('quicksale')} className="td-btn td-btn-sm td-btn-ghost justify-center"><FiShoppingCart /> Create order</button>
-          <button onClick={() => window.location.assign(`/tasks/new?accountId=${encodeURIComponent(zohoId)}&accountName=${encodeURIComponent(account.name)}`)} className="td-btn td-btn-sm td-btn-ghost justify-center"><FiCheckSquare /> Add task</button>
+          <button onClick={() => window.location.assign(`/tasks/new?accountId=${encodeURIComponent(account.id)}&accountName=${encodeURIComponent(account.name)}`)} className="td-btn td-btn-sm td-btn-ghost justify-center"><FiCheckSquare /> Add task</button>
           <button onClick={() => onAskAi(`Give me the verified account intelligence and next-best action for ${account.name}. Link every supporting record.`)} className="td-btn td-btn-sm td-btn-ghost justify-center"><FiZap /> Ask AI</button>
         </div>
       </section>
@@ -848,7 +848,7 @@ function AccountHubContent() {
             </button>
 
             <button
-              onClick={() => router.push(`/tasks/new?accountId=${account.zohoId}&accountName=${encodeURIComponent(account.name)}`)}
+              onClick={() => router.push(`/tasks/new?accountId=${account.id}&accountName=${encodeURIComponent(account.name)}`)}
               className="shrink-0 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white px-3 py-1.5 text-xs rounded-lg font-bold transition-colors border border-neutral-700"
             >
               + Task

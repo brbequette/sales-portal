@@ -1,6 +1,6 @@
 # Sales lifecycle blocker audit
 
-Status: implementation in progress; not released and not production-verified.
+Status: follow-up reconciliation implementation in progress; not released and not production-verified.
 
 ## Confirmed root causes
 
@@ -21,11 +21,19 @@ Status: implementation in progress; not released and not production-verified.
 - Quote and sales-order POSTs use a caller-stable request UUID and an atomic durable operation claim. Provider acceptance is recorded before local persistence; an interruption in that window becomes ambiguous and ordinary retries cannot create another Books document.
 - Read-only production evidence: DADGR458S is active and priced at $0.45, but Books reports a $0 purchase rate and no authoritative dropship flag, so cost/dropship acceptance remains blocked rather than guessed. Hat item `1254360000043727500` is active with a $0 sales rate, $20 purchase rate, and inventory tracking. The additive migration stores Books item IDs, purchase cost, and dropship eligibility explicitly, and the verified hat remains selectable if a bounded catalog response omits it.
 - Missing product cost now blocks order selection. Numeric zero remains blocked unless its quality is explicitly `VERIFIED_ZERO`; it is never silently converted into zero-cost profit. Dropship eligibility remains nullable/unknown unless provider evidence satisfies the portal's purchase-order contract.
-- Bounded alternative-product discovery chose RFD-50A060 for acceptance: active, $0.91 selling price, authoritative $0.36 purchase rate, purchase account present, purchase-capable goods classification, and an exact active preferred vendor. The item API exposes no separate dropship boolean; the portal's supported dropship evidence is the purchase-capable item plus active preferred vendor required by its linked purchase-order workflow.
+- Bounded alternative-product discovery chose RFD-50A060 for acceptance: active, $0.91 selling price, authoritative $0.36 purchase rate, purchase-capable non-inventory goods classification, and an exact active preferred vendor. The follow-up reconciler uses an exact bounded Books SKU lookup and a targeted preferred-vendor lookup. It persists price/cost/vendor evidence but deliberately keeps `canDropship` unknown unless Books returns an explicit dropship eligibility flag; zero stock and a vendor relationship alone are not treated as authorization.
+
+## Follow-up acceptance blocker repair
+
+- `/admin/lifecycle-reconciliation` and its POST-only administrator APIs reconcile an already-converted local Account/Lead pair by immutable local linkage. They use the durable CRM create/convert operations, never create another local Account, never resolve by company name alone, and never create a second Books customer.
+- Existing Books customers now receive a targeted customer GET and persist the unique contact-person ID only when it matches the local primary contact by exact email or normalized phone. Ambiguous/missing matches fail closed.
+- Task creation resolves the submitted local Account ID first, requires its authoritative `crmAccountId`, submits that ID as CRM `What_Id`, and persists the Task against the same local Account. Provider codes/messages remain readable instead of becoming `[object Object]`.
+- RFD-50A060 product reconciliation is read-only upstream and idempotent locally. It verifies exact identity, active state, positive sales/purchase rates, purchase-capable goods type, non-inventory mode, and the exact active preferred vendor before persisting authoritative cost evidence.
+- Gift selection retains the exact Books item `1254360000043727500` with $0 sales price and $20 authoritative cost; focused regression coverage remains in place.
 
 ## Still required before release
 
 - Mocked provider concurrency, rejection, accepted-timeout, lock-expiry, and transaction-failure coverage.
-- Read-only reconciliation of local TEST account `cmug0bjgs0002z35hikn7od9w` against its exact CRM/Books mappings without creating another account.
+- Deploy and invoke the restricted reconciliation path for local TEST account `cmug0bjgs0002z35hikn7od9w` and lead `cmufz988p00012v293aj45jas`, then verify the resulting exact CRM/Books mappings.
 - Remaining fulfillment idempotency, address/shipping/tax preview, and truthful pending/ambiguous UI feedback corrections.
 - Full lint, build, function bundle, preview, reviewed merge, backup, production deploy, and browser/provider acceptance.

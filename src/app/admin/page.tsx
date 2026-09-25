@@ -18,6 +18,7 @@ const workspaces = [
 ]
 
 const priorities = [
+  { label: "Lifecycle reconciliation", href: "/admin/lifecycle-reconciliation", icon: FiActivity },
   { label: "Resolve sync conflicts", href: "/admin/sync-conflicts", icon: FiActivity },
   { label: "Review data quality", href: "/admin/orphaned-records", icon: FiDatabase },
   { label: "Manage permissions", href: "/admin/users", icon: FiUsers },

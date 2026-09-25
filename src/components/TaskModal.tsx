@@ -185,7 +185,7 @@ export function TaskModal({
         if (onSaved) onSaved()
         onClose()
       } else {
-        toast.error("Failed to create task: " + data.error)
+        toast.error(data.message || (typeof data.error === 'string' ? data.error : JSON.stringify(data.error || data)))
       }
     } catch (err: any) {
       toast.error("Error saving task: " + err.message)
@@ -286,7 +286,7 @@ export function TaskModal({
             >
               <option value="">-- No Linked Account (Company Task) --</option>
               {accounts.map(a => (
-                <option key={a.id} value={a.zohoId}>{a.name}</option>
+                <option key={a.id} value={a.id}>{a.name}</option>
               ))}
             </select>
           </div>
