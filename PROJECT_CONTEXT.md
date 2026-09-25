@@ -1,11 +1,12 @@
 # Titan Diamond — Consolidated Project Context
 
-## Guarded dropship purchase-order email (pending release, 2026-09-25)
+## Guarded dropship purchase-order email (production, 2026-09-25)
 
 - The fulfillment API adds an administrator-only, idempotent Zoho Books purchase-order email action. It verifies the exact local dropship PO/Sales Order relationship, requires the recipient to exactly match a contact on the linked account, and sends with empty CC/BCC lists so a vendor or arbitrary address cannot be substituted.
 - Each email uses a stable request UUID and `ProviderWriteOperation`. Concurrent, failed, and ambiguous attempts are not automatically resubmitted. The provider PO is read back by exact ID before the email POST, and the provider response is retained in the write audit.
 - The document modal exposes this action only to administrators when the PO has an exact provider ID and the document has a linked contact email. It shows the exact recipient in a confirmation, states that the vendor is not copied, disables repeat submission, and preserves provider failure/ambiguous results for review.
 - Document Lifecycle now opens purchase orders using the Zoho Books ID before any local database row ID and displays Sales Order numbers retained in provider snapshots. These changes do not create, convert, package, ship, pay, or otherwise alter a financial document.
+- PRs #136 and #137 deployed the guarded backend action and administrator UI. A follow-up adds a no-store durable status read before the button can be used, reuses the original request UUID for a genuinely pending operation, and blocks refresh-based resubmission for syncing, successful, failed, or ambiguous attempts. The status read performs no Zoho call.
 
 ## Created-deal readback acceptance (2026-09-25)
 

@@ -18,7 +18,7 @@ import { InvoiceFinancialBreakdown } from "./InvoiceFinancialBreakdown"
 import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
 import { classifyZohoLineItem, financialZohoLineItems, orderedZohoLineItems } from "@/lib/zoho-line-items"
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 function EmailPurchaseOrderButton({ salesOrderId, purchaseOrderId, purchaseOrderNumber, recipientEmail }: {
   salesOrderId: string
@@ -27,8 +27,49 @@ function EmailPurchaseOrderButton({ salesOrderId, purchaseOrderId, purchaseOrder
   recipientEmail: string
 }) {
   const requestIdRef = useRef<string | null>(null)
-  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'failed' | 'ambiguous'>('idle')
+  const [status, setStatus] = useState<'checking' | 'idle' | 'sending' | 'sent' | 'failed' | 'ambiguous'>('checking')
   const [message, setMessage] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    const loadDurableStatus = async () => {
+      try {
+        const response = await fetch('/api/zoho-fulfillment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
+          body: JSON.stringify({ action: 'GetPurchaseOrderEmailStatus', salesOrderId, purchaseOrderId }),
+        })
+        const result = await response.json().catch(() => null)
+        if (cancelled) return
+        if (!response.ok || !result?.success) {
+          setStatus('ambiguous')
+          setMessage(result?.message || `Unable to verify prior email attempts (HTTP ${response.status}). Do not send until reviewed.`)
+          return
+        }
+        if (result.requestId) requestIdRef.current = result.requestId
+        if (result.status === 'SUCCEEDED') {
+          setStatus('sent')
+          setMessage(result.providerMessage || 'Purchase order email was already accepted by Zoho Books.')
+        } else if (result.status === 'FAILED') {
+          setStatus('failed')
+          setMessage(result.providerMessage || result.lastError || 'The prior email attempt failed and will not be retried automatically.')
+        } else if (result.status === 'SYNCING' || result.status === 'AMBIGUOUS') {
+          setStatus('ambiguous')
+          setMessage(result.providerMessage || result.lastError || 'The prior email attempt requires reconciliation and will not be resent.')
+        } else {
+          setStatus('idle')
+          setMessage(result.status === 'PENDING' ? 'A durable unsent request is ready; sending will reuse its original request ID.' : '')
+        }
+      } catch (error) {
+        if (cancelled) return
+        setStatus('ambiguous')
+        setMessage(error instanceof Error ? error.message : 'Unable to verify prior email attempts. Do not send until reviewed.')
+      }
+    }
+    void loadDurableStatus()
+    return () => { cancelled = true }
+  }, [purchaseOrderId, salesOrderId])
 
   const send = async () => {
     if (status !== 'idle') return
@@ -71,7 +112,7 @@ function EmailPurchaseOrderButton({ salesOrderId, purchaseOrderId, purchaseOrder
         className="inline-flex items-center gap-1 rounded border border-sky-500/30 bg-sky-950/40 px-2 py-1 text-[10px] font-bold uppercase text-sky-300 transition-colors hover:bg-sky-900/50 disabled:cursor-not-allowed disabled:opacity-60"
       >
         <FiMail size={11} />
-        {status === 'idle' ? `Email PO to ${recipientEmail}` : status === 'sending' ? 'Sending once...' : status === 'sent' ? 'Email sent' : 'Review required'}
+        {status === 'checking' ? 'Checking email history...' : status === 'idle' ? `Email PO to ${recipientEmail}` : status === 'sending' ? 'Sending once...' : status === 'sent' ? 'Email sent' : 'Review required'}
       </button>
       {message && <p className={`max-w-sm text-right text-[10px] ${status === 'sent' ? 'text-emerald-400' : status === 'ambiguous' ? 'text-amber-400' : 'text-red-400'}`}>{message}</p>}
     </div>
