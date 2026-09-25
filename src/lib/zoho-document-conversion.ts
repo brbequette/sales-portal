@@ -52,8 +52,11 @@ export function buildSalesOrderFromQuotePayload(quote: JsonRecord): JsonRecord {
   const documentFields = [
     'salesperson_id',
     'salesperson_name',
-    'billing_address',
-    'shipping_address',
+    // The create-sales-order API accepts customer address identifiers here.
+    // Copying the estimate's expanded address objects makes Zoho coerce the
+    // object to a string and reject it with the 100-character address limit.
+    'billing_address_id',
+    'shipping_address_id',
     'place_of_supply',
     'tax_exemption_id',
     'tax_exemption_code',
