@@ -807,13 +807,12 @@ export async function POST(req: NextRequest) {
                 stock: parseInt(item.stock_on_hand || 0),
                 unitCost: Number.isFinite(Number(item.purchase_rate)) ? Number(item.purchase_rate) : null,
                 costQuality: Number(item.purchase_rate) > 0 ? 'AUTHORITATIVE' : 'UNKNOWN',
-                canDropship: typeof item.is_drop_shipment_enabled === 'boolean' ? item.is_drop_shipment_enabled : null,
               }
 
               batch.push(prisma.product.upsert({
                 where: { sku: item.sku },
                 update: productData,
-                create: { sku: item.sku, ...productData },
+                create: { sku: item.sku, ...productData, canDropship: null },
               }));
               if (batch.length >= BATCH_SIZE) { await prisma.$transaction(batch); syncedCount += batch.length; batch = []; }
             }

@@ -1,12 +1,15 @@
 import { Handler } from "@netlify/functions"
+import { createHash } from "node:crypto"
 import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
 import { financialZohoLineItems } from "../../src/lib/zoho-line-items"
+import { isPioneerCalifornia, validateDirectDropshipEvidence } from "../../src/lib/dropship-policy"
+import { prisma } from "./lib/prisma"
 
-export const handler: Handler = async (event, context) => {
+export const handler: Handler = async (event) => {
   const headers = { "Content-Type": "application/json" }
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: JSON.stringify({ success: false, message: "Method Not Allowed" }) }
@@ -20,7 +23,7 @@ export const handler: Handler = async (event, context) => {
 
   try {
     const body = JSON.parse(event.body || "{}")
-    const { action, salesOrderId, vendorId, items, trackingNumber, shippingMethod } = body
+    const { action, salesOrderId, vendorId, items, trackingNumber, requestId } = body
 
     if (!action || !salesOrderId) {
       return { statusCode: 400, body: JSON.stringify({ success: false, message: "Missing required fields" }) }
@@ -88,7 +91,6 @@ export const handler: Handler = async (event, context) => {
       
       const createdPkg = pkgData.package || {}
       try {
-        const { prisma } = require("./lib/prisma")
         const pkgItems = financialItems.map(i => {
           const soLine = financialZohoLineItems(so.line_items).find((li: any) => li.line_item_id === i.lineItemId)
           return {
@@ -132,61 +134,41 @@ export const handler: Handler = async (event, context) => {
       if (!vendorId) {
         return { statusCode: 400, body: JSON.stringify({ success: false, message: "Vendor ID required for dropshipments" }) }
       }
+      if (typeof requestId !== "string" || !/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(requestId)) {
+        return { statusCode: 400, body: JSON.stringify({ success: false, message: "A stable UUID requestId is required for duplicate-safe dropshipment creation" }) }
+      }
 
-      const { prisma } = require("./lib/prisma")
+      const vendor = await prisma.vendor.findUnique({ where: { zohoId: vendorId } })
+      if (!vendor || String(vendor.status || "").toLowerCase() !== "active") {
+        return { statusCode: 422, body: JSON.stringify({ success: false, message: "The selected vendor is not an active authoritative local vendor." }) }
+      }
+      const vendorName = String(vendor.companyName || vendor.contactName || "").trim()
+      const destinationState = String(so.shipping_address?.state || so.shipping_address?.state_code || "").trim().toUpperCase()
+      if (isPioneerCalifornia(vendorName, destinationState)) {
+        return { statusCode: 422, body: JSON.stringify({
+          success: false,
+          code: "PIONEER_CALIFORNIA_DIRECT_SHIP_BLOCKED",
+          message: "Pioneer products for California accounts must be shipped to Titan first and cannot be direct-dropshipped.",
+        }) }
+      }
 
-      // Map SO line items to PO line items using their cost instead of retail price
+      // Resolve every selected line through exact Books item identity. No name,
+      // stock, description, catalog-price percentage, or live-provider fallback
+      // is acceptable financial or dropship evidence.
       const poLineItems = await Promise.all(financialZohoLineItems(items).map(async i => {
         const soItem = financialZohoLineItems(so.line_items).find(li => li.line_item_id === i.lineItemId)
         if (!soItem) throw new Error(`Line item ${i.lineItemId} not found on SO`)
-
-        let purchaseRate = 0
-        try {
-          const dbProd = await prisma.product.findFirst({
-            where: {
-              OR: [
-                { sku: soItem.sku },
-                { name: soItem.name }
-              ]
-            }
-          })
-          if (dbProd) {
-            try {
-              const desc = JSON.parse(dbProd.description || "{}")
-              purchaseRate = parseFloat(desc.cost || dbProd.price * 0.50) || 0
-            } catch {
-              purchaseRate = dbProd.price * 0.50
-            }
-          }
-        } catch (dbErr) {
-          console.warn("Could not fetch purchase rate from DB:", dbErr)
-        }
-
-        // Fetch live from Zoho live as fallback
-        if (purchaseRate === 0 && soItem.item_id) {
-          try {
-            const itemRes = await fetch(`${baseUrl}/items/${soItem.item_id}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
-              headers: { Authorization: `Zoho-oauthtoken ${token}` }
-            })
-            const itemData = await itemRes.json()
-            if (itemData.code === 0 && itemData.item) {
-              purchaseRate = parseFloat(itemData.item.purchase_rate || 0)
-            }
-          } catch (zohoErr) {
-            console.warn("Could not fetch purchase rate from Zoho:", zohoErr)
-          }
-        }
-
-        // Fallback to 50% of the sales rate
-        if (purchaseRate === 0) {
-          purchaseRate = parseFloat(soItem.rate) * 0.50
-        }
+        const booksItemId = String(soItem.item_id || "").trim()
+        const dbProd = booksItemId ? await prisma.product.findUnique({ where: { booksItemId } }) : null
+        if (!dbProd) throw new Error(`Line item ${i.lineItemId} is not mapped to an authoritative local product.`)
+        const evidence = validateDirectDropshipEvidence(dbProd, vendorId)
+        if (!evidence.allowed) throw new Error(evidence.reason)
 
         return {
           item_id: soItem.item_id,
           name: soItem.name,
           description: soItem.description,
-          rate: purchaseRate,
+          rate: evidence.unitCost,
           quantity: i.quantity,
           salesorder_item_id: soItem.line_item_id
         }
@@ -215,20 +197,56 @@ export const handler: Handler = async (event, context) => {
         ]
       }
 
-      const poRes = await fetch(`${baseUrl}/purchaseorders?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
-        method: "POST",
-        headers: {
-          Authorization: `Zoho-oauthtoken ${token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
+      const operationKey = `books:purchaseorders:dropship:create:${requestId}`
+      const requestFingerprint = createHash("sha256").update(JSON.stringify({ salesOrderId, vendorId, line_items: poLineItems })).digest("hex")
+      const operation = await prisma.providerWriteOperation.upsert({
+        where: { operationKey }, update: {},
+        create: { operationKey, provider: "ZOHO_BOOKS", entityType: "PURCHASE_ORDER", entityId: salesOrderId, operation: "CREATE_DROPSHIPMENT", requestFingerprint },
       })
-      const poData = await poRes.json()
-      if (poData.code !== 0) throw new Error(`Zoho Books Error creating Dropshipment (PO): ${poData.message}`)
+      if (operation.requestFingerprint !== requestFingerprint) {
+        return { statusCode: 409, body: JSON.stringify({ success: false, message: "requestId was already used with different dropshipment data" }) }
+      }
+      if (operation.state === "SUCCEEDED") {
+        const priorIds = operation.providerRecordIds as { purchaseOrderId?: string } | null
+        return { statusCode: 200, body: JSON.stringify({ success: true, purchaseOrderId: priorIds?.purchaseOrderId || null, alreadyProcessed: true }) }
+      }
+      if (operation.state === "SYNCING" || operation.state === "AMBIGUOUS") {
+        return { statusCode: 202, body: JSON.stringify({ success: false, providerState: operation.state, message: "This dropshipment is in progress or requires reconciliation; it was not resubmitted." }) }
+      }
+      if (operation.state === "FAILED") {
+        return { statusCode: 422, body: JSON.stringify({ success: false, providerState: "FAILED", code: operation.providerCode, message: operation.providerMessage || "The prior provider attempt failed and was not retried." }) }
+      }
+      const claimed = await prisma.providerWriteOperation.updateMany({ where: { operationKey, state: "PENDING" }, data: { state: "SYNCING", attemptCount: { increment: 1 }, lastAttemptAt: new Date() } })
+      if (claimed.count !== 1) return { statusCode: 202, body: JSON.stringify({ success: false, providerState: "SYNCING", message: "Dropshipment creation is already in progress." }) }
+
+      let poRes: Response
+      let poData: any
+      try {
+        poRes = await fetch(`${baseUrl}/purchaseorders?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
+          method: "POST",
+          headers: { Authorization: `Zoho-oauthtoken ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        })
+        poData = await poRes.json().catch(() => null)
+      } catch (providerError) {
+        const message = providerError instanceof Error ? providerError.message : "Unknown Books submission error"
+        await prisma.providerWriteOperation.update({ where: { operationKey }, data: { state: "AMBIGUOUS", lastError: message, providerMessage: "Submission outcome is unknown; exact reconciliation is required before retry." } })
+        return { statusCode: 202, body: JSON.stringify({ success: false, providerState: "AMBIGUOUS", message: "Books submission outcome is unknown and was not retried." }) }
+      }
+      if (!poRes.ok || poData?.code !== 0) {
+        const code = String(poData?.code ?? `HTTP_${poRes.status}`)
+        const message = String(poData?.message || "Zoho Books rejected the dropshipment.")
+        await prisma.providerWriteOperation.update({ where: { operationKey }, data: { state: "FAILED", providerCode: code, providerMessage: message, lastError: message, completedAt: new Date() } })
+        return { statusCode: 422, body: JSON.stringify({ success: false, providerState: "FAILED", code, message }) }
+      }
       
       const createdPO = poData.purchaseorder || {}
+      if (!createdPO.purchaseorder_id) {
+        await prisma.providerWriteOperation.update({ where: { operationKey }, data: { state: "AMBIGUOUS", providerCode: String(poData.code), providerMessage: "Provider accepted the request without returning a purchase-order ID." } })
+        return { statusCode: 202, body: JSON.stringify({ success: false, providerState: "AMBIGUOUS", message: "Books accepted the request without a purchase-order ID; reconciliation is required." }) }
+      }
+      await prisma.providerWriteOperation.update({ where: { operationKey }, data: { state: "AMBIGUOUS", providerRecordIds: { purchaseOrderId: createdPO.purchaseorder_id }, providerCode: String(poData.code), providerMessage: String(poData.message || "success"), lastError: "Provider accepted; local persistence is pending." } })
       try {
-        const { prisma } = require("./lib/prisma")
         await prisma.purchaseOrder.upsert({
           where: { zohoId: createdPO.purchaseorder_id },
           update: {
@@ -253,8 +271,10 @@ export const handler: Handler = async (event, context) => {
             trackingNumber: trackingNumber || null,
           }
         })
+        await prisma.providerWriteOperation.update({ where: { operationKey }, data: { state: "SUCCEEDED", providerRecordIds: { purchaseOrderId: createdPO.purchaseorder_id }, completedAt: new Date(), lastError: null } })
       } catch (dbErr: any) {
         console.error("Failed to save created dropshipment to DB:", dbErr.message)
+        return { statusCode: 202, body: JSON.stringify({ success: false, providerState: "AMBIGUOUS", purchaseOrderId: createdPO.purchaseorder_id, message: "Books accepted the purchase order, but local persistence requires reconciliation." }) }
       }
 
       return {
@@ -263,7 +283,6 @@ export const handler: Handler = async (event, context) => {
       }
 
     } else if (action === "DeleteDropshipment") {
-      const { prisma } = require("./lib/prisma")
       const { purchaseOrderId } = body
 
       const targetPoIds: string[] = []

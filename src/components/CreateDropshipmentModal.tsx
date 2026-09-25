@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 import { FiTruck } from "react-icons/fi"
 import { toast } from 'react-hot-toast';
@@ -16,6 +16,7 @@ export function CreateDropshipmentModal({ salesOrderId, lineItems, onClose, onSu
   const [vendorId, setVendorId] = useState("")
   const [vendors, setVendors] = useState<any[]>([])
   const [isLoadingVendors, setIsLoadingVendors] = useState(true)
+  const requestId = useRef(crypto.randomUUID())
 
   useEffect(() => {
     const fetchVendors = async () => {
@@ -65,7 +66,8 @@ export function CreateDropshipmentModal({ salesOrderId, lineItems, onClose, onSu
           action: "CreateDropshipment",
           salesOrderId,
           vendorId,
-          items: itemsToShip
+          items: itemsToShip,
+          requestId: requestId.current,
         })
       })
       const data = await res.json()
