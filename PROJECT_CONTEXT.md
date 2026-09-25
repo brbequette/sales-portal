@@ -1519,3 +1519,23 @@ Published Retell agent agent_81659e947587662c7d37d5bb13 configuration, titled Be
 Concrete blockers: RETELL_API_KEY absent in local and Netlify configuration; agent webhook blank and Retell provider ingestion unimplemented. CRM Calls field metadata GET returned 401 OAUTH_SCOPE_MISMATCH; read-only ZohoCRM.settings.fields.READ consent was requested, not granted or applied. Original-caller preservation is unverified: current toll-free PSTN Forward form has no such option and no external SIP profile exists. Shared titan recording profile has Repeat Notification None and a one-space recording message; no shared/direct-call coverage was disabled. Duplicate notice needs controlled audio/leg evidence before further changes.
 
 CRM Call 6821836000027793001, portal call cmugzrxut00025hlhcyeaxl0u, task 6821836000027791003, human-confirmed association and Ben-only queues preserved. No new calls/messages/transactions, broad sync or Netlify runtime deployment. Detailed evidence: outputs/voice-provider-followup-20260925.md in the task workspace.
+
+
+## Credential recovery and current-source audit (2026-09-25)
+
+The Runtime OAuth exchange passed CRM Calls field metadata, modules and users. The helper then failed its Books date-filter check after saving the refreshed token locally and to Netlify. Root cause was the helper timestamp offset +00:00; the existing application uses +0000. The helper was corrected; independent Books items, Inventory items and Books filtered invoices reads each returned HTTP 200/provider code 0. No repeat consent is required for this failure.
+
+Netlify RETELL_API_KEY is now present. This verifies configuration presence only, not runtime authentication. Latest published production deploy observed: 6ab699136f2d410008b6cf45, commit c306ece221703b377a098bde1da098e4e795df52, published 2026-09-25T15:57:57.117Z. Current source still has only a human-confirmed Retell reference, with no Retell provider client or ingestion implementation. Deployed-runtime Retell/CRM metadata access remains NOT RUN.
+
+Actual CRM Calls metadata: From_Number__s and To_Number__s are API-writable phone fields; Voice_Recording__s is an API-writable website field. Telephony_External_ID__s has api_create=false and api_update=false: do not write it. Call_Transcription__c is a fileupload field, with conflicting read-only/operation flags; a plain-text write is invalid and supported upload/attachment semantics require verification. Keep transcript in Description and recording access protected until those contracts are established.
+
+Independent exact CRM search returned one Call 6821836000027793001, correct account/contact 6821836000027779001 / 6821836000027779002, inbound 01:25, retained task/Retell references and uncertain specifications. Dedicated recording/transcription remain empty. No business records, routing, communications or provider writes were changed in this audit.
+
+Remaining implementation: server-side exact-ID Retell authentication/read verification, authenticated event ingestion and durable reconciliation, provider-backed transfer outcomes, supported dedicated CRM field updates with independent readback, and original-caller correlation. Preserve the existing task and audited human association. Field metadata alone does not establish automated caller identity.
+
+
+## Scoped Retell implementation (local, release pending)
+
+Branch codex/voice-provider-verification adds an administrator-only exact-call API read/import, immutable content-addressed Retell evidence in OperationalAction under the shared Zoho call lock, and a raw-body SDK-signature-verified webhook. Only a unique existing human-confirmed association is eligible; unknown/ambiguous calls are ignored without account matching or outbound work. Existing CallLog, CRM call, task and Zoho transcript remain unchanged. Retell transcript is separately visible in the administrator reconciliation screen. Provider transfer events distinguish attempted, destination-connected (not human-verified), cancelled and conflicting-attempt evidence. AI analysis cannot establish success. Signed recording URLs are excluded from persistence and responses. No migration.
+
+Thirty focused tests pass (16 new Retell cases plus 14 existing CRM/matching cases). Full release checks, deployed Retell authentication, webhook configuration/delivery and production import/replay remain pending. Dedicated CRM transcript/recording integration remains outside this tranche because field upload and protected-link contracts need separate implementation.
