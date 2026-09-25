@@ -1,14 +1,33 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-const state = vi.hoisted(() => ({ operation: null as any, updates: [] as any[] }))
-vi.mock('./prisma', () => ({ prisma: { providerWriteOperation: {
+const state = vi.hoisted(() => ({ operation: null as any, updates: [] as any[], pkg: null as any, deal: null as any }))
+vi.mock('./prisma', () => ({ prisma: { deal: { findUniqueOrThrow: async () => state.deal }, providerWriteOperation: {
   upsert: vi.fn(async ({ create }: any) => state.operation ||= { id: 'op1', state: 'PENDING', ...create }),
   updateMany: vi.fn(async () => { if (state.operation.state !== 'PENDING') return { count: 0 }; state.operation.state = 'SYNCING'; return { count: 1 } }),
   update: vi.fn(async ({ data }: any) => { state.updates.push(data); Object.assign(state.operation, data) }),
 } } }))
 vi.mock('./zoho-auth', () => ({ getZohoAccessToken: vi.fn(), ZOHO_DC: 'com' }))
-import { guardedWrite, mergePackageDescription, validateDealSyncConfig, invoiceItemIndex } from './deal-crm-sync'
-beforeEach(() => { state.operation = null; state.updates = [] })
+vi.mock('./deal-package', () => ({ getDealPackage: async () => state.pkg, object: (value: any) => value && typeof value === 'object' && !Array.isArray(value) ? value : {} }))
+import { guardedWrite, mergePackageDescription, validateDealSyncConfig, invoiceItemIndex, syncDealToCrm } from './deal-crm-sync'
+beforeEach(() => { state.operation = null; state.updates = []; vi.unstubAllGlobals() })
 describe('durable provider writes', () => {
+  it('persists an accepted ID and uses it to recover failed readback without another write', async () => {
+    const id = '6821836000027811001'
+    const write = vi.fn(async () => id)
+    const delayedRead = vi.fn(async () => null)
+    await expect(guardedWrite('key','deal',{},write,delayedRead)).rejects.toThrow('READBACK_MISMATCH')
+    expect(delayedRead).toHaveBeenCalledWith(id)
+    expect(state.operation.providerRecordIds).toEqual({id})
+    const recoveredRead = vi.fn(async knownId => knownId || null)
+    await expect(guardedWrite('key','deal',{},write,recoveredRead)).resolves.toBe(id)
+    expect(recoveredRead).toHaveBeenCalledWith(id); expect(write).toHaveBeenCalledTimes(1)
+  })
+  it('does not recreate a missing known CRM deal', async () => {
+    state.pkg = { invoices: [], account: { id: 'account', crmAccountId: '6821836000027811002' }, deal: { owner: { zohoId: '6821836000027811003' } }, lifecycle: { disposition: 'Paid' } }
+    state.deal = { zohoId: '6821836000027811001', rawData: {} }
+    const read = vi.fn(async () => new Response(null, { status: 204 })); vi.stubGlobal('fetch', read)
+    await expect(syncDealToCrm('deal', { enabled:true, identityField:'Portal_Deal_ID', portalUrl:'https://example.com', stages:{Paid:'Invoice Paid'} })).rejects.toThrow('CRM_DEAL_NOT_FOUND')
+    expect(read).toHaveBeenCalledTimes(1); expect(state.operation).toBeNull()
+  })
   it('verifies before declaring success', async () => {
     const write = vi.fn(async () => '123'); await expect(guardedWrite('key','deal',{},write,async () => '123')).resolves.toBe('123')
     expect(state.operation.state).toBe('SUCCEEDED'); expect(write).toHaveBeenCalledTimes(1)

@@ -59,13 +59,14 @@ export function invoiceItemIndex(invoices: Array<{ invoiceNumber?: string | null
 }
 
 /** A timeout/unknown result is never automatically re-issued. Reconciliation is read-only. */
-export async function guardedWrite(key: string, dealId: string, payload: unknown, write: () => Promise<string>, verify: () => Promise<string | null>) {
+export async function guardedWrite(key: string, dealId: string, payload: unknown, write: () => Promise<string>, verify: (knownId?: string) => Promise<string | null>) {
   const operation = await prisma.providerWriteOperation.upsert({ where: { operationKey: key }, update: {}, create: {
     operationKey: key, provider: 'ZOHO_CRM', entityType: 'Deal', entityId: dealId, operation: 'SYNC_DEAL_PACKAGE', requestFingerprint: digest(payload),
   } })
   if (operation.requestFingerprint !== digest(payload)) throw new Error('CRM_OPERATION_PAYLOAD_CHANGED')
   if (operation.state !== 'PENDING') {
-    const verifiedId = await verify()
+    const knownId = object(operation.providerRecordIds).id
+    const verifiedId = await verify(isCrmId(knownId) ? knownId : undefined)
     if (!verifiedId) throw new Error(`CRM_OPERATION_${operation.state}_REQUIRES_RECONCILIATION`)
     await prisma.providerWriteOperation.update({ where: { id: operation.id }, data: { state: 'SUCCEEDED', completedAt: new Date(), providerRecordIds: { id: verifiedId } } })
     return verifiedId
@@ -74,7 +75,9 @@ export async function guardedWrite(key: string, dealId: string, payload: unknown
   if (claimed.count !== 1) throw new Error('CRM_OPERATION_ALREADY_CLAIMED')
   try {
     const id = await write()
-    const verified = await verify()
+    // Keep the accepted provider ID even if readback fails; search indexing can lag creation.
+    await prisma.providerWriteOperation.update({ where: { id: operation.id }, data: { providerRecordIds: { id } } })
+    const verified = await verify(id)
     if (verified !== id) throw new Error('CRM_READBACK_MISMATCH')
     await prisma.providerWriteOperation.update({ where: { id: operation.id }, data: { state: 'SUCCEEDED', completedAt: new Date(), providerRecordIds: { id } } })
     return id
@@ -107,14 +110,19 @@ export async function syncDealToCrm(dealId: string, config: DealSyncConfig) {
     return rows[0] || null
   }
   let remote = isCrmId(deal.zohoId) ? (await crmRequest(`Deals/${deal.zohoId}`)).data?.[0] : await search()
+  if (isCrmId(deal.zohoId) && !remote) throw new Error('CRM_DEAL_NOT_FOUND')
   if (remote && remote.Account_Name?.id !== crmAccountId) throw new Error('CRM_ACCOUNT_MISMATCH')
   if (remote?.[identity] && remote[identity] !== dealId) throw new Error('CRM_IDENTITY_CONFLICT')
-  if (!remote) {
+  const pendingCreate = !isCrmId(deal.zohoId) ? await prisma.providerWriteOperation.findUnique({ where: { operationKey: `deal-create:${dealId}` } }) : null
+  if (!remote || (pendingCreate && pendingCreate.state !== 'SUCCEEDED')) {
     // Stable create payload; mutable totals/stage follow in the guarded update after identity exists.
     const createPayload = { [identity]: dealId, Deal_Name: deal.name, Account_Name: { id: crmAccountId }, Owner: { id: pkg.deal.owner.zohoId }, Stage: targetStage, Closing_Date: (deal.closingDate || deal.createdAt).toISOString().slice(0, 10), Invoiced_Items: invoiceItemIndex(pkg.invoices), ...(config.pipeline ? { Pipeline: config.pipeline } : {}) }
     const crmId = await guardedWrite(`deal-create:${dealId}`, dealId, createPayload,
       async () => successId(await crmRequest('Deals', { method: 'POST', body: JSON.stringify({ data: [createPayload], trigger: [], skip_feature_execution: [{ name: 'cadences' }] }) })),
-      async () => (await search())?.id || null)
+      async knownId => {
+        const record = knownId ? (await crmRequest(`Deals/${knownId}`)).data?.[0] : await search()
+        return record?.[identity] === dealId && record.Account_Name?.id === crmAccountId && record.Owner?.id === pkg.deal.owner.zohoId ? record.id : null
+      })
     remote = (await crmRequest(`Deals/${crmId}`)).data?.[0]
   }
   if (!remote || !isCrmId(remote.id)) throw new Error('CRM_DEAL_NOT_FOUND')
