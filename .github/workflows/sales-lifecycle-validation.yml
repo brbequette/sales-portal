@@ -60,7 +60,7 @@ jobs:
         run: ./scripts/test-sales-lifecycle-upgrade.ps1 -ConnectionString 'postgresql://lifecycle_ci:lifecycle_ci_password@localhost:5432/lifecycle_upgrade'
       - name: Voice concurrent database writers and scoped routes
         run: |
-          npx vitest run src/lib/retell-evidence.test.ts src/lib/retell-sync.test.ts src/app/api/webhooks/retell/route.test.ts src/lib/voice-account-matching.test.ts src/lib/zoho-crm-voice.test.ts tests/voice-call-lock.postgres.test.ts src/lib/voice-call-lock.test.ts src/lib/voice-call-preview.test.ts src/lib/voice-transcript.test.ts src/lib/communication-automation.test.ts src/app/api/admin/communications/reconcile-call/route.test.ts src/app/api/admin/communications/call-recording/route.test.ts src/app/api/admin/communications/crm-call/route.test.ts
+          npx vitest run src/lib/retell-signature.test.ts src/app/api/admin/communications/retell-call/route.test.ts src/lib/retell-evidence.test.ts src/lib/retell-sync.test.ts src/app/api/webhooks/retell/route.test.ts src/lib/voice-account-matching.test.ts src/lib/zoho-crm-voice.test.ts tests/voice-call-lock.postgres.test.ts src/lib/voice-call-lock.test.ts src/lib/voice-call-preview.test.ts src/lib/voice-transcript.test.ts src/lib/communication-automation.test.ts src/app/api/admin/communications/reconcile-call/route.test.ts src/app/api/admin/communications/call-recording/route.test.ts src/app/api/admin/communications/crm-call/route.test.ts
       - name: Lifecycle and sync contracts
         run: |
           npx vitest run tests/zoho-incremental-filter.test.ts tests/zoho-pagination.test.ts tests/zoho-crm-response.test.ts
