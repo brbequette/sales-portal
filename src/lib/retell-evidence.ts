@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto"
 
 export const row = (v: unknown): Record<string, unknown> => v && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : {}
-export const validRetellId = (v: unknown): v is string => typeof v === "string" && /^call_[a-zA-Z0-9]{1,100}$/.test(v)
+// Retell documents opaque IDs as well as the call_ IDs used by this account.
+export const validRetellId = (v: unknown): v is string => typeof v === "string" && /^[a-zA-Z0-9_-]{1,128}$/.test(v)
 export const RETELL_EVENTS = ["call_started", "call_ended", "call_analyzed", "transfer_started", "transfer_bridged", "transfer_cancelled", "transfer_ended"]
 
 // Store only necessary evidence. Never persist signed recording URLs, arbitrary
