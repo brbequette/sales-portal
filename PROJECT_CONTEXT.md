@@ -1,5 +1,12 @@
 # Titan Diamond — Consolidated Project Context
 
+## Retell production acceptance and runtime credential cache (2026-09-25)
+
+- PRs #122 and #124 are merged. Production deploy `6ab6a488f973dd00083360e1` published combined source `4a45432da531df396a76ffb7bebf51bfe91d7869`; Netlify completed at 16:50:11 UTC. All 42 focused voice/CRM tests passed against the combined source; final PR CI and preview passed.
+- Exact-call Retell authentication/import/replay passed. Existing portal/CRM calls and task are preserved. Signed dashboard test persisted unassigned event `cmuh77be90001skeq8gca69pd` (`test_call`) at 16:51:43.857 UTC and appeared in the admin inbox. No customer association or recording URL was added.
+- Earlier CRM metadata scope failures were reproduced in the stale shared `zoho_token_cache`. A refreshed token passed CRM fields, Books and Inventory reads before replacing that cache only. Independent shared-cache verification now returns HTTP 200 and 37 Calls fields. This supersedes earlier blanket missing-scope notes; other deal-worker configuration/canary gates remain.
+- Preserve Ben-only routing and existing record IDs. Fresh real-call acceptance, original-caller correlation, duplicate notices and dedicated CRM transcription upload remain unfinished. See `docs/retell-production-acceptance-20260925.md`.
+
 ## Consolidated release and Books deal identity (2026-09-25)
 
 - User explicitly authorized completing outstanding application changes and production deployment. This release combines invoice-backed deal packages, verified invoice calculation/Last calculated changes, and the disabled Telegram agent foundation, while preserving production through PR #122.
