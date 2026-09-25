@@ -89,6 +89,7 @@ export function DealsHistory({ deals }: { deals: any[] }) {
 
               {isExpanded && (
                 <div onClick={e => e.stopPropagation()}>
+                  <a href={`/deals/${deal.id}`} className="inline-block mt-3 text-sm text-emerald-400 underline">Open complete deal package</a>
                   <SaleTimeline dealId={deal.id} currentStage={deal.stage} />
                 </div>
               )}

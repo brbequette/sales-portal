@@ -1,6 +1,9 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
+[functions."telegram-agent-dispatch"]
+  schedule = "* * * * *"
+
 [build]
   command = "npm run build:netlify"
 

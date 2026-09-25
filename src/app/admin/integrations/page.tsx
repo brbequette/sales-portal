@@ -4,6 +4,7 @@ import { AdminWorkspaceHub } from "@/components/AdminWorkspaceHub"
 import { FiCloud, FiInbox, FiMessageSquare, FiRefreshCw, FiSettings, FiTruck } from "react-icons/fi"
 
 const items = [
+  { title: "Invoice & CRM Deal Sync", description: "Review invoice coverage, map CRM stages and reconcile complete deal packages.", href: "/admin/deal-sync", icon: FiRefreshCw },
   { title: "Integration Status & Policy", description: "Review connection state and configure bounded synchronization behavior.", href: "/admin/settings?tab=sync", icon: FiCloud },
   { title: "Zoho Books Maintenance", description: "Targeted Books synchronization and financial processing tools.", href: "/admin/books-scripts", icon: FiRefreshCw, badge: "Advanced", warning: "Contains production data-changing operations and explicit confirmation gates." },
   { title: "Zoho Voice & Communications", description: "Review configured numbers, call reconciliation and Voice synchronization.", href: "/admin/communications", icon: FiMessageSquare, accent: "text-pink-400" },

@@ -159,8 +159,11 @@ export const internalHandler: Handler = async (event) => {
       }
     }
 
+    // Read current payment evidence before calculating card fees; reuse this
+    // response for persistence rather than charging from stale local modes.
+    const rawPayments = await fetchInvoicePaymentsFromZoho(booksInvoiceId)
     // 4. Calculate all costs via shared module
-    const calc = await calculateDocumentCosts(invoice, { manualVigRate, manualCommPct, noVigOverrides })
+    const calc = await calculateDocumentCosts(invoice, { manualVigRate, manualCommPct, noVigOverrides, paymentRecords: rawPayments })
     const {
       deadCostSubjectToVig, deadCostNoVig, deadCostTotal,
       vigRate, deadCostPlusVig,
@@ -171,7 +174,7 @@ export const internalHandler: Handler = async (event) => {
     } = calc
 
     const reviewRef = String(invoice.invoice_number || booksInvoiceId)
-    const hasGrandTotal = Number.isFinite(parseFloat(invoice.total_amount ?? invoice.grand_total ?? invoice.total ?? '')) && parseFloat(invoice.total_amount ?? invoice.grand_total ?? invoice.total ?? '0') > 0
+    const hasGrandTotal = Number.isFinite(parseFloat(invoice.total_amount ?? invoice.grand_total ?? invoice.total ?? '')) && parseFloat(invoice.total_amount ?? invoice.grand_total ?? invoice.total ?? '0') >= 0
     const reviewUpserts = !hasGrandTotal
       ? [{ documentType: 'INVOICE', documentRef: reviewRef, reasonCode: 'MISSING_GRAND_TOTAL', sourceType: 'process-invoice-costs', sourceRecord: String(booksInvoiceId), metadata: { subtotalFallback: true } as Prisma.InputJsonValue }]
       : []
@@ -268,7 +271,6 @@ export const internalHandler: Handler = async (event) => {
       }
 
       // 7b. Sync payments into Payment table
-      const rawPayments = await fetchInvoicePaymentsFromZoho(booksInvoiceId)
       const paymentPlan = buildPaymentPersistencePlan(rawPayments, localInvoice.id)
       const paymentSummary = { ...paymentPlan.summary, paymentExpected: parseFloat(invoice.payment_expected ?? "0") || null, balance: parseFloat(invoice.balance ?? "0") ?? null }
       console.log(`  Payments synced: ${paymentSummary.paymentCount} records | paid=$${paymentSummary.paymentMade.toFixed(2)}`)
@@ -349,7 +351,6 @@ export const internalHandler: Handler = async (event) => {
               items: initialItems,
             }
           const conflictResult = { hasConflict: false, fields: {} }
-          const rawPayments = await fetchInvoicePaymentsFromZoho(booksInvoiceId)
           const paymentPlan = buildPaymentPersistencePlan(rawPayments, "")
           const paymentSummary = { ...paymentPlan.summary, paymentExpected: parseFloat(invoice.payment_expected ?? "0") || null, balance: parseFloat(invoice.balance ?? "0") ?? null }
           const calcItems = {

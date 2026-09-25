@@ -62,6 +62,7 @@ export const authenticatedHandler: Handler = async (event, context) => {
         linkedDeal = await prisma.deal.findFirst({ where: { OR: [{ id: whatId }, { zohoId: whatId }] }, select: { id: true, ownerId: true, zohoId: true } })
       }
       if (!linkedAccount && !linkedDeal) return { statusCode: 404, body: JSON.stringify({ success: false, message: 'Linked account or deal was not found.' }) }
+      if (linkedDeal && !/^\d{15,20}$/.test(linkedDeal.zohoId)) return { statusCode: 409, body: JSON.stringify({ success: false, message: 'This deal is waiting for its verified CRM mapping.', code: 'CRM_DEAL_MAPPING_REQUIRED' }) }
       if (linkedAccount && !linkedAccount.crmAccountId) {
         return { statusCode: 409, body: JSON.stringify({ success: false, message: 'This account must be reconciled to an authoritative CRM Account before a CRM task can be created.', code: 'CRM_ACCOUNT_MAPPING_REQUIRED' }) }
       }

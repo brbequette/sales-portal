@@ -1,0 +1,88 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+const state = vi.hoisted(() => ({ invoice: {} as any, siblings: [] as any[], deals: [] as any[], quote: null as any, created: [] as any[], users: [] as any[] }))
+vi.mock('./prisma', () => {
+  const tx: any = {
+    $executeRaw: vi.fn(),
+    invoice: {
+      findUnique: async () => state.invoice,
+      updateMany: async ({ data }: any) => { Object.assign(state.invoice, data); return { count: 1 } },
+      findMany: async () => [state.invoice, ...state.siblings],
+    },
+    deal: {
+      findUnique: async ({ where }: any) => state.deals.find(d => d.zohoId === where.zohoId) || null,
+      findMany: async () => state.deals,
+      create: async ({ data }: any) => { const deal = { id: 'new-deal', ...data }; state.created.push(deal); return deal },
+      update: vi.fn(),
+    },
+    salesOrder: { findUnique: async () => null, update: vi.fn() },
+    quote: { findUnique: async () => state.quote, update: vi.fn() },
+    user: { findMany: async () => state.users },
+    package: { findMany: async () => [] }, salesClosingChecklist: { findMany: async () => [] },
+    operationalEvent: { create: vi.fn() },
+  }
+  return { prisma: { $transaction: (fn: any) => fn(tx) } }
+})
+import { reconcileInvoiceDeal } from './deal-reconciliation'
+beforeEach(() => {
+  state.invoice = { id: 'invoice', zohoId: 'books-invoice', accountId: 'account', invoiceNumber: 'INV-12', amount: 100, status: 'sent', balance: 100, paymentMade: 0, dueDate: null, isWrittenOff: false, deal: null, dealId: null, account: { name: 'Fixture', ownerId: 'account-owner' }, updatedAt: new Date(), issueDate: new Date() }
+  state.deals = []; state.created = []; state.quote = null; state.users = []; state.siblings = []
+})
+describe('invoice deal identity reconciliation', () => {
+  it('holds the whole shared deal when a sibling invoice has a conflicting Books customer', async () => {
+    state.invoice.account.booksCustomerId = 'books-account'
+    state.invoice.items = { customer_id: 'books-account' }
+    state.invoice.deal = { id: 'existing', accountId: 'account', stage: 'Invoiced', amount: 100 }; state.invoice.dealId = 'existing'
+    state.siblings = [{ ...state.invoice, id: 'sibling', items: { customer_id: 'books-other' } }]
+    await expect(reconcileInvoiceDeal('invoice')).rejects.toThrow('BOOKS_CUSTOMER_ID_MISMATCH')
+  })
+  it('rejects a provider customer mismatch before any deal creation or relinking', async () => {
+    state.invoice.items = { customer_id: 'books-other' }
+    state.invoice.account.booksCustomerId = 'books-account'
+    await expect(reconcileInvoiceDeal('invoice')).rejects.toThrow('BOOKS_CUSTOMER_ID_MISMATCH')
+    expect(state.created).toHaveLength(0); expect(state.invoice.dealId).toBeNull()
+  })
+  it('uses Books potential identity ahead of a stale local relationship', async () => {
+    state.invoice.items = { zcrm_potential_id: '6821836000000673964' }
+    state.invoice.deal = { id: 'stale', accountId: 'other-account' }; state.invoice.dealId = 'stale'
+    state.deals = [{ id: 'authoritative', zohoId: '6821836000000673964', accountId: 'account', amount: 100, stage: 'Invoiced' }]
+    expect(await reconcileInvoiceDeal('invoice')).toBe('authoritative')
+    expect(state.invoice.dealId).toBe('authoritative'); expect(state.created).toHaveLength(0)
+  })
+  it('does not create a duplicate when a Books potential has not been imported', async () => {
+    state.invoice.items = { zcrm_potential_id: '6821836000000673964' }
+    await expect(reconcileInvoiceDeal('invoice')).rejects.toThrow('BOOKS_CRM_POTENTIAL_NOT_IMPORTED')
+    expect(state.created).toHaveLength(0)
+  })
+  it('quarantines a Books potential belonging to a different account', async () => {
+    state.invoice.items = { zcrm_potential_id: '6821836000000673964' }
+    state.deals = [{ id: 'wrong', zohoId: '6821836000000673964', accountId: 'other-account' }]
+    await expect(reconcileInvoiceDeal('invoice')).rejects.toThrow('BOOKS_CRM_POTENTIAL_ACCOUNT_CONFLICT')
+  })
+  it('preserves an existing verified account relationship', async () => {
+    state.invoice.deal = { id: 'existing', accountId: 'account', stage: 'Invoiced', amount: 100 }; state.invoice.dealId = 'existing'
+    expect(await reconcileInvoiceDeal('invoice')).toBe('existing'); expect(state.created).toHaveLength(0)
+  })
+  it('rejects cross-account links before changing records', async () => {
+    state.invoice.deal = { id: 'wrong', accountId: 'other-account' }
+    await expect(reconcileInvoiceDeal('invoice')).rejects.toThrow('CROSS_ACCOUNT'); expect(state.created).toHaveLength(0)
+  })
+  it('rejects duplicate exact candidates', async () => {
+    state.deals = [{ id: 'a', name: 'Fixture | INV-12' }, { id: 'b', name: 'Fixture | INV-12' }]
+    await expect(reconcileInvoiceDeal('invoice')).rejects.toThrow('AMBIGUOUS_DEAL_MATCH')
+  })
+  it('reuses an exact quote relationship for a second invoice', async () => {
+    state.invoice.estimateZohoId = 'quote'; state.quote = { id: 'quote-db', accountId: 'account', dealId: 'shared' }
+    state.deals = [{ id: 'shared', accountId: 'account', name: 'Original opportunity', stage: 'Invoiced', amount: 100 }]
+    expect(await reconcileInvoiceDeal('invoice')).toBe('shared'); expect(state.created).toHaveLength(0)
+  })
+  it('creates only a local placeholder when ownership is provisional', async () => {
+    expect(await reconcileInvoiceDeal('invoice')).toBe('new-deal')
+    expect(state.created[0].zohoId).toBe('invoice:books-invoice')
+    expect(state.created[0].rawData._portalSync.ownerEvidence).toBe('PROVISIONAL_ACCOUNT_OWNER')
+  })
+  it('will not guess between an invoice reference and conflicting quote lineage', async () => {
+    state.invoice.estimateZohoId = 'quote'; state.quote = { id: 'quote-db', accountId: 'account', dealId: 'shared' }
+    state.deals = [{ id: 'shared', name: 'Opportunity' }, { id: 'other', name: 'Fixture | INV-12' }]
+    await expect(reconcileInvoiceDeal('invoice')).rejects.toThrow('AMBIGUOUS_DEAL_MATCH')
+  })
+})

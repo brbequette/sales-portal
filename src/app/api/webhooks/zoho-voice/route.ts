@@ -1,3 +1,4 @@
+import { withVoiceCallLock, hasConfirmedVoiceAssociation } from "@/lib/voice-call-lock"
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { hasValidWebhookToken } from '@/lib/webhook-auth'
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
     const zohoCallId = payload.call_id || payload.CallId
     const fromNumber = payload.from_number || payload.From
     const toNumber = payload.to_number || payload.To
-    const direction = payload.direction || payload.Direction || (payload.type === 'inbound' ? 'INBOUND' : 'OUTBOUND')
+    const direction = payload.direction || payload.Direction || (payload.type === 'inbound' ? 'INBOUND' : payload.type === 'outbound' ? 'OUTBOUND' : 'UNKNOWN')
     const duration = parseInt(payload.duration || payload.Duration || '0', 10)
     const status = payload.status || payload.Status || payload.call_status
     const recordingUrl = payload.recording_url || payload.RecordingUrl || payload.recordingUrl
@@ -29,6 +30,13 @@ export async function POST(req: Request) {
     if (!zohoCallId) {
       return NextResponse.json({ success: false, error: 'Missing zohoCallId' }, { status: 400 })
     }
+
+    // Audited manual associations must not be replaced by inferred phone/name
+    // matches or stale webhook payloads. Refresh these through scoped review.
+    const manualAssociation = await prisma.operationalAction.findUnique({
+      where: { idempotencyKey: `voice-manual-association:${zohoCallId}` }, select: { status: true },
+    })
+    if (manualAssociation?.status === "SUCCEEDED") return NextResponse.json({ success: true, message: 'Audited call preserved; use scoped reconciliation to refresh' })
 
     // Try to match agent email to local User
     let authorId = 'SYSTEM'
@@ -75,8 +83,10 @@ export async function POST(req: Request) {
       accountId = holdingAccount.id
     }
 
+    await withVoiceCallLock(String(zohoCallId), async tx => {
+      if (await hasConfirmedVoiceAssociation(tx, String(zohoCallId))) return
     // Upsert CallLog
-    const callLog = await prisma.callLog.upsert({
+    const callLog = await tx.callLog.upsert({
       where: { zohoCallId },
       update: {
         accountId,
@@ -86,7 +96,7 @@ export async function POST(req: Request) {
         zohoSentiment: zohoSentiment || undefined,
         transcript: transcript || undefined,
         aiSummary: aiSummary || undefined,
-        contactId: contactId || undefined,
+        contactId,
       },
       create: {
         zohoCallId,
@@ -105,15 +115,17 @@ export async function POST(req: Request) {
       }
     })
 
-    await indexCallAndCreateSafeFollowUp(callLog)
+    await indexCallAndCreateSafeFollowUp(callLog, tx)
 
     if (phoneMatch.status !== "MATCHED") {
-      await prisma.integrationException.upsert({
+      await tx.integrationException.upsert({
         where: { integration_entityType_externalId_exceptionType: { integration: "ZOHO_VOICE", entityType: "CALL_LOG", externalId: String(zohoCallId), exceptionType: "ACCOUNT_MATCH" } },
         update: { status: "OPEN", externalNumber: phoneMatch.normalized, summary: phoneMatch.status === "AMBIGUOUS" ? "Multiple accounts share the caller phone; review required." : "No account contact matches the caller phone; review required.", proposedMatches: phoneMatch.matches.map(item => ({ accountId: item.accountId, contactId: item.id })) },
         create: { integration: "ZOHO_VOICE", entityType: "CALL_LOG", externalId: String(zohoCallId), externalNumber: phoneMatch.normalized, exceptionType: "ACCOUNT_MATCH", summary: phoneMatch.status === "AMBIGUOUS" ? "Multiple accounts share the caller phone; review required." : "No account contact matches the caller phone; review required.", proposedMatches: phoneMatch.matches.map(item => ({ accountId: item.accountId, contactId: item.id })), confidence: 0 },
       })
     }
+
+    })
 
     return NextResponse.json({ success: true, message: 'Call logged' })
   } catch (error: any) {

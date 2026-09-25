@@ -230,7 +230,7 @@ const authenticatedHandler: Handler = async (event) => {
         account.zohoId,
         `Sales Call Log: ${outcomeLabels[outcome] || outcome}`,
         fullContent,
-        recentDeal?.zohoId ? { dealId: recentDeal.zohoId, seModule: 'Deals' } : undefined
+        recentDeal?.zohoId && /^\d{15,20}$/.test(recentDeal.zohoId) ? { dealId: recentDeal.zohoId, seModule: 'Deals' } : undefined
       )
     }
 
