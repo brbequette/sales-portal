@@ -81,9 +81,11 @@ export async function persistPortalLeadToCrm(leadId: string): Promise<ProviderRe
   }
 
   const token = await getZohoAccessToken()
+  const existingId = await lookupAcceptedLead(lead.email, lead.company, token)
+  if (existingId) {
+    return completeLeadWrite(lead.id, operationKey, existingId, 'LOOKUP_MATCH', 'Recovered an existing CRM lead by exact email and company.')
+  }
   if (operation.state === 'AMBIGUOUS') {
-    const existingId = await lookupAcceptedLead(lead.email, lead.company, token)
-    if (existingId) return completeLeadWrite(lead.id, operationKey, existingId, 'LOOKUP_MATCH', 'Recovered an accepted CRM create by exact email and company.')
     return { state: 'AMBIGUOUS', message: 'Prior submission remains ambiguous and requires review.' }
   }
 
