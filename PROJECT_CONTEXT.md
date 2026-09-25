@@ -1,5 +1,9 @@
 # Titan Diamond — Consolidated Project Context
 
+## CRM owner preflight follow-up
+
+- New CRM deal creation now verifies the exact owner is active before claiming a provider write. Disabled/missing owner status produces CRM_ACTIVE_OWNER_REQUIRED and preserves local historical ownership; no fallback owner is guessed. Existing ambiguous writes continue through read-only reconciliation. Focused tests cover disabled, deleted and missing status responses.
+
 ## CRM rejection diagnostics follow-up — 2026-09-25
 
 - CRM error handling retains allowlisted provider error codes and field/JSON-path identifiers from nested record failures, including HTTP 200/207 envelopes. It excludes provider free-text and customer values. Unknown-write reconciliation and no-blind-retry guards remain unchanged.

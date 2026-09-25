@@ -123,6 +123,12 @@ export async function syncDealToCrm(dealId: string, config: DealSyncConfig) {
   if (remote && remote.Account_Name?.id !== crmAccountId) throw new Error('CRM_ACCOUNT_MISMATCH')
   if (remote?.[identity] && remote[identity] !== dealId) throw new Error('CRM_IDENTITY_CONFLICT')
   const pendingCreate = !isCrmId(deal.zohoId) ? await prisma.providerWriteOperation.findUnique({ where: { operationKey: `deal-create:${dealId}` } }) : null
+  if (!remote && (!pendingCreate || pendingCreate.state === 'PENDING')) {
+    // Historical ownership stays intact. An inactive owner needs an explicit business decision.
+    // Check before claiming a provider write so a read-only rejection is not an ambiguous create.
+    const owner = (await crmRequest(`users/${pkg.deal.owner.zohoId}`)).users?.[0]
+    if (owner?.id !== pkg.deal.owner.zohoId || owner.status !== 'active') throw new Error('CRM_ACTIVE_OWNER_REQUIRED')
+  }
   if (!remote || (pendingCreate && pendingCreate.state !== 'SUCCEEDED')) {
     // Stable create payload; mutable totals/stage follow in the guarded update after identity exists.
     const createPayload = { [identity]: dealId, Deal_Name: deal.name, Account_Name: { id: crmAccountId }, Owner: { id: pkg.deal.owner.zohoId }, Stage: targetStage, Closing_Date: (deal.closingDate || deal.createdAt).toISOString().slice(0, 10), Invoiced_Items: invoiceItemIndex(pkg.invoices), ...(config.pipeline ? { Pipeline: config.pipeline } : {}) }
