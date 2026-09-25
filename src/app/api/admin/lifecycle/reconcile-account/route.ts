@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthenticatedDbUser } from '@/lib/session-user'
-import { convertPersistedCrmLead, persistPortalLeadToCrm } from '@/lib/zoho-crm-lifecycle'
+import { convertPersistedCrmLead, isAuthoritativeCrmId, persistPortalLeadToCrm } from '@/lib/zoho-crm-lifecycle'
 import { reconcileBooksPrimaryContact } from '@/lib/zoho-books-customer'
 
 export async function POST(request: Request) {
@@ -18,11 +18,13 @@ export async function POST(request: Request) {
   if (!account || !lead) return NextResponse.json({ error: 'Account or lead not found' }, { status: 404 })
   if (lead.convertedAccountId !== account.id) return NextResponse.json({ error: 'The lead is not linked to the specified local account.' }, { status: 409 })
 
-  const leadResult = lead.crmLeadId ? { state: 'SUCCEEDED' as const, crmLeadId: lead.crmLeadId } : await persistPortalLeadToCrm(lead.id)
+  const leadResult = isAuthoritativeCrmId(lead.crmLeadId)
+    ? { state: 'SUCCEEDED' as const, crmLeadId: lead.crmLeadId }
+    : await persistPortalLeadToCrm(lead.id)
   if (leadResult.state !== 'SUCCEEDED') {
     return NextResponse.json({ success: false, stage: 'CRM_LEAD', providerState: leadResult.state, code: leadResult.code || null, message: leadResult.message || null }, { status: 202 })
   }
-  const crmResult = account.crmAccountId && account.contacts[0]?.crmContactId
+  const crmResult = isAuthoritativeCrmId(account.crmAccountId) && isAuthoritativeCrmId(account.contacts[0]?.crmContactId)
     ? { state: 'SUCCEEDED' as const, crmAccountId: account.crmAccountId, crmContactId: account.contacts[0].crmContactId }
     : await convertPersistedCrmLead(lead.id, account.id)
   if (crmResult.state !== 'SUCCEEDED') {
@@ -34,7 +36,12 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     success: booksResult.state === 'SUCCEEDED',
-    crm: { state: crmResult.state, leadMapped: true, accountMapped: true, contactMapped: Boolean(crmResult.crmContactId) },
+    crm: {
+      state: crmResult.state,
+      leadMapped: isAuthoritativeCrmId(leadResult.crmLeadId),
+      accountMapped: isAuthoritativeCrmId(crmResult.crmAccountId),
+      contactMapped: isAuthoritativeCrmId(crmResult.crmContactId),
+    },
     books: { state: booksResult.state, customerMapped: Boolean(account.booksCustomerId), contactMapped: Boolean(booksResult.booksContactId), message: booksResult.message || null },
   }, { status: booksResult.state === 'SUCCEEDED' ? 200 : 202 })
 }

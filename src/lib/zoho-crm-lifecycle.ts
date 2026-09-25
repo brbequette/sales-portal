@@ -69,7 +69,7 @@ async function completeLeadWrite(leadId: string, operationKey: string, crmLeadId
 export async function persistPortalLeadToCrm(leadId: string): Promise<ProviderResult> {
   const lead = await prisma.lead.findUnique({ where: { id: leadId } })
   if (!lead) throw new Error('Lead not found')
-  if (lead.crmLeadId) return { state: 'SUCCEEDED', crmLeadId: lead.crmLeadId }
+  if (isAuthoritativeCrmId(lead.crmLeadId)) return { state: 'SUCCEEDED', crmLeadId: lead.crmLeadId }
 
   const payload = buildCrmLeadCreatePayload(lead)
   const operationKey = `crm:lead:create:${lead.id}`
@@ -80,7 +80,15 @@ export async function persistPortalLeadToCrm(leadId: string): Promise<ProviderRe
   })
   if (operation.state === 'SUCCEEDED') {
     const ids = operation.providerRecordIds as { crmLeadId?: string } | null
-    return { state: 'SUCCEEDED', crmLeadId: ids?.crmLeadId }
+    if (isAuthoritativeCrmId(ids?.crmLeadId)) {
+      return completeLeadWrite(lead.id, operationKey, ids.crmLeadId, operation.providerCode || undefined, operation.providerMessage || undefined)
+    }
+    const token = await getZohoAccessToken()
+    const recoveredId = await lookupAcceptedLead(lead.email, lead.company, token)
+    if (isAuthoritativeCrmId(recoveredId)) {
+      return completeLeadWrite(lead.id, operationKey, recoveredId, 'LOOKUP_MATCH', 'Replaced a legacy placeholder lead mapping using exact email and company.')
+    }
+    return { state: 'FAILED', message: 'Completed lead write contains a non-authoritative CRM mapping and exact provider reconciliation found no unique match.' }
   }
 
   const token = await getZohoAccessToken()
