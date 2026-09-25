@@ -18,6 +18,65 @@ import { InvoiceFinancialBreakdown } from "./InvoiceFinancialBreakdown"
 import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
 import { classifyZohoLineItem, financialZohoLineItems, orderedZohoLineItems } from "@/lib/zoho-line-items"
+import { useRef, useState } from "react"
+
+function EmailPurchaseOrderButton({ salesOrderId, purchaseOrderId, purchaseOrderNumber, recipientEmail }: {
+  salesOrderId: string
+  purchaseOrderId: string
+  purchaseOrderNumber?: string | null
+  recipientEmail: string
+}) {
+  const requestIdRef = useRef<string | null>(null)
+  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'failed' | 'ambiguous'>('idle')
+  const [message, setMessage] = useState('')
+
+  const send = async () => {
+    if (status !== 'idle') return
+    const confirmed = window.confirm(
+      `Send purchase order ${purchaseOrderNumber || purchaseOrderId} to ${recipientEmail}?\n\nThe vendor will not be copied. This action sends exactly one email and does not automatically retry.`
+    )
+    if (!confirmed) return
+
+    const requestId = requestIdRef.current || crypto.randomUUID()
+    requestIdRef.current = requestId
+    setStatus('sending')
+    setMessage('')
+    try {
+      const response = await fetch('/api/zoho-fulfillment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'EmailPurchaseOrder', salesOrderId, purchaseOrderId, recipientEmail, requestId }),
+      })
+      const result = await response.json().catch(() => ({ message: 'Zoho returned a non-JSON response.' }))
+      if (response.ok && result.success) {
+        setStatus('sent')
+        setMessage(result.providerMessage || 'Purchase order email accepted by Zoho Books.')
+        return
+      }
+      const ambiguous = response.status === 202 || result.providerState === 'AMBIGUOUS' || result.providerState === 'SYNCING'
+      setStatus(ambiguous ? 'ambiguous' : 'failed')
+      setMessage(result.message || result.error || `Email failed with HTTP ${response.status}.`)
+    } catch (error) {
+      setStatus('ambiguous')
+      setMessage(error instanceof Error ? error.message : 'Email outcome is unknown. Do not retry until reconciled.')
+    }
+  }
+
+  return (
+    <div className="mt-2 flex flex-col items-end gap-1">
+      <button
+        type="button"
+        onClick={send}
+        disabled={status !== 'idle'}
+        className="inline-flex items-center gap-1 rounded border border-sky-500/30 bg-sky-950/40 px-2 py-1 text-[10px] font-bold uppercase text-sky-300 transition-colors hover:bg-sky-900/50 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <FiMail size={11} />
+        {status === 'idle' ? `Email PO to ${recipientEmail}` : status === 'sending' ? 'Sending once...' : status === 'sent' ? 'Email sent' : 'Review required'}
+      </button>
+      {message && <p className={`max-w-sm text-right text-[10px] ${status === 'sent' ? 'text-emerald-400' : status === 'ambiguous' ? 'text-amber-400' : 'text-red-400'}`}>{message}</p>}
+    </div>
+  )
+}
 
 
 export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoiceList, currentIndex, onNavigate }: InvoiceDetailsModalProps) {
@@ -981,6 +1040,14 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                             )}
                           </div>
                         </div>
+                        {isAdmin && displayData.email && (ds.zohoId || ds.purchaseorder_id) && (
+                          <EmailPurchaseOrderButton
+                            salesOrderId={zohoId}
+                            purchaseOrderId={ds.zohoId || ds.purchaseorder_id}
+                            purchaseOrderNumber={ds.purchaseOrderNumber || ds.purchaseorder_number || ds.items?.purchaseorder_number}
+                            recipientEmail={String(displayData.email).trim().toLowerCase()}
+                          />
+                        )}
                       </div>
                     )
                   })}
