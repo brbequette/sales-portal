@@ -27,7 +27,7 @@ async function reconcileProviderProfile(accountId: string, timeZone: string, act
     billing_address: { address: desired.billing.street, city: desired.billing.city, state: desired.billing.state, zip: desired.billing.zip, country: 'US' },
     shipping_address: { address: shipping.street, city: shipping.city, state: shipping.state, zip: shipping.zip, country: 'US' },
   }
-  const crmPayload = { Billing_Street: desired.billing.street, Billing_City: desired.billing.city, Billing_State: desired.billing.state, Billing_Code: desired.billing.zip, Billing_Country: 'US', Shipping_Street: shipping.street, Shipping_City: shipping.city, Shipping_State: shipping.state, Shipping_Code: shipping.zip, Shipping_Country: 'US', Time_Zone: timeZone }
+  const crmPayload = { Billing_Street: desired.billing.street, Billing_City: desired.billing.city, Billing_State: desired.billing.state, Billing_Code: desired.billing.zip, Billing_Country: 'US', Shipping_Street: shipping.street, Shipping_City: shipping.city, Shipping_State: shipping.state, Shipping_Code: shipping.zip, Shipping_Country: 'US', Customer_Time_Zone: timeZone }
   const verify = async () => {
     const [booksVerifyResponse, crmVerifyResponse] = await Promise.all([
     fetch(`${booksBase}/contacts/${encodeURIComponent(booksCustomerId)}?organization_id=${encodeURIComponent(process.env.ZOHO_ORGANIZATION_ID || '')}`, { headers: { Authorization: `Zoho-oauthtoken ${token}` }, signal: AbortSignal.timeout(15000) }),
@@ -41,7 +41,7 @@ async function reconcileProviderProfile(accountId: string, timeZone: string, act
     const booksShippingStreet = String(booksContact?.shipping_address?.address || booksContact?.shipping_address?.street || '').trim()
     return {
       booksMatches: booksVerifyResponse.ok && Number(booksVerify?.code) === 0 && booksBillingStreet === desired.billing.street && booksShippingStreet === shipping.street,
-      crmMatches: crmVerifyResponse.ok && String(crmAccount?.Shipping_Street || '').trim() === shipping.street && String(crmAccount?.Time_Zone || '').trim() === timeZone,
+      crmMatches: crmVerifyResponse.ok && String(crmAccount?.Shipping_Street || '').trim() === shipping.street && String(crmAccount?.Customer_Time_Zone || '').trim() === timeZone,
       booksBillingStreet, booksShippingStreet, crmAccount,
     }
   }
@@ -81,7 +81,7 @@ async function reconcileProviderProfile(accountId: string, timeZone: string, act
 
   await prisma.$transaction([
     prisma.account.update({ where: { id: account.id }, data: { shippingStreet: shipping.street, shippingCity: shipping.city, shippingState: shipping.state, shippingZip: shipping.zip, timeZone } }),
-    prisma.operationalAction.upsert({ where: { idempotencyKey }, update: { status: 'SUCCEEDED', result: { booksBillingStreet: evidence.booksBillingStreet, booksShippingStreet: evidence.booksShippingStreet, crmShippingStreet: evidence.crmAccount?.Shipping_Street, crmTimeZone: evidence.crmAccount?.Time_Zone }, errorCode: null, errorMessage: null, completedAt: new Date() }, create: { idempotencyKey, actionType: 'RECONCILE_PROVIDER_ACCOUNT_PROFILE', entityType: 'ACCOUNT', entityId: account.id, accountId: account.id, status: 'SUCCEEDED', payload: desired, result: { booksBillingStreet: evidence.booksBillingStreet, booksShippingStreet: evidence.booksShippingStreet, crmShippingStreet: evidence.crmAccount?.Shipping_Street, crmTimeZone: evidence.crmAccount?.Time_Zone }, attemptCount: 1, maxAttempts: 1, startedAt: new Date(), completedAt: new Date(), actorId: actor.id, actorName: actor.name || actor.email } }),
+    prisma.operationalAction.upsert({ where: { idempotencyKey }, update: { status: 'SUCCEEDED', result: { booksBillingStreet: evidence.booksBillingStreet, booksShippingStreet: evidence.booksShippingStreet, crmShippingStreet: evidence.crmAccount?.Shipping_Street, crmTimeZone: evidence.crmAccount?.Customer_Time_Zone }, errorCode: null, errorMessage: null, completedAt: new Date() }, create: { idempotencyKey, actionType: 'RECONCILE_PROVIDER_ACCOUNT_PROFILE', entityType: 'ACCOUNT', entityId: account.id, accountId: account.id, status: 'SUCCEEDED', payload: desired, result: { booksBillingStreet: evidence.booksBillingStreet, booksShippingStreet: evidence.booksShippingStreet, crmShippingStreet: evidence.crmAccount?.Shipping_Street, crmTimeZone: evidence.crmAccount?.Customer_Time_Zone }, attemptCount: 1, maxAttempts: 1, startedAt: new Date(), completedAt: new Date(), actorId: actor.id, actorName: actor.name || actor.email } }),
   ])
   return { state: 'SUCCEEDED', alreadyReconciled: false, ...desired }
 }
