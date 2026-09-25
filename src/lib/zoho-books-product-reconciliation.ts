@@ -71,6 +71,37 @@ export async function reconcileExactBooksProduct(sku: string, booksItemId?: stri
     return { state: 'FAILED', sku: exactSku, dropshipEligibility: 'BLOCKED_UNKNOWN', message: 'The exact preferred vendor was not verified as an active Books vendor.' }
   }
 
+  // Keep the exact verified Books vendor available to downstream fulfillment.
+  // This is local reconciliation only; it does not create or modify a provider contact.
+  await prisma.vendor.upsert({
+    where: { zohoId: vendorId },
+    update: {
+      contactName: vendor?.contact_name || null,
+      companyName: vendor?.company_name || null,
+      email: vendor?.email || null,
+      phone: vendor?.phone || null,
+      currencyId: vendor?.currency_id || null,
+      paymentTerms: Number.isFinite(Number(vendor?.payment_terms)) ? Number(vendor.payment_terms) : null,
+      billingAddress: vendor?.billing_address || undefined,
+      shippingAddress: vendor?.shipping_address || undefined,
+      customFields: Array.isArray(vendor?.custom_fields) ? vendor.custom_fields : undefined,
+      status: vendorStatus,
+    },
+    create: {
+      zohoId: vendorId,
+      contactName: vendor?.contact_name || null,
+      companyName: vendor?.company_name || null,
+      email: vendor?.email || null,
+      phone: vendor?.phone || null,
+      currencyId: vendor?.currency_id || null,
+      paymentTerms: Number.isFinite(Number(vendor?.payment_terms)) ? Number(vendor.payment_terms) : null,
+      billingAddress: vendor?.billing_address || undefined,
+      shippingAddress: vendor?.shipping_address || undefined,
+      customFields: Array.isArray(vendor?.custom_fields) ? vendor.custom_fields : undefined,
+      status: vendorStatus,
+    },
+  })
+
   // Books exposes transaction-level drop-shipment fields on purchase orders,
   // not an authoritative item eligibility flag. Preserve an audited local
   // business authorization instead of inventing or clearing provider evidence.
