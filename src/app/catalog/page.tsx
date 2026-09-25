@@ -55,6 +55,7 @@ export default function ProductCatalogPage() {
 
   const productCategories = [
     "All",
+    "Gifts",
     "Saw Blades",
     "Core Bits",
     "Cup Wheels & Grinding",
@@ -65,10 +66,11 @@ export default function ProductCatalogPage() {
     "Zenesis & Premium Series"
   ]
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (query = "") => {
     setLoading(true)
     try {
-      const res = await fetch("/api/get-products", { cache: "no-store" })
+      const url = query.trim() ? `/api/get-products?search=${encodeURIComponent(query.trim())}` : "/api/get-products"
+      const res = await fetch(url, { cache: "no-store" })
       const data = await res.json()
       if (!res.ok || !data.success || !Array.isArray(data.products)) throw new Error(data.error || "LOCAL_DATA_INCOMPLETE")
       setProducts(data.products)
@@ -99,10 +101,10 @@ export default function ProductCatalogPage() {
   }
 
   useEffect(() => {
-    if (isInitialized) {
-      fetchProducts()
-    }
-  }, [isInitialized])
+    if (!isInitialized) return
+    const timer = window.setTimeout(() => { void fetchProducts(search) }, search.trim() ? 250 : 0)
+    return () => window.clearTimeout(timer)
+  }, [isInitialized, search])
 
   useEffect(() => {
     setCurrentPage(1)
@@ -169,7 +171,6 @@ export default function ProductCatalogPage() {
   }).filter(Boolean))).sort()
 
   const filteredProducts = products.filter(p => {
-    if (p.giftItem) return false
     const parsed = parseProductDescription(p.description)
     const searchable = [
       p.sku, p.name, parsed.text, p.category, p.application, p.productType,
@@ -178,7 +179,7 @@ export default function ProductCatalogPage() {
     ].filter(Boolean).join(" ").toLowerCase()
     const matchesSearch = searchable.includes(search.toLowerCase())
     
-    const matchesCategory = category === "All" || p.category === category
+    const matchesCategory = category === "All" || (category === "Gifts" ? p.giftItem === true : p.category === category)
     const isActive = parsed.status !== "inactive"
     
     const matchesSize = !filterSize || p.size === filterSize
