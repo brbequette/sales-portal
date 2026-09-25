@@ -102,7 +102,7 @@ export const authenticatedHandler: Handler = async (event, context) => {
 
     // What_Id refers to Account, Deal, etc.
     if (whatId) {
-      taskData.What_Id = linkedAccount?.crmAccountId || linkedDeal?.zohoId
+      taskData.What_Id = { id: linkedAccount?.crmAccountId || linkedDeal?.zohoId }
       taskData.$se_module = linkedAccount ? "Accounts" : "Deals"
     }
 

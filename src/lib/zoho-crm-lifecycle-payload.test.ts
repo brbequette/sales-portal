@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { buildCrmLeadCreatePayload, lookupAcceptedLead } from './zoho-crm-lifecycle'
+import { buildCrmLeadCreatePayload, isAuthoritativeCrmId, lookupAcceptedLead } from './zoho-crm-lifecycle'
 import { interpretCrmWriteResponse } from './zoho-crm-response'
 
 describe('CRM lead reconciliation create payload', () => {
@@ -22,6 +22,10 @@ describe('CRM write diagnostics', () => {
 })
 
 describe('CRM lead reconciliation lookup', () => {
+  it('rejects local placeholder identifiers as provider mappings', () => {
+    expect(isAuthoritativeCrmId('acc_from_lead')).toBe(false)
+    expect(isAuthoritativeCrmId('1254360000123456789')).toBe(true)
+  })
   it('requires one exact email and company match and never accepts company-only evidence', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,

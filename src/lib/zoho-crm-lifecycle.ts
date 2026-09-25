@@ -13,6 +13,10 @@ type ProviderResult = {
   message?: string
 }
 
+export function isAuthoritativeCrmId(value: unknown): value is string {
+  return typeof value === 'string' && /^\d{15,25}$/.test(value)
+}
+
 // Prisma Lead plus its selected owner; provider fields are runtime-normalized.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function buildCrmLeadCreatePayload(lead: any) {
@@ -135,8 +139,15 @@ export async function convertPersistedCrmLead(leadId: string, accountId: string)
   })
   if (operation.state === 'SUCCEEDED') {
     const ids = operation.providerRecordIds as { crmAccountId?: string; crmContactId?: string } | null
-    if (!ids?.crmAccountId) return { state: 'FAILED', message: 'Completed conversion operation is missing its CRM Account ID.' }
-    return completeConversionPersistence(lead.id, accountId, operationKey, ids.crmAccountId, ids.crmContactId || '', operation.providerCode || undefined, operation.providerMessage || undefined)
+    if (isAuthoritativeCrmId(ids?.crmAccountId)) {
+      return completeConversionPersistence(lead.id, accountId, operationKey, ids.crmAccountId, isAuthoritativeCrmId(ids.crmContactId) ? ids.crmContactId : '', operation.providerCode || undefined, operation.providerMessage || undefined)
+    }
+    const token = await getZohoAccessToken()
+    const recovered = await lookupConvertedEntities(lead.email, lead.company, token)
+    if (recovered && isAuthoritativeCrmId(recovered.crmAccountId) && isAuthoritativeCrmId(recovered.crmContactId)) {
+      return completeConversionPersistence(lead.id, accountId, operationKey, recovered.crmAccountId, recovered.crmContactId, 'LOOKUP_MATCH', 'Replaced legacy placeholder mappings using exact Contact email and linked Account name.')
+    }
+    return { state: 'FAILED', message: 'Completed conversion contains a non-authoritative CRM mapping and exact provider reconciliation found no unique match.' }
   }
   if (operation.state === 'AMBIGUOUS') {
     const token = await getZohoAccessToken()
