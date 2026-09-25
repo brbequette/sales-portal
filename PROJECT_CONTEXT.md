@@ -1,5 +1,13 @@
 # Titan Diamond — Consolidated Project Context
 
+## Sales lifecycle persistence and bounded sync repair (in progress, 2026-09-25)
+
+- The isolated `codex/repair-sales-lifecycle-blockers` branch starts from released PR #94 merge `eb3897cf272d83e266943e078246cbbf38c4242e`. No production write, transaction, communication, migration, or deployment has been performed by this follow-up.
+- Unified sync now flushes final partial batches, walks bounded CRM/Books pages, persists a per-table continuation page, resumes an incomplete walk, handles CRM 204, atomically claims its singleton run lock, and never advances `lastSyncAt` after a timeout, bounded page stop, failed transaction, or unresolved account/owner dependency. Upserts make replay duplicate-safe. Cursor timestamps normalize arbitrary milliseconds to the verified CRM shape.
+- The pending additive migration `20260925010000_sales_lifecycle_provider_persistence` separates CRM Account/Contact/Lead IDs from Books customer/contact IDs and adds explicit provider states plus durable idempotent provider-write operations. Legacy placeholder IDs are not inferred into the new provider columns.
+- Portal lead creation now records a durable CRM operation, validates HTTP and per-record status, stores the returned CRM Lead ID, and marks unknown timeout outcomes `AMBIGUOUS`. An ambiguous create is looked up by exact email plus company before any retry. Conversion uses the stored CRM Lead ID, disables provider notifications, validates returned Account/Contact IDs, and persists those mappings; ambiguous conversion is never automatically resent.
+- Focused pagination/cursor tests and TypeScript pass. Disposable migration-chain validation, Books customer persistence, product/gift/fulfillment fixes, full build/bundling, PR review, and production browser/provider acceptance remain required before release.
+
 ## Zoho incremental request contract correction (pending deployment, 2026-09-24)
 
 - Production OAuth reauthorization was completed for the existing Runtime client and its separate Voice refresh token. Bounded read-only checks passed for CRM records/users, ordinary Books reads, Inventory reads, Voice SMS logs, and Voice call logs/recordings. No provider write, sync, import, campaign, or message was performed.

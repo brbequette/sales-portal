@@ -22,7 +22,8 @@ export function zohoBooksSinceParam(lastSyncAt: string | null | undefined): stri
 export function zohoCrmModifiedSince(lastSyncAt: string | null | undefined): string | null {
   const since = overlappedTimestamp(lastSyncAt)
   if (!since) return null
-  return since.toISOString().replace('.000Z', '+00:00')
+  // Normalize arbitrary persisted milliseconds to the CRM RFC 3339 shape.
+  return `${since.toISOString().slice(0, 19)}+00:00`
 }
 
 export function zohoCrmReadHeaders(

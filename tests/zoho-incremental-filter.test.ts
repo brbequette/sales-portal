@@ -20,6 +20,11 @@ describe('Zoho incremental request contracts', () => {
     })
   })
 
+  it('normalizes nonzero cursor milliseconds consistently', () => {
+    expect(zohoCrmModifiedSince('2026-09-23T12:34:56.987Z'))
+      .toBe('2026-09-23T12:32:56+00:00')
+  })
+
   it('omits incremental filters for missing or malformed cursors', () => {
     expect(zohoBooksSinceParam(null)).toBe('')
     expect(zohoBooksSinceParam('not-a-date')).toBe('')

@@ -125,13 +125,13 @@ model LocalMasterCredential {
 
 /// HMAC-keyed distributed backoff state; stores neither submitted identifiers nor IP addresses.
 model MasterAdminLoginThrottle {
-  key             String   @id
-  failedCount     Int      @default(0)
-  windowStartedAt DateTime @default(now())
-  lastFailureAt   DateTime @default(now())
+  key             String    @id
+  failedCount     Int       @default(0)
+  windowStartedAt DateTime  @default(now())
+  lastFailureAt   DateTime  @default(now())
   lockedUntil     DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@index([lockedUntil])
 }
@@ -139,6 +139,11 @@ model MasterAdminLoginThrottle {
 model Account {
   id                        String                     @id @default(cuid())
   zohoId                    String                     @unique
+  crmAccountId              String?                    @unique
+  booksCustomerId           String?                    @unique
+  providerSyncState         ProviderSyncState          @default(PENDING)
+  providerSyncError         String?
+  providerSyncedAt          DateTime?
   name                      String
   industry                  String?
   status                    String                     @default("Update Status")
@@ -196,6 +201,11 @@ model Account {
 model Contact {
   id                  String               @id @default(cuid())
   zohoId              String               @unique
+  crmContactId        String?              @unique
+  booksContactId      String?              @unique
+  providerSyncState   ProviderSyncState    @default(PENDING)
+  providerSyncError   String?
+  providerSyncedAt    DateTime?
   accountId           String
   firstName           String?
   lastName            String?
@@ -581,6 +591,7 @@ model BoundedBooksImportLock {
   key       String   @id
   claimedAt DateTime @default(now())
   expiresAt DateTime
+
   @@index([expiresAt])
 }
 
@@ -595,6 +606,7 @@ model ReconciliationArtifactRegistration {
   validationStatus String
   productionCommit String?
   approvalStatus   String    @default("REGISTERED_UNAPPROVED")
+
   @@index([uploaderUserId, createdAt])
 }
 
@@ -637,8 +649,8 @@ model SyncJobWriteAudit {
   createdAt       DateTime @default(now())
   job             SyncJob  @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
-  @@index([jobId, status])
   @@unique([jobId, documentType, documentRefHash])
+  @@index([jobId, status])
 }
 
 model CustomFieldMapping {
@@ -784,33 +796,33 @@ model CampaignBlast {
 }
 
 model CampaignJob {
-  id           String   @id @default(cuid())
-  authorId     String
-  blastId      String? // linked CampaignBlast once created
-  status       CampaignJobState @default(QUEUED)
-  reviewState  CampaignReviewState @default(SUBMITTING)
-  campaignName String
-  channel      String   @default("SMS")
-  text         String   @default("")
-  imageUrl     String?
-  fromNumber   String?
-  accountIds   Json // String[] — full ordered recipient list
-  currentIndex Int      @default(0)
-  total        Int
-  sentCount    Int      @default(0)
-  failedCount  Int      @default(0)
-  errorMessage String?
-  workerHeartbeatAt DateTime?
-  submissionCompletedAt DateTime?
-  reviewedAt DateTime?
+  id                     String              @id @default(cuid())
+  authorId               String
+  blastId                String? // linked CampaignBlast once created
+  status                 CampaignJobState    @default(QUEUED)
+  reviewState            CampaignReviewState @default(SUBMITTING)
+  campaignName           String
+  channel                String              @default("SMS")
+  text                   String              @default("")
+  imageUrl               String?
+  fromNumber             String?
+  accountIds             Json // String[] — full ordered recipient list
+  currentIndex           Int                 @default(0)
+  total                  Int
+  sentCount              Int                 @default(0)
+  failedCount            Int                 @default(0)
+  errorMessage           String?
+  workerHeartbeatAt      DateTime?
+  submissionCompletedAt  DateTime?
+  reviewedAt             DateTime?
   legacyRecordedAccepted Int?
-  legacyRecordedFailed Int?
-  legacyRawMissingCount Int?
-  quarantineReason String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  legacyRecordedFailed   Int?
+  legacyRawMissingCount  Int?
+  quarantineReason       String?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
 
-  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author     User                @relation(fields: [authorId], references: [id], onDelete: Cascade)
   recipients CampaignRecipient[]
 
   @@index([authorId])
@@ -877,36 +889,36 @@ enum PhoneSuppressionStatus {
 }
 
 model CampaignRecipient {
-  id String @id @default(cuid())
-  campaignJobId String
-  originalIndex Int
-  accountId String?
-  contactId String?
-  originalPhone String?
-  normalizedPhone String?
-  state CampaignRecipientState @default(PENDING)
-  deliveryStatus String @default("unknown")
-  leaseOwner String?
-  leaseExpiresAt DateTime?
-  attemptCount Int @default(0)
-  lastAttemptId String?
-  acceptedAt DateTime?
-  failedAt DateTime?
-  ambiguousAt DateTime?
-  skippedAt DateTime?
-  deliveredAt DateTime?
+  id                     String                 @id @default(cuid())
+  campaignJobId          String
+  originalIndex          Int
+  accountId              String?
+  contactId              String?
+  originalPhone          String?
+  normalizedPhone        String?
+  state                  CampaignRecipientState @default(PENDING)
+  deliveryStatus         String                 @default("unknown")
+  leaseOwner             String?
+  leaseExpiresAt         DateTime?
+  attemptCount           Int                    @default(0)
+  lastAttemptId          String?
+  acceptedAt             DateTime?
+  failedAt               DateTime?
+  ambiguousAt            DateTime?
+  skippedAt              DateTime?
+  deliveredAt            DateTime?
   lastProviderHttpStatus Int?
-  lastProviderCode String?
-  lastProviderStatus String?
-  lastProviderMessage String?
-  lastProviderLogId String?
-  lastProviderMmsId String?
-  dispositionReason String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  lastProviderCode       String?
+  lastProviderStatus     String?
+  lastProviderMessage    String?
+  lastProviderLogId      String?
+  lastProviderMmsId      String?
+  dispositionReason      String?
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
 
-  campaignJob CampaignJob @relation(fields: [campaignJobId], references: [id], onDelete: Cascade)
-  attempts CampaignAttempt[]
+  campaignJob CampaignJob       @relation(fields: [campaignJobId], references: [id], onDelete: Cascade)
+  attempts    CampaignAttempt[]
 
   @@unique([campaignJobId, originalIndex])
   @@index([campaignJobId, state])
@@ -915,69 +927,72 @@ model CampaignRecipient {
 }
 
 model CampaignAttempt {
-  id String @id @default(uuid())
+  id                  String               @id @default(uuid())
   campaignRecipientId String
-  workerId String
-  state CampaignAttemptState
-  claimedAt DateTime @default(now())
-  sendingAt DateTime?
-  providerResponseAt DateTime?
-  completedAt DateTime?
+  workerId            String
+  state               CampaignAttemptState
+  claimedAt           DateTime             @default(now())
+  sendingAt           DateTime?
+  providerResponseAt  DateTime?
+  completedAt         DateTime?
   normalizedRecipient String
-  sender String
-  providerHttpStatus Int?
-  zohoCode String?
-  zohoStatus String?
-  zohoMessage String?
-  zohoLogId String?
-  zohoMmsId String?
-  deploymentId String?
-  interruptionReason String?
-  createdAt DateTime @default(now())
+  sender              String
+  providerHttpStatus  Int?
+  zohoCode            String?
+  zohoStatus          String?
+  zohoMessage         String?
+  zohoLogId           String?
+  zohoMmsId           String?
+  deploymentId        String?
+  interruptionReason  String?
+  createdAt           DateTime             @default(now())
 
   recipient CampaignRecipient @relation(fields: [campaignRecipientId], references: [id], onDelete: Cascade)
+
   @@index([campaignRecipientId, createdAt])
   @@index([state, createdAt])
 }
 
 model PhoneDeliverability {
-  id String @id @default(cuid())
-  normalizedPhone String
-  channel String
-  deliverabilityStatus PhoneDeliverabilityStatus @default(UNKNOWN)
-  suppressionStatus PhoneSuppressionStatus @default(ELIGIBLE)
-  suppressionReason String?
-  providerCode String?
-  providerMessage String?
-  sourceCampaignJobId String?
-  sourceRecipientId String?
-  sourceAttemptId String?
-  firstFailureAt DateTime?
-  mostRecentFailureAt DateTime?
-  consecutiveFailureCount Int @default(0)
+  id                       String                      @id @default(cuid())
+  normalizedPhone          String
+  channel                  String
+  deliverabilityStatus     PhoneDeliverabilityStatus   @default(UNKNOWN)
+  suppressionStatus        PhoneSuppressionStatus      @default(ELIGIBLE)
+  suppressionReason        String?
+  providerCode             String?
+  providerMessage          String?
+  sourceCampaignJobId      String?
+  sourceRecipientId        String?
+  sourceAttemptId          String?
+  firstFailureAt           DateTime?
+  mostRecentFailureAt      DateTime?
+  consecutiveFailureCount  Int                         @default(0)
   lastSuccessfulDeliveryAt DateTime?
-  lastCheckedAt DateTime?
-  automaticDecision Boolean @default(true)
-  overrideAdministratorId String?
-  overrideReason String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  reviews PhoneDeliverabilityReview[]
+  lastCheckedAt            DateTime?
+  automaticDecision        Boolean                     @default(true)
+  overrideAdministratorId  String?
+  overrideReason           String?
+  createdAt                DateTime                    @default(now())
+  updatedAt                DateTime                    @updatedAt
+  reviews                  PhoneDeliverabilityReview[]
+
   @@unique([normalizedPhone, channel])
   @@index([suppressionStatus])
 }
 
 model PhoneDeliverabilityReview {
-  id String @id @default(cuid())
-  phoneDeliverabilityId String
-  administratorId String
+  id                           String                    @id @default(cuid())
+  phoneDeliverabilityId        String
+  administratorId              String
   previousDeliverabilityStatus PhoneDeliverabilityStatus
-  nextDeliverabilityStatus PhoneDeliverabilityStatus
-  previousSuppressionStatus PhoneSuppressionStatus
-  nextSuppressionStatus PhoneSuppressionStatus
-  reason String
-  createdAt DateTime @default(now())
-  phoneDeliverability PhoneDeliverability @relation(fields: [phoneDeliverabilityId], references: [id], onDelete: Cascade)
+  nextDeliverabilityStatus     PhoneDeliverabilityStatus
+  previousSuppressionStatus    PhoneSuppressionStatus
+  nextSuppressionStatus        PhoneSuppressionStatus
+  reason                       String
+  createdAt                    DateTime                  @default(now())
+  phoneDeliverability          PhoneDeliverability       @relation(fields: [phoneDeliverabilityId], references: [id], onDelete: Cascade)
+
   @@index([phoneDeliverabilityId, createdAt])
 }
 
@@ -1329,22 +1344,26 @@ model SalesStage {
 }
 
 model Lead {
-  id           String    @id @default(cuid())
-  zohoId       String    @unique
-  company      String
-  firstName    String?
-  lastName     String?
-  email        String?
-  phone        String?
-  mobile       String?
-  title        String?
-  industry     String?
-  status       String    @default("New Lead")
-  ownerId      String
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  lastCalledAt DateTime?
-  timeZone     String?
+  id                String            @id @default(cuid())
+  zohoId            String            @unique
+  crmLeadId         String?           @unique
+  providerSyncState ProviderSyncState @default(PENDING)
+  providerSyncError String?
+  providerSyncedAt  DateTime?
+  company           String
+  firstName         String?
+  lastName          String?
+  email             String?
+  phone             String?
+  mobile            String?
+  title             String?
+  industry          String?
+  status            String            @default("New Lead")
+  ownerId           String
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  lastCalledAt      DateTime?
+  timeZone          String?
 
   // Fact-Finding Specs
   bladeSizes          String?
@@ -1503,77 +1522,77 @@ model ClawbackTransaction {
 
 // Manager-approved customer write-off cost recovery. All monetary values are cents.
 model WriteOffRecoveryCase {
-  id                        String                          @id @default(cuid())
-  invoiceId                 String                          @unique
-  responsibleRepId          String?
-  triggerSourceField        String                          @default("MANUAL_LEGACY")
-  triggerZohoInvoiceId      String?
-  evidenceStatus            String                          @default("PENDING_EVIDENCE")
-  missingRequirements       Json
-  managerReviewRequired     Boolean                         @default(false)
-  salespersonSnapshot       String?
-  triggerDetectedAt         DateTime?
-  status                    String                          @default("DRAFT") // DRAFT | PENDING_APPROVAL | APPROVED | WAIVED | CLOSED
-  version                   Int                             @default(1)
-  originalResponsibilityRateBps Int                         @default(5000)
-  responsibilityRateBps     Int                             @default(5000)
+  id                               String                          @id @default(cuid())
+  invoiceId                        String                          @unique
+  responsibleRepId                 String?
+  triggerSourceField               String                          @default("MANUAL_LEGACY")
+  triggerZohoInvoiceId             String?
+  evidenceStatus                   String                          @default("PENDING_EVIDENCE")
+  missingRequirements              Json
+  managerReviewRequired            Boolean                         @default(false)
+  salespersonSnapshot              String?
+  triggerDetectedAt                DateTime?
+  status                           String                          @default("DRAFT") // DRAFT | PENDING_APPROVAL | APPROVED | WAIVED | CLOSED
+  version                          Int                             @default(1)
+  originalResponsibilityRateBps    Int                             @default(5000)
+  responsibilityRateBps            Int                             @default(5000)
   responsibilityRateOverrideReason String?
-  originalCostCents         Int                             @default(0)
-  recoveryCents             Int                             @default(0)
-  responsibilityChargeCents Int                             @default(0)
-  commissionReversalCents   Int                             @default(0)
-  creditCents               Int                             @default(0)
-  remainingBalanceCents     Int                             @default(0)
-  dryRunHash                String?
-  dryRunAt                  DateTime?
-  reason                    String
-  createdById               String
-  submittedById             String?
-  submittedAt               DateTime?
-  approvedById              String?
-  approvedAt                DateTime?
-  waivedById                String?
-  waivedAt                  DateTime?
-  waiverReason              String?
-  zohoSyncStatus            String                          @default("DISABLED") // DISABLED | REVIEW_REQUIRED | APPROVED | SYNCED | ERROR
-  createdAt                 DateTime                        @default(now())
-  updatedAt                 DateTime                        @updatedAt
-  invoice                   Invoice                         @relation(fields: [invoiceId], references: [id])
-  responsibleRep            User?                           @relation("RecoveryResponsibleRep", fields: [responsibleRepId], references: [id])
-  components                WriteOffRecoveryCostComponent[]
-  returnInspections         WriteOffReturnInspection[]
-  ledgerEvents              WriteOffRecoveryLedgerEvent[]
-  triggerRecords            WriteOffRecoveryTriggerRecord[]
+  originalCostCents                Int                             @default(0)
+  recoveryCents                    Int                             @default(0)
+  responsibilityChargeCents        Int                             @default(0)
+  commissionReversalCents          Int                             @default(0)
+  creditCents                      Int                             @default(0)
+  remainingBalanceCents            Int                             @default(0)
+  dryRunHash                       String?
+  dryRunAt                         DateTime?
+  reason                           String
+  createdById                      String
+  submittedById                    String?
+  submittedAt                      DateTime?
+  approvedById                     String?
+  approvedAt                       DateTime?
+  waivedById                       String?
+  waivedAt                         DateTime?
+  waiverReason                     String?
+  zohoSyncStatus                   String                          @default("DISABLED") // DISABLED | REVIEW_REQUIRED | APPROVED | SYNCED | ERROR
+  createdAt                        DateTime                        @default(now())
+  updatedAt                        DateTime                        @updatedAt
+  invoice                          Invoice                         @relation(fields: [invoiceId], references: [id])
+  responsibleRep                   User?                           @relation("RecoveryResponsibleRep", fields: [responsibleRepId], references: [id])
+  components                       WriteOffRecoveryCostComponent[]
+  returnInspections                WriteOffReturnInspection[]
+  ledgerEvents                     WriteOffRecoveryLedgerEvent[]
+  triggerRecords                   WriteOffRecoveryTriggerRecord[]
 
+  @@unique([triggerSourceField, triggerZohoInvoiceId])
   @@index([responsibleRepId, status])
   @@index([status, createdAt])
-  @@unique([triggerSourceField, triggerZohoInvoiceId])
 }
 
 // Sanitized, append-only evidence of a write-off checkbox transition.
 model WriteOffRecoveryTriggerRecord {
-  id                    String   @id @default(cuid())
-  caseId                String?
-  localInvoiceId        String
-  zohoInvoiceId         String
-  sourceField           String
-  previousValue         Boolean?
-  newValue              Boolean?
-  observationKind       String   @default("BOOLEAN") // BOOLEAN | PARSE_ANOMALY
-  anomalyCode           String?
-  sourceTimestamp       DateTime?
-  ingestedAt            DateTime @default(now())
-  idempotencyKey        String   @unique
-  payloadFingerprint    String
-  observedFieldPath     String?
-  observedJsonType      String?
-  sanitizedStructuralShape String?
-  checkboxTokenClass    String?
-  sourceInvoiceFingerprint String?
+  id                          String                @id @default(cuid())
+  caseId                      String?
+  localInvoiceId              String
+  zohoInvoiceId               String
+  sourceField                 String
+  previousValue               Boolean?
+  newValue                    Boolean?
+  observationKind             String                @default("BOOLEAN") // BOOLEAN | PARSE_ANOMALY
+  anomalyCode                 String?
+  sourceTimestamp             DateTime?
+  ingestedAt                  DateTime              @default(now())
+  idempotencyKey              String                @unique
+  payloadFingerprint          String
+  observedFieldPath           String?
+  observedJsonType            String?
+  sanitizedStructuralShape    String?
+  checkboxTokenClass          String?
+  sourceInvoiceFingerprint    String?
   sourceModificationTimestamp DateTime?
-  anomalySchemaVersion  String?
-  missingRequirements   Json
-  recoveryCase          WriteOffRecoveryCase? @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  anomalySchemaVersion        String?
+  missingRequirements         Json
+  recoveryCase                WriteOffRecoveryCase? @relation(fields: [caseId], references: [id], onDelete: Restrict)
 
   @@index([caseId, ingestedAt])
   @@index([zohoInvoiceId, sourceField])
@@ -2001,18 +2020,18 @@ model AutoshipSubscription {
 }
 
 model AiCustomTool {
-  id           String   @id @default(cuid())
-  name         String   @unique
-  description  String
-  parameters   Json // JSON Schema object representing the parameters definition
-  endpointUrl  String
-  method       String   @default("POST") // POST | GET | PUT
-  bodyTemplate String? // e.g. '{"userId": "{{userId}}", "action": "clockIn"}'
-  isActive     Boolean  @default(true)
-  minimumRole  String   @default("ADMIN") // VIEWER | AGENT | MANAGER | ADMIN
-  requiresConfirmation Boolean @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  name                 String   @unique
+  description          String
+  parameters           Json // JSON Schema object representing the parameters definition
+  endpointUrl          String
+  method               String   @default("POST") // POST | GET | PUT
+  bodyTemplate         String? // e.g. '{"userId": "{{userId}}", "action": "clockIn"}'
+  isActive             Boolean  @default(true)
+  minimumRole          String   @default("ADMIN") // VIEWER | AGENT | MANAGER | ADMIN
+  requiresConfirmation Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }
 
 model SalesClosingChecklist {
@@ -2151,6 +2170,39 @@ model IntegrationException {
   @@unique([integration, entityType, externalId, exceptionType])
   @@index([status, createdAt])
   @@index([entityType, status])
+}
+
+enum ProviderSyncState {
+  PENDING
+  SYNCING
+  SUCCEEDED
+  FAILED
+  AMBIGUOUS
+}
+
+/// Durable, idempotent audit record for portal-to-provider lifecycle writes.
+model ProviderWriteOperation {
+  id                 String            @id @default(cuid())
+  operationKey       String            @unique
+  provider           String
+  entityType         String
+  entityId           String
+  operation          String
+  state              ProviderSyncState @default(PENDING)
+  requestFingerprint String
+  attemptCount       Int               @default(0)
+  providerRecordIds  Json?
+  providerCode       String?
+  providerMessage    String?
+  lastAttemptAt      DateTime?
+  completedAt        DateTime?
+  nextAttemptAt      DateTime?
+  lastError          String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([state, nextAttemptAt])
+  @@index([entityType, entityId])
 }
 
 model TaskOutcome {

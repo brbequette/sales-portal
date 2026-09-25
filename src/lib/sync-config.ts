@@ -27,6 +27,8 @@ export interface TableSyncStatus {
   lastSyncAt: string | null   // ISO string
   lastCount: number
   lastError: string | null
+  /** Next provider page for an incomplete bounded walk; null means begin at page 1. */
+  continuationPage: number | null
 }
 
 export interface SyncStatus {
@@ -56,16 +58,16 @@ export const DEFAULT_SYNC_CONFIG: SyncConfig = {
 }
 
 export const DEFAULT_SYNC_STATUS: SyncStatus = {
-  leads:          { lastSyncAt: null, lastCount: 0, lastError: null },
-  invoices:       { lastSyncAt: null, lastCount: 0, lastError: null },
-  salesOrders:    { lastSyncAt: null, lastCount: 0, lastError: null },
-  accounts:       { lastSyncAt: null, lastCount: 0, lastError: null },
-  packages:       { lastSyncAt: null, lastCount: 0, lastError: null },
-  purchaseOrders: { lastSyncAt: null, lastCount: 0, lastError: null },
-  quotes:         { lastSyncAt: null, lastCount: 0, lastError: null },
-  payments:       { lastSyncAt: null, lastCount: 0, lastError: null },
-  vendors:        { lastSyncAt: null, lastCount: 0, lastError: null },
-  products:       { lastSyncAt: null, lastCount: 0, lastError: null },
+  leads:          { lastSyncAt: null, lastCount: 0, lastError: null, continuationPage: null },
+  invoices:       { lastSyncAt: null, lastCount: 0, lastError: null, continuationPage: null },
+  salesOrders:    { lastSyncAt: null, lastCount: 0, lastError: null, continuationPage: null },
+  accounts:       { lastSyncAt: null, lastCount: 0, lastError: null, continuationPage: null },
+  packages:       { lastSyncAt: null, lastCount: 0, lastError: null, continuationPage: null },
+  purchaseOrders: { lastSyncAt: null, lastCount: 0, lastError: null, continuationPage: null },
+  quotes:         { lastSyncAt: null, lastCount: 0, lastError: null, continuationPage: null },
+  payments:       { lastSyncAt: null, lastCount: 0, lastError: null, continuationPage: null },
+  vendors:        { lastSyncAt: null, lastCount: 0, lastError: null, continuationPage: null },
+  products:       { lastSyncAt: null, lastCount: 0, lastError: null, continuationPage: null },
 }
 
 // ─────────────────────────────────────────────
@@ -86,7 +88,11 @@ export async function getSyncStatus(): Promise<SyncStatus> {
   const row = await prisma.systemSetting.findUnique({ where: { key: 'sync_status' } })
   if (!row?.value) return DEFAULT_SYNC_STATUS
   try {
-    return { ...DEFAULT_SYNC_STATUS, ...JSON.parse(row.value) }
+    const parsed = JSON.parse(row.value)
+    return Object.fromEntries(Object.entries(DEFAULT_SYNC_STATUS).map(([table, defaults]) => [
+      table,
+      { ...defaults, ...(parsed[table] || {}) },
+    ])) as unknown as SyncStatus
   } catch {
     return DEFAULT_SYNC_STATUS
   }
