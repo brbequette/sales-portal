@@ -1,3 +1,4 @@
+import { withVoiceCallLock } from "@/lib/voice-call-lock"
 import { NextResponse } from "next/server"
 import { Prisma } from "@prisma/client"
 import { requireAdministrator } from "@/lib/auth-helpers"
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
     const preview = readVoicePreview(input.token, secret, actorId)
     const { evidence, accountId, contactId } = preview
     const key = `voice-manual-association:${evidence.zohoCallId}`
-    const result = await prisma.$transaction(async tx => {
+    const result = await withVoiceCallLock(evidence.zohoCallId, async tx => {
       const prior = await tx.operationalAction.findUnique({ where: { idempotencyKey: key } })
       if (prior) {
         if (prior.status !== "SUCCEEDED" || prior.accountId !== accountId) throw new Error("Call already has a different or incomplete audited association")
@@ -78,7 +79,7 @@ export async function POST(req: Request) {
         accountId, status: "SUCCEEDED", actorId, completedAt: new Date(), payload: { ...metadata, contactId, previousAccountId: current?.accountId || null },
         result: { callId: call.id, nativeCrmCallSynced: false, taskPreserved: true } } })
       return { replay: false, callId: call.id }
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
+    })
     return NextResponse.json({ success: true, ...result, nativeCrmCallSynced: false, outboundActions: 0 })
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && ["P2002", "P2034"].includes(error.code)) return NextResponse.json({ error: "Concurrent update; reconcile before retrying" }, { status: 409 })

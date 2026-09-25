@@ -25,6 +25,17 @@ export default function VoiceCallReconciliation() {
       if (mode === "apply") setPreview(null)
     } finally { setBusy(false) }
   }
+  async function syncCrm() {
+    if (busy) return
+    setBusy(true); setMessage("Checking the durable CRM operation and existing provider records...")
+    try {
+      const response = await fetch("/api/admin/communications/crm-call", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ callId }) })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || `${data.state}: ${data.message || "CRM call not verified; no automatic resend."}`)
+      setMessage(`CRM call ${data.crmCallId} independently read back and matched. Existing follow-up task preserved.`)
+    } catch (error) { setMessage(error instanceof Error ? error.message : "CRM verification failed") }
+    finally { setBusy(false) }
+  }
   async function play() {
     setBusy(true)
     try {
@@ -37,7 +48,7 @@ export default function VoiceCallReconciliation() {
   const labels = { zohoCallId: "Zoho Voice call ID", retellCallId: "Retell call reference (human-confirmed)", accountId: "Portal account ID", contactId: "Portal contact ID (optional)", taskId: "Existing CRM task ID", reason: "Human-confirmed association reason" }
   return <div className="page-content max-w-3xl space-y-4">
     <h1 className="page-title">Reconcile one voice call</h1>
-    <p>Preview one provider call, then save its confirmed account association. This does not create tasks, send messages or create a CRM Calls record.</p>
+    <p>Preview one provider call, then save its confirmed account association. Local apply preserves the existing task. A separate action synchronizes the native CRM call with duplicate protection; no messages are sent.</p>
     <fieldset disabled={busy} className="space-y-3">
       {(Object.keys(labels) as Array<keyof typeof labels>).map(key => <label key={key} className="block">{labels[key]}
         <input className="block w-full rounded border p-2 bg-transparent" value={fields[key]} onChange={event => { setFields({ ...fields, [key]: event.target.value }); setPreview(null); setCallId(""); setAudioUrl("") }} />
@@ -55,7 +66,7 @@ export default function VoiceCallReconciliation() {
       <p>{preview.preview.reason}</p>
       <button disabled={busy} className="btn-primary" onClick={() => submit("apply")}>{busy ? "Saving…" : "Apply confirmed association"}</button>
     </section>}
-    {callId && <section><p>Portal call ID: {callId}</p><button disabled={busy} onClick={play}>Load protected recording</button></section>}
+    {callId && <section><p>Portal call ID: {callId}</p><button disabled={busy} onClick={play}>Load protected recording</button><button disabled={busy} onClick={syncCrm}>Sync or verify native CRM call</button></section>}
     {audioUrl && <audio controls src={audioUrl} />}
   </div>
 }

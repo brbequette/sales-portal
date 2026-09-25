@@ -20,6 +20,7 @@ describe("scoped call apply", () => {
     mocks.taskFind.mockResolvedValue({ accountId: "test" })
     mocks.callUpsert.mockResolvedValue({ id: "local-call" })
     mocks.transaction.mockImplementation(async fn => fn({
+      $executeRaw: vi.fn().mockResolvedValue(1),
       operationalAction: { findUnique: mocks.auditFind, create: mocks.auditCreate },
       callLog: { findUnique: mocks.callFind, upsert: mocks.callUpsert }, task: { findUnique: mocks.taskFind }, contact: { findFirst: mocks.contactFind },
       communicationEvent: { updateMany: mocks.eventUpdate, upsert: mocks.eventUpsert },

@@ -7,6 +7,12 @@ on:
       - "src/app/api/leads/**"
       - "src/app/api/sync-now/**"
       - "src/lib/zoho-crm-**"
+      - "src/lib/voice-**"
+      - "src/lib/communication-automation*"
+      - "src/app/api/admin/communications/**"
+      - "src/app/api/webhooks/zoho-voice/**"
+      - "src/app/api/calls/**"
+      - "tests/voice-**"
       - "src/lib/zoho-books-customer.ts"
       - "src/components/OrderBuilder.tsx"
       - "src/components/useOrderBuilderData*"
@@ -52,6 +58,9 @@ jobs:
       - name: Production-schema upgrade rehearsal
         shell: pwsh
         run: ./scripts/test-sales-lifecycle-upgrade.ps1 -ConnectionString 'postgresql://lifecycle_ci:lifecycle_ci_password@localhost:5432/lifecycle_upgrade'
+      - name: Voice concurrent database writers and scoped routes
+        run: |
+          npx vitest run src/lib/voice-account-matching.test.ts src/lib/zoho-crm-voice.test.ts tests/voice-call-lock.postgres.test.ts src/lib/voice-call-lock.test.ts src/lib/voice-call-preview.test.ts src/lib/voice-transcript.test.ts src/lib/communication-automation.test.ts src/app/api/admin/communications/reconcile-call/route.test.ts src/app/api/admin/communications/call-recording/route.test.ts
       - name: Lifecycle and sync contracts
         run: |
           npx vitest run tests/zoho-incremental-filter.test.ts tests/zoho-pagination.test.ts tests/zoho-crm-response.test.ts

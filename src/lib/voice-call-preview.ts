@@ -14,8 +14,16 @@ export type VoiceCallEvidence = {
 export function validateVoiceLog(payload: unknown, requestedId: string): VoiceCallEvidence {
   if (!payload || typeof payload !== "object") throw new Error("Invalid Voice response")
   const envelope = payload as Record<string, unknown>
-  if (String(envelope.status).toUpperCase() === "ERROR" || !Array.isArray(envelope.logs)) throw new Error("Voice provider did not return call logs")
-  const matches = envelope.logs.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object" && item.logid === requestedId))
+  if (!["SUCCESS", "200"].includes(String(envelope.status).toUpperCase())) throw new Error("Voice provider did not return successful call evidence")
+  // The live single-call endpoint returns call_log.uuid with nested recording
+  // metadata; the published sample uses logs[].logid. Validate exact identity
+  // in either shape, never assume that the response belongs to the requested ID.
+  const candidates = Array.isArray(envelope.logs) ? envelope.logs : envelope.call_log ? [envelope.call_log] : []
+  const matches = candidates.filter((item): item is Record<string, unknown> => {
+    if (!item || typeof item !== "object") return false
+    const row = item as Record<string, unknown>
+    return (row.logid ?? row.uuid) === requestedId
+  })
   if (matches.length !== 1) throw new Error("Expected exactly one matching provider call ID")
   const log = matches[0]
   if (log.call_type !== "incoming" && log.call_type !== "outgoing") throw new Error("Unsupported call direction; review required")
@@ -30,7 +38,8 @@ export function validateVoiceLog(payload: unknown, requestedId: string): VoiceCa
   const duration = parts.reduce((total, part) => total * 60 + part, 0)
   const providerStatus = typeof log.hangup_cause_displayname === "string" ? log.hangup_cause_displayname.trim() : ""
   if (!providerStatus) throw new Error("Missing provider outcome")
-  const filename = typeof log.recording_filename === "string" ? log.recording_filename : null
+  const recording = log.call_recording && typeof log.call_recording === "object" ? log.call_recording as Record<string, unknown> : {}
+  const filename = typeof log.recording_filename === "string" ? log.recording_filename : typeof recording.recording_filename === "string" ? recording.recording_filename : null
   // Only provider-returned single filenames are usable; never infer from log ID.
   const recordingFilename = filename && /^[a-zA-Z0-9_.-]{1,250}$/.test(filename) ? filename : null
   return { zohoCallId: requestedId, fromNumber: log.caller_id_number, toNumber: log.destination_number,

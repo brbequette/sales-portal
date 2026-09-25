@@ -16,8 +16,8 @@ type CallAutomationInput = {
   createdAt: Date
 }
 
-export async function indexCallAndCreateSafeFollowUp(call: CallAutomationInput) {
-  const account = await prisma.account.findUnique({
+export async function indexCallAndCreateSafeFollowUp(call: CallAutomationInput, db: Prisma.TransactionClient = prisma) {
+  const account = await db.account.findUnique({
     where: { id: call.accountId },
     select: { ownerId: true, name: true, zohoId: true },
   })
@@ -27,7 +27,7 @@ export async function indexCallAndCreateSafeFollowUp(call: CallAutomationInput) 
   const isInbound = call.direction.toUpperCase() === "INBOUND"
   const needsCallback = isInbound && ["missed", "no_answer", "no answer", "voicemail"].includes(normalizedStatus)
 
-  await prisma.communicationEvent.upsert({
+  await db.communicationEvent.upsert({
     where: {
       sourceType_sourceId_eventType: {
         sourceType: "CALL_LOG",
@@ -75,7 +75,7 @@ export async function indexCallAndCreateSafeFollowUp(call: CallAutomationInput) 
   // the shared holding account while the caller's identity is unresolved.
   if (!needsCallback || account.zohoId === "unknown-voice-caller") return
 
-  await prisma.task.upsert({
+  await db.task.upsert({
     where: { zohoId: `voice_callback_${call.id}` },
     // A replay must not undo a user's reassignment, deadline, or completion.
     update: {},
@@ -94,7 +94,7 @@ export async function indexCallAndCreateSafeFollowUp(call: CallAutomationInput) 
     },
   })
 
-  const existing = await prisma.automationRecommendation.findFirst({
+  const existing = await db.automationRecommendation.findFirst({
     where: {
       accountId: call.accountId,
       triggerType: "MISSED_INBOUND_CALL",
@@ -103,7 +103,7 @@ export async function indexCallAndCreateSafeFollowUp(call: CallAutomationInput) 
     select: { id: true },
   })
   if (!existing) {
-    await prisma.automationRecommendation.upsert({
+    await db.automationRecommendation.upsert({
       where: { id: `voice_callback_recommendation_${call.id}` },
       update: {},
       create: {

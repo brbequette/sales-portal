@@ -1466,3 +1466,15 @@ live state before destructive changes or external writes.
 - Added explicit authenticated recording POST with a fixed provider host and provider-returned filename requirement; redirects, non-audio responses and guessed filenames are rejected.
 - Added administrative preview/apply UI and link from Communications. Sequential webhook/bulk replays skip manually audited calls. Simultaneous bulk-write races still require database integration testing/stronger shared serialization before release.
 - 20 focused tests passed; TypeScript and focused new-file lint passed. Native CRM Calls durable write/reconciliation, recording payload verification, concurrency integration tests and build/deployment verification remain release gates. Never deploy this as complete native synchronization yet.
+
+## Shared locking and native CRM Calls implementation (unreleased)
+- All provider ingestion/reconciliation paths now use a transaction-scoped PostgreSQL advisory lock and re-read the manual audit inside READ COMMITTED. Call indexing shares the transaction. Analysis rejects stale source versions; legacy edits cannot alter audited provider evidence.
+- Added durable CRM Calls operations: exact CRM mappings, source references and transcript; atomic pending-only submission claim; explicit provider rejection handling; uncertain outcomes are never automatically resent. Accepted IDs are retained before independent field-by-field readback. Existing task 6821836000027791003 remains untouched.
+- Added protected recording tests and disposable PostgreSQL CI lock/rollback coverage. Local focused suites: 38 tests passed before final validation. Database concurrency execution, full build, provider filename/playback verification and production acceptance remain pending.
+- CRM form inspected read-only: Call Duration explicitly uses minutes and seconds. CRM task remains visible with its TEST account association. No production call record, message or deployment was created.
+
+## Live provider contract verification, 2026-09-25
+- Exact read-only Voice GET for 3437f313-1e67-4745-af19-f5f3013cc26f returned status SUCCESS, call_log.uuid, duration 01:25, start_time 1790337109000 and nested call_recording.recording_filename. Added exact-ID validation for this live envelope alongside the published logs sample.
+- Provider returned 3437f313-1e67-4745-af19-f5f3013cc26f_recording.mp3. Uppercase mode=Play was rejected with ZVT015; lowercase mode=play returned HTTP 200, application/octet-stream, 111744 bytes and an MP3 frame header. Proxy now validates audio signatures and limits buffering to 25 MB. Full portal playback still requires deployed browser verification.
+- Shared caller matching excludes known Titan routing numbers (plus additive VOICE_BUSINESS_NUMBERS), removes name-only fallback and international suffix collisions, and keeps multiple-account matches ambiguous. No bulk production reconciliation was run.
+- 44 focused mocked tests pass. Native CRM Calls code is implemented locally but no CRM Calls write has been made. Real PostgreSQL concurrency CI and deployment checks remain required.
