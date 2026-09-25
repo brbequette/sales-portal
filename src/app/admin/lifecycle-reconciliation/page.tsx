@@ -51,7 +51,7 @@ export default function LifecycleReconciliationPage() {
     <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-5 space-y-4">
       <h2 className="font-black text-white">Exact Books product</h2>
       <input aria-label="Exact SKU" value={sku} onChange={event => setSku(event.target.value)} placeholder="Exact SKU" className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3" />
-      <p className="text-xs text-neutral-500">A bounded exact-SKU lookup verifies rates, type and preferred vendor. Dropship remains blocked unless Books returns an explicit eligibility flag.</p>
+      <p className="text-xs text-neutral-500">A bounded exact-SKU lookup verifies rates, type and the preferred vendor, then locally reconciles that exact vendor for fulfillment. Dropship eligibility remains governed by the audited application business setting.</p>
       <button disabled={busy !== null || !sku} onClick={() => run('product')} className="rounded-xl bg-cyan-600 px-4 py-2 font-bold text-white disabled:opacity-40">{busy === 'product' ? 'Reconciling…' : 'Reconcile exact product'}</button>
     </section>
     {result ? <pre className="overflow-auto rounded-2xl border border-white/10 bg-black/40 p-4 text-xs text-neutral-300">{JSON.stringify(result, null, 2)}</pre> : null}
