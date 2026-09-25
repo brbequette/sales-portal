@@ -120,6 +120,19 @@ export const handler: Handler = async (event, context) => {
           giftReleaseRule: line.giftReleaseRule,
           selectedGiftSize: component?.mode === 'VARIABLE_TAG' ? line.selectedGiftSize : null,
         })
+        fulfillmentPlan.push({
+          itemId: product.booksItemId,
+          sku: product.sku,
+          name: product.name,
+          quantity: line.quantity * componentQuantity,
+          method: 'WAREHOUSE',
+          vendor: product.vendor || null,
+          promotional: true,
+          giftReleaseRule: line.giftReleaseRule,
+          selectedGiftSize: component?.mode === 'VARIABLE_TAG' ? line.selectedGiftSize : null,
+          selectedBundleOption: null,
+          bundleParentSku: line.sku,
+        })
       }
     }
 

@@ -26,6 +26,7 @@ describe('gift bundle configuration and POS selection contract', () => {
     expect(transaction).toContain('A configured gift bundle component is no longer authoritative.')
     expect(transaction).toContain('Bundle component of ${line.name || line.sku} (PROMO FREE)')
     expect(transaction).toContain('financialZohoLineItems(expandedLineItems)')
+    expect(transaction).toContain('bundleParentSku: line.sku')
     expect(orderBuilderData).toContain('/api/get-products?giftOnly=true')
     expect(orderBuilderData).toContain('const merged = new Map<string, any>()')
   })
