@@ -69,6 +69,7 @@ export const handler: Handler = async (event, context) => {
       itemId: line.itemId || null,
       sku: String(line.sku || ''),
       name: String(line.name || ''),
+      quantity: Math.max(1, Number(line.quantity) || 1),
       method: String(line.fulfillmentMethod || (String(line.description || '').includes('PROMO FREE') ? 'WAREHOUSE' : 'UNASSIGNED')),
       vendor: line.vendor ? String(line.vendor) : null,
       promotional: String(line.description || '').includes('PROMO FREE'),
@@ -83,17 +84,42 @@ export const handler: Handler = async (event, context) => {
       if (product?.canDropship !== true) return { statusCode: 422, body: JSON.stringify({ success: false, message: `${line.sku || line.name} is not authoritatively approved for dropship fulfillment.` }) }
       line.vendor = product.vendor || line.vendor
     }
+    const expandedLineItems = (Array.isArray(lineItems) ? lineItems : []).map((line: any) => ({ ...line }))
     for (const line of fulfillmentPlan.filter((item: any) => item.promotional)) {
       const bundleProduct = line.itemId ? await prisma.product.findFirst({ where: { booksItemId: line.itemId }, select: { attributes: true } }) : null
       const attributes = bundleProduct?.attributes && typeof bundleProduct.attributes === 'object' && !Array.isArray(bundleProduct.attributes) ? bundleProduct.attributes as Record<string, any> : {}
-      const variableTags = Array.isArray(attributes.giftBundleComponents) ? attributes.giftBundleComponents.filter((component: any) => component?.mode === 'VARIABLE_TAG').map((component: any) => String(component.optionTag || '').toLowerCase()) : []
+      const bundleComponents = Array.isArray(attributes.giftBundleComponents) ? attributes.giftBundleComponents : []
+      const variableTags = bundleComponents.filter((component: any) => component?.mode === 'VARIABLE_TAG').map((component: any) => String(component.optionTag || '').toLowerCase())
       if (variableTags.length && !line.selectedBundleOption?.productId) return { statusCode: 422, body: JSON.stringify({ success: false, message: `${line.sku || line.name} requires an exact bundle option.` }) }
+      let selectedOption: any = null
       if (line.selectedBundleOption?.productId) {
         const option = await prisma.product.findUnique({ where: { id: String(line.selectedBundleOption.productId) } })
         const optionAttributes = option?.attributes && typeof option.attributes === 'object' && !Array.isArray(option.attributes) ? option.attributes as Record<string, any> : {}
         const optionTags = Array.isArray(optionAttributes.giftTags) ? optionAttributes.giftTags.map((tag: unknown) => String(tag).toLowerCase()) : []
         if (!option?.booksItemId || (!(Number(option.unitCost) > 0) && option.costQuality !== 'VERIFIED_ZERO') || !variableTags.some((tag: string) => optionTags.includes(tag))) return { statusCode: 422, body: JSON.stringify({ success: false, message: 'The selected gift bundle option is not an authoritative configured variant.' }) }
-        line.selectedBundleOption = { productId: option.id, booksItemId: option.booksItemId, sku: option.sku, name: option.name, size: line.selectedGiftSize, cost: option.unitCost, quantity: Math.max(1, Number(line.selectedBundleOption.quantity) || 1) }
+        selectedOption = { productId: option.id, booksItemId: option.booksItemId, sku: option.sku, name: option.name, size: line.selectedGiftSize, cost: option.unitCost, quantity: Math.max(1, Number(line.selectedBundleOption.quantity) || 1) }
+        line.selectedBundleOption = selectedOption
+      }
+      const fixedIds = bundleComponents.filter((component: any) => component?.mode === 'FIXED').map((component: any) => String(component.productId || '')).filter(Boolean)
+      const fixedProducts = fixedIds.length ? await prisma.product.findMany({ where: { id: { in: fixedIds } } }) : []
+      const fixedById = new Map(fixedProducts.map(product => [product.id, product]))
+      for (const component of bundleComponents) {
+        const componentQuantity = Math.max(1, Number(component?.quantity) || 1)
+        const product = component?.mode === 'VARIABLE_TAG' ? selectedOption : fixedById.get(String(component?.productId || ''))
+        if (!product?.booksItemId || (!(Number(product.cost ?? product.unitCost) > 0) && product.costQuality !== 'VERIFIED_ZERO')) return { statusCode: 422, body: JSON.stringify({ success: false, message: 'A configured gift bundle component is no longer authoritative.' }) }
+        expandedLineItems.push({
+          itemId: product.booksItemId,
+          name: product.name,
+          sku: product.sku,
+          rate: 0,
+          discount: 0,
+          quantity: line.quantity * componentQuantity,
+          description: `Bundle component of ${line.name || line.sku} (PROMO FREE)`,
+          fulfillmentMethod: 'WAREHOUSE',
+          vendor: product.vendor || null,
+          giftReleaseRule: line.giftReleaseRule,
+          selectedGiftSize: component?.mode === 'VARIABLE_TAG' ? line.selectedGiftSize : null,
+        })
       }
     }
 
@@ -122,7 +148,7 @@ export const handler: Handler = async (event, context) => {
       const localSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
       booksRefId = `dev-${type.toLowerCase()}-${localSuffix}`
       booksDocNumber = type === 'Quote' ? `DEV-EST-${localSuffix}` : `DEV-SO-${localSuffix}`
-      zohoDoc = { line_items: lineItems || [], localDevelopmentTransaction: true }
+      zohoDoc = { line_items: expandedLineItems, localDevelopmentTransaction: true }
     } else {
       token = await getZohoAccessToken()
       const booksCustomer = await ensureBooksCustomer(account.id)
@@ -134,7 +160,7 @@ export const handler: Handler = async (event, context) => {
       const payload = {
         customer_id: booksContactId,
         salesperson_name: author?.name || "System Admin",
-        line_items: financialZohoLineItems(lineItems).map(li => ({ item_id: li.itemId || undefined, name: li.name, description: li.description, rate: li.rate, quantity: li.quantity, discount: li.discount || 0 })),
+        line_items: financialZohoLineItems(expandedLineItems).map(li => ({ item_id: li.itemId || undefined, name: li.name, description: li.description, rate: li.rate, quantity: li.quantity, discount: li.discount || 0 })),
         discount_type: "item_level",
         is_discount_before_tax: true,
         notes: "Created via Sales Portal POS"
@@ -198,7 +224,7 @@ export const handler: Handler = async (event, context) => {
     }
 
     // Resolve full line items array
-    const responseLineItems = zohoDoc?.line_items || lineItems || []
+    const responseLineItems = zohoDoc?.line_items || expandedLineItems
     const resolvedLineItems = orderedZohoLineItems(responseLineItems).map(li => {
       if (classifyZohoLineItem(li)?.structural) return structuralZohoLineItemPayload(li)
       return {
