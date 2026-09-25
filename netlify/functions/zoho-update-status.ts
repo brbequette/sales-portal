@@ -6,7 +6,57 @@ import { prisma } from "./lib/prisma"
 import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
 import { assertNoBooksConflictBeforeWrite } from "../../src/lib/sync-engine"
 import { authorizeDocumentAccess } from "./lib/document-access"
+import { Prisma } from "@prisma/client"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
+
+async function adoptVerifiedConversionBaseline(
+  salesOrder: any,
+  token: string,
+  baseUrl: string,
+) {
+  if (salesOrder.lastSyncedAt || salesOrder.appModifiedAt || !salesOrder.zohoId) return salesOrder
+
+  const response = await fetch(`${baseUrl}/salesorders/${salesOrder.zohoId}?organization_id=${ORG_ID}`, {
+    signal: AbortSignal.timeout(15000),
+    headers: { Authorization: `Zoho-oauthtoken ${token}` },
+  })
+  const payload: any = await response.json().catch(() => null)
+  if (!response.ok || payload?.code !== 0 || !payload?.salesorder) return salesOrder
+
+  const remote = payload.salesorder
+  const sourceEstimateId = String(remote.estimate_id || '').trim()
+  if (!sourceEstimateId) return salesOrder
+
+  const sourceQuote = await prisma.quote.findUnique({ where: { zohoId: sourceEstimateId }, select: { id: true } })
+  if (!sourceQuote) return salesOrder
+
+  const operationKey = `books:document:convert:Quote:${sourceQuote.id}:SalesOrder`
+  const operation = await prisma.providerWriteOperation.findUnique({ where: { operationKey } })
+  const providerIds = operation?.providerRecordIds as { newDocumentId?: string } | null
+  if (operation?.state !== 'SUCCEEDED' || String(providerIds?.newDocumentId || '') !== String(salesOrder.zohoId)) {
+    return salesOrder
+  }
+
+  const syncedAt = new Date()
+  const providerModifiedAt = remote.last_modified_time ? new Date(remote.last_modified_time) : syncedAt
+  return prisma.salesOrder.update({
+    where: { id: salesOrder.id },
+    data: {
+      amount: Number(remote.total ?? salesOrder.amount),
+      status: String(remote.status || salesOrder.status),
+      orderDate: remote.date ? new Date(remote.date) : salesOrder.orderDate,
+      items: remote,
+      rawData: remote,
+      zohoModifiedTime: providerModifiedAt,
+      lastZohoModifiedTime: providerModifiedAt,
+      lastSyncedAt: syncedAt,
+      appModifiedAt: syncedAt,
+      syncConflict: false,
+      conflictFields: Prisma.DbNull,
+      pendingZohoFetch: false,
+    },
+  })
+}
 
 export const handler: Handler = async (event) => {
   const cors = {
@@ -76,7 +126,7 @@ export const handler: Handler = async (event) => {
       if (data.code !== 0) throw new Error(`Zoho error: ${data.message || 'Failed to mark invoice sent'}`)
       await prisma.invoice.update({ where: { id: dbInvoice.id }, data: { status: 'sent', appModifiedAt: new Date(), lastSyncedAt: new Date() } })
     } else if (type === 'SalesOrder') {
-      const dbSalesOrder = await prisma.salesOrder.findFirst({
+      let dbSalesOrder = await prisma.salesOrder.findFirst({
         where: {
           OR: [
             { id: documentId },
@@ -85,12 +135,14 @@ export const handler: Handler = async (event) => {
         }
       })
       if (dbSalesOrder) {
-        dbRecord = dbSalesOrder
-        const items = dbSalesOrder.items as any
+        const reconciledSalesOrder = await adoptVerifiedConversionBaseline(dbSalesOrder, token, baseUrl)
+        dbSalesOrder = reconciledSalesOrder
+        dbRecord = reconciledSalesOrder
+        const items = reconciledSalesOrder.items as any
         if (items?.booksSalesOrderId) {
           booksId = items.booksSalesOrderId
         }
-        await assertNoBooksConflictBeforeWrite("salesorder", dbSalesOrder)
+        await assertNoBooksConflictBeforeWrite("salesorder", reconciledSalesOrder)
       }
 
       if (action === 'confirm') {

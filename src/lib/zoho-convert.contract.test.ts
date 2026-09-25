@@ -18,6 +18,14 @@ describe('Zoho document conversion safety contract', () => {
     expect(handler).toContain('state: "SUCCEEDED"')
   })
 
+  it('persists an authoritative synchronization baseline with converted documents', () => {
+    expect(handler).toContain('const syncedAt = new Date()')
+    expect(handler).toContain('lastZohoModifiedTime: providerModifiedAt')
+    expect(handler).toContain('lastSyncedAt: syncedAt')
+    expect(handler).toContain('appModifiedAt: syncedAt')
+    expect(handler).toContain('rawData: data[resultKey] || {}')
+  })
+
   it('reopens only a definitively failed operation after the corrected payload changes', () => {
     expect(handler).toContain('const sourceStatus = String(originalData?.status || "").trim().toUpperCase()')
     expect(handler).toContain('JSON.stringify({ sourceType, booksSourceId, sourceStatus, targetType, payload })')
