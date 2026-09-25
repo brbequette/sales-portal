@@ -10,6 +10,8 @@ const descriptions={
   CONCURRENT_CHANGE_OR_NOT_APPLIED:'Re-read the changed source inputs before recalculating.',
   VERIFICATION_MISMATCH:'Investigate persisted values before certifying the calculation.',
   WAITING_FOR_EVIDENCE:'Finish the pending source read.',
+  SOURCE_CHANGED_DURING_RUN:'Refresh the changed provider invoice before recalculating.',
+  SOURCE_NOT_IN_INITIAL_SCOPE:'Include this newly observed invoice in the next guarded calculation pass.',
 }
 const excluded=new Set(['CALCULATED_AND_VERIFIED','EXCLUDED_STATUS','NO_PROVIDER_INVOICE'])
 const exceptions=report.documents.filter(row=>!excluded.has(row.result))
