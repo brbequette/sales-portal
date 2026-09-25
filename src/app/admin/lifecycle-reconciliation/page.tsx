@@ -12,16 +12,21 @@ async function postJson(url: string, body: unknown) {
 export default function LifecycleReconciliationPage() {
   const [accountId, setAccountId] = useState('')
   const [leadId, setLeadId] = useState('')
+  const [timeZone, setTimeZone] = useState('CST')
   const [sku, setSku] = useState('RFD-50A060')
+  const [giftBooksItemId, setGiftBooksItemId] = useState('1254360000043727500')
+  const [giftReason, setGiftReason] = useState('Authorized lifecycle acceptance gift; retain actual cost in profit.')
   const [busy, setBusy] = useState<string | null>(null)
   const [result, setResult] = useState<unknown>(null)
 
-  const run = async (kind: 'account' | 'product') => {
+  const run = async (kind: 'account' | 'product' | 'gift') => {
     setBusy(kind); setResult(null)
     try {
       setResult(kind === 'account'
-        ? await postJson('/api/admin/lifecycle/reconcile-account', { accountId, leadId })
-        : await postJson('/api/admin/lifecycle/reconcile-product', { sku }))
+        ? await postJson('/api/admin/lifecycle/reconcile-account', { accountId, leadId, repairProfile: true, timeZone })
+        : kind === 'product'
+          ? await postJson('/api/admin/lifecycle/reconcile-product', { sku })
+          : await postJson('/api/admin/lifecycle/approve-gift', { booksItemId: giftBooksItemId, reason: giftReason }))
     } catch (error) {
       setResult({ success: false, error: error instanceof Error ? error.message : String(error) })
     } finally { setBusy(null) }
@@ -33,7 +38,15 @@ export default function LifecycleReconciliationPage() {
       <h2 className="font-black text-white">Existing converted account</h2>
       <input aria-label="Local account ID" value={accountId} onChange={event => setAccountId(event.target.value)} placeholder="Local account ID" className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3" />
       <input aria-label="Local lead ID" value={leadId} onChange={event => setLeadId(event.target.value)} placeholder="Local lead ID" className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3" />
+      <select aria-label="Customer timezone" value={timeZone} onChange={event => setTimeZone(event.target.value)} className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3"><option value="EST">EST</option><option value="CST">CST</option><option value="MST">MST</option><option value="PST">PST</option><option value="AST">AST</option><option value="HST">HST</option></select>
       <button disabled={busy !== null || !accountId || !leadId} onClick={() => run('account')} className="rounded-xl bg-amber-600 px-4 py-2 font-bold text-white disabled:opacity-40">{busy === 'account' ? 'Reconciling…' : 'Reconcile CRM and Books mappings'}</button>
+    </section>
+    <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-5 space-y-4">
+      <h2 className="font-black text-white">Audited gift profit exception</h2>
+      <input aria-label="Gift Books item ID" value={giftBooksItemId} onChange={event => setGiftBooksItemId(event.target.value)} className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3" />
+      <input aria-label="Gift exception reason" value={giftReason} onChange={event => setGiftReason(event.target.value)} className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3" />
+      <p className="text-xs text-neutral-500">This bypasses only the cart-profit eligibility limit. The $0 sale price and authoritative cost remain unchanged and are audited.</p>
+      <button disabled={busy !== null || !giftBooksItemId || !giftReason} onClick={() => run('gift')} className="rounded-xl bg-purple-600 px-4 py-2 font-bold text-white disabled:opacity-40">{busy === 'gift' ? 'Approving…' : 'Approve exact gift exception'}</button>
     </section>
     <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-5 space-y-4">
       <h2 className="font-black text-white">Exact Books product</h2>

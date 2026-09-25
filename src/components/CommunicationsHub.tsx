@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { FiList, FiFileText, FiMessageSquare, FiPhone, FiMail, FiClock, FiCpu } from "react-icons/fi"
 import { useSession } from "next-auth/react"
 import { toast } from "react-hot-toast"
@@ -30,6 +30,24 @@ export function CommunicationsHub({ accountId, dealId, account, contacts }: Comm
   // SMS Form State
   const [smsText, setSmsText] = useState("")
   const [sendingSms, setSendingSms] = useState(false)
+  const [smsOutcome, setSmsOutcome] = useState<{ ok: boolean; text: string } | null>(null)
+  const smsInputRef = useRef<HTMLInputElement>(null)
+  const smsRequestIdRef = useRef<string | null>(null)
+  const primaryContact = contacts?.find(contact => contact.isPrimary) || contacts?.[0]
+  const recipientPhone = primaryContact?.mobilePhone || primaryContact?.phone || account?.mobilePhone || account?.phone || ''
+
+  useEffect(() => {
+    const pending = sessionStorage.getItem('openSmsComposer')
+    if (!pending) return
+    try {
+      const request = JSON.parse(pending)
+      if (request.accountId === accountId) {
+        setActiveTab('SMS')
+        sessionStorage.removeItem('openSmsComposer')
+        window.setTimeout(() => smsInputRef.current?.focus(), 0)
+      }
+    } catch { sessionStorage.removeItem('openSmsComposer') }
+  }, [accountId])
 
   const fetchComms = async () => {
     setLoading(true)
@@ -88,13 +106,18 @@ export function CommunicationsHub({ accountId, dealId, account, contacts }: Comm
     if (!smsText.trim()) return
 
     setSendingSms(true)
+    setSmsOutcome(null)
     try {
+      const requestId = smsRequestIdRef.current || crypto.randomUUID()
+      smsRequestIdRef.current = requestId
       const res = await fetch("/api/send-sms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           accountId,
+          contactId: primaryContact?.id || null,
           message: smsText,
+          requestId,
           userId: session?.user?.id || (session?.user as any)?.zohoId,
           userEmail: session?.user?.email
         })
@@ -102,13 +125,18 @@ export function CommunicationsHub({ accountId, dealId, account, contacts }: Comm
       const data = await res.json()
       if (data.success) {
         toast.success("SMS sent successfully")
+        setSmsOutcome({ ok: true, text: `${data.provider?.status || 'Accepted'} · ${data.provider?.code || 'Zoho Voice'} · ${data.provider?.toNumber || recipientPhone}` })
         setSmsText("")
+        smsRequestIdRef.current = null
         setRefreshTrigger(prev => prev + 1)
       } else {
+        if (res.status < 500 && res.status !== 202) smsRequestIdRef.current = null
+        setSmsOutcome({ ok: false, text: data.error || data.message || "Failed to send SMS" })
         toast.error(data.error || "Failed to send SMS")
       }
     } catch (err: any) {
       console.error(err)
+      setSmsOutcome({ ok: false, text: "The send outcome is unknown. Do not retry until reviewed." })
       toast.error("Error sending SMS")
     } finally {
       setSendingSms(false)
@@ -258,10 +286,15 @@ export function CommunicationsHub({ accountId, dealId, account, contacts }: Comm
                 })
               )}
             </div>
+            <div className="mb-2 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-[11px] text-neutral-400">
+              <span className="font-bold text-neutral-200">To:</span> {recipientPhone || 'No valid contact number'} <span className="mx-2 text-neutral-700">•</span> <span className="font-bold text-neutral-200">From:</span> configured Zoho Voice sender
+            </div>
+            {smsOutcome && <div className={`mb-2 rounded-xl border px-3 py-2 text-xs ${smsOutcome.ok ? 'border-emerald-500/30 bg-emerald-950/20 text-emerald-300' : 'border-rose-500/30 bg-rose-950/20 text-rose-300'}`}>{smsOutcome.text}</div>}
             {/* Input Form */}
             <form onSubmit={handleSendSms} className="flex gap-2 pt-3 border-t border-white/10">
               <input
                 type="text"
+                ref={smsInputRef}
                 value={smsText}
                 onChange={(e) => setSmsText(e.target.value)}
                 placeholder="Type SMS message..."

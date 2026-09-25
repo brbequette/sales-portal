@@ -99,6 +99,7 @@ export function useCommunicationData({
   const [showScript, setShowScript] = useState(false)
 
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const smsRequestIdRef = useRef<string | null>(null)
   const primaryContact = contacts?.find(c => c.id === selectedContactId) || contacts?.find(c => c.isPrimary) || contacts?.[0] || null
   const displayPhone = primaryContact?.phone || primaryContact?.mobilePhone || ""
   const cleanPhone = displayPhone ? displayPhone.replace(/[^0-9+]/g, "") : ""
@@ -291,10 +292,12 @@ export function useCommunicationData({
     if (!window.confirm(`Send this SMS to ${contactName} at ${displayPhone || cleanPhone}?`)) return
     setIsSaving(true)
     try {
+      const requestId = smsRequestIdRef.current || crypto.randomUUID()
+      smsRequestIdRef.current = requestId
       const response = await fetch("/api/send-sms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountId, contactId: primaryContact?.id || null, message }),
+        body: JSON.stringify({ accountId, contactId: primaryContact?.id || null, message, requestId }),
       })
       const data = await response.json()
       if (!response.ok || !data.success || !data.providerAccepted || !data.smsMessage?.id) {
@@ -308,8 +311,10 @@ export function useCommunicationData({
       }
       setChatMessages(prev => [...prev, confirmed])
       setSmsText("")
+      smsRequestIdRef.current = null
       notify("SMS accepted by Zoho Voice.", "success")
     } catch (err) {
+      if (err instanceof Error && !/unknown|progress|ambiguous/i.test(err.message)) smsRequestIdRef.current = null
       notify(err instanceof Error ? err.message : "SMS was not sent.", "error")
     } finally {
       setIsSaving(false)

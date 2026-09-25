@@ -1,5 +1,18 @@
 # Titan Diamond — Consolidated Project Context
 
+## Browser-retest lifecycle repairs (pending release, 2026-09-25)
+
+- The catalog product `giftItem` selection remains the source of truth for order-builder gift shortcuts. Ordinary gifts retain the 20%-of-available-profit limit. An administrator can grant one idempotent, audited profit-limit exception to an exact Books-mapped gift; the exception does not change its $0 sales price or authoritative cost. Missing cost remains `UNKNOWN` and is never relabeled as authoritative zero.
+- Gift Item information includes an in-app bundle builder. Fixed components reference exact catalog products; variable components reference a shared gift tag such as `shirt`. Saving rejects components without Books mappings or authoritative cost. POS derives the available exact variants and actual component cost, requires the rep to choose the shirt product/size, and persists a server-revalidated selection plus the immediate/paid-in-full release rule in the fulfillment plan.
+- The catalog API attaches stored sales quantity to each result. POS applies sold-before-unsold as the final ranking boundary after its functional filters/sorts, while a dedicated image-led `Titan Signature Blades` rail keeps the signature families prominent.
+- The shortcut is no longer capped at ten entries. Administrative, inactive, unmapped, unknown-cost, and over-allowance rows remain excluded unless the exact gift has the audited administrator override. The authoritative Titan gift hat (`1254360000043727500`) remains a catalog fallback, but still requires ordinary allowance or that audited override.
+- Product information now labels the existing Gift Item checkbox as the control that adds the product to the order shortcut list. This change does not write to Zoho or create a financial document.
+- The POS preview renders complete billing and shipping addresses, requires per-line fulfillment before document submission, exposes an audited dropship vendor, and explicitly distinguishes document subtotal from unresolved shipping and provider-calculated tax. Dropship is selectable only when `Product.canDropship=true`; no vendor/stock inference is made. COGS is rendered to cents.
+- Books customer address payloads use the documented `address` Street1 key. The administrator reconciliation path can idempotently repair and then GET-verify the exact mapped Books customer and CRM Account address/timezone, with an `OperationalAction` audit receipt.
+- Account SMS actions persist an addressed composer-open request across the tab transition. Direct sends use a stable request UUID and durable provider-write state; only explicit Zoho success is accepted, unknown outcomes become `AMBIGUOUS`, and ordinary UI retry cannot duplicate the submission.
+- POS account search no longer renders a false empty state before the bounded search response completes.
+- Successful POS creation now returns the local/provider document identity to the UI and keeps the Account selected. A post-create action workspace embeds the existing document action panel directly in POS and provides shortcuts into fulfillment/shipping, account-linked follow-up, and the Account workspace. Conversion, invoicing, payment, PO, package, and label writes therefore remain behind their established confirmations and audited handlers rather than being silently chained or reimplemented.
+
 ## Sales lifecycle persistence and bounded sync repair (in progress, 2026-09-25)
 
 - The isolated `codex/repair-sales-lifecycle-blockers` branch starts from released PR #94 merge `eb3897cf272d83e266943e078246cbbf38c4242e`. No production write, transaction, communication, migration, or deployment has been performed by this follow-up.

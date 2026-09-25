@@ -65,6 +65,38 @@ export const handler: Handler = async (event, context) => {
       throw new Error("Account not found")
     }
 
+    const fulfillmentPlan = (Array.isArray(lineItems) ? lineItems : []).map((line: any) => ({
+      itemId: line.itemId || null,
+      sku: String(line.sku || ''),
+      name: String(line.name || ''),
+      method: String(line.fulfillmentMethod || (String(line.description || '').includes('PROMO FREE') ? 'WAREHOUSE' : 'UNASSIGNED')),
+      vendor: line.vendor ? String(line.vendor) : null,
+      promotional: String(line.description || '').includes('PROMO FREE'),
+      giftReleaseRule: String(line.giftReleaseRule || 'PAID_IN_FULL'),
+      selectedGiftSize: line.selectedGiftSize ? String(line.selectedGiftSize) : null,
+      selectedBundleOption: line.selectedBundleOption || null,
+    }))
+    const invalidFulfillment = fulfillmentPlan.find((line: any) => !line.promotional && !['DROPSHIP', 'WAREHOUSE', 'PICKUP'].includes(line.method))
+    if (invalidFulfillment) return { statusCode: 422, body: JSON.stringify({ success: false, message: `Fulfillment is required for ${invalidFulfillment.sku || invalidFulfillment.name}.` }) }
+    for (const line of fulfillmentPlan.filter((item: any) => item.method === 'DROPSHIP')) {
+      const product = await prisma.product.findFirst({ where: line.itemId ? { booksItemId: line.itemId } : { sku: line.sku }, select: { canDropship: true, vendor: true } })
+      if (product?.canDropship !== true) return { statusCode: 422, body: JSON.stringify({ success: false, message: `${line.sku || line.name} is not authoritatively approved for dropship fulfillment.` }) }
+      line.vendor = product.vendor || line.vendor
+    }
+    for (const line of fulfillmentPlan.filter((item: any) => item.promotional)) {
+      const bundleProduct = line.itemId ? await prisma.product.findFirst({ where: { booksItemId: line.itemId }, select: { attributes: true } }) : null
+      const attributes = bundleProduct?.attributes && typeof bundleProduct.attributes === 'object' && !Array.isArray(bundleProduct.attributes) ? bundleProduct.attributes as Record<string, any> : {}
+      const variableTags = Array.isArray(attributes.giftBundleComponents) ? attributes.giftBundleComponents.filter((component: any) => component?.mode === 'VARIABLE_TAG').map((component: any) => String(component.optionTag || '').toLowerCase()) : []
+      if (variableTags.length && !line.selectedBundleOption?.productId) return { statusCode: 422, body: JSON.stringify({ success: false, message: `${line.sku || line.name} requires an exact bundle option.` }) }
+      if (line.selectedBundleOption?.productId) {
+        const option = await prisma.product.findUnique({ where: { id: String(line.selectedBundleOption.productId) } })
+        const optionAttributes = option?.attributes && typeof option.attributes === 'object' && !Array.isArray(option.attributes) ? option.attributes as Record<string, any> : {}
+        const optionTags = Array.isArray(optionAttributes.giftTags) ? optionAttributes.giftTags.map((tag: unknown) => String(tag).toLowerCase()) : []
+        if (!option?.booksItemId || (!(Number(option.unitCost) > 0) && option.costQuality !== 'VERIFIED_ZERO') || !variableTags.some((tag: string) => optionTags.includes(tag))) return { statusCode: 422, body: JSON.stringify({ success: false, message: 'The selected gift bundle option is not an authoritative configured variant.' }) }
+        line.selectedBundleOption = { productId: option.id, booksItemId: option.booksItemId, sku: option.sku, name: option.name, size: line.selectedGiftSize, cost: option.unitCost, quantity: Math.max(1, Number(line.selectedBundleOption.quantity) || 1) }
+      }
+    }
+
     const administrator = isAdminRole(authenticatedUser.role)
     if (!administrator && (!userId || account.ownerId !== userId)) {
       return {
@@ -111,7 +143,7 @@ export const handler: Handler = async (event, context) => {
       const endpoint = type === 'Quote' ? 'estimates' : 'salesorders'
       const operationKey = `books:${endpoint}:create:${requestId}`
       providerOperationKey = operationKey
-      const requestFingerprint = createHash("sha256").update(JSON.stringify({ accountId: account.id, type, payload })).digest("hex")
+      const requestFingerprint = createHash("sha256").update(JSON.stringify({ accountId: account.id, type, payload, fulfillmentPlan })).digest("hex")
       const operation = await prisma.providerWriteOperation.upsert({
         where: { operationKey }, update: {},
         create: { operationKey, provider: "ZOHO_BOOKS", entityType: type, entityId: account.id, operation: "CREATE_DOCUMENT", requestFingerprint },
@@ -124,7 +156,7 @@ export const handler: Handler = async (event, context) => {
         const prior = ids?.booksRefId
           ? await (type === "Quote" ? prisma.quote.findFirst({ where: { zohoId: ids.booksRefId } }) : prisma.salesOrder.findFirst({ where: { zohoId: ids.booksRefId } }))
           : null
-        return { statusCode: 200, body: JSON.stringify({ success: true, transaction: prior, booksRefId: ids?.booksRefId || null, alreadyProcessed: true }) }
+        return { statusCode: 200, body: JSON.stringify({ success: true, transaction: prior, booksRefId: ids?.booksRefId || null, documentNumber: (ids as { booksDocNumber?: string } | null)?.booksDocNumber || null, alreadyProcessed: true }) }
       }
       if (operation.state === "AMBIGUOUS" || operation.state === "SYNCING") {
         return { statusCode: 202, body: JSON.stringify({ success: false, providerState: operation.state, message: "This transaction is already in progress or requires reconciliation; it was not resubmitted." }) }
@@ -191,6 +223,7 @@ export const handler: Handler = async (event, context) => {
         customer_name: account.name,
         salesperson: author?.name ? author.name.toUpperCase().trim() : "SYSTEM ADMIN",
         line_items: resolvedLineItems,
+        fulfillmentPlan,
         custom_fields: [],
         lastSyncedAt: new Date().toISOString(),
       }
@@ -217,6 +250,7 @@ export const handler: Handler = async (event, context) => {
         customer_name: account.name,
         salesperson: author?.name ? author.name.toUpperCase().trim() : "SYSTEM ADMIN",
         line_items: resolvedLineItems,
+        fulfillmentPlan,
         custom_fields: [],
         lastSyncedAt: new Date().toISOString(),
       }
@@ -341,7 +375,7 @@ export const handler: Handler = async (event, context) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ success: true, transaction, booksRefId, localDevelopmentTransaction })
+      body: JSON.stringify({ success: true, transaction, booksRefId, documentNumber: booksDocNumber, localDevelopmentTransaction })
     }
 
   } catch (error: any) {

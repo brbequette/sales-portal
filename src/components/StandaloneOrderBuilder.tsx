@@ -1,4 +1,4 @@
-import { OrderBuilder, OrderLine } from "./OrderBuilder";
+import { OrderBuilder, OrderLine, type OrderCreationResult } from "./OrderBuilder";
 
 export function StandaloneOrderBuilder({
   accountId,
@@ -13,7 +13,7 @@ export function StandaloneOrderBuilder({
   accountDetail?: any;
   initialLines?: OrderLine[];
   onCancel?: () => void;
-  onSuccess?: () => void;
+  onSuccess?: (result?: OrderCreationResult) => void;
 }) {
   return (
     <div className="flex flex-col h-full space-y-4">

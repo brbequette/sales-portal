@@ -78,6 +78,18 @@ function fingerprint(value: unknown) {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex')
 }
 
+export function buildBooksCustomerPayload(account: any, primary?: any) {
+  return {
+    contact_name: account.name,
+    company_name: account.name,
+    customer_sub_type: 'business',
+    ...(account.crmAccountId ? { zcrm_account_id: account.crmAccountId } : {}),
+    billing_address: { address: account.billingStreet || '', city: account.billingCity || '', state: account.billingState || '', zip: account.billingZip || '', country: 'US' },
+    shipping_address: { address: account.shippingStreet || account.billingStreet || '', city: account.shippingCity || account.billingCity || '', state: account.shippingState || account.billingState || '', zip: account.shippingZip || account.billingZip || '', country: 'US' },
+    ...(primary ? { contact_persons: [{ first_name: primary.firstName || '', last_name: primary.lastName || '', email: primary.email || '', phone: primary.phone || '', mobile: primary.mobilePhone || '', is_primary_contact: true }] } : {}),
+  }
+}
+
 async function findByCrmAccountId(crmAccountId: string, token: string): Promise<string | null> {
   const response = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/contacts?organization_id=${encodeURIComponent(organizationId())}&zcrm_account_id=${encodeURIComponent(crmAccountId)}`, {
     headers: { Authorization: `Zoho-oauthtoken ${token}` },
@@ -111,15 +123,7 @@ export async function ensureBooksCustomer(accountId: string): Promise<BooksCusto
   if (!organizationId()) throw new Error('ZOHO_ORGANIZATION_ID is not configured')
 
   const primary = account.contacts[0]
-  const payload = {
-    contact_name: account.name,
-    company_name: account.name,
-    customer_sub_type: 'business',
-    ...(account.crmAccountId ? { zcrm_account_id: account.crmAccountId } : {}),
-    billing_address: { street: account.billingStreet || '', city: account.billingCity || '', state: account.billingState || '', zip: account.billingZip || '', country: 'US' },
-    shipping_address: { street: account.shippingStreet || account.billingStreet || '', city: account.shippingCity || account.billingCity || '', state: account.shippingState || account.billingState || '', zip: account.shippingZip || account.billingZip || '', country: 'US' },
-    ...(primary ? { contact_persons: [{ first_name: primary.firstName || '', last_name: primary.lastName || '', email: primary.email || '', phone: primary.phone || '', mobile: primary.mobilePhone || '', is_primary_contact: true }] } : {}),
-  }
+  const payload = buildBooksCustomerPayload(account, primary)
   const operationKey = `books:customer:create:${account.id}`
   const operation = await prisma.providerWriteOperation.upsert({
     where: { operationKey }, update: {},

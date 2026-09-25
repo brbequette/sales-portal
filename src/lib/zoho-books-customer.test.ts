@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({ findAccount: vi.fn(), updateContact: vi.fn(), 
 vi.mock('@/lib/prisma', () => ({ prisma: { account: { findUnique: mocks.findAccount }, contact: { update: mocks.updateContact } } }))
 vi.mock('@/lib/zoho-auth', () => ({ getZohoAccessToken: mocks.token }))
 
-import { reconcileBooksPrimaryContact } from './zoho-books-customer'
+import { buildBooksCustomerPayload, reconcileBooksPrimaryContact } from './zoho-books-customer'
 
 describe('Books primary contact reconciliation', () => {
   beforeEach(() => { vi.clearAllMocks(); process.env.ZOHO_ORGANIZATION_ID = 'test-org'; mocks.token.mockResolvedValue('token') })
@@ -22,5 +22,12 @@ describe('Books primary contact reconciliation', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ code: 0, contact: { contact_persons: [{ contact_person_id: 'bp1', email: 'same@example.com' }, { contact_person_id: 'bp2', email: 'same@example.com' }] } }) }))
     await expect(reconcileBooksPrimaryContact('a1')).resolves.toMatchObject({ state: 'FAILED' })
     expect(mocks.updateContact).not.toHaveBeenCalled()
+  })
+
+  it('maps Street1 to the documented Books address field and falls shipping back to billing', () => {
+    const payload = buildBooksCustomerPayload({ name: 'Test', billingStreet: '160 S. Pullen Blvd', billingCity: 'Centralia', billingState: 'IL', billingZip: '62801' })
+    expect(payload.billing_address).toEqual({ address: '160 S. Pullen Blvd', city: 'Centralia', state: 'IL', zip: '62801', country: 'US' })
+    expect(payload.shipping_address).toEqual(payload.billing_address)
+    expect(payload.billing_address).not.toHaveProperty('street')
   })
 })

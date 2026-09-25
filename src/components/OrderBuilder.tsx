@@ -13,6 +13,7 @@
  */
 
 import { useState, useRef, useEffect } from "react"
+import Image from "next/image"
 import {
   FiSearch, FiX, FiPlus, FiShoppingCart, FiTag,
   FiDollarSign, FiFileText, FiTrendingUp, FiFilter,
@@ -50,10 +51,29 @@ export interface OrderBuilderProps {
   accountId?: string
   dealId?: string
   onCancel?: () => void
-  onSuccess?: () => void
+  onSuccess?: (result?: OrderCreationResult) => void
+}
+
+export interface OrderCreationResult {
+  type: "Quote" | "SalesOrder"
+  localId?: string
+  booksId?: string
+  documentNumber?: string
+  alreadyProcessed?: boolean
 }
 
 const TIER_LABELS = ["Good", "Better", "Best"] as const
+
+export function formatOrderAddress(account: any, kind: "billing" | "shipping") {
+  const fallback = kind === "shipping" ? "billing" : kind
+  const street = account?.[`${kind}Street`] || account?.[`${fallback}Street`]
+  const city = account?.[`${kind}City`] || account?.[`${fallback}City`]
+  const state = account?.[`${kind}State`] || account?.[`${fallback}State`]
+  const zip = account?.[`${kind}Zip`] || account?.[`${kind}Code`] || account?.[`${fallback}Zip`] || account?.[`${fallback}Code`]
+  const country = account?.[`${kind}Country`] || account?.[`${fallback}Country`]
+  const locality = [city, state].filter(Boolean).join(", ")
+  return [street, [locality, zip].filter(Boolean).join(" "), country].filter(Boolean).join("\n")
+}
 const TIER_COLORS = {
   Good: { 
     bg: "bg-neutral-900/60 hover:bg-neutral-800/80", 
@@ -178,6 +198,8 @@ export function OrderBuilder({
     addPaidQty, setAddPaidQty,
     addFreeQty, setAddFreeQty,
     addPrice, setAddPrice,
+    selectedGiftSize, setSelectedGiftSize,
+    selectedGiftOptionId, setSelectedGiftOptionId,
     handleConfirmOrder,
     activeBlades,
     topBladeProducts,
@@ -210,6 +232,15 @@ export function OrderBuilder({
     onCancel,
     onSuccess,
   })
+  const billingAddress = formatOrderAddress(accountDetail, "billing")
+  const shippingAddress = formatOrderAddress(accountDetail, "shipping")
+  const [giftSearch, setGiftSearch] = useState('')
+  const visibleGifts = qualifyingGifts.filter(gift => {
+    const term = giftSearch.trim().toLowerCase()
+    if (!term) return true
+    return [gift.name, gift.sku, ...(gift.giftTags || []), ...(gift.giftSizes || [])].some(value => String(value || '').toLowerCase().includes(term))
+  })
+  const productImage = (product: { imageUrl?: string | null; sku?: string }) => product.imageUrl || (product.sku ? `/api/zoho-image?sku=${encodeURIComponent(product.sku)}` : '')
 
   // ────────────────────────────────────────────────────────────────────────────
   return (
@@ -372,13 +403,11 @@ export function OrderBuilder({
                 <button
                   key={p.id}
                   type="button"
-                  onClick={() => openAddItemModal({ name: p.name, sku: p.sku, price: p.price || 0, cost: p.unitCost ?? desc.cost ?? 0, costQuality: p.costQuality === 'VERIFIED_ZERO' || Number(p.unitCost ?? desc.cost) > 0 ? (p.costQuality === 'VERIFIED_ZERO' ? 'VERIFIED_ZERO' : 'AUTHORITATIVE') : 'UNKNOWN', subjectToVig: p.subjectToVig !== false, giftItem: !!p.giftItem, itemId: getBooksItemId(p) })}
+                  onClick={() => openAddItemModal({ name: p.name, sku: p.sku, price: p.price || 0, cost: p.unitCost ?? desc.cost ?? 0, costQuality: p.costQuality === 'VERIFIED_ZERO' || Number(p.unitCost ?? desc.cost) > 0 ? (p.costQuality === 'VERIFIED_ZERO' ? 'VERIFIED_ZERO' : 'AUTHORITATIVE') : 'UNKNOWN', subjectToVig: p.subjectToVig !== false, giftItem: !!p.giftItem, itemId: getBooksItemId(p), vendor: p.vendor || null, canDropship: p.canDropship ?? null })}
                   className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-white/[0.04] transition-colors cursor-pointer"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 shrink-0">
-                      <FiPlus size={14} />
-                    </div>
+                    <div className="relative h-10 w-10 overflow-hidden rounded-lg border border-violet-500/20 bg-white"><Image src={productImage(p)} alt="" fill sizes="40px" className="object-contain" /></div>
                     <div className="min-w-0">
                       <p className="text-xs font-bold text-white truncate" title={p.name}>{p.name}</p>
                       <p className="text-[10px] text-neutral-500 font-mono mt-0.5">{p.sku} · {p.category}</p>
@@ -447,17 +476,18 @@ export function OrderBuilder({
       <div className="space-y-4 border-t border-white/5 pt-3">
         {topBladeProducts.length > 0 && (
           <div className="space-y-2">
-            <p className="text-[10px] text-amber-300 uppercase tracking-widest font-black">Titan Specialty Blades</p>
-            <p className="text-[11px] text-neutral-500">Signature families appear first. Use the job filters above for a precise match.</p>
-            <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto scrollbar-thin pr-1">
+            <p className="text-[10px] text-amber-300 uppercase tracking-widest font-black">★ Titan Signature Blades</p>
+            <p className="text-[11px] text-neutral-500">Our signature blade families are the primary recommendations. Proven sellers rank before products with no sales history.</p>
+            <div className="grid max-h-48 grid-cols-2 gap-2 overflow-y-auto pr-1 scrollbar-thin sm:grid-cols-3 lg:grid-cols-5">
               {topBladeProducts.map(bp => (
                 <button
                   key={bp.sku}
                   type="button"
                   onClick={() => openAddItemModal(bp)}
-                  className="px-2.5 py-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer bg-surface border-white/10 text-neutral-300 hover:border-violet-500/50 hover:text-violet-300 hover:-translate-y-0.5 active:translate-y-0"
+                  className="group overflow-hidden rounded-xl border border-amber-500/20 bg-gradient-to-b from-amber-950/20 to-black/30 text-left transition hover:-translate-y-0.5 hover:border-amber-400/60"
                 >
-                  ⚡ {bp.name}
+                  <div className="relative h-20 bg-white/95 p-1"><Image src={productImage(bp)} alt={bp.name} fill sizes="160px" className="object-contain p-1" /></div>
+                  <div className="p-2"><span className="block text-[8px] font-black uppercase tracking-wider text-amber-400">Titan Signature</span><span className="mt-0.5 block text-[10px] font-bold text-white line-clamp-2">{bp.name}</span><span className="mt-1 block font-mono text-[9px] text-neutral-500">{bp.sku} · ${bp.price.toFixed(2)}</span></div>
                 </button>
               ))}
             </div>
@@ -466,19 +496,22 @@ export function OrderBuilder({
 
         {qualifyingGifts.length > 0 && (
           <details className="group rounded-2xl border border-purple-500/20 bg-purple-950/10 p-3">
-            <summary className="flex cursor-pointer list-none items-center justify-between text-[10px] font-black uppercase tracking-widest text-purple-300"><span>🎁 Qualifying promotional gifts</span><FiChevronDown className="transition group-open:rotate-180" /></summary>
-            <p className="mt-2 text-[11px] text-neutral-500">Collapsed by default and limited by current order profit. Confirm the approved promotion before offering a gift.</p>
-            <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto scrollbar-thin pr-1">
-              {qualifyingGifts.map(gift => (
+            <summary className="flex cursor-pointer list-none items-center justify-between text-[10px] font-black uppercase tracking-widest text-purple-300"><span>🎁 Gift shortcuts</span><FiChevronDown className="transition group-open:rotate-180" /></summary>
+            <p className="mt-2 text-[11px] text-neutral-500">Active catalog products marked as Gift Item appear here at a $0 sales price. Authoritative cost remains included in profit.</p>
+            <input aria-label="Search gifts by name, tag, or size" value={giftSearch} onChange={event => setGiftSearch(event.target.value)} placeholder="Search gifts, shirts, tags, or sizes…" className="my-2 w-full rounded-lg border border-purple-500/20 bg-black/30 px-3 py-2 text-xs text-white outline-none focus:border-purple-400" />
+            <div className="grid max-h-72 grid-cols-2 gap-2 overflow-y-auto pr-1 scrollbar-thin sm:grid-cols-3 lg:grid-cols-4">
+              {visibleGifts.map(gift => (
                 <button
                   key={gift.sku}
                   type="button"
                   onClick={() => openAddItemModal(gift)}
-                  className="px-2.5 py-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer bg-purple-950/20 border-purple-500/30 text-purple-300 hover:bg-purple-500 hover:text-black hover:border-purple-300 hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-1 shadow-sm"
+                  className="overflow-hidden rounded-xl border border-purple-500/30 bg-purple-950/20 text-left transition hover:-translate-y-0.5 hover:border-purple-300 hover:bg-purple-900/30"
                 >
-                  <span>🎁 {gift.name}</span>
+                  <div className="relative h-24 bg-white/95 p-1"><Image src={productImage(gift)} alt={gift.name} fill sizes="180px" className="object-contain p-1" /></div>
+                  <span className="block p-2"><span className="block text-[8px] font-black uppercase tracking-wider text-purple-300">{gift.giftBundleRequiresShirt ? 'Gift bundle · shirt choice required' : 'Gift item'}</span><span className="mt-0.5 block text-[10px] font-bold text-white line-clamp-2">{gift.name}</span>{gift.giftSizes?.length ? <span className="mt-1 block text-[8px] text-sky-300">Sizes: {gift.giftSizes.join(' · ')}</span> : null}<span className="mt-1 block text-[8px] text-neutral-500">{gift.giftReleaseRule === 'IMMEDIATE' ? 'Send right away' : 'Release when paid in full'}</span></span>
                 </button>
               ))}
+              {visibleGifts.length === 0 && <p className="py-2 text-[10px] text-neutral-500">No eligible gifts match that name, tag, or size.</p>}
             </div>
           </details>
         )}
@@ -526,11 +559,21 @@ export function OrderBuilder({
               </div>
             </div>
           </div>
+          {pendingItem.giftItem && (pendingItem.giftBundleRequiresShirt || (pendingItem.giftSizes?.length || 0) > 1) && (
+            <label className="relative z-10 block rounded-xl border border-purple-500/20 bg-purple-950/10 p-3 text-xs text-purple-200">
+              {pendingItem.giftBundleRequiresShirt ? 'Required bundled shirt size' : 'Gift size'}
+              <select aria-label="Gift shirt size" value={pendingItem.bundleOptions?.length ? selectedGiftOptionId : selectedGiftSize} onChange={event => { if (pendingItem.bundleOptions?.length) setSelectedGiftOptionId(event.target.value); else setSelectedGiftSize(event.target.value) }} className="mt-1.5 w-full rounded-lg border border-white/10 bg-neutral-900 px-3 py-2 text-white">
+                <option value="">Choose a size / product</option>
+                {pendingItem.bundleOptions?.length ? pendingItem.bundleOptions.map(option => <option key={`${option.productId}-${option.size}`} value={`${option.productId}::${option.size}`}>{option.size} — {option.name} ({option.sku}) · cost ${(option.cost * option.quantity).toFixed(2)}</option>) : (pendingItem.giftSizes || []).map(size => <option key={size} value={size}>{size}</option>)}
+              </select>
+              {pendingItem.giftBundleRequiresShirt && (pendingItem.giftSizes?.length || 0) === 0 && <span className="mt-1 block text-rose-300">No shirt sizes are configured. Update Gift Item information first.</span>}
+            </label>
+          )}
           
           <button
             type="button"
             onClick={confirmAddItem}
-            disabled={addPaidQty === 0 && addFreeQty === 0}
+            disabled={(addPaidQty === 0 && addFreeQty === 0) || Boolean(pendingItem.giftItem && (pendingItem.bundleOptions?.length ? !selectedGiftOptionId : (pendingItem.giftBundleRequiresShirt || (pendingItem.giftSizes?.length || 0) > 1) && !selectedGiftSize))}
             className="w-full py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 hover:shadow-[0_4px_15px_rgba(139,92,246,0.3)] text-white text-xs font-black tracking-wider uppercase transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.99] relative z-10"
           >
             Add to Order
@@ -568,6 +611,17 @@ export function OrderBuilder({
                     <div className="min-w-0">
                       <span className="text-xs font-bold text-white truncate block leading-tight" title={line.name}>{line.name}</span>
                       {line.sku && <span className="text-[9px] text-neutral-500 font-mono block mt-0.5">{line.sku}</span>}
+                      <select
+                        aria-label={`Fulfillment for ${line.name}`}
+                        value={line.fulfillmentMethod || 'UNASSIGNED'}
+                        onChange={event => updateLine(line.id, { fulfillmentMethod: event.target.value as typeof line.fulfillmentMethod })}
+                        className="mt-1.5 max-w-full rounded-md border border-white/10 bg-neutral-900 px-2 py-1 text-[9px] font-bold text-neutral-300 outline-none focus:border-violet-500"
+                      >
+                        <option value="UNASSIGNED">Select fulfillment</option>
+                        <option value="DROPSHIP" disabled={line.canDropship !== true}>Dropship{line.vendor ? ` — ${line.vendor}` : ''}</option>
+                        <option value="WAREHOUSE">Warehouse shipment</option>
+                        <option value="PICKUP">Customer pickup</option>
+                      </select>
                     </div>
 
                     <div className="flex justify-center">
@@ -634,6 +688,8 @@ export function OrderBuilder({
                     <div className="min-w-0">
                       <span className="text-xs font-bold text-emerald-300 truncate block leading-tight" title={line.name}>{line.name}</span>
                       <span className="text-[9px] text-emerald-700/90 font-bold font-mono mt-0.5">PROMOTIONAL FREE · {line.sku}</span>
+                      <span className="block text-[9px] font-bold text-purple-300">{line.giftReleaseRule === 'IMMEDIATE' ? 'SEND RIGHT AWAY' : 'RELEASE WHEN PAID IN FULL'}</span>
+                      {line.selectedGiftSize && <span className="block text-[9px] font-bold text-sky-300">SHIRT SIZE: {line.selectedGiftSize}</span>}
                     </div>
 
                     <div className="flex justify-center">
@@ -702,7 +758,7 @@ export function OrderBuilder({
                   <div className="absolute top-1 right-2 text-neutral-600/30"><FiAlertCircle size={24} /></div>
                   <span className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-500">Dead Cost (COGS)</span>
                   <span className="text-base font-black text-rose-400 mt-1">
-                    ${financials.deadCostTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    ${financials.deadCostTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
 
@@ -815,17 +871,33 @@ export function OrderBuilder({
                   <div>
                     <p className="text-neutral-500 uppercase tracking-widest font-black mb-1 border-b border-white/5 pb-0.5">Bill To</p>
                     <p className="text-white font-bold text-xs">{accountName}</p>
-                    {accountDetail?.billingStreet && <p className="text-neutral-400 mt-1 leading-relaxed">{accountDetail.billingStreet}</p>}
+                    {billingAddress ? <p className="text-neutral-400 mt-1 leading-relaxed whitespace-pre-line">{billingAddress}</p> : <p className="mt-1 text-amber-400">Address not configured</p>}
                   </div>
                   <div>
                     <p className="text-neutral-500 uppercase tracking-widest font-black mb-1 border-b border-white/5 pb-0.5">Ship To</p>
                     <p className="text-white font-bold text-xs">{accountName}</p>
-                    {(accountDetail?.shippingStreet || accountDetail?.billingStreet) && (
-                      <p className="text-neutral-400 mt-1 leading-relaxed">{accountDetail.shippingStreet || accountDetail.billingStreet}</p>
-                    )}
+                    {shippingAddress ? <p className="text-neutral-400 mt-1 leading-relaxed whitespace-pre-line">{shippingAddress}</p> : <p className="mt-1 text-amber-400">Address not configured</p>}
                   </div>
                 </div>
               )}
+
+              <div className="grid gap-3 sm:grid-cols-3 text-[10px]">
+                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                  <p className="font-black uppercase tracking-wider text-neutral-500">Fulfillment</p>
+                  <p className={`mt-1 font-bold ${paidLines.every(line => line.fulfillmentMethod && line.fulfillmentMethod !== 'UNASSIGNED') ? 'text-emerald-300' : 'text-amber-300'}`}>{paidLines.every(line => line.fulfillmentMethod && line.fulfillmentMethod !== 'UNASSIGNED') ? 'Reviewed per line' : 'Selection required'}</p>
+                  <p className="mt-1 text-neutral-500">Every sold line must have fulfillment selected before commitment.</p>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                  <p className="font-black uppercase tracking-wider text-neutral-500">Shipping</p>
+                  <p className="mt-1 font-bold text-amber-300">Not calculated</p>
+                  <p className="mt-1 text-neutral-500">No shipping charge is included in this draft.</p>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                  <p className="font-black uppercase tracking-wider text-neutral-500">Tax</p>
+                  <p className="mt-1 font-bold text-amber-300">Calculated by Books</p>
+                  <p className="mt-1 text-neutral-500">Final tax is not included in the preview subtotal.</p>
+                </div>
+              </div>
 
               {/* Sold Items Preview Table */}
               {paidLines.length > 0 && (
@@ -846,6 +918,9 @@ export function OrderBuilder({
                           <div className="min-w-0">
                             <p className="text-xs font-bold text-white truncate" title={line.name}>{line.name}</p>
                             {line.sku && <p className="text-[9px] text-neutral-500 font-mono mt-0.5">{line.sku}</p>}
+                            <p className={`mt-1 text-[9px] font-bold ${line.fulfillmentMethod && line.fulfillmentMethod !== 'UNASSIGNED' ? 'text-violet-300' : 'text-amber-400'}`}>
+                              {line.fulfillmentMethod === 'DROPSHIP' ? `DROPSHIP${line.vendor ? ` · ${line.vendor}` : ''}` : line.fulfillmentMethod === 'WAREHOUSE' ? 'WAREHOUSE SHIPMENT' : line.fulfillmentMethod === 'PICKUP' ? 'CUSTOMER PICKUP' : 'FULFILLMENT REQUIRED'}
+                            </p>
                           </div>
                           <span className="text-xs font-black text-white text-center">{line.quantity}</span>
                           <span className="text-xs font-mono text-neutral-400 text-right">${line.unitPrice.toFixed(2)}</span>
@@ -876,6 +951,8 @@ export function OrderBuilder({
                           <div className="min-w-0">
                             <p className="text-xs font-bold text-emerald-300 truncate" title={line.name}>{line.name}</p>
                             <p className="text-[9px] text-emerald-700/80 font-bold font-mono mt-0.5">PROMOTIONAL FREE</p>
+                            <p className="text-[9px] font-bold text-purple-300">{line.giftReleaseRule === 'IMMEDIATE' ? 'SEND RIGHT AWAY' : 'RELEASE WHEN PAID IN FULL'}</p>
+                            {line.selectedGiftSize && <p className="text-[9px] font-bold text-sky-300">SHIRT SIZE: {line.selectedGiftSize}</p>}
                           </div>
                           <span className="text-xs font-black text-emerald-400 text-center">{line.quantity}</span>
                           <span className="text-xs font-mono text-emerald-700 text-right">$0.00</span>
@@ -904,9 +981,10 @@ export function OrderBuilder({
                   <span className="text-xs font-bold text-white">{orderLines.reduce((s, l) => s + l.quantity, 0)} units</span>
                 </div>
                 <div className="flex justify-between px-1 pt-2.5 border-t border-white/10">
-                  <span className="text-xs font-black text-white">ORDER TOTAL</span>
+                  <span className="text-xs font-black text-white">DOCUMENT SUBTOTAL</span>
                   <span className="text-base font-black text-amber-400 tracking-tight">${orderTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
+                <p className="px-1 text-right text-[10px] text-neutral-500">Before any provider-calculated tax or later shipping charge.</p>
               </div>
 
               {/* Profit breakdown for internal review */}
@@ -955,7 +1033,7 @@ export function OrderBuilder({
               </button>
               <button
                 type="button"
-                disabled={isSubmitting}
+                disabled={isSubmitting || paidLines.some(line => !line.fulfillmentMethod || line.fulfillmentMethod === 'UNASSIGNED')}
                 onClick={handleConfirmOrder}
                 className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-500 hover:via-purple-500 hover:to-indigo-500 hover:shadow-[0_4px_15px_rgba(139,92,246,0.3)] text-white text-xs font-black transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 active:scale-[0.99]"
               >
