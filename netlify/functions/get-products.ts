@@ -12,16 +12,19 @@ const authenticatedHandler: Handler = async (event, context) => {
 
   try {
     const search = String(event.queryStringParameters?.search || "").trim()
+    const id = String(event.queryStringParameters?.id || "").trim()
+    const giftOnly = String(event.queryStringParameters?.giftOnly || "").toLowerCase() === "true"
+    const searchWhere = search ? {
+      OR: [
+        { sku: { contains: search, mode: "insensitive" as const } },
+        { name: { contains: search, mode: "insensitive" as const } },
+        { category: { contains: search, mode: "insensitive" as const } },
+      ],
+    } : undefined
     const products = await prisma.product.findMany({
-      where: search ? {
-        OR: [
-          { sku: { contains: search, mode: "insensitive" } },
-          { name: { contains: search, mode: "insensitive" } },
-          { category: { contains: search, mode: "insensitive" } },
-        ],
-      } : undefined,
+      where: id ? { id } : giftOnly ? { giftItem: true } : searchWhere,
       orderBy: { name: "asc" },
-      take: search ? 25 : 2000,
+      take: id ? 1 : search ? 25 : giftOnly ? 500 : 2000,
     })
     const skus = products.map(product => product.sku).filter(Boolean)
     const sold = skus.length ? await prisma.lineItem.groupBy({
