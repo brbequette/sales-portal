@@ -78,6 +78,7 @@ function buildLocalResponse(dbDoc: any, type: string, vigRate: number, packages:
     ...items._zohoRaw,
     _source: 'local_db',
     _cachedAt: items.lastSyncedAt,
+    costsCalculatedAt: dbDoc.costsCalculatedAt?.toISOString() || items.costsCalculatedAt || null,
     packages,
     dropshipments,
   }
