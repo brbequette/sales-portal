@@ -19,7 +19,16 @@ export async function crmRequest(path: string, options: RequestInit = {}) {
   })
   if (response.status === 204) return { data: [] }
   const body = await response.json()
-  if (!response.ok || body.status === 'error') throw new Error(`CRM_${response.status}_${body.code || 'REQUEST_FAILED'}`)
+  const rejected = body.data?.find((row: any) => row?.status === 'error')
+  if (!response.ok || body.status === 'error' || rejected) {
+    const failure = rejected || body
+    // Keep only diagnostic identifiers; provider messages/details may contain customer data.
+    const safe = (value: unknown) => typeof value === 'string' && /^[A-Za-z0-9_.$[\]\-]{1,160}$/.test(value) ? value : undefined
+    const code = safe(failure.code) || 'REQUEST_FAILED'
+    const field = safe(failure.details?.api_name)
+    const path = safe(failure.details?.json_path)
+    throw new Error(`CRM_${response.status}_${code}${field ? `:field=${field}` : ''}${path ? `:path=${path}` : ''}`)
+  }
   return body
 }
 export async function crmMetadata() { return (await crmRequest('settings/fields?module=Deals')).fields as any[] }

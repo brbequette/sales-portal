@@ -7,7 +7,7 @@ vi.mock('./prisma', () => ({ prisma: { deal: { findUniqueOrThrow: async () => st
 } } }))
 vi.mock('./zoho-auth', () => ({ getZohoAccessToken: vi.fn(), ZOHO_DC: 'com' }))
 vi.mock('./deal-package', () => ({ getDealPackage: async () => state.pkg, object: (value: any) => value && typeof value === 'object' && !Array.isArray(value) ? value : {} }))
-import { guardedWrite, mergePackageDescription, validateDealSyncConfig, invoiceItemIndex, syncDealToCrm } from './deal-crm-sync'
+import { crmRequest, guardedWrite, mergePackageDescription, validateDealSyncConfig, invoiceItemIndex, syncDealToCrm } from './deal-crm-sync'
 beforeEach(() => { state.operation = null; state.updates = []; vi.unstubAllGlobals() })
 describe('durable provider writes', () => {
   it('persists an accepted ID and uses it to recover failed readback without another write', async () => {
@@ -61,4 +61,19 @@ describe('CRM preservation and configuration', () => {
   it('requires a provider-enforced unique identity field', () => expect(() => validateDealSyncConfig({ enabled: true, identityField: 'Portal_Deal_ID', stages: {}, portalUrl: 'https://example.com' }, [{ api_name: 'Portal_Deal_ID', data_type: 'text' }])).toThrow('UNIQUE_IDENTITY'))
   it.each([{}, { case_sensitive: 'false' }, null])('rejects non-unique provider metadata %j', unique => expect(() => validateDealSyncConfig({ enabled: true, identityField: 'Portal_Deal_ID', stages: {}, portalUrl: 'https://example.com' }, [{ api_name: 'Portal_Deal_ID', data_type: 'text', unique }])).toThrow('UNIQUE_IDENTITY'))
   it.each([true, false])('accepts explicit provider uniqueness with case sensitivity %s', case_sensitive => expect(() => validateDealSyncConfig({ enabled: true, identityField: 'Portal_Deal_ID', stages: {}, portalUrl: 'https://example.com' }, [{ api_name: 'Portal_Deal_ID', data_type: 'text', unique: { case_sensitive } }])).toThrow('STAGE_MAPPING'))
+})
+
+describe('CRM rejection diagnostics', () => {
+  it.each([400, 200, 207])('retains nested rejection code and field for HTTP %s', async status => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({data:[{status:'error',code:'INVALID_DATA',details:{api_name:'Owner',json_path:'$.data[0].Owner.id',secret:'private'},message:'private customer value'}]}), {status})))
+    await expect(crmRequest('Deals')).rejects.toThrow(`CRM_${status}_INVALID_DATA:field=Owner:path=$.data[0].Owner.id`)
+  })
+  it('keeps top-level authorization errors', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({status:'error',code:'OAUTH_SCOPE_MISMATCH'}), {status:401})))
+    await expect(crmRequest('Deals')).rejects.toThrow('CRM_401_OAUTH_SCOPE_MISMATCH')
+  })
+  it('does not include provider free text or unsafe detail values', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({data:[{status:'error',code:'INVALID_DATA',details:{api_name:'private customer name'},message:'private'}]}), {status:400})))
+    await expect(crmRequest('Deals')).rejects.toThrow(/^CRM_400_INVALID_DATA$/)
+  })
 })
