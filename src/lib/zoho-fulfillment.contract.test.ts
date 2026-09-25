@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 const source = readFileSync(join(process.cwd(), 'netlify/functions/zoho-fulfillment.ts'), 'utf8')
 const lifecycleSource = readFileSync(join(process.cwd(), 'src/components/DocumentLifecycle.tsx'), 'utf8')
+const modalSource = readFileSync(join(process.cwd(), 'src/components/InvoiceDetailsModal.tsx'), 'utf8')
 
 describe('dropship purchase-order safety contract', () => {
   it('requires a stable request id and durable provider-write claim', () => {
@@ -50,5 +51,12 @@ describe('dropship purchase-order safety contract', () => {
   it('uses provider identities and snapshot numbers in the document lifecycle', () => {
     expect(lifecycleSource).toContain("data.zohoId || data.purchaseorder_id || data.id")
     expect(lifecycleSource).toContain('salesOrder?.items?.salesorder_number')
+  })
+
+  it('exposes the guarded action only to admins and never automatically retries', () => {
+    expect(modalSource).toContain('isAdmin && displayData.email')
+    expect(modalSource).toContain("action: 'EmailPurchaseOrder'")
+    expect(modalSource).toContain("if (status !== 'idle') return")
+    expect(modalSource).toContain('The vendor will not be copied')
   })
 })
