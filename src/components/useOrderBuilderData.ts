@@ -174,6 +174,7 @@ export function useOrderBuilderData({
   const [fetchedPurchases, setFetchedPurchases] = useState<any[]>([])
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const submissionIdRef = useRef<string | null>(null)
 
   const orderLines = isControlled ? (externalOrderLines as OrderLine[]) : internalOrderLines
   const setOrderLines = isControlled ? (externalSetOrderLines as any) : setInternalOrderLines
@@ -212,6 +213,8 @@ export function useOrderBuilderData({
     
     setIsSubmitting(true)
     try {
+      const requestId = submissionIdRef.current || crypto.randomUUID()
+      submissionIdRef.current = requestId
       const paidLines = orderLines.filter(l => !l.isPromo)
       const orderTotal = paidLines.reduce((s, l) => s + l.quantity * l.unitPrice, 0)
       
@@ -243,6 +246,7 @@ export function useOrderBuilderData({
           items: itemsFormatted,
           lineItems: lineItems,
           processingNotes: `Order created via Standalone OrderBuilder (${transactionType})`,
+          requestId,
         }),
       })
 
@@ -255,11 +259,13 @@ export function useOrderBuilderData({
             : `${documentLabel} created successfully in Zoho Books.`
         )
         if (onSuccess) onSuccess()
+        submissionIdRef.current = null
         setShowMockOrder(false)
         if (!isControlled) setInternalOrderLines([])
       } else {
         const data = await res.json()
         toast.error(data.error || data.message || "Failed to create transaction")
+        if (res.status < 500 && res.status !== 202) submissionIdRef.current = null
       }
     } catch (e: any) {
       toast.error("Error: " + e.message)

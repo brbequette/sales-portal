@@ -63,6 +63,7 @@ describe("useOrderBuilderData", () => {
     await waitFor(() => expect(result.current.orderLines).toHaveLength(0))
     expect(onSuccess).toHaveBeenCalledOnce()
     expect(submittedBody.lineItems[0].itemId).toBe("books-item-zeus")
+    expect(submittedBody.requestId).toMatch(/^[0-9a-f-]{36}$/i)
   })
 
   it("offers the authoritative Zoho hat even without a local gift flag and excludes administrative gifts", async () => {

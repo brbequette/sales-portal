@@ -9,6 +9,7 @@ import { internalHandler as processSalesOrderCosts } from "./process-salesorder-
 import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
 import { isAdminRole } from "../../src/lib/roles"
 import { ensureBooksCustomer } from "../../src/lib/zoho-books-customer"
+import { createHash } from "node:crypto"
 import { classifyZohoLineItem, financialZohoLineItems, orderedZohoLineItems, structuralZohoLineItemPayload } from "../../src/lib/zoho-line-items"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
@@ -30,14 +31,14 @@ export const handler: Handler = async (event, context) => {
 
   try {
     const body = JSON.parse(event.body || "{}")
-    const { accountId, type, amount, items, lineItems, discountTotal, processingNotes, assigneeId, dealId } = body
+    const { accountId, type, amount, items, lineItems, discountTotal, processingNotes, assigneeId, dealId, requestId } = body
     const userId = authenticatedUser.dbId
     const userEmail = authenticatedUser.email
 
-    if (!accountId || !type || amount === undefined) {
+    if (!accountId || !type || amount === undefined || !requestId || typeof requestId !== "string") {
       return {
         statusCode: 400,
-        body: JSON.stringify({ success: false, message: "Missing required fields" })
+        body: JSON.stringify({ success: false, message: "Missing required fields, including requestId" })
       }
     }
 
@@ -83,6 +84,7 @@ export const handler: Handler = async (event, context) => {
     let booksRefId: string | null = null
     let booksDocNumber: string | null = null
     let zohoDoc: any = null
+    let providerOperationKey: string | null = null
 
     if (localDevelopmentTransaction) {
       const localSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -107,17 +109,60 @@ export const handler: Handler = async (event, context) => {
       }
 
       const endpoint = type === 'Quote' ? 'estimates' : 'salesorders'
-      const res = await fetch(`${baseUrl}/${endpoint}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
-        method: "POST",
-        headers: { Authorization: `Zoho-oauthtoken ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+      const operationKey = `books:${endpoint}:create:${requestId}`
+      providerOperationKey = operationKey
+      const requestFingerprint = createHash("sha256").update(JSON.stringify({ accountId: account.id, type, payload })).digest("hex")
+      const operation = await prisma.providerWriteOperation.upsert({
+        where: { operationKey }, update: {},
+        create: { operationKey, provider: "ZOHO_BOOKS", entityType: type, entityId: account.id, operation: "CREATE_DOCUMENT", requestFingerprint },
       })
-      const data = await res.json()
-      if (data.code !== 0) throw new Error(`Zoho Books Error: ${data.message}`)
+      if (operation.requestFingerprint !== requestFingerprint) {
+        return { statusCode: 409, body: JSON.stringify({ success: false, message: "requestId was already used with different transaction data" }) }
+      }
+      if (operation.state === "SUCCEEDED") {
+        const ids = operation.providerRecordIds as { booksRefId?: string } | null
+        const prior = ids?.booksRefId
+          ? await (type === "Quote" ? prisma.quote.findFirst({ where: { zohoId: ids.booksRefId } }) : prisma.salesOrder.findFirst({ where: { zohoId: ids.booksRefId } }))
+          : null
+        return { statusCode: 200, body: JSON.stringify({ success: true, transaction: prior, booksRefId: ids?.booksRefId || null, alreadyProcessed: true }) }
+      }
+      if (operation.state === "AMBIGUOUS" || operation.state === "SYNCING") {
+        return { statusCode: 202, body: JSON.stringify({ success: false, providerState: operation.state, message: "This transaction is already in progress or requires reconciliation; it was not resubmitted." }) }
+      }
+      if (operation.state === "FAILED") {
+        return { statusCode: 422, body: JSON.stringify({ success: false, providerState: "FAILED", code: operation.providerCode, message: operation.providerMessage || "The prior provider attempt failed and was not retried." }) }
+      }
+      const claimed = await prisma.providerWriteOperation.updateMany({ where: { operationKey, state: "PENDING" }, data: { state: "SYNCING", attemptCount: { increment: 1 }, lastAttemptAt: new Date() } })
+      if (claimed.count !== 1) return { statusCode: 202, body: JSON.stringify({ success: false, providerState: "SYNCING", message: "Transaction creation is already in progress." }) }
+      let res: Response
+      let data: any
+      try {
+        res = await fetch(`${baseUrl}/${endpoint}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
+          method: "POST",
+          headers: { Authorization: `Zoho-oauthtoken ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        })
+        data = await res.json().catch(() => null)
+      } catch (providerError) {
+        const message = providerError instanceof Error ? providerError.message : "Unknown Books submission error"
+        await prisma.providerWriteOperation.update({ where: { operationKey }, data: { state: "AMBIGUOUS", lastError: message, providerMessage: "Submission outcome is unknown; reconciliation is required before retry." } })
+        return { statusCode: 202, body: JSON.stringify({ success: false, providerState: "AMBIGUOUS", message: "Books submission outcome is unknown and was not retried." }) }
+      }
+      if (!res.ok || data?.code !== 0) {
+        const code = String(data?.code ?? `HTTP_${res.status}`)
+        const message = String(data?.message || "Zoho Books rejected the transaction.")
+        await prisma.providerWriteOperation.update({ where: { operationKey }, data: { state: "FAILED", providerCode: code, providerMessage: message, lastError: message, completedAt: new Date() } })
+        return { statusCode: 422, body: JSON.stringify({ success: false, providerState: "FAILED", code, message }) }
+      }
       const remoteDoc = type === 'Quote' ? data.estimate : data.salesorder
       booksRefId = type === 'Quote' ? remoteDoc?.estimate_id : remoteDoc?.salesorder_id
       booksDocNumber = type === 'Quote' ? remoteDoc?.estimate_number : remoteDoc?.salesorder_number
       zohoDoc = remoteDoc
+      if (!booksRefId) {
+        await prisma.providerWriteOperation.update({ where: { operationKey }, data: { state: "AMBIGUOUS", providerCode: String(data.code), providerMessage: "Provider accepted the request without returning a document ID." } })
+        return { statusCode: 202, body: JSON.stringify({ success: false, providerState: "AMBIGUOUS", message: "Books accepted the request without a document ID; reconciliation is required." }) }
+      }
+      await prisma.providerWriteOperation.update({ where: { operationKey }, data: { state: "AMBIGUOUS", providerRecordIds: { booksRefId, booksDocNumber }, providerCode: String(data.code), providerMessage: String(data.message || "success"), lastError: "Provider accepted; local persistence is pending." } })
     }
 
     // Resolve full line items array
@@ -192,6 +237,9 @@ export const handler: Handler = async (event, context) => {
 
     if (transaction) {
       await syncStoredLineItems(type === "Quote" ? "quote" : "salesOrder", transaction.id, responseLineItems)
+      if (providerOperationKey) {
+        await prisma.providerWriteOperation.update({ where: { operationKey: providerOperationKey }, data: { state: "SUCCEEDED", providerRecordIds: { booksRefId, booksDocNumber, localRecordId: transaction.id }, completedAt: new Date(), lastError: null } })
+      }
     }
 
     // ── Auto-process costs & sync back to Books ──

@@ -12,6 +12,9 @@ assert.match(books, /zcrm_account_id=.*crmAccountId/, 'Books reconciliation must
 assert.doesNotMatch(books, /contact_name=.*encodeURIComponent/, 'Books reconciliation must not match solely by company name')
 assert.match(transaction, /ensureBooksCustomer\(account\.id\)/, 'financial document creation must use the durable Books customer resolver')
 assert.doesNotMatch(transaction, /searchByName/, 'financial document creation must not retain name-only customer matching')
+assert.match(transaction, /books:\$\{endpoint\}:create:\$\{requestId\}/, 'financial document creation must use a caller-stable operation key')
+assert.match(transaction, /state === "AMBIGUOUS" \|\| operation\.state === "SYNCING"/, 'in-flight and ambiguous document writes must not be resubmitted')
+assert.match(transaction, /Provider accepted; local persistence is pending/, 'provider acceptance must be durably recorded before local document persistence')
 assert.match(legacyBooksRoute, /ensureBooksCustomer\(account\.id\)/, 'the direct Books customer route must use the shared resolver')
 assert.match(orderBuilder, /itemId: i\.itemId \|\| null/, 'order submission must preserve catalog Books item IDs')
 
