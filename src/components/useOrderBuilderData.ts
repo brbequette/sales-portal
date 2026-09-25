@@ -179,6 +179,7 @@ export function useOrderBuilderData({
   const isControlled = externalSetOrderLines !== undefined
   const [internalOrderLines, setInternalOrderLines] = useState<OrderLine[]>(externalOrderLines || [])
   const [internalCatalogProducts, setInternalCatalogProducts] = useState<any[]>([])
+  const [remoteSearchProducts, setRemoteSearchProducts] = useState<any[]>([])
   const [fetchedPurchases, setFetchedPurchases] = useState<any[]>([])
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -286,6 +287,31 @@ export function useOrderBuilderData({
   const [productSearch, setProductSearch] = useState("")
   const [showProductDropdown, setShowProductDropdown] = useState(false)
   const productSearchRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (externalCatalogProducts || productSearch.trim().length < 2) {
+      return
+    }
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => {
+      fetch(`/api/get-products?search=${encodeURIComponent(productSearch.trim())}`, {
+        cache: "no-store",
+        signal: controller.signal,
+      })
+        .then(async response => {
+          const data = await response.json()
+          if (!response.ok || !data.success) throw new Error(data.error || "Product search failed")
+          setRemoteSearchProducts(Array.isArray(data.products) ? data.products : [])
+        })
+        .catch(error => {
+          if (error?.name !== "AbortError") console.error("Failed to search product catalog", error)
+        })
+    }, 250)
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
+    }
+  }, [externalCatalogProducts, productSearch])
 
   // Blade lookup
   const [showBladeLookup, setShowBladeLookup] = useState(false)
@@ -553,9 +579,14 @@ export function useOrderBuilderData({
   const searchResults = useMemo(() => {
     if (productSearch.length < 2) return []
     const term = productSearch.toLowerCase()
-    return catalogProducts
+    const candidates = [...remoteSearchProducts, ...catalogProducts]
+    const seen = new Set<string>()
+    return candidates
       .filter(p => {
         const desc = parseDesc(p.description)
+        const key = String(p.id || p.sku || p.name)
+        if (seen.has(key)) return false
+        seen.add(key)
         return !p.giftItem && !isAdministrativeCatalogProduct(p) && desc.status !== "inactive" && (
           p.name?.toLowerCase().includes(term) ||
           p.sku?.toLowerCase().includes(term) ||
@@ -563,7 +594,7 @@ export function useOrderBuilderData({
         )
       })
       .slice(0, 8)
-  }, [productSearch, catalogProducts])
+  }, [productSearch, catalogProducts, remoteSearchProducts])
 
   return {
     transactionType, setTransactionType,

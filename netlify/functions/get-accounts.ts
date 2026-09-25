@@ -153,7 +153,7 @@ const authenticatedHandler: Handler = async (event, context) => {
         LIMIT ${PAGE_SIZE} OFFSET ${(page - 1) * PAGE_SIZE}
       )
       SELECT
-        a.id::text, a."zohoId", a.name, a.tags, a.status, a.quality,
+        a.id::text, a."zohoId", a."crmAccountId", a."booksCustomerId", a.name, a.tags, a.status, a.quality,
         a."lastCalledAt", a."lastPurchaseAt", a."ownerId", a."updatedAt", a.industry, a."timeZone",
         a."billingStreet", a."billingCity", a."billingState", a."billingZip",
         a."shippingStreet", a."shippingCity", a."shippingState", a."shippingZip",
@@ -241,7 +241,7 @@ const authenticatedHandler: Handler = async (event, context) => {
       LEFT JOIN "Invoice" i ON i."accountId" = a.id
       WHERE 1=1 ${scopeSql} ${statusSql} ${searchSql}
       GROUP BY
-        a.id, a."zohoId", a.name, a.tags, a.status, a.quality,
+        a.id, a."zohoId", a."crmAccountId", a."booksCustomerId", a.name, a.tags, a.status, a.quality,
         a."lastCalledAt", a."lastPurchaseAt", a."ownerId", a."updatedAt", a.industry, a."timeZone",
         a."billingStreet", a."billingCity", a."billingState", a."billingZip",
         a."shippingStreet", a."shippingCity", a."shippingState", a."shippingZip",
@@ -255,6 +255,8 @@ const authenticatedHandler: Handler = async (event, context) => {
     const accounts = dbAccounts.map((acc: any) => ({
       id: acc.id,
       zohoId: acc.zohoId,
+      crmAccountId: acc.crmAccountId,
+      booksCustomerId: acc.booksCustomerId,
       name: acc.name,
       tags: acc.tags,
       status: acc.status,
