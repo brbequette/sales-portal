@@ -13,7 +13,9 @@ export const handler: Handler = async () => {
     chats.add(job.entityId)
     const running = await prisma.operationalAction.count({ where: { actionType: 'TELEGRAM_AGENT_REPLY', entityId: job.entityId, status: 'RUNNING' } })
     if (running) continue
-    await fetch(`${origin}/.netlify/functions/telegram-agent-background`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-titan-worker-secret': process.env.TELEGRAM_WORKER_SECRET! }, body: JSON.stringify({ id: job.id }), signal: AbortSignal.timeout(5000) })
+    const response = await fetch(`${origin}/.netlify/functions/telegram-agent-background`, { method: 'POST', redirect: 'error', headers: { 'Content-Type': 'application/json', 'x-titan-worker-secret': process.env.TELEGRAM_WORKER_SECRET! }, body: JSON.stringify({ id: job.id }), signal: AbortSignal.timeout(5000) })
+    // Netlify acknowledges background invocations with 202, not a login page's 200.
+    if (response.status !== 202) throw new Error(`Telegram worker dispatch rejected (${response.status})`)
   }
   return { statusCode: 200 }
 }
