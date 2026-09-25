@@ -215,9 +215,16 @@ export function useOrderBuilderData({
   useEffect(() => {
     if (!externalCatalogProducts) {
       setIsLoadingCatalog(true)
-      fetch("/api/get-products")
-        .then(r => r.json())
-        .then(d => { if (d.success) setInternalCatalogProducts(d.products) })
+      Promise.all([
+        fetch("/api/get-products", { cache: 'no-store' }).then(r => r.json()),
+        fetch("/api/get-products?giftOnly=true", { cache: 'no-store' }).then(r => r.json()),
+      ])
+        .then(([catalog, gifts]) => {
+          if (!catalog.success) return
+          const merged = new Map<string, any>()
+          for (const product of [...(catalog.products || []), ...(gifts.success ? gifts.products || [] : [])]) merged.set(product.id, product)
+          setInternalCatalogProducts([...merged.values()])
+        })
         .catch(e => console.error("Failed to load catalog", e))
         .finally(() => setIsLoadingCatalog(false))
     }

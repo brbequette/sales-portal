@@ -19,8 +19,11 @@ describe('gift bundle configuration and POS selection contract', () => {
   it('rejects unmapped or unknown-cost bundle options and revalidates exact POS selections', () => {
     const update = read('src/app/api/update-product/route.ts')
     const transaction = read('netlify/functions/create-transaction.ts')
+    const orderBuilderData = read('src/components/useOrderBuilderData.ts')
     expect(update).toContain('Every bundle option must have an exact Books item and authoritative cost.')
     expect(transaction).toContain('requires an exact bundle option')
     expect(transaction).toContain('not an authoritative configured variant')
+    expect(orderBuilderData).toContain('/api/get-products?giftOnly=true')
+    expect(orderBuilderData).toContain('const merged = new Map<string, any>()')
   })
 })
