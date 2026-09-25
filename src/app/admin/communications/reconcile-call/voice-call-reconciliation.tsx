@@ -10,6 +10,19 @@ export default function VoiceCallReconciliation() {
   const [message, setMessage] = useState("")
   const [callId, setCallId] = useState("")
   const [audioUrl, setAudioUrl] = useState("")
+  const [retellResult, setRetellResult] = useState<{ transcript: string | null; transferOutcome: string; replay: boolean } | null>(null)
+  async function syncRetell() {
+    if (busy) return
+    setBusy(true); setRetellResult(null); setMessage("Reading the exact Retell call and checking its audited association...")
+    try {
+      const response = await fetch("/api/admin/communications/retell-call", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ retellCallId: fields.retellCallId }) })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || "Retell verification failed")
+      setRetellResult(data)
+      setMessage(`${data.replay ? "Existing Retell evidence verified" : "Retell evidence saved"}. Account association remains human-confirmed. Existing CRM call, Zoho transcript and task preserved.`)
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Retell verification failed") }
+    finally { setBusy(false) }
+  }
   useEffect(() => () => { if (audioUrl) URL.revokeObjectURL(audioUrl) }, [audioUrl])
   async function submit(mode: "preview" | "apply") {
     if (busy) return
@@ -52,12 +65,14 @@ export default function VoiceCallReconciliation() {
     <p>Preview one provider call, then save its confirmed account association. Local apply preserves the existing task. A separate action synchronizes the native CRM call with duplicate protection; no messages are sent.</p>
     <fieldset disabled={busy} className="space-y-3">
       {(Object.keys(labels) as Array<keyof typeof labels>).map(key => <label key={key} className="block">{labels[key]}
-        {key === "reason" ? <textarea rows={4} className="block w-full rounded border p-2 bg-transparent" value={fields[key]} onChange={event => { setFields({ ...fields, [key]: event.target.value }); setPreview(null); setCallId(""); setAudioUrl("") }} /> :
-          <input className="block w-full rounded border p-2 bg-transparent" value={fields[key]} onChange={event => { setFields({ ...fields, [key]: event.target.value }); setPreview(null); setCallId(""); setAudioUrl("") }} />}
+        {key === "reason" ? <textarea rows={4} className="block w-full rounded border p-2 bg-transparent" value={fields[key]} onChange={event => { setRetellResult(null); setFields({ ...fields, [key]: event.target.value }); setPreview(null); setCallId(""); setAudioUrl("") }} /> :
+          <input className="block w-full rounded border p-2 bg-transparent" value={fields[key]} onChange={event => { setRetellResult(null); setFields({ ...fields, [key]: event.target.value }); setPreview(null); setCallId(""); setAudioUrl("") }} />}
       </label>)}
       <Button disabled={busy} variant="primary" onClick={() => submit("preview")}>{busy ? "Working…" : "Preview exact call"}</Button>
+      <Button disabled={busy || !fields.retellCallId} onClick={syncRetell}>Verify and import Retell evidence for existing association</Button>
     </fieldset>
     <p role="status" aria-live="polite">{message}</p>
+    {retellResult && <section className="space-y-2 rounded border p-4"><h2>Retell provider evidence</h2><p>Transfer outcome: {retellResult.transferOutcome}</p><p>Human answer and automated caller identity are not established by this import.</p><pre className="whitespace-pre-wrap">{retellResult.transcript || "Transcript not yet available; retry after provider processing."}</pre></section>}
     {preview && <section className="space-y-3 rounded border p-4">
       <h2>Confirm association with {preview.accountName}</h2>
       <p>Previous account: {preview.previousAccountId || "No existing call"}. Basis: human confirmation; Retell reference is not independently verified.</p>
