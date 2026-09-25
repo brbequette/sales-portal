@@ -9,9 +9,13 @@ export function getZohoBooksUrl(
   zohoId: string
 ): string {
   const typeMap: Record<string, string> = {
-    Quote: "estimates",
-    quote: "estimates",
-    estimates: "estimates",
+    Quote: "quotes",
+    quote: "quotes",
+    quotes: "quotes",
+    // Zoho Books renamed the web-app route from estimates to quotes. Keep the
+    // legacy document-type alias while always generating the current route.
+    estimate: "quotes",
+    estimates: "quotes",
     SalesOrder: "salesorders",
     salesorder: "salesorders",
     salesorders: "salesorders",
