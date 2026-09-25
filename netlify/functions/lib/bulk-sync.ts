@@ -105,7 +105,7 @@ export async function bulkSyncPage(
     const existingInvoices = (entity === 'invoices' && invoiceIds.length > 0)
       ? await prisma.invoice.findMany({
           where: { zohoId: { in: invoiceIds } },
-          select: { zohoId: true, amount: true, items: true }
+          select: { zohoId: true, amount: true, items: true, dealId: true }
         })
       : []
     const existingInvoicesMap = new Map(existingInvoices.map(i => [i.zohoId, i]))
@@ -154,7 +154,7 @@ export async function bulkSyncPage(
     const existingSalesOrders = (entity === 'salesorders' && salesOrderIds.length > 0)
       ? await prisma.salesOrder.findMany({
           where: { zohoId: { in: salesOrderIds } },
-          select: { zohoId: true, amount: true, items: true }
+          select: { zohoId: true, amount: true, items: true, dealId: true }
         })
       : []
     const existingSalesOrdersMap = new Map(existingSalesOrders.map(so => [so.zohoId, so]))
@@ -163,7 +163,7 @@ export async function bulkSyncPage(
     const existingEstimates = (entity === 'estimates' && estimateIds.length > 0)
       ? await prisma.quote.findMany({
           where: { zohoId: { in: estimateIds } },
-          select: { zohoId: true, amount: true, items: true }
+          select: { zohoId: true, amount: true, items: true, dealId: true }
         })
       : []
     const existingEstimatesMap = new Map(existingEstimates.map(q => [q.zohoId, q]))
@@ -209,7 +209,7 @@ export async function bulkSyncPage(
               name: { contains: num }
             }))
           },
-          select: { id: true, name: true }
+          select: { id: true, name: true, accountId: true }
         })
       : []
     const dealLookupMap = new Map()
@@ -217,7 +217,9 @@ export async function bulkSyncPage(
       const parts = d.name.split('|')
       if (parts.length > 1) {
         const docRef = parts[parts.length - 1].trim().toLowerCase()
-        dealLookupMap.set(docRef, d.id)
+        const key = `${d.accountId}:${docRef}`
+        // Multiple exact references are ambiguous; never let the last row win.
+        dealLookupMap.set(key, dealLookupMap.has(key) ? null : d.id)
       }
     }
 
@@ -412,7 +414,7 @@ export async function bulkSyncPage(
         const finalIssueDate = matchedSoDate || new Date(item.date || item.created_time)
 
         const docNo = (item.invoice_number || '').trim().toLowerCase()
-        const dealId = docNo ? dealLookupMap.get(docNo) : null
+        const dealId = existingInv?.dealId || (docNo ? dealLookupMap.get(`${dbAccountId}:${docNo}`) : null)
 
         ops.push(prisma.invoice.upsert({
           where: { zohoId: item.invoice_id },
@@ -471,7 +473,7 @@ export async function bulkSyncPage(
         }
 
         const docNo = (item.salesorder_number || '').trim().toLowerCase()
-        const dealId = docNo ? dealLookupMap.get(docNo) : null
+        const dealId = existingSO?.dealId || (docNo ? dealLookupMap.get(`${dbAccountId}:${docNo}`) : null)
 
         ops.push(prisma.salesOrder.upsert({
           where: { zohoId: item.salesorder_id },
@@ -513,7 +515,7 @@ export async function bulkSyncPage(
         }
 
         const docNo = (item.estimate_number || '').trim().toLowerCase()
-        const dealId = docNo ? dealLookupMap.get(docNo) : null
+        const dealId = existingEstimatesMap.get(item.estimate_id)?.dealId || (docNo ? dealLookupMap.get(`${dbAccountId}:${docNo}`) : null)
 
         ops.push(prisma.quote.upsert({
           where: { zohoId: item.estimate_id },

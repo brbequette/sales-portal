@@ -1,5 +1,12 @@
 # Titan Diamond — Consolidated Project Context
 
+## Invoice-backed CRM deal packages (in development, 2026-09-25)
+
+- User explicitly requested complete deal packages and invoice-based deal reconstruction in BOTH the portal and Zoho CRM with ongoing synchronization. Implementation is isolated on `codex/invoice-deal-packages` in `C:\Users\titan\.codex\worktrees\invoice-deal-packages\production-main-current`; see `docs/invoice-deal-sync.md`.
+- Adds a durable database-trigger queue, serializable exact-identity reconciliation, evidence-based dispositions, an authenticated package view, CRM summary/versioned JSON attachment synchronization, and an administrator configuration/exception screen. CRM native fields/notes are retained; no automatic financial-document or customer-message creation is part of the rebuild. Scheduled CRM writes default to disabled.
+- A private read-only production audit identified missing invoice links, cross-account links, CRM owner disagreements, and missing explicit account mappings. The findings and exact counts remain in local ignored evidence; authoritative customer-ID verification is required before mapping.
+- CRM Deals reads work, but field metadata returns HTTP 401 `OAUTH_SCOPE_MISMATCH`. Reauthorization with settings-field read scope, unique-field/pipeline/stage validation, account mapping repair, a fresh backup, and canary acceptance are required before activating or claiming synchronized coverage. No live data, provider records, credentials, or deployment state were changed. Private evidence is in the original workspace `.codex-tmp/deal-sync/` and must not be committed.
+
 ## Browser-retest lifecycle repairs (production plus reconciliation follow-up, 2026-09-25)
 
 - PR #108 merged as `f7ae55df09a8ce5a00ea647c5e60ef6a85190625` and Netlify deploy `6ab647a19b05db0008ab9d98` published the POS, gift, bundle, address-payload, and communication repairs. Production browser review verified the TEST Account, exact dropship vendor, $0.36 COGS, $0.91 subtotal, and full local Centralia addresses without submitting a document.

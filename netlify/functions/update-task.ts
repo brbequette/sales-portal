@@ -44,6 +44,7 @@ const authenticatedHandler: Handler = async (event, context) => {
     }
 
     const taskData: any = { id: zohoId }
+    if (typeof whatId === 'string' && whatId.startsWith('invoice:')) return { statusCode: 409, body: JSON.stringify({ success: false, message: 'This deal is waiting for its verified CRM mapping.', code: 'CRM_DEAL_MAPPING_REQUIRED' }) }
     let capSubject = subject
     if (subject) {
       capSubject = subject.charAt(0).toUpperCase() + subject.slice(1)

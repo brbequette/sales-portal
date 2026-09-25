@@ -428,6 +428,7 @@ model Invoice {
   payments         Payment[]
   lineItems        LineItem[]
   financialReviews FinancialReview[]
+  dealSyncJob       DealSyncJob?
 
   // Clawback tracking
   clawbackDate          DateTime?
@@ -472,6 +473,20 @@ model Invoice {
   @@index([estimateZohoId])
   @@index([invoiceNumber])
   @@index([salesorderNumber])
+}
+
+/// Durable queue; database triggers capture financial-document changes from every importer.
+model DealSyncJob {
+  invoiceId     String    @id
+  changedAt     DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+  checkedAt     DateTime? @db.Timestamptz(6)
+  leaseUntil    DateTime? @db.Timestamptz(6)
+  attempts      Int      @default(0)
+  lastError     String?
+  nextAttemptAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([nextAttemptAt, changedAt], map: "DealSyncJob_due_idx")
 }
 
 model FinancialReview {

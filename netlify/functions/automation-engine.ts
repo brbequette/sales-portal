@@ -155,6 +155,8 @@ export const handler = schedule("*/5 * * * *", async () => {
         }
 
         // Check if deal stage changed
+        // Historical invoice reconciliation must never enroll records into customer outreach.
+        if ((deal.rawData as any)?._portalSync?.invoiceManaged === true) continue
         if (deal.salesStageId !== state.salesStageId) {
           await prisma.dealAutomationState.update({
             where: { id: state.id },
@@ -314,6 +316,7 @@ export const handler = schedule("*/5 * * * *", async () => {
     })
 
     for (const deal of dealsWithStage) {
+      if ((deal.rawData as any)?._portalSync?.invoiceManaged === true) continue
       const stage = await prisma.salesStage.findUnique({ where: { id: deal.salesStageId! } })
       if (!stage?.flowConfig) continue
 

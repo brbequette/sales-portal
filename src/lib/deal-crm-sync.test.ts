@@ -1,0 +1,41 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+const state = vi.hoisted(() => ({ operation: null as any, updates: [] as any[] }))
+vi.mock('./prisma', () => ({ prisma: { providerWriteOperation: {
+  upsert: vi.fn(async ({ create }: any) => state.operation ||= { id: 'op1', state: 'PENDING', ...create }),
+  updateMany: vi.fn(async () => { if (state.operation.state !== 'PENDING') return { count: 0 }; state.operation.state = 'SYNCING'; return { count: 1 } }),
+  update: vi.fn(async ({ data }: any) => { state.updates.push(data); Object.assign(state.operation, data) }),
+} } }))
+vi.mock('./zoho-auth', () => ({ getZohoAccessToken: vi.fn(), ZOHO_DC: 'com' }))
+import { guardedWrite, mergePackageDescription, validateDealSyncConfig } from './deal-crm-sync'
+beforeEach(() => { state.operation = null; state.updates = [] })
+describe('durable provider writes', () => {
+  it('verifies before declaring success', async () => {
+    const write = vi.fn(async () => '123'); await expect(guardedWrite('key','deal',{},write,async () => '123')).resolves.toBe('123')
+    expect(state.operation.state).toBe('SUCCEEDED'); expect(write).toHaveBeenCalledTimes(1)
+  })
+  it('does not reissue an ambiguous create when verification finds nothing', async () => {
+    const write = vi.fn(async () => { throw new Error('timeout') })
+    await expect(guardedWrite('key','deal',{},write,async () => null)).rejects.toThrow('timeout')
+    await expect(guardedWrite('key','deal',{},write,async () => null)).rejects.toThrow('REQUIRES_RECONCILIATION')
+    expect(write).toHaveBeenCalledTimes(1)
+  })
+  it('recovers an accepted timed-out write through a read, without another POST', async () => {
+    const write = vi.fn(async () => { throw new Error('timeout') })
+    await expect(guardedWrite('key','deal',{},write,async () => null)).rejects.toThrow()
+    await expect(guardedWrite('key','deal',{},write,async () => '123')).resolves.toBe('123')
+    expect(write).toHaveBeenCalledTimes(1); expect(state.operation.state).toBe('SUCCEEDED')
+  })
+  it('does not certify a mismatched readback', async () => {
+    await expect(guardedWrite('key','deal',{},async () => '123',async () => '456')).rejects.toThrow('READBACK_MISMATCH')
+    expect(state.operation.state).toBe('AMBIGUOUS')
+  })
+  it('rejects changed payloads under a stable operation key', async () => {
+    await guardedWrite('key','deal',{ a: 1 },async () => '123',async () => '123')
+    await expect(guardedWrite('key','deal',{ a: 2 },async () => '123',async () => '123')).rejects.toThrow('PAYLOAD_CHANGED')
+  })
+})
+describe('CRM preservation and configuration', () => {
+  it('preserves user description before and after the managed block', () => expect(mergePackageDescription('Human note\n[Titan deal package]\nold\n[/Titan deal package]\nOther note','new')).toBe('Human note\n[Titan deal package]\nnew\n[/Titan deal package]\nOther note'))
+  it('refuses malformed markers instead of truncating notes', () => expect(() => mergePackageDescription('Human note [Titan deal package]','new')).toThrow('MALFORMED'))
+  it('requires a provider-enforced unique identity field', () => expect(() => validateDealSyncConfig({ enabled: true, identityField: 'Portal_Deal_ID', stages: {}, portalUrl: 'https://example.com' }, [{ api_name: 'Portal_Deal_ID', data_type: 'text' }])).toThrow('UNIQUE_IDENTITY'))
+})
