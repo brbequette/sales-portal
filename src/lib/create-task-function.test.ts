@@ -27,7 +27,7 @@ describe('create task account linkage and errors', () => {
     const response: any = await authenticatedHandler!({ httpMethod: 'POST', body: JSON.stringify({ subject: 'call', whatId: 'local-account' }) } as any, {} as any, () => undefined)
     expect(response.statusCode).toBe(200)
     const submitted = JSON.parse((fetch as any).mock.calls[0][1].body)
-    expect(submitted.data[0].What_Id.id).toBe('crm-account')
+    expect(submitted.data[0].What_Id).toBe('crm-account')
     expect(submitted.data[0]).not.toHaveProperty('Owner')
     expect(mocks.createTask).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ accountId: 'local-account' }) }))
   })
