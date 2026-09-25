@@ -4,7 +4,7 @@
 
 The implementation is currently **unreleased and disabled by default**. No live invoice, deal, account, stage, CRM field, or attachment has been changed by this task.
 
-Each invoice is reconciled to an existing same-account deal using its saved relationship, an exact linked quote/order identity, or a unique exact document-reference suffix. Missing deals receive a stable local `invoice:<Books ID>` identity until CRM creation is verified. This placeholder must never be sent as a CRM record ID. Existing pre-invoice opportunities and historical records are retained.
+Books `zcrm_potential_id` is the authoritative document-to-CRM identity and takes precedence over saved or legacy name-based links. An explicit potential that is absent locally or belongs to a different account is held for reconciliation; it must never generate a duplicate deal. Import and webhook snapshots retain the ID and name. When Books has no potential, existing same-account relationships, exact quote/order lineage, or a unique exact document-reference suffix are considered. Missing deals receive a stable local `invoice:<Books ID>` identity until CRM creation is verified. This placeholder must never be sent as a CRM record ID. Existing pre-invoice opportunities and historical records are retained.
 
 Books/local invoice evidence owns post-invoice disposition, amount, balance, payment and calculated-financial data. CRM retains its native custom fields, unmarked description text, and notes. CRM names and notes are read back into the portal. Owner/account disagreements are exceptions rather than silent reassignment. Stage mapping is explicit: portal financial dispositions map to the organization’s real CRM stages.
 

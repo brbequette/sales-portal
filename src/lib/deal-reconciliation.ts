@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from './prisma'
-import { dispositionDeal, exactDocumentReference, verifiedCompletion } from './deal-lifecycle'
+import { dispositionDeal, exactDocumentReference, verifiedCompletion, isCrmId } from './deal-lifecycle'
 import { object } from './deal-package'
 
 /** Guard existing associations; legacy name references qualify only within the exact Account. */
@@ -9,8 +9,23 @@ export async function reconcileInvoiceDeal(invoiceId: string) {
     const invoice = await tx.invoice.findUnique({ where: { id: invoiceId }, include: { account: true, deal: true } })
     if (!invoice) throw new Error('INVOICE_NOT_FOUND')
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`deal-account:${invoice.accountId}`}))`
-    if (invoice.deal && invoice.deal.accountId !== invoice.accountId) throw new Error('CROSS_ACCOUNT_DEAL_LINK')
     let deal = invoice.deal
+    // Books owns the document-to-opportunity identity. Never fall back to names
+    // when it supplies an explicit ID, even if that CRM record is not imported yet.
+    const potential = object(invoice.items).zcrm_potential_id ?? object(invoice.rawData).zcrm_potential_id
+    if (potential) {
+      if (!isCrmId(potential)) throw new Error('INVALID_BOOKS_CRM_POTENTIAL_ID')
+      const authoritative = await tx.deal.findUnique({ where: { zohoId: potential } })
+      if (!authoritative) throw new Error('BOOKS_CRM_POTENTIAL_NOT_IMPORTED')
+      if (authoritative.accountId !== invoice.accountId) throw new Error('BOOKS_CRM_POTENTIAL_ACCOUNT_CONFLICT')
+      if (deal?.id !== authoritative.id) {
+        const linked = await tx.invoice.updateMany({ where: { id: invoice.id, dealId: invoice.dealId, updatedAt: invoice.updatedAt }, data: { dealId: authoritative.id } })
+        if (linked.count !== 1) throw new Error('INVOICE_CHANGED_DURING_RECONCILIATION')
+        await tx.operationalEvent.create({ data: { entityType: 'invoice', entityId: invoice.id, accountId: invoice.accountId, eventType: 'BOOKS_POTENTIAL_LINK_RECONCILED', title: 'Linked invoice to Books CRM potential', source: 'INVOICE_RECONCILIATION', metadata: { previousDealId: invoice.dealId, dealId: authoritative.id, zcrm_potential_id: potential } } })
+      }
+      deal = authoritative
+    }
+    if (deal && deal.accountId !== invoice.accountId) throw new Error('CROSS_ACCOUNT_DEAL_LINK')
     const number = invoice.invoiceNumber || invoice.computedInvoiceNumber || object(invoice.items).invoice_number || ''
     if (!deal) {
       const candidates = await tx.deal.findMany({ where: { accountId: invoice.accountId } })

@@ -9,6 +9,7 @@ vi.mock('./prisma', () => {
       findMany: async () => [state.invoice],
     },
     deal: {
+      findUnique: async ({ where }: any) => state.deals.find(d => d.zohoId === where.zohoId) || null,
       findMany: async () => state.deals,
       create: async ({ data }: any) => { const deal = { id: 'new-deal', ...data }; state.created.push(deal); return deal },
       update: vi.fn(),
@@ -27,6 +28,23 @@ beforeEach(() => {
   state.deals = []; state.created = []; state.quote = null; state.users = []
 })
 describe('invoice deal identity reconciliation', () => {
+  it('uses Books potential identity ahead of a stale local relationship', async () => {
+    state.invoice.items = { zcrm_potential_id: '6821836000000673964' }
+    state.invoice.deal = { id: 'stale', accountId: 'other-account' }; state.invoice.dealId = 'stale'
+    state.deals = [{ id: 'authoritative', zohoId: '6821836000000673964', accountId: 'account', amount: 100, stage: 'Invoiced' }]
+    expect(await reconcileInvoiceDeal('invoice')).toBe('authoritative')
+    expect(state.invoice.dealId).toBe('authoritative'); expect(state.created).toHaveLength(0)
+  })
+  it('does not create a duplicate when a Books potential has not been imported', async () => {
+    state.invoice.items = { zcrm_potential_id: '6821836000000673964' }
+    await expect(reconcileInvoiceDeal('invoice')).rejects.toThrow('BOOKS_CRM_POTENTIAL_NOT_IMPORTED')
+    expect(state.created).toHaveLength(0)
+  })
+  it('quarantines a Books potential belonging to a different account', async () => {
+    state.invoice.items = { zcrm_potential_id: '6821836000000673964' }
+    state.deals = [{ id: 'wrong', zohoId: '6821836000000673964', accountId: 'other-account' }]
+    await expect(reconcileInvoiceDeal('invoice')).rejects.toThrow('BOOKS_CRM_POTENTIAL_ACCOUNT_CONFLICT')
+  })
   it('preserves an existing verified account relationship', async () => {
     state.invoice.deal = { id: 'existing', accountId: 'account', stage: 'Invoiced', amount: 100 }; state.invoice.dealId = 'existing'
     expect(await reconcileInvoiceDeal('invoice')).toBe('existing'); expect(state.created).toHaveLength(0)
