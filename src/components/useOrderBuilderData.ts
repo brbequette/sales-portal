@@ -14,6 +14,7 @@ export type OrderLine = {
   giftItem?: boolean
   subjectToVig?: boolean
   itemId?: string
+  costQuality?: 'AUTHORITATIVE' | 'VERIFIED_ZERO' | 'UNKNOWN'
 }
 
 export interface UseOrderBuilderDataProps {
@@ -94,7 +95,7 @@ const SIGNATURE_FAMILIES = [
 ]
 
 export const TITAN_GIFT_HAT_BOOKS_ITEM_ID = "1254360000043727500"
-const TITAN_GIFT_HAT = { id: 'titan-gift-hat', zohoId: TITAN_GIFT_HAT_BOOKS_ITEM_ID, name: 'TRUCKER HAT - TITAN DIAMOND USA - WHS', sku: 'TRUCKER HAT - TITAN DIAMOND USA - WHS', price: 0, cost: 20, giftItem: true, subjectToVig: false, description: JSON.stringify({ cost: 20, itemId: TITAN_GIFT_HAT_BOOKS_ITEM_ID, status: 'active' }) }
+const TITAN_GIFT_HAT = { id: 'titan-gift-hat', zohoId: TITAN_GIFT_HAT_BOOKS_ITEM_ID, name: 'TRUCKER HAT - TITAN DIAMOND USA - WHS', sku: 'TRUCKER HAT - TITAN DIAMOND USA - WHS', price: 0, cost: 20, costQuality: 'AUTHORITATIVE', giftItem: true, subjectToVig: false, description: JSON.stringify({ cost: 20, itemId: TITAN_GIFT_HAT_BOOKS_ITEM_ID, status: 'active' }) }
 
 export function getBooksItemId(product: any): string | undefined {
   const description = parseDesc(product?.description)
@@ -304,7 +305,7 @@ export function useOrderBuilderData({
   }, [])
   
   // Pending Add Item State
-  const [pendingItem, setPendingItem] = useState<{name: string, sku: string, cost: number, defaultPrice: number, giftItem?: boolean, subjectToVig?: boolean, itemId?: string} | null>(null)
+  const [pendingItem, setPendingItem] = useState<{name: string, sku: string, cost: number, defaultPrice: number, giftItem?: boolean, subjectToVig?: boolean, itemId?: string, costQuality?: 'AUTHORITATIVE' | 'VERIFIED_ZERO' | 'UNKNOWN'} | null>(null)
   const [addPaidQty, setAddPaidQty] = useState(1)
   const [addFreeQty, setAddFreeQty] = useState(0)
   const [addPrice, setAddPrice] = useState(0)
@@ -337,6 +338,7 @@ export function useOrderBuilderData({
           sku: p.sku as string,
           price: (p.price || 0) as number,
           cost: Number(p.unitCost ?? desc.cost ?? 0),
+          costQuality: (p.costQuality === 'VERIFIED_ZERO' || Number(p.unitCost ?? desc.cost) > 0) ? (p.costQuality === 'VERIFIED_ZERO' ? 'VERIFIED_ZERO' : 'AUTHORITATIVE') : 'UNKNOWN',
           application: matchApplication(p.name, p.category || ""),
           size: extractSize(p.name),
           type: matchType(p.name, p.category || ""),
@@ -366,7 +368,7 @@ export function useOrderBuilderData({
       })
       .map(product => {
         const desc = parseDesc(product.description)
-        return { name: product.name, sku: product.sku, price: 0, cost: Number(product.unitCost ?? desc.cost ?? product.cost ?? 0), giftItem: true, subjectToVig: false, itemId: getBooksItemId(product) }
+        return { name: product.name, sku: product.sku, price: 0, cost: Number(product.unitCost ?? desc.cost ?? product.cost ?? 0), costQuality: 'AUTHORITATIVE' as const, giftItem: true, subjectToVig: false, itemId: getBooksItemId(product) }
       })
       .sort((a, b) => a.cost - b.cost)
       .slice(0, 10)
@@ -479,9 +481,14 @@ export function useOrderBuilderData({
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
-  const openAddItemModal = useCallback((p: { name: string; sku: string; price: number; cost: number; giftItem?: boolean; subjectToVig?: boolean; itemId?: string }) => {
+  const openAddItemModal = useCallback((p: { name: string; sku: string; price: number; cost: number; giftItem?: boolean; subjectToVig?: boolean; itemId?: string; costQuality?: 'AUTHORITATIVE' | 'VERIFIED_ZERO' | 'UNKNOWN' }) => {
+    const costQuality = p.costQuality || (p.cost > 0 ? 'AUTHORITATIVE' : 'UNKNOWN')
+    if (costQuality === 'UNKNOWN') {
+      toast.error(`${p.sku || p.name} is blocked because authoritative cost is missing.`)
+      return
+    }
     const isGift = !!p.giftItem
-    setPendingItem({ name: p.name, sku: p.sku, defaultPrice: p.price, cost: p.cost, giftItem: isGift, subjectToVig: p.subjectToVig !== false, itemId: p.itemId })
+    setPendingItem({ name: p.name, sku: p.sku, defaultPrice: p.price, cost: p.cost, giftItem: isGift, subjectToVig: p.subjectToVig !== false, itemId: p.itemId, costQuality })
     setAddPaidQty(isGift ? 0 : 1)
     setAddFreeQty(isGift ? 1 : 0)
     setAddPrice(isGift ? 0 : p.price)
@@ -505,6 +512,7 @@ export function useOrderBuilderData({
         giftItem: pendingItem.giftItem,
         subjectToVig: pendingItem.subjectToVig,
         itemId: pendingItem.itemId,
+        costQuality: pendingItem.costQuality,
       })
     }
     
@@ -520,6 +528,7 @@ export function useOrderBuilderData({
         giftItem: pendingItem.giftItem,
         subjectToVig: pendingItem.subjectToVig,
         itemId: pendingItem.itemId,
+        costQuality: pendingItem.costQuality,
       })
     }
 

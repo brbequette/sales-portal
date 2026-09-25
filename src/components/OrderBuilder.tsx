@@ -372,7 +372,7 @@ export function OrderBuilder({
                 <button
                   key={p.id}
                   type="button"
-                  onClick={() => openAddItemModal({ name: p.name, sku: p.sku, price: p.price || 0, cost: p.unitCost ?? desc.cost ?? 0, subjectToVig: p.subjectToVig !== false, giftItem: !!p.giftItem, itemId: getBooksItemId(p) })}
+                  onClick={() => openAddItemModal({ name: p.name, sku: p.sku, price: p.price || 0, cost: p.unitCost ?? desc.cost ?? 0, costQuality: p.costQuality === 'VERIFIED_ZERO' || Number(p.unitCost ?? desc.cost) > 0 ? (p.costQuality === 'VERIFIED_ZERO' ? 'VERIFIED_ZERO' : 'AUTHORITATIVE') : 'UNKNOWN', subjectToVig: p.subjectToVig !== false, giftItem: !!p.giftItem, itemId: getBooksItemId(p) })}
                   className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-white/[0.04] transition-colors cursor-pointer"
                 >
                   <div className="flex items-center gap-3 min-w-0">

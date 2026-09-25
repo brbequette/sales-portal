@@ -23,6 +23,7 @@ ALTER TABLE "Lead"
 ALTER TABLE "Product"
   ADD COLUMN "booksItemId" TEXT,
   ADD COLUMN "unitCost" DOUBLE PRECISION,
+  ADD COLUMN "costQuality" TEXT NOT NULL DEFAULT 'UNKNOWN',
   ADD COLUMN "canDropship" BOOLEAN;
 
 CREATE TABLE "ProviderWriteOperation" (

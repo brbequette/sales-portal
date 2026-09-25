@@ -34,7 +34,7 @@ DO $$ BEGIN
  IF EXISTS (SELECT 1 FROM "Lead" WHERE "id"='lifecycle-lead' AND "crmLeadId" IS NOT NULL) THEN RAISE EXCEPTION 'legacy lead placeholder was inferred as provider identity'; END IF;
  IF (SELECT "providerSyncState"::text FROM "Lead" WHERE "id"='lifecycle-lead') <> 'PENDING' THEN RAISE EXCEPTION 'legacy lead state is not pending reconciliation'; END IF;
  IF (SELECT count(*) FROM "ProviderWriteOperation") <> 0 THEN RAISE EXCEPTION 'migration invented provider operations'; END IF;
- IF NOT EXISTS (SELECT 1 FROM "Product" WHERE "id"='lifecycle-product' AND "sku"='LIFECYCLE-SKU' AND "booksItemId" IS NULL AND "unitCost" IS NULL AND "canDropship" IS NULL) THEN RAISE EXCEPTION 'product upgrade was not additive'; END IF;
+ IF NOT EXISTS (SELECT 1 FROM "Product" WHERE "id"='lifecycle-product' AND "sku"='LIFECYCLE-SKU' AND "booksItemId" IS NULL AND "unitCost" IS NULL AND "costQuality"='UNKNOWN' AND "canDropship" IS NULL) THEN RAISE EXCEPTION 'product upgrade was not additive'; END IF;
 END $$;
 '@
 $assertions | & psql $ConnectionString -v ON_ERROR_STOP=1

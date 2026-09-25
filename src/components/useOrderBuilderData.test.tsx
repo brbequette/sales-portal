@@ -89,4 +89,17 @@ describe("useOrderBuilderData", () => {
     await waitFor(() => expect(result.current.qualifyingGifts).toHaveLength(1))
     expect(result.current.qualifyingGifts[0]).toMatchObject({ itemId: TITAN_GIFT_HAT_BOOKS_ITEM_ID, cost: 20, price: 0 })
   })
+
+  it("blocks missing cost while preserving an explicitly verified zero", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input) === "/api/admin/business-defaults") return new Response(JSON.stringify({ success: true, defaults: { defaultVigRate: 1, defaultCommissionPct: 50 } }), { status: 200 })
+      throw new Error(`Unexpected request: ${String(input)}`)
+    }))
+    const { result } = renderHook(() => useOrderBuilderData({ catalogProducts: [], accountPurchases: [] }))
+    await act(async () => { await Promise.resolve() })
+    act(() => result.current.openAddItemModal({ name: 'Unknown Cost', sku: 'UNKNOWN', price: 1, cost: 0, costQuality: 'UNKNOWN' }))
+    expect(result.current.pendingItem).toBeNull()
+    act(() => result.current.openAddItemModal({ name: 'Verified Gift', sku: 'ZERO', price: 0, cost: 0, costQuality: 'VERIFIED_ZERO', giftItem: true }))
+    expect(result.current.pendingItem).toMatchObject({ sku: 'ZERO', cost: 0, costQuality: 'VERIFIED_ZERO' })
+  })
 })

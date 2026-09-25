@@ -806,6 +806,7 @@ export async function POST(req: NextRequest) {
                 category: item.group_name || 'General',
                 stock: parseInt(item.stock_on_hand || 0),
                 unitCost: Number.isFinite(Number(item.purchase_rate)) ? Number(item.purchase_rate) : null,
+                costQuality: Number(item.purchase_rate) > 0 ? 'AUTHORITATIVE' : 'UNKNOWN',
                 canDropship: typeof item.is_drop_shipment_enabled === 'boolean' ? item.is_drop_shipment_enabled : null,
               }
 

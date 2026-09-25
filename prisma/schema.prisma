@@ -350,6 +350,7 @@ model Product {
   giftItem     Boolean @default(false)
   showOnWeb    Boolean @default(true)
   unitCost     Float?
+  costQuality  String  @default("UNKNOWN")
   canDropship  Boolean?
 
   // Custom Classifications
