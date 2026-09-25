@@ -19,7 +19,7 @@ type CallAutomationInput = {
 export async function indexCallAndCreateSafeFollowUp(call: CallAutomationInput) {
   const account = await prisma.account.findUnique({
     where: { id: call.accountId },
-    select: { ownerId: true, name: true },
+    select: { ownerId: true, name: true, zohoId: true },
   })
   if (!account) return
 
@@ -71,16 +71,14 @@ export async function indexCallAndCreateSafeFollowUp(call: CallAutomationInput) 
     },
   })
 
-  if (!needsCallback) return
+  // Keep the event for reconciliation, but never schedule customer work against
+  // the shared holding account while the caller's identity is unresolved.
+  if (!needsCallback || account.zohoId === "unknown-voice-caller") return
 
   await prisma.task.upsert({
     where: { zohoId: `voice_callback_${call.id}` },
-    update: {
-      ownerId: account.ownerId,
-      accountId: call.accountId,
-      dueDate: new Date(Date.now() + 10 * 60 * 1000),
-      priority: "High",
-    },
+    // A replay must not undo a user's reassignment, deadline, or completion.
+    update: {},
     create: {
       zohoId: `voice_callback_${call.id}`,
       subject: `Priority callback: ${account.name}`,
@@ -89,7 +87,7 @@ export async function indexCallAndCreateSafeFollowUp(call: CallAutomationInput) 
         : "Missed inbound call requires a callback within 10 minutes.",
       status: "Not Started",
       priority: "High",
-      dueDate: new Date(Date.now() + 10 * 60 * 1000),
+      dueDate: new Date(call.createdAt.getTime() + 10 * 60 * 1000),
       ownerId: account.ownerId,
       accountId: call.accountId,
       type: "Call",
@@ -100,14 +98,16 @@ export async function indexCallAndCreateSafeFollowUp(call: CallAutomationInput) 
     where: {
       accountId: call.accountId,
       triggerType: "MISSED_INBOUND_CALL",
-      status: "PROPOSED",
       evidence: { path: ["sourceId"], equals: call.id },
     },
     select: { id: true },
   })
   if (!existing) {
-    await prisma.automationRecommendation.create({
-      data: {
+    await prisma.automationRecommendation.upsert({
+      where: { id: `voice_callback_recommendation_${call.id}` },
+      update: {},
+      create: {
+        id: `voice_callback_recommendation_${call.id}`,
         accountId: call.accountId,
         proposedById: call.authorId,
         title: "Standardize missed-call response",
