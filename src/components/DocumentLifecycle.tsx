@@ -23,7 +23,7 @@ export function DocumentLifecycle({ zohoId, type, refreshToken, onNavigateDoc }:
   const fetchLifecycle = async () => {
     try {
       setLoading(true)
-      const res = await fetch(`/api/document-lifecycle?zohoId=${zohoId}&type=${type}`)
+      const res = await fetch(`/api/document-lifecycle?zohoId=${zohoId}&type=${type}`, { cache: 'no-store' })
       const data = await res.json()
       if (data.success) {
         setLifecycle(data.lifecycle)
