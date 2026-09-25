@@ -28,6 +28,7 @@ describe('create task account linkage and errors', () => {
     expect(response.statusCode).toBe(200)
     const submitted = JSON.parse((fetch as any).mock.calls[0][1].body)
     expect(submitted.data[0].What_Id.id).toBe('crm-account')
+    expect(submitted.data[0]).not.toHaveProperty('Owner')
     expect(mocks.createTask).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ accountId: 'local-account' }) }))
   })
 
@@ -37,5 +38,12 @@ describe('create task account linkage and errors', () => {
     const response: any = await authenticatedHandler!({ httpMethod: 'POST', body: JSON.stringify({ subject: 'call', whatId: 'local-account' }) } as any, {} as any, () => undefined)
     expect(response.statusCode).toBe(400)
     expect(JSON.parse(response.body)).toMatchObject({ code: 'INVALID_DATA', providerMessage: 'What_Id is invalid', message: 'Failed to create task in Zoho: INVALID_DATA: What_Id is invalid' })
+  })
+
+  it('preserves the rejected CRM field in the readable provider error', async () => {
+    mocks.findAccount.mockResolvedValue({ id: 'local-account', ownerId: 'admin1', crmAccountId: 'crm-account' })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400, json: async () => ({ data: [{ code: 'INVALID_DATA', message: 'invalid data', status: 'error', details: { api_name: 'id' } }] }) }))
+    const response: any = await authenticatedHandler!({ httpMethod: 'POST', body: JSON.stringify({ subject: 'call', whatId: 'local-account' }) } as any, {} as any, () => undefined)
+    expect(JSON.parse(response.body)).toMatchObject({ providerMessage: 'invalid data (field: id)' })
   })
 })

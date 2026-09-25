@@ -46,9 +46,7 @@ export const authenticatedHandler: Handler = async (event, context) => {
       user = await prisma.user.findUnique({ where: { email: requestedOwnerId } })
     }
     
-    if (!user || !user.zohoId) {
-      return { statusCode: 400, body: JSON.stringify({ success: false, message: "Owner has no valid Zoho ID" }) }
-    }
+    if (!user) return { statusCode: 400, body: JSON.stringify({ success: false, message: "Task owner was not found locally" }) }
     if (!administrator && user.id !== actorId) {
       return { statusCode: 403, body: JSON.stringify({ success: false, message: "Only administrators can assign tasks to another user" }) }
     }
@@ -80,8 +78,7 @@ export const authenticatedHandler: Handler = async (event, context) => {
     const taskData: any = {
       Subject: capSubject,
       Status: status,
-      Priority: priority || "Normal",
-      Owner: { id: user.zohoId }
+      Priority: priority || "Normal"
     }
 
     if (dueDate) {
@@ -128,7 +125,9 @@ export const authenticatedHandler: Handler = async (event, context) => {
     if (!res.ok || recordDetails?.code !== "SUCCESS") {
       console.error("Zoho Task Create failed:", JSON.stringify(zohoData))
       const providerCode = String(recordDetails?.code || zohoData?.code || `HTTP_${res.status}`)
-      const providerMessage = String(recordDetails?.message || zohoData?.message || 'Zoho CRM rejected task creation.')
+      const rejectedField = String(recordDetails?.details?.api_name || recordDetails?.details?.field || '').trim()
+      const baseProviderMessage = String(recordDetails?.message || zohoData?.message || 'Zoho CRM rejected task creation.')
+      const providerMessage = rejectedField ? `${baseProviderMessage} (field: ${rejectedField})` : baseProviderMessage
       return { statusCode: 400, body: JSON.stringify({ success: false, message: `Failed to create task in Zoho: ${providerCode}: ${providerMessage}`, code: providerCode, providerMessage, providerError: zohoData }) }
     }
 
