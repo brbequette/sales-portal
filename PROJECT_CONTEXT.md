@@ -1,5 +1,14 @@
 # Titan Diamond — Consolidated Project Context
 
+## Consolidated release and Books deal identity (2026-09-25)
+
+- User explicitly authorized completing outstanding application changes and production deployment. This release combines invoice-backed deal packages, verified invoice calculation/Last calculated changes, and the disabled Telegram agent foundation, while preserving production through PR #122.
+- Books `zcrm_potential_id` is authoritative over stale local and legacy name-based invoice links. Invoice, estimate, sales-order, webhook and bulk-import snapshots now preserve the potential ID/name. Missing referenced CRM records and account conflicts remain explicit exceptions rather than duplicate creation.
+- A fresh verified backup preceded an exact-ID production import. Potential identities and eligible invoice links were saved with account/version guards and independently read back without mismatches. Private before-images, counts and exception evidence remain in the original workspace `.codex-tmp/deal-sync/`; no provider document was changed.
+- Core OAuth still rejects CRM field metadata with `OAUTH_SCOPE_MISMATCH`. The deal worker stays disabled until the required grant, unique identity field, stage/pipeline mapping and canary are verified. Telegram likewise remains disabled without bot credentials. Neither integration is represented as activated merely because its code is released.
+- POS PRs #120/#121 are already deployed and accepted: EST-8338 converted exactly once to Sales Order 46568. Do not repeat that conversion. Transcript import continues from its existing guarded checkpoint; completion must be established from the final verification receipt.
+- Publication of additional local product/Voice operational scripts is awaiting the user's specific public-repository approval after automatic approval review rejected copying that payload. Private exports, backups and one-off audit files are excluded from the application release.
+
 ## Invoice-backed CRM deal packages (in development, 2026-09-25)
 
 - User explicitly requested complete deal packages and invoice-based deal reconstruction in BOTH the portal and Zoho CRM with ongoing synchronization. Implementation is isolated on `codex/invoice-deal-packages` in `C:\Users\titan\.codex\worktrees\invoice-deal-packages\production-main-current`; see `docs/invoice-deal-sync.md`.

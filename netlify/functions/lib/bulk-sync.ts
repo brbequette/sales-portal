@@ -406,6 +406,8 @@ export async function bulkSyncPage(
           shipping_address: item.shipping_address || null,
           billing_address: item.billing_address || null,
           ...existingItems, // merge calculated fields (profit, deadCostTotal, ccFees, etc.)
+          zcrm_potential_id: item.zcrm_potential_id ?? existingItems.zcrm_potential_id,
+          zcrm_potential_name: item.zcrm_potential_name ?? existingItems.zcrm_potential_name,
           sub_total: savedSubtotal, // enforce subtotal is not overwritten by spread
         }
 
@@ -469,6 +471,8 @@ export async function bulkSyncPage(
           billing_address: item.billing_address || null,
           delivery_method: item.delivery_method || null,
           ...existingSOItems, // merge calculated fields
+          zcrm_potential_id: item.zcrm_potential_id ?? existingSOItems.zcrm_potential_id,
+          zcrm_potential_name: item.zcrm_potential_name ?? existingSOItems.zcrm_potential_name,
           sub_total: savedSOSubtotal, // enforce subtotal is not overwritten by spread
         }
 
@@ -511,6 +515,8 @@ export async function bulkSyncPage(
           date: item.date || null,
           salesperson: item.salesperson_name || null,
           ...existingEstItems, // merge calculated fields
+          zcrm_potential_id: item.zcrm_potential_id ?? existingEstItems.zcrm_potential_id,
+          zcrm_potential_name: item.zcrm_potential_name ?? existingEstItems.zcrm_potential_name,
           sub_total: savedEstSubtotal, // enforce subtotal is not overwritten by spread
         }
 

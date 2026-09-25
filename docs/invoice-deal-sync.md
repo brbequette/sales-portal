@@ -2,7 +2,7 @@
 
 ## Scope and ownership
 
-The implementation is currently **unreleased and disabled by default**. No live invoice, deal, account, stage, CRM field, or attachment has been changed by this task.
+The worker is **disabled by default** pending verified CRM configuration. An exact-ID Books potential import has repaired eligible local invoice links with backup, concurrency guards and independent readback. CRM stages, fields and attachments have not yet been changed by the worker.
 
 Books `zcrm_potential_id` is the authoritative document-to-CRM identity and takes precedence over saved or legacy name-based links. An explicit potential that is absent locally or belongs to a different account is held for reconciliation; it must never generate a duplicate deal. Import and webhook snapshots retain the ID and name. When Books has no potential, existing same-account relationships, exact quote/order lineage, or a unique exact document-reference suffix are considered. Missing deals receive a stable local `invoice:<Books ID>` identity until CRM creation is verified. This placeholder must never be sent as a CRM record ID. Existing pre-invoice opportunities and historical records are retained.
 
