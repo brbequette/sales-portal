@@ -3,6 +3,20 @@ import { withVoiceCallLock } from "@/lib/voice-call-lock"
 import { evidenceHash, readRetellCall, row, transferOutcome, type retellEvidence } from "@/lib/retell-evidence"
 
 type Evidence = ReturnType<typeof retellEvidence>
+export async function persistUnassignedRetellEvidence(evidence: Evidence, source: string, deliveryFingerprint: string) {
+  return withVoiceCallLock(`retell:${evidence.callId}`, async tx => {
+    const idempotencyKey = `retell-inbox:${evidence.callId}:${evidenceHash({ source, evidence, deliveryFingerprint })}`
+    const existing = await tx.operationalAction.findUnique({ where: { idempotencyKey } })
+    if (existing) return { replay: true }
+    await tx.operationalAction.create({ data: {
+      idempotencyKey, actionType: "RETELL_UNASSIGNED_EVIDENCE", entityType: "RETELL_CALL", entityId: evidence.callId,
+      status: "SUCCEEDED", completedAt: new Date(),
+      payload: { source, evidence, deliveryFingerprint, associationBasis: "UNRESOLVED" },
+      result: { inboxStored: true, accountAssigned: false, outboundActions: 0 },
+    } })
+    return { replay: false }
+  })
+}
 export async function confirmedRetellAssociation(retellCallId: string) {
   const matches = await prisma.operationalAction.findMany({ where: { actionType: "VOICE_MANUAL_ASSOCIATION", status: "SUCCEEDED", payload: { path: ["retellCallId"], equals: retellCallId } }, take: 2 })
   if (matches.length !== 1) return null
@@ -34,7 +48,11 @@ export async function persistRetellEvidence(evidence: Evidence, source: "API_REA
     } })
     const stored = await tx.operationalAction.findMany({ where: { actionType: "RETELL_CALL_EVIDENCE", entityId: call.id }, take: 501 })
     if (stored.length > 500) throw new Error("Evidence history requires review")
-    const events = stored.map(x => String(row(x.payload).source))
+    // Read unassigned evidence only after revalidating this exact association.
+    // The inbox remains immutable, retaining how identity was originally unknown.
+    const inbox = await tx.operationalAction.findMany({ where: { actionType: "RETELL_UNASSIGNED_EVIDENCE", entityType: "RETELL_CALL", entityId: evidence.callId }, take: 501 })
+    if (inbox.length > 500) throw new Error("Inbox history requires review")
+    const events = [...stored, ...inbox].map(x => String(row(x.payload).source))
     return { replay: !!old, callId: call.id, retellCallId: evidence.callId, transcript: evidence.transcript,
       transcriptAvailable: evidence.transcriptAvailable, recordingAvailable: evidence.recordingAvailable,
       associationBasis: "HUMAN_CONFIRMED", transferOutcome: transferOutcome(events, evidence.disconnectionReason),

@@ -1,7 +1,11 @@
 // @vitest-environment node
 import { afterEach, expect, it, vi } from "vitest"
-import { readRetellCall, retellEvidence, transferOutcome } from "./retell-evidence"
+import { readRetellCall, retellEvidence, transferOutcome, validRetellId } from "./retell-evidence"
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs() })
+it("accepts documented opaque identifiers while rejecting path injection", () => {
+  expect(validRetellId("Jabr9TXYYJHfvl6Syypi88rdAHYHmcq6")).toBe(true)
+  expect(validRetellId("../other")).toBe(false)
+})
 it("rejects mismatched exact IDs", () => {
   expect(() => retellEvidence({ call_id: "call_other", agent_id: "a" }, "call_test")).toThrow()
 })

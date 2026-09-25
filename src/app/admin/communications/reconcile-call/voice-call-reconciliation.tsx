@@ -11,6 +11,17 @@ export default function VoiceCallReconciliation() {
   const [callId, setCallId] = useState("")
   const [audioUrl, setAudioUrl] = useState("")
   const [retellResult, setRetellResult] = useState<{ transcript: string | null; transferOutcome: string; replay: boolean } | null>(null)
+  const [inbox, setInbox] = useState<Array<{ id: string; entityId: string; createdAt: string }> | null>(null)
+  async function loadInbox() {
+    if (busy) return
+    setBusy(true); setMessage("Loading recent unassigned evidence...")
+    try {
+      const response = await fetch("/api/admin/communications/retell-inbox", { cache: "no-store" })
+      if (!response.ok) throw new Error("Inbox unavailable")
+      const data = await response.json(); setInbox(data.records); setMessage("Recent evidence loaded. Confirm identity before applying an account association.")
+    } catch { setMessage("Could not load the evidence inbox. No association changed.") }
+    finally { setBusy(false) }
+  }
   async function syncRetell() {
     if (busy) return
     setBusy(true); setRetellResult(null); setMessage("Reading the exact Retell call and checking its audited association...")
@@ -72,6 +83,11 @@ export default function VoiceCallReconciliation() {
       <Button disabled={busy || !fields.retellCallId} onClick={syncRetell}>Verify and import Retell evidence for existing association</Button>
     </fieldset>
     <p role="status" aria-live="polite">{message}</p>
+    <Button disabled={busy} onClick={loadInbox}>View recent unassigned Retell events</Button>
+    {inbox && <section className="space-y-2 rounded border p-4"><h2>Recent unassigned evidence</h2><p>Latest 25 events that were unassigned when received. Audit entries remain after later reconciliation. Verify account identity before applying an association.</p>
+      {!inbox.length && <p>No unassigned events stored.</p>}
+      {inbox.map(item => <p key={item.id} className="break-all">{item.entityId} · {item.createdAt}</p>)}
+    </section>}
     {retellResult && <section className="space-y-2 rounded border p-4"><h2>Retell provider evidence</h2><p>Transfer outcome: {retellResult.transferOutcome}</p><p>Human answer and automated caller identity are not established by this import.</p><pre className="whitespace-pre-wrap">{retellResult.transcript || "Transcript not yet available; retry after provider processing."}</pre></section>}
     {preview && <section className="space-y-3 rounded border p-4">
       <h2>Confirm association with {preview.accountName}</h2>

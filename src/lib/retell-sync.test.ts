@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({ matches: vi.fn(), unique: vi.fn(), call: vi.fn
 vi.mock("@/lib/prisma", () => ({ prisma: { operationalAction: { findMany: mocks.matches } } }))
 vi.mock("@/lib/voice-call-lock", () => ({ withVoiceCallLock: (_id: string, work: (tx: unknown) => unknown) => work({ operationalAction: { findUnique: mocks.unique, create: mocks.create, findMany: mocks.history }, callLog: { findUnique: mocks.call } }) }))
 vi.mock("@/lib/retell-evidence", async importOriginal => ({ ...await importOriginal<typeof import("./retell-evidence")>(), readRetellCall: mocks.read }))
-import { persistRetellEvidence, reconcileRetellCall } from "./retell-sync"
+import { persistRetellEvidence, persistUnassignedRetellEvidence, reconcileRetellCall } from "./retell-sync"
 import { retellEvidence } from "./retell-evidence"
 const audit = { id: "audit", status: "SUCCEEDED", entityId: "local", accountId: "account", payload: { zohoCallId: "zoho", retellCallId: "call_test", contactId: "contact" } }
 const evidence = retellEvidence({ call_id: "call_test", agent_id: "agent", transcript: "Unknown blade size" }, "call_test")
@@ -39,4 +39,18 @@ it("rejects a changed account/contact inside the shared lock", async () => {
 it("retains contradictory events without relying on arrival order", async () => {
   mocks.history.mockResolvedValue([{ payload: { source: "transfer_cancelled" } }, { payload: { source: "transfer_bridged" } }])
   expect((await persistRetellEvidence(evidence, "API_READ", "admin")).transferOutcome).toBe("CONFLICTING_ATTEMPTS")
+})
+it("stores unmatched evidence without any account assignment and replays safely", async () => {
+  mocks.unique.mockResolvedValueOnce(null)
+  expect(await persistUnassignedRetellEvidence(evidence, "call_ended", "digest")).toEqual({ replay: false })
+  const data = mocks.create.mock.calls[0][0].data
+  expect(data.entityType).toBe("RETELL_CALL"); expect(data.accountId).toBeUndefined()
+  expect(data.payload.associationBasis).toBe("UNRESOLVED")
+  mocks.unique.mockResolvedValueOnce({ id: "existing" })
+  expect(await persistUnassignedRetellEvidence(evidence, "call_ended", "digest")).toEqual({ replay: true })
+  expect(mocks.create).toHaveBeenCalledOnce()
+})
+it("uses pre-association signed transfer evidence only after a confirmed match", async () => {
+  mocks.history.mockImplementation(({ where }) => Promise.resolve(where.actionType === "RETELL_UNASSIGNED_EVIDENCE" ? [{ payload: { source: "transfer_bridged" } }] : []))
+  expect((await persistRetellEvidence(evidence, "API_READ", "admin")).transferOutcome).toBe("DESTINATION_CONNECTED_NOT_HUMAN_VERIFIED")
 })
