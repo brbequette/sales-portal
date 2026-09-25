@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getAuthenticatedDbUser } from "@/lib/session-user"
 import { normalizeLeadInput, normalizeLeadPhone, validateLeadInput } from "@/lib/lead-intake"
+import { persistPortalLeadToCrm } from "@/lib/zoho-crm-lifecycle"
 
 export async function GET(req: Request) {
   try {
@@ -118,6 +119,19 @@ export async function POST(req: Request) {
           claimedAt: new Date(),
         }
       })
+    }
+
+    if (!id && !zohoId) {
+      const provider = await persistPortalLeadToCrm(lead.id)
+      const refreshedLead = await prisma.lead.findUnique({ where: { id: lead.id } })
+      return NextResponse.json({
+        success: provider.state === 'SUCCEEDED',
+        accepted: true,
+        providerState: provider.state,
+        providerCode: provider.code || null,
+        providerMessage: provider.message || null,
+        lead: refreshedLead,
+      }, { status: provider.state === 'SUCCEEDED' ? 201 : 202 })
     }
 
     return NextResponse.json({ success: true, lead })

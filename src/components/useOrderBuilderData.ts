@@ -13,6 +13,8 @@ export type OrderLine = {
   isPromo: boolean
   giftItem?: boolean
   subjectToVig?: boolean
+  itemId?: string
+  costQuality?: 'AUTHORITATIVE' | 'VERIFIED_ZERO' | 'UNKNOWN'
 }
 
 export interface UseOrderBuilderDataProps {
@@ -92,6 +94,20 @@ const SIGNATURE_FAMILIES = [
   "medusa", "spartan", "wizard", "zeus", "champion",
 ]
 
+export const TITAN_GIFT_HAT_BOOKS_ITEM_ID = "1254360000043727500"
+const TITAN_GIFT_HAT = { id: 'titan-gift-hat', zohoId: TITAN_GIFT_HAT_BOOKS_ITEM_ID, name: 'TRUCKER HAT - TITAN DIAMOND USA - WHS', sku: 'TRUCKER HAT - TITAN DIAMOND USA - WHS', price: 0, cost: 20, costQuality: 'AUTHORITATIVE', giftItem: true, subjectToVig: false, description: JSON.stringify({ cost: 20, itemId: TITAN_GIFT_HAT_BOOKS_ITEM_ID, status: 'active' }) }
+
+export function getBooksItemId(product: any): string | undefined {
+  const description = parseDesc(product?.description)
+  const value = product?.booksItemId || description.itemId || product?.zohoId
+  return value ? String(value) : undefined
+}
+
+function isAdministrativeCatalogProduct(product: any) {
+  const haystack = `${product?.name || ""} ${product?.sku || ""} ${product?.category || ""}`.toLowerCase()
+  return /\b(shipping|freight|discount|adjustment|credit|tax|payment|deposit|fee|tracking)\b/.test(haystack)
+}
+
 function isSignatureBlade(product: any) {
   const haystack = `${product?.name || ""} ${product?.category || ""}`.toLowerCase()
   return SIGNATURE_FAMILIES.some((family) => haystack.includes(family)) || /\bthe titan\b/.test(haystack)
@@ -166,6 +182,7 @@ export function useOrderBuilderData({
   const [fetchedPurchases, setFetchedPurchases] = useState<any[]>([])
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const submissionIdRef = useRef<string | null>(null)
 
   const orderLines = isControlled ? (externalOrderLines as OrderLine[]) : internalOrderLines
   const setOrderLines = isControlled ? (externalSetOrderLines as any) : setInternalOrderLines
@@ -204,6 +221,8 @@ export function useOrderBuilderData({
     
     setIsSubmitting(true)
     try {
+      const requestId = submissionIdRef.current || crypto.randomUUID()
+      submissionIdRef.current = requestId
       const paidLines = orderLines.filter(l => !l.isPromo)
       const orderTotal = paidLines.reduce((s, l) => s + l.quantity * l.unitPrice, 0)
       
@@ -214,7 +233,7 @@ export function useOrderBuilderData({
       const lineItems = orderLines.map((i) => ({
         name: i.name,
         sku: i.sku,
-        itemId: null,
+        itemId: i.itemId || null,
         rate: i.unitPrice,
         discount: 0,
         quantity: i.quantity,
@@ -235,6 +254,7 @@ export function useOrderBuilderData({
           items: itemsFormatted,
           lineItems: lineItems,
           processingNotes: `Order created via Standalone OrderBuilder (${transactionType})`,
+          requestId,
         }),
       })
 
@@ -247,11 +267,13 @@ export function useOrderBuilderData({
             : `${documentLabel} created successfully in Zoho Books.`
         )
         if (onSuccess) onSuccess()
+        submissionIdRef.current = null
         setShowMockOrder(false)
         if (!isControlled) setInternalOrderLines([])
       } else {
         const data = await res.json()
         toast.error(data.error || data.message || "Failed to create transaction")
+        if (res.status < 500 && res.status !== 202) submissionIdRef.current = null
       }
     } catch (e: any) {
       toast.error("Error: " + e.message)
@@ -283,7 +305,7 @@ export function useOrderBuilderData({
   }, [])
   
   // Pending Add Item State
-  const [pendingItem, setPendingItem] = useState<{name: string, sku: string, cost: number, defaultPrice: number, giftItem?: boolean, subjectToVig?: boolean} | null>(null)
+  const [pendingItem, setPendingItem] = useState<{name: string, sku: string, cost: number, defaultPrice: number, giftItem?: boolean, subjectToVig?: boolean, itemId?: string, costQuality?: 'AUTHORITATIVE' | 'VERIFIED_ZERO' | 'UNKNOWN'} | null>(null)
   const [addPaidQty, setAddPaidQty] = useState(1)
   const [addFreeQty, setAddFreeQty] = useState(0)
   const [addPrice, setAddPrice] = useState(0)
@@ -315,11 +337,13 @@ export function useOrderBuilderData({
           name: p.name as string,
           sku: p.sku as string,
           price: (p.price || 0) as number,
-          cost: (desc.cost || 0) as number,
+          cost: Number(p.unitCost ?? desc.cost ?? 0),
+          costQuality: (p.costQuality === 'VERIFIED_ZERO' || Number(p.unitCost ?? desc.cost) > 0) ? (p.costQuality === 'VERIFIED_ZERO' ? 'VERIFIED_ZERO' as const : 'AUTHORITATIVE' as const) : 'UNKNOWN' as const,
           application: matchApplication(p.name, p.category || ""),
           size: extractSize(p.name),
           type: matchType(p.name, p.category || ""),
-          subjectToVig: p.subjectToVig !== false
+          subjectToVig: p.subjectToVig !== false,
+          itemId: getBooksItemId(p),
         }
       })
       .sort((a, b) => Number(isSignatureBlade(b)) - Number(isSignatureBlade(a)) || a.name.localeCompare(b.name))
@@ -332,15 +356,19 @@ export function useOrderBuilderData({
     const cost = orderLines.reduce((sum, line) => sum + line.quantity * line.cost * (line.subjectToVig === false || line.giftItem ? 1 : vigRate), 0)
     const availableProfit = Math.max(0, subtotal - cost)
     const allowance = availableProfit * 0.2
-    return catalogProducts
+    const giftCatalog = catalogProducts.some(product => getBooksItemId(product) === TITAN_GIFT_HAT_BOOKS_ITEM_ID)
+      ? catalogProducts
+      : [...catalogProducts, TITAN_GIFT_HAT]
+    return giftCatalog
       .filter(product => {
         const desc = parseDesc(product.description)
-        const cost = Number(desc.cost || product.cost || 0)
-        return product.giftItem && desc.status !== "inactive" && cost <= allowance
+        const cost = Number(product.unitCost ?? desc.cost ?? product.cost ?? 0)
+        const isApprovedGift = product.giftItem || getBooksItemId(product) === TITAN_GIFT_HAT_BOOKS_ITEM_ID
+        return isApprovedGift && !isAdministrativeCatalogProduct(product) && desc.status !== "inactive" && cost <= allowance
       })
       .map(product => {
         const desc = parseDesc(product.description)
-        return { name: product.name, sku: product.sku, price: 0, cost: Number(desc.cost || product.cost || 0), giftItem: true, subjectToVig: false }
+        return { name: product.name, sku: product.sku, price: 0, cost: Number(product.unitCost ?? desc.cost ?? product.cost ?? 0), costQuality: 'AUTHORITATIVE' as const, giftItem: true, subjectToVig: false, itemId: getBooksItemId(product) }
       })
       .sort((a, b) => a.cost - b.cost)
       .slice(0, 10)
@@ -453,9 +481,14 @@ export function useOrderBuilderData({
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
-  const openAddItemModal = useCallback((p: { name: string; sku: string; price: number; cost: number; giftItem?: boolean; subjectToVig?: boolean }) => {
+  const openAddItemModal = useCallback((p: { name: string; sku: string; price: number; cost: number; giftItem?: boolean; subjectToVig?: boolean; itemId?: string; costQuality?: 'AUTHORITATIVE' | 'VERIFIED_ZERO' | 'UNKNOWN' }) => {
+    const costQuality = p.costQuality || (p.cost > 0 ? 'AUTHORITATIVE' : 'UNKNOWN')
+    if (costQuality === 'UNKNOWN') {
+      toast.error(`${p.sku || p.name} is blocked because authoritative cost is missing.`)
+      return
+    }
     const isGift = !!p.giftItem
-    setPendingItem({ name: p.name, sku: p.sku, defaultPrice: p.price, cost: p.cost, giftItem: isGift, subjectToVig: p.subjectToVig !== false })
+    setPendingItem({ name: p.name, sku: p.sku, defaultPrice: p.price, cost: p.cost, giftItem: isGift, subjectToVig: p.subjectToVig !== false, itemId: p.itemId, costQuality })
     setAddPaidQty(isGift ? 0 : 1)
     setAddFreeQty(isGift ? 1 : 0)
     setAddPrice(isGift ? 0 : p.price)
@@ -478,6 +511,8 @@ export function useOrderBuilderData({
         isPromo: false,
         giftItem: pendingItem.giftItem,
         subjectToVig: pendingItem.subjectToVig,
+        itemId: pendingItem.itemId,
+        costQuality: pendingItem.costQuality,
       })
     }
     
@@ -492,6 +527,8 @@ export function useOrderBuilderData({
         isPromo: true,
         giftItem: pendingItem.giftItem,
         subjectToVig: pendingItem.subjectToVig,
+        itemId: pendingItem.itemId,
+        costQuality: pendingItem.costQuality,
       })
     }
 
@@ -519,7 +556,7 @@ export function useOrderBuilderData({
     return catalogProducts
       .filter(p => {
         const desc = parseDesc(p.description)
-        return !p.giftItem && desc.status !== "inactive" && (
+        return !p.giftItem && !isAdministrativeCatalogProduct(p) && desc.status !== "inactive" && (
           p.name?.toLowerCase().includes(term) ||
           p.sku?.toLowerCase().includes(term) ||
           p.category?.toLowerCase().includes(term)

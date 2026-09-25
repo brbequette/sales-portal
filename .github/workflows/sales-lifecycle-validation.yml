@@ -1,0 +1,61 @@
+name: Sales lifecycle validation
+
+on:
+  pull_request:
+    paths:
+      - "prisma/**"
+      - "src/app/api/leads/**"
+      - "src/app/api/sync-now/**"
+      - "src/lib/zoho-crm-**"
+      - "src/lib/zoho-books-customer.ts"
+      - "src/components/OrderBuilder.tsx"
+      - "src/components/useOrderBuilderData*"
+      - "netlify/functions/create-books-contact.ts"
+      - "netlify/functions/create-transaction.ts"
+      - "src/lib/zoho-pagination.ts"
+      - "src/lib/sync-config.ts"
+      - "tests/zoho-**"
+      - ".github/workflows/sales-lifecycle-validation.yml"
+      - "scripts/test-sales-lifecycle-upgrade.ps1"
+  workflow_dispatch:
+
+jobs:
+  lifecycle-and-migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: lifecycle_ci
+          POSTGRES_PASSWORD: lifecycle_ci_password
+          POSTGRES_DB: lifecycle_chain
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U lifecycle_ci -d lifecycle_chain"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://lifecycle_ci:lifecycle_ci_password@localhost:5432/lifecycle_chain
+      PGPASSWORD: lifecycle_ci_password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: npm }
+      - run: npm ci
+      - name: Complete migration chain and idempotent redeploy
+        run: |
+          npx prisma validate
+          npx prisma generate
+          npx prisma migrate deploy
+          npx prisma migrate status
+          npx prisma migrate deploy
+          test "$(psql "$DATABASE_URL" -Atc 'SELECT count(*) FROM "_prisma_migrations" WHERE finished_at IS NULL OR rolled_back_at IS NOT NULL')" = "0"
+      - name: Production-schema upgrade rehearsal
+        shell: pwsh
+        run: ./scripts/test-sales-lifecycle-upgrade.ps1 -ConnectionString 'postgresql://lifecycle_ci:lifecycle_ci_password@localhost:5432/lifecycle_upgrade'
+      - name: Lifecycle and sync contracts
+        run: |
+          npx vitest run tests/zoho-incremental-filter.test.ts tests/zoho-pagination.test.ts tests/zoho-crm-response.test.ts
+          node tests/zoho-incremental-sync-contract.test.mjs
+          node tests/sales-lifecycle-provider-contract.test.mjs
+          npx vitest run src/components/useOrderBuilderData.test.tsx
+          npx tsc --noEmit --incremental false

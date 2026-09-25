@@ -6,6 +6,7 @@ import { Prisma } from '@prisma/client'
 import { getZohoAccessToken, ZOHO_ORGANIZATION_ID } from '@/lib/zoho-auth'
 import { isAdministratorRole } from '@/lib/roles'
 import { zohoBooksSinceParam, zohoCrmReadHeaders } from '@/lib/zoho-incremental-filter'
+import { fetchZohoPages } from '@/lib/zoho-pagination'
 import {
   getSyncConfig,
   getSyncStatus,
@@ -37,6 +38,7 @@ const ZOHO_DC = process.env.ZOHO_DC?.trim().replace(/^(["'])(.*)\1$/, '$2') || '
  */
 const TIMEOUT_MS = 55000;
 const BATCH_SIZE = 50;
+const PAGE_SIZE = 200;
 
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
@@ -50,18 +52,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Administrator access required' }, { status: 403 })
     }
 
-    const lock = await prisma.systemSetting.findUnique({ where: { key: 'sync_in_progress' } })
-    if (lock?.value === 'true') {
-      const lockTime = lock.updatedAt ? new Date(lock.updatedAt).getTime() : 0
-      if (Date.now() - lockTime < 10 * 60 * 1000) { // 10 min max lock
-        return NextResponse.json({ error: 'Sync already in progress' }, { status: 429 })
-      }
-    }
     await prisma.systemSetting.upsert({
       where: { key: 'sync_in_progress' },
-      update: { value: 'true' },
-      create: { key: 'sync_in_progress', value: 'true' }
+      update: {},
+      create: { key: 'sync_in_progress', value: 'false' }
     })
+    const staleBefore = new Date(Date.now() - 10 * 60 * 1000)
+    const claimedLock = await prisma.systemSetting.updateMany({
+      where: {
+        key: 'sync_in_progress',
+        OR: [{ value: { not: 'true' } }, { updatedAt: { lt: staleBefore } }],
+      },
+      data: { value: 'true' },
+    })
+    if (claimedLock.count !== 1) {
+      return NextResponse.json({ error: 'Sync already in progress' }, { status: 429 })
+    }
     lockAcquired = true;
 
     const body = await req.json().catch(() => ({}))
@@ -85,20 +91,18 @@ export async function POST(req: NextRequest) {
       } else {
         try {
           // Delta: only pull leads modified since last sync
-          const zRes = await fetch(
-            `https://www.zohoapis.${ZOHO_DC}/crm/v3/Leads?per_page=200&sort_by=Modified_Time&sort_order=desc`, { signal: AbortSignal.timeout(15000), headers: zohoCrmReadHeaders(token, tStatus.lastSyncAt) }
-          )
-
+          const pageResult = await fetchZohoPages<any>({
+            baseUrl: `https://www.zohoapis.${ZOHO_DC}/crm/v3/Leads?per_page=${PAGE_SIZE}&sort_by=Modified_Time&sort_order=desc`,
+            headers: zohoCrmReadHeaders(token, tStatus.lastSyncAt),
+            kind: 'crm',
+            selectRecords: payload => payload.data || [],
+            startedAt: startTime,
+            startPage: tStatus.continuationPage || 1,
+          })
           let syncedCount = 0;
-          let timeoutReached = false;
-          if (!zRes.ok) {
-            const errText = await zRes.text().catch(() => '')
-            console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
-            throw new Error(`Zoho API returned ${zRes.status}: ${errText.substring(0, 100)}`)
-          }
+          let incompleteReason = pageResult.incompleteReason;
           {
-            const zData = await zRes.json()
-            const zLeads = zData.data || []
+            const zLeads = pageResult.records
 
             const allUsers = await prisma.user.findMany({ select: { id: true, email: true, zohoId: true } })
             const userByZohoId = new Map(allUsers.filter(u => u.zohoId).map(u => [u.zohoId, u]))
@@ -107,7 +111,7 @@ export async function POST(req: NextRequest) {
 
             let batch: any[] = [];
             for (const zLead of zLeads) {
-              if (Date.now() - startTime > TIMEOUT_MS) { timeoutReached = true; break; }
+              if (Date.now() - startTime > TIMEOUT_MS) { incompleteReason = 'timeout while persisting page results'; break; }
               if (!zLead.id) continue
               const ownerZohoId = zLead.Owner?.id
               let localUser: any = null
@@ -144,15 +148,17 @@ export async function POST(req: NextRequest) {
               }));
               if (batch.length >= BATCH_SIZE) { await prisma.$transaction(batch); syncedCount += batch.length; batch = []; }
             }
+            if (batch.length) { await prisma.$transaction(batch); syncedCount += batch.length; }
           }
 
           await updateTableSyncStatus('leads', {
-            lastSyncAt: new Date().toISOString(),
+            ...(incompleteReason ? {} : { lastSyncAt: new Date().toISOString() }),
             lastCount: syncedCount,
-            lastError: null,
+            lastError: incompleteReason ? `${incompleteReason}; checkpoint preserved` : null,
+            continuationPage: incompleteReason ? (incompleteReason === pageResult.incompleteReason ? pageResult.nextPage : (tStatus.continuationPage || 1)) : null,
           })
           results.leads = { synced: syncedCount };
-          if (timeoutReached) { results.leads.error = 'timeout reached'; }
+          if (incompleteReason) { results.leads.error = incompleteReason; }
         } catch (err: any) {
           await updateTableSyncStatus('leads', { lastError: err.message })
           results.leads = { synced: 0, error: err.message }
@@ -173,20 +179,11 @@ export async function POST(req: NextRequest) {
         try {
           // Delta: only pull invoices modified since last sync
           const sinceParam = zohoBooksSinceParam(tStatus.lastSyncAt)
-          const zRes = await fetch(
-            `https://www.zohoapis.${ZOHO_DC}/books/v3/invoices?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
-          )
-
+          const pageResult = await fetchZohoPages<any>({ baseUrl: `https://www.zohoapis.${ZOHO_DC}/books/v3/invoices?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=${PAGE_SIZE}&sort_column=last_modified_time&sort_order=D${sinceParam}`, headers: { Authorization: `Zoho-oauthtoken ${token}` }, kind: 'books', selectRecords: payload => payload.invoices || [], startedAt: startTime, startPage: tStatus.continuationPage || 1 })
           let syncedCount = 0;
-          let timeoutReached = false;
-          if (!zRes.ok) {
-            const errText = await zRes.text().catch(() => '')
-            console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
-            throw new Error(`Zoho API returned ${zRes.status}: ${errText.substring(0, 100)}`)
-          }
+          let incompleteReason = pageResult.incompleteReason;
           {
-            const zData = await zRes.json()
-            const zInvoices = zData.invoices || []
+            const zInvoices = pageResult.records
 
             const allAccounts = await prisma.account.findMany({ select: { id: true, zohoId: true, name: true } })
             const accountByZohoId = new Map(allAccounts.filter(a => a.zohoId).map(a => [a.zohoId, a]))
@@ -197,7 +194,7 @@ export async function POST(req: NextRequest) {
 
             let batch: any[] = [];
             for (const inv of zInvoices) {
-              if (Date.now() - startTime > TIMEOUT_MS) { timeoutReached = true; break; }
+              if (Date.now() - startTime > TIMEOUT_MS) { incompleteReason = 'timeout while persisting page results'; break; }
               if (!inv.invoice_id) continue
 
               let localAccount = (inv.customer_id ? accountByZohoId.get(inv.customer_id) : null)
@@ -205,7 +202,7 @@ export async function POST(req: NextRequest) {
 
               const existingInv = invoiceByZohoId.get(inv.invoice_id)
               const accountId = localAccount?.id || existingInv?.accountId
-              if (!accountId) continue  // skip only if no account can be resolved at all
+              if (!accountId) { incompleteReason = 'unresolved invoice account dependency'; continue }
 
               const balStr = String(inv.balance ?? '0');
               const bal = parseFloat(balStr);
@@ -240,15 +237,17 @@ export async function POST(req: NextRequest) {
               }));
               if (batch.length >= BATCH_SIZE) { await prisma.$transaction(batch); syncedCount += batch.length; batch = []; }
             }
+            if (batch.length) { await prisma.$transaction(batch); syncedCount += batch.length; }
           }
 
           await updateTableSyncStatus('invoices', {
-            lastSyncAt: new Date().toISOString(),
+            ...(incompleteReason ? {} : { lastSyncAt: new Date().toISOString() }),
             lastCount: syncedCount,
-            lastError: null,
+            lastError: incompleteReason ? `${incompleteReason}; checkpoint preserved` : null,
+            continuationPage: incompleteReason ? (incompleteReason === pageResult.incompleteReason ? pageResult.nextPage : (tStatus.continuationPage || 1)) : null,
           })
           results.invoices = { synced: syncedCount };
-          if (timeoutReached) { results.invoices.error = 'timeout reached'; }
+          if (incompleteReason) { results.invoices.error = incompleteReason; }
         } catch (err: any) {
           await updateTableSyncStatus('invoices', { lastError: err.message })
           results.invoices = { synced: 0, error: err.message }
@@ -268,20 +267,11 @@ export async function POST(req: NextRequest) {
       } else {
         try {
           const sinceParam = zohoBooksSinceParam(tStatus.lastSyncAt)
-          const zRes = await fetch(
-            `https://www.zohoapis.${ZOHO_DC}/books/v3/salesorders?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
-          )
-
+          const pageResult = await fetchZohoPages<any>({ baseUrl: `https://www.zohoapis.${ZOHO_DC}/books/v3/salesorders?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=${PAGE_SIZE}&sort_column=last_modified_time&sort_order=D${sinceParam}`, headers: { Authorization: `Zoho-oauthtoken ${token}` }, kind: 'books', selectRecords: payload => payload.salesorders || [], startedAt: startTime, startPage: tStatus.continuationPage || 1 })
           let syncedCount = 0;
-          let timeoutReached = false;
-          if (!zRes.ok) {
-            const errText = await zRes.text().catch(() => '')
-            console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
-            throw new Error(`Zoho API returned ${zRes.status}: ${errText.substring(0, 100)}`)
-          }
+          let incompleteReason = pageResult.incompleteReason;
           {
-            const zData = await zRes.json()
-            const zOrders = zData.salesorders || []
+            const zOrders = pageResult.records
 
             const allAccounts = await prisma.account.findMany({ select: { id: true, zohoId: true, name: true } })
             const accountByZohoId = new Map(allAccounts.filter(a => a.zohoId).map(a => [a.zohoId, a]))
@@ -292,7 +282,7 @@ export async function POST(req: NextRequest) {
 
             let batch: any[] = [];
             for (const so of zOrders) {
-              if (Date.now() - startTime > TIMEOUT_MS) { timeoutReached = true; break; }
+              if (Date.now() - startTime > TIMEOUT_MS) { incompleteReason = 'timeout while persisting page results'; break; }
               if (!so.salesorder_id) continue
 
               let localAccount = (so.customer_id ? accountByZohoId.get(so.customer_id) : null)
@@ -300,7 +290,7 @@ export async function POST(req: NextRequest) {
 
               const existingSO = soByZohoId.get(so.salesorder_id)
               const soAccountId = localAccount?.id || existingSO?.accountId
-              if (!soAccountId) continue  // skip only if no account can be resolved at all
+              if (!soAccountId) { incompleteReason = 'unresolved sales-order account dependency'; continue }
 
               const totalStr = String(so.total ?? '0');
               const total = parseFloat(totalStr);
@@ -333,15 +323,17 @@ export async function POST(req: NextRequest) {
               }));
               if (batch.length >= BATCH_SIZE) { await prisma.$transaction(batch); syncedCount += batch.length; batch = []; }
             }
+            if (batch.length) { await prisma.$transaction(batch); syncedCount += batch.length; }
           }
 
           await updateTableSyncStatus('salesOrders', {
-            lastSyncAt: new Date().toISOString(),
+            ...(incompleteReason ? {} : { lastSyncAt: new Date().toISOString() }),
             lastCount: syncedCount,
-            lastError: null,
+            lastError: incompleteReason ? `${incompleteReason}; checkpoint preserved` : null,
+            continuationPage: incompleteReason ? (incompleteReason === pageResult.incompleteReason ? pageResult.nextPage : (tStatus.continuationPage || 1)) : null,
           })
           results.salesOrders = { synced: syncedCount };
-          if (timeoutReached) { results.salesOrders.error = 'timeout reached'; }
+          if (incompleteReason) { results.salesOrders.error = incompleteReason; }
         } catch (err: any) {
           await updateTableSyncStatus('salesOrders', { lastError: err.message })
           results.salesOrders = { synced: 0, error: err.message }
@@ -361,20 +353,18 @@ export async function POST(req: NextRequest) {
       } else {
         try {
           // Accounts come from Zoho CRM (not Books)
-          const zRes = await fetch(
-            `https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts?per_page=200&sort_by=Modified_Time&sort_order=desc`, { signal: AbortSignal.timeout(15000), headers: zohoCrmReadHeaders(token, tStatus.lastSyncAt) }
-          )
-
+          const pageResult = await fetchZohoPages<any>({
+            baseUrl: `https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts?per_page=${PAGE_SIZE}&sort_by=Modified_Time&sort_order=desc`,
+            headers: zohoCrmReadHeaders(token, tStatus.lastSyncAt),
+            kind: 'crm',
+            selectRecords: payload => payload.data || [],
+            startedAt: startTime,
+            startPage: tStatus.continuationPage || 1,
+          })
           let syncedCount = 0;
-          let timeoutReached = false;
-          if (!zRes.ok) {
-            const errText = await zRes.text().catch(() => '')
-            console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
-            throw new Error(`Zoho API returned ${zRes.status}: ${errText.substring(0, 100)}`)
-          }
+          let incompleteReason = pageResult.incompleteReason;
           {
-            const zData = await zRes.json()
-            const zAccounts = zData.data || []
+            const zAccounts = pageResult.records
 
             const ownerIds = Array.from(
               new Set(zAccounts.map((r: any) => r.Owner?.id).filter(Boolean))
@@ -386,10 +376,10 @@ export async function POST(req: NextRequest) {
 
             let batch: any[] = [];
             for (const record of zAccounts) {
-              if (Date.now() - startTime > TIMEOUT_MS) { timeoutReached = true; break; }
-              if (!record.Owner?.id) continue
+              if (Date.now() - startTime > TIMEOUT_MS) { incompleteReason = 'timeout while persisting page results'; break; }
+              if (!record.Owner?.id) { incompleteReason = 'unresolved account owner'; continue }
               const owner = ownerMap.get(record.Owner.id) as any
-              if (!owner?.id) continue
+              if (!owner?.id) { incompleteReason = 'unresolved account owner'; continue }
 
               const lastPurchaseDate = record.Last_Purchase_Date
                 ? new Date(record.Last_Purchase_Date)
@@ -424,15 +414,17 @@ export async function POST(req: NextRequest) {
               }));
               if (batch.length >= BATCH_SIZE) { await prisma.$transaction(batch); syncedCount += batch.length; batch = []; }
             }
+            if (batch.length) { await prisma.$transaction(batch); syncedCount += batch.length; }
           }
 
           await updateTableSyncStatus('accounts', {
-            lastSyncAt: new Date().toISOString(),
+            ...(incompleteReason ? {} : { lastSyncAt: new Date().toISOString() }),
             lastCount: syncedCount,
-            lastError: null,
+            lastError: incompleteReason ? `${incompleteReason}; checkpoint preserved` : null,
+            continuationPage: incompleteReason ? (incompleteReason === pageResult.incompleteReason ? pageResult.nextPage : (tStatus.continuationPage || 1)) : null,
           })
           results.accounts = { synced: syncedCount };
-          if (timeoutReached) { results.accounts.error = 'timeout reached'; }
+          if (incompleteReason) { results.accounts.error = incompleteReason; }
         } catch (err: any) {
           await updateTableSyncStatus('accounts', { lastError: err.message })
           results.accounts = { synced: 0, error: err.message }
@@ -452,24 +444,15 @@ export async function POST(req: NextRequest) {
       } else {
         try {
           const sinceParam = zohoBooksSinceParam(tStatus.lastSyncAt)
-          const zRes = await fetch(
-            `https://www.zohoapis.${ZOHO_DC}/books/v3/packages?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
-          )
-
+          const pageResult = await fetchZohoPages<any>({ baseUrl: `https://www.zohoapis.${ZOHO_DC}/books/v3/packages?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=${PAGE_SIZE}&sort_column=last_modified_time&sort_order=D${sinceParam}`, headers: { Authorization: `Zoho-oauthtoken ${token}` }, kind: 'books', selectRecords: payload => payload.packages || [], startedAt: startTime, startPage: tStatus.continuationPage || 1 })
           let syncedCount = 0;
-          let timeoutReached = false;
-          if (!zRes.ok) {
-            const errText = await zRes.text().catch(() => '')
-            console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
-            throw new Error(`Zoho API returned ${zRes.status}: ${errText.substring(0, 100)}`)
-          }
+          let incompleteReason = pageResult.incompleteReason;
           {
-            const zData = await zRes.json()
-            const zPackages = zData.packages || []
+            const zPackages = pageResult.records
 
             let batch: any[] = [];
             for (const pkg of zPackages) {
-              if (Date.now() - startTime > TIMEOUT_MS) { timeoutReached = true; break; }
+              if (Date.now() - startTime > TIMEOUT_MS) { incompleteReason = 'timeout while persisting page results'; break; }
               if (!pkg.package_id) continue
 
               const pkgData = {
@@ -491,15 +474,17 @@ export async function POST(req: NextRequest) {
               }));
               if (batch.length >= BATCH_SIZE) { await prisma.$transaction(batch); syncedCount += batch.length; batch = []; }
             }
+            if (batch.length) { await prisma.$transaction(batch); syncedCount += batch.length; }
           }
 
           await updateTableSyncStatus('packages' as any, {
-            lastSyncAt: new Date().toISOString(),
+            ...(incompleteReason ? {} : { lastSyncAt: new Date().toISOString() }),
             lastCount: syncedCount,
-            lastError: null,
+            lastError: incompleteReason ? `${incompleteReason}; checkpoint preserved` : null,
+            continuationPage: incompleteReason ? (incompleteReason === pageResult.incompleteReason ? pageResult.nextPage : (tStatus.continuationPage || 1)) : null,
           })
           results.packages = { synced: syncedCount };
-          if (timeoutReached) { results.packages.error = 'timeout reached'; }
+          if (incompleteReason) { results.packages.error = incompleteReason; }
         } catch (err: any) {
           await updateTableSyncStatus('packages' as any, { lastError: err.message })
           results.packages = { synced: 0, error: err.message }
@@ -519,24 +504,15 @@ export async function POST(req: NextRequest) {
       } else {
         try {
           const sinceParam = zohoBooksSinceParam(tStatus.lastSyncAt)
-          const zRes = await fetch(
-            `https://www.zohoapis.${ZOHO_DC}/books/v3/purchaseorders?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
-          )
-
+          const pageResult = await fetchZohoPages<any>({ baseUrl: `https://www.zohoapis.${ZOHO_DC}/books/v3/purchaseorders?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=${PAGE_SIZE}&sort_column=last_modified_time&sort_order=D${sinceParam}`, headers: { Authorization: `Zoho-oauthtoken ${token}` }, kind: 'books', selectRecords: payload => payload.purchaseorders || [], startedAt: startTime, startPage: tStatus.continuationPage || 1 })
           let syncedCount = 0;
-          let timeoutReached = false;
-          if (!zRes.ok) {
-            const errText = await zRes.text().catch(() => '')
-            console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
-            throw new Error(`Zoho API returned ${zRes.status}: ${errText.substring(0, 100)}`)
-          }
+          let incompleteReason = pageResult.incompleteReason;
           {
-            const zData = await zRes.json()
-            const zPurchaseOrders = zData.purchaseorders || []
+            const zPurchaseOrders = pageResult.records
 
             let batch: any[] = [];
             for (const po of zPurchaseOrders) {
-              if (Date.now() - startTime > TIMEOUT_MS) { timeoutReached = true; break; }
+              if (Date.now() - startTime > TIMEOUT_MS) { incompleteReason = 'timeout while persisting page results'; break; }
               if (!po.purchaseorder_id) continue
 
               const poData = {
@@ -560,15 +536,17 @@ export async function POST(req: NextRequest) {
               }));
               if (batch.length >= BATCH_SIZE) { await prisma.$transaction(batch); syncedCount += batch.length; batch = []; }
             }
+            if (batch.length) { await prisma.$transaction(batch); syncedCount += batch.length; }
           }
 
           await updateTableSyncStatus('purchaseOrders' as any, {
-            lastSyncAt: new Date().toISOString(),
+            ...(incompleteReason ? {} : { lastSyncAt: new Date().toISOString() }),
             lastCount: syncedCount,
-            lastError: null,
+            lastError: incompleteReason ? `${incompleteReason}; checkpoint preserved` : null,
+            continuationPage: incompleteReason ? (incompleteReason === pageResult.incompleteReason ? pageResult.nextPage : (tStatus.continuationPage || 1)) : null,
           })
           results.purchaseOrders = { synced: syncedCount };
-          if (timeoutReached) { results.purchaseOrders.error = 'timeout reached'; }
+          if (incompleteReason) { results.purchaseOrders.error = incompleteReason; }
         } catch (err: any) {
           await updateTableSyncStatus('purchaseOrders' as any, { lastError: err.message })
           results.purchaseOrders = { synced: 0, error: err.message }
@@ -588,20 +566,11 @@ export async function POST(req: NextRequest) {
       } else {
         try {
           const sinceParam = zohoBooksSinceParam(tStatus.lastSyncAt)
-          const zRes = await fetch(
-            `https://www.zohoapis.${ZOHO_DC}/books/v3/estimates?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
-          )
-
+          const pageResult = await fetchZohoPages<any>({ baseUrl: `https://www.zohoapis.${ZOHO_DC}/books/v3/estimates?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=${PAGE_SIZE}&sort_column=last_modified_time&sort_order=D${sinceParam}`, headers: { Authorization: `Zoho-oauthtoken ${token}` }, kind: 'books', selectRecords: payload => payload.estimates || [], startedAt: startTime, startPage: tStatus.continuationPage || 1 })
           let syncedCount = 0;
-          let timeoutReached = false;
-          if (!zRes.ok) {
-            const errText = await zRes.text().catch(() => '')
-            console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
-            throw new Error(`Zoho API returned ${zRes.status}: ${errText.substring(0, 100)}`)
-          }
+          let incompleteReason = pageResult.incompleteReason;
           {
-            const zData = await zRes.json()
-            const zEstimates = zData.estimates || []
+            const zEstimates = pageResult.records
 
             const allAccounts = await prisma.account.findMany({ select: { id: true, zohoId: true, name: true } })
             const accountByZohoId = new Map(allAccounts.filter(a => a.zohoId).map(a => [a.zohoId, a]))
@@ -612,7 +581,7 @@ export async function POST(req: NextRequest) {
 
             let batch: any[] = [];
             for (const est of zEstimates) {
-              if (Date.now() - startTime > TIMEOUT_MS) { timeoutReached = true; break; }
+              if (Date.now() - startTime > TIMEOUT_MS) { incompleteReason = 'timeout while persisting page results'; break; }
               if (!est.estimate_id) continue
 
               let localAccount = (est.customer_id ? accountByZohoId.get(est.customer_id) : null)
@@ -620,7 +589,7 @@ export async function POST(req: NextRequest) {
 
               const existingQuote = quoteByZohoId.get(est.estimate_id)
               const quoteAccountId = localAccount?.id || existingQuote?.accountId
-              if (!quoteAccountId) continue
+              if (!quoteAccountId) { incompleteReason = 'unresolved estimate account dependency'; continue }
 
               const totalStr = String(est.total ?? '0');
               const total = parseFloat(totalStr);
@@ -648,15 +617,17 @@ export async function POST(req: NextRequest) {
               }));
               if (batch.length >= BATCH_SIZE) { await prisma.$transaction(batch); syncedCount += batch.length; batch = []; }
             }
+            if (batch.length) { await prisma.$transaction(batch); syncedCount += batch.length; }
           }
 
           await updateTableSyncStatus('quotes' as any, {
-            lastSyncAt: new Date().toISOString(),
+            ...(incompleteReason ? {} : { lastSyncAt: new Date().toISOString() }),
             lastCount: syncedCount,
-            lastError: null,
+            lastError: incompleteReason ? `${incompleteReason}; checkpoint preserved` : null,
+            continuationPage: incompleteReason ? (incompleteReason === pageResult.incompleteReason ? pageResult.nextPage : (tStatus.continuationPage || 1)) : null,
           })
           results.quotes = { synced: syncedCount };
-          if (timeoutReached) { results.quotes.error = 'timeout reached'; }
+          if (incompleteReason) { results.quotes.error = incompleteReason; }
         } catch (err: any) {
           await updateTableSyncStatus('quotes' as any, { lastError: err.message })
           results.quotes = { synced: 0, error: err.message }
@@ -676,27 +647,18 @@ export async function POST(req: NextRequest) {
       } else {
         try {
           const sinceParam = zohoBooksSinceParam(tStatus.lastSyncAt)
-          const zRes = await fetch(
-            `https://www.zohoapis.${ZOHO_DC}/books/v3/customerpayments?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
-          )
-
+          const pageResult = await fetchZohoPages<any>({ baseUrl: `https://www.zohoapis.${ZOHO_DC}/books/v3/customerpayments?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=${PAGE_SIZE}&sort_column=last_modified_time&sort_order=D${sinceParam}`, headers: { Authorization: `Zoho-oauthtoken ${token}` }, kind: 'books', selectRecords: payload => payload.customerpayments || [], startedAt: startTime, startPage: tStatus.continuationPage || 1 })
           let syncedCount = 0;
-          let timeoutReached = false;
-          if (!zRes.ok) {
-            const errText = await zRes.text().catch(() => '')
-            console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
-            throw new Error(`Zoho API returned ${zRes.status}: ${errText.substring(0, 100)}`)
-          }
+          let incompleteReason = pageResult.incompleteReason;
           {
-            const zData = await zRes.json()
-            const zPayments = zData.customerpayments || []
+            const zPayments = pageResult.records
 
             const allInvoices = await prisma.invoice.findMany({ select: { id: true, zohoId: true } })
             const invoiceByZohoId = new Map(allInvoices.filter(i => i.zohoId).map(i => [i.zohoId, i]))
 
             let batch: any[] = [];
             for (const pmt of zPayments) {
-              if (Date.now() - startTime > TIMEOUT_MS) { timeoutReached = true; break; }
+              if (Date.now() - startTime > TIMEOUT_MS) { incompleteReason = 'timeout while persisting page results'; break; }
               if (!pmt.payment_id) continue
 
               const invoiceId = pmt.invoices?.[0]?.invoice_id || null
@@ -739,15 +701,17 @@ export async function POST(req: NextRequest) {
               }));
               if (batch.length >= BATCH_SIZE) { await prisma.$transaction(batch); syncedCount += batch.length; batch = []; }
             }
+            if (batch.length) { await prisma.$transaction(batch); syncedCount += batch.length; }
           }
 
           await updateTableSyncStatus('payments' as any, {
-            lastSyncAt: new Date().toISOString(),
+            ...(incompleteReason ? {} : { lastSyncAt: new Date().toISOString() }),
             lastCount: syncedCount,
-            lastError: null,
+            lastError: incompleteReason ? `${incompleteReason}; checkpoint preserved` : null,
+            continuationPage: incompleteReason ? (incompleteReason === pageResult.incompleteReason ? pageResult.nextPage : (tStatus.continuationPage || 1)) : null,
           })
           results.payments = { synced: syncedCount };
-          if (timeoutReached) { results.payments.error = 'timeout reached'; }
+          if (incompleteReason) { results.payments.error = incompleteReason; }
         } catch (err: any) {
           await updateTableSyncStatus('payments' as any, { lastError: err.message })
           results.payments = { synced: 0, error: err.message }
@@ -767,24 +731,15 @@ export async function POST(req: NextRequest) {
       } else {
         try {
           const sinceParam = zohoBooksSinceParam(tStatus.lastSyncAt)
-          const zRes = await fetch(
-            `https://www.zohoapis.${ZOHO_DC}/books/v3/contacts?organization_id=${ZOHO_ORGANIZATION_ID}&contact_type=vendor&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
-          )
-
+          const pageResult = await fetchZohoPages<any>({ baseUrl: `https://www.zohoapis.${ZOHO_DC}/books/v3/contacts?organization_id=${ZOHO_ORGANIZATION_ID}&contact_type=vendor&per_page=${PAGE_SIZE}&sort_column=last_modified_time&sort_order=D${sinceParam}`, headers: { Authorization: `Zoho-oauthtoken ${token}` }, kind: 'books', selectRecords: payload => payload.contacts || [], startedAt: startTime, startPage: tStatus.continuationPage || 1 })
           let syncedCount = 0;
-          let timeoutReached = false;
-          if (!zRes.ok) {
-            const errText = await zRes.text().catch(() => '')
-            console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
-            throw new Error(`Zoho API returned ${zRes.status}: ${errText.substring(0, 100)}`)
-          }
+          let incompleteReason = pageResult.incompleteReason;
           {
-            const zData = await zRes.json()
-            const zContacts = zData.contacts || []
+            const zContacts = pageResult.records
 
             let batch: any[] = [];
             for (const v of zContacts) {
-              if (Date.now() - startTime > TIMEOUT_MS) { timeoutReached = true; break; }
+              if (Date.now() - startTime > TIMEOUT_MS) { incompleteReason = 'timeout while persisting page results'; break; }
               if (!v.contact_id) continue
 
               const vendorData = {
@@ -802,15 +757,17 @@ export async function POST(req: NextRequest) {
               }));
               if (batch.length >= BATCH_SIZE) { await prisma.$transaction(batch); syncedCount += batch.length; batch = []; }
             }
+            if (batch.length) { await prisma.$transaction(batch); syncedCount += batch.length; }
           }
 
           await updateTableSyncStatus('vendors' as any, {
-            lastSyncAt: new Date().toISOString(),
+            ...(incompleteReason ? {} : { lastSyncAt: new Date().toISOString() }),
             lastCount: syncedCount,
-            lastError: null,
+            lastError: incompleteReason ? `${incompleteReason}; checkpoint preserved` : null,
+            continuationPage: incompleteReason ? (incompleteReason === pageResult.incompleteReason ? pageResult.nextPage : (tStatus.continuationPage || 1)) : null,
           })
           results.vendors = { synced: syncedCount };
-          if (timeoutReached) { results.vendors.error = 'timeout reached'; }
+          if (incompleteReason) { results.vendors.error = incompleteReason; }
         } catch (err: any) {
           await updateTableSyncStatus('vendors' as any, { lastError: err.message })
           results.vendors = { synced: 0, error: err.message }
@@ -830,32 +787,27 @@ export async function POST(req: NextRequest) {
       } else {
         try {
           const sinceParam = zohoBooksSinceParam(tStatus.lastSyncAt)
-          const zRes = await fetch(
-            `https://www.zohoapis.${ZOHO_DC}/books/v3/items?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
-          )
-
+          const pageResult = await fetchZohoPages<any>({ baseUrl: `https://www.zohoapis.${ZOHO_DC}/books/v3/items?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=${PAGE_SIZE}&sort_column=last_modified_time&sort_order=D${sinceParam}`, headers: { Authorization: `Zoho-oauthtoken ${token}` }, kind: 'books', selectRecords: payload => payload.items || [], startedAt: startTime, startPage: tStatus.continuationPage || 1 })
           let syncedCount = 0;
-          let timeoutReached = false;
-          if (!zRes.ok) {
-            const errText = await zRes.text().catch(() => '')
-            console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
-            throw new Error(`Zoho API returned ${zRes.status}: ${errText.substring(0, 100)}`)
-          }
+          let incompleteReason = pageResult.incompleteReason;
           {
-            const zData = await zRes.json()
-            const zItems = zData.items || []
+            const zItems = pageResult.records
 
             let batch: any[] = [];
             for (const item of zItems) {
-              if (Date.now() - startTime > TIMEOUT_MS) { timeoutReached = true; break; }
+              if (Date.now() - startTime > TIMEOUT_MS) { incompleteReason = 'timeout while persisting page results'; break; }
               if (!item.sku) continue
 
               const productData = {
+                booksItemId: String(item.item_id || '').trim() || null,
                 name: item.name || item.item_name,
                 description: item.description,
                 price: parseFloat(item.rate || item.price || 0),
                 category: item.group_name || 'General',
                 stock: parseInt(item.stock_on_hand || 0),
+                unitCost: Number.isFinite(Number(item.purchase_rate)) ? Number(item.purchase_rate) : null,
+                costQuality: Number(item.purchase_rate) > 0 ? 'AUTHORITATIVE' : 'UNKNOWN',
+                canDropship: typeof item.is_drop_shipment_enabled === 'boolean' ? item.is_drop_shipment_enabled : null,
               }
 
               batch.push(prisma.product.upsert({
@@ -865,15 +817,17 @@ export async function POST(req: NextRequest) {
               }));
               if (batch.length >= BATCH_SIZE) { await prisma.$transaction(batch); syncedCount += batch.length; batch = []; }
             }
+            if (batch.length) { await prisma.$transaction(batch); syncedCount += batch.length; }
           }
 
           await updateTableSyncStatus('products' as any, {
-            lastSyncAt: new Date().toISOString(),
+            ...(incompleteReason ? {} : { lastSyncAt: new Date().toISOString() }),
             lastCount: syncedCount,
-            lastError: null,
+            lastError: incompleteReason ? `${incompleteReason}; checkpoint preserved` : null,
+            continuationPage: incompleteReason ? (incompleteReason === pageResult.incompleteReason ? pageResult.nextPage : (tStatus.continuationPage || 1)) : null,
           })
           results.products = { synced: syncedCount };
-          if (timeoutReached) { results.products.error = 'timeout reached'; }
+          if (incompleteReason) { results.products.error = incompleteReason; }
         } catch (err: any) {
           await updateTableSyncStatus('products' as any, { lastError: err.message })
           results.products = { synced: 0, error: err.message }

@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { getZohoAccessToken } from "@/lib/zoho-auth"
 import { getAuthenticatedDbUser } from "@/lib/session-user"
-
-const ZOHO_DC = process.env.ZOHO_DC || "com"
+import { convertPersistedCrmLead, persistPortalLeadToCrm } from "@/lib/zoho-crm-lifecycle"
 
 export async function POST(req: Request) {
   try {
@@ -178,34 +176,24 @@ export async function POST(req: Request) {
       return account
     }, { isolationLevel: "Serializable" })
 
-    // Try converting in Zoho CRM if real Zoho Lead
-    if (lead?.zohoId && !lead.zohoId.startsWith("lead_local_")) {
-      try {
-        const token = await getZohoAccessToken()
-        await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Leads/${lead.zohoId}/actions/convert`, { signal: AbortSignal.timeout(15000),
-          method: "POST",
-          headers: {
-            Authorization: `Zoho-oauthtoken ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            data: [
-              {
-                overwrite: true,
-                notify_lead_owner: true,
-                notify_new_entity_owner: true,
-              },
-            ],
-          }),
-        })
-      } catch (e) {
-        console.error("Zoho Lead convert API error:", e)
-      }
+    const leadPersistence = lead.crmLeadId
+      ? { state: 'SUCCEEDED' as const }
+      : await persistPortalLeadToCrm(lead.id)
+    if (leadPersistence.state !== 'SUCCEEDED') {
+      return NextResponse.json({ success: false, accepted: true, accountId: newAccount.id, providerState: leadPersistence.state, providerMessage: leadPersistence.message || null }, { status: 202 })
+    }
+
+    const provider = await convertPersistedCrmLead(lead.id, newAccount.id)
+    if (provider.state !== 'SUCCEEDED') {
+      return NextResponse.json({ success: false, accepted: true, accountId: newAccount.id, providerState: provider.state, providerCode: provider.code || null, providerMessage: provider.message || null }, { status: 202 })
     }
 
     return NextResponse.json({
       success: true,
       accountId: newAccount.id,
+      providerState: provider.state,
+      crmAccountId: provider.crmAccountId,
+      crmContactId: provider.crmContactId || null,
       message: `Company '${targetCompanyName}' successfully converted to Account!`,
     })
   } catch (error: any) {
