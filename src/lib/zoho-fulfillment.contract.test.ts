@@ -34,6 +34,9 @@ describe('dropship purchase-order safety contract', () => {
   })
 
   it('guards purchase-order email by administrator, exact account contact, and durable idempotency', () => {
+    expect(source).toContain('action === "GetPurchaseOrderEmailStatus"')
+    expect(source).toContain('"Cache-Control": "no-store"')
+    expect(source).toContain('operation: "EMAIL_PURCHASE_ORDER", entityType: "PURCHASE_ORDER", entityId: purchaseOrderId')
     expect(source).toContain('action === "EmailPurchaseOrder"')
     expect(source).toContain('isAdministratorRole(sessionUser.role)')
     expect(source).toContain('Recipient must exactly match a contact on the linked account')
@@ -56,6 +59,9 @@ describe('dropship purchase-order safety contract', () => {
   it('exposes the guarded action only to admins and never automatically retries', () => {
     expect(modalSource).toContain('isAdmin && displayData.email')
     expect(modalSource).toContain("action: 'EmailPurchaseOrder'")
+    expect(modalSource).toContain("action: 'GetPurchaseOrderEmailStatus'")
+    expect(modalSource).toContain("cache: 'no-store'")
+    expect(modalSource).toContain("Checking email history...")
     expect(modalSource).toContain("if (status !== 'idle') return")
     expect(modalSource).toContain('The vendor will not be copied')
   })

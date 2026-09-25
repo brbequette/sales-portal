@@ -31,6 +31,37 @@ export const handler: Handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ success: false, message: "Missing required fields" }) }
     }
 
+    if (action === "GetPurchaseOrderEmailStatus") {
+      if (!isAdministratorRole(sessionUser.role)) {
+        return { statusCode: 403, body: JSON.stringify({ success: false, message: "Administrator access is required to inspect purchase-order email status." }) }
+      }
+      if (typeof purchaseOrderId !== "string" || !purchaseOrderId.trim()) {
+        return { statusCode: 400, body: JSON.stringify({ success: false, message: "Purchase order ID is required." }) }
+      }
+
+      const operation = await prisma.providerWriteOperation.findFirst({
+        where: { operation: "EMAIL_PURCHASE_ORDER", entityType: "PURCHASE_ORDER", entityId: purchaseOrderId },
+        orderBy: { createdAt: "desc" },
+      })
+      const operationRequestId = operation?.operationKey.startsWith("books:purchaseorders:email:")
+        ? operation.operationKey.slice("books:purchaseorders:email:".length)
+        : null
+      return {
+        statusCode: 200,
+        headers: { ...headers, "Cache-Control": "no-store" },
+        body: JSON.stringify({
+          success: true,
+          status: operation?.state || "NONE",
+          requestId: operationRequestId,
+          attemptCount: operation?.attemptCount || 0,
+          providerCode: operation?.providerCode || null,
+          providerMessage: operation?.providerMessage || null,
+          lastError: operation?.lastError || null,
+          completedAt: operation?.completedAt || null,
+        }),
+      }
+    }
+
     let token = await getZohoAccessToken()
     const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
 
@@ -129,6 +160,7 @@ export const handler: Handler = async (event) => {
           entityId: purchaseOrderId,
           operation: "EMAIL_PURCHASE_ORDER",
           requestFingerprint,
+          providerRecordIds: { purchaseOrderId, recipientContactId: approvedContact.id, recipientEmail },
         },
       })
       if (operation.requestFingerprint !== requestFingerprint) {
