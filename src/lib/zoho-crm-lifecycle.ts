@@ -28,7 +28,6 @@ export function buildCrmLeadCreatePayload(lead: any) {
     City: lead.city || undefined,
     State: lead.state || undefined,
     Zip_Code: lead.zip || undefined,
-    Owner: lead.owner?.zohoId ? { id: lead.owner.zohoId } : undefined,
   }
 }
 
@@ -64,7 +63,7 @@ async function completeLeadWrite(leadId: string, operationKey: string, crmLeadId
 
 /** Durable create with lookup-before-retry for an ambiguous prior submission. */
 export async function persistPortalLeadToCrm(leadId: string): Promise<ProviderResult> {
-  const lead = await prisma.lead.findUnique({ where: { id: leadId }, include: { owner: { select: { zohoId: true } } } })
+  const lead = await prisma.lead.findUnique({ where: { id: leadId } })
   if (!lead) throw new Error('Lead not found')
   if (lead.crmLeadId) return { state: 'SUCCEEDED', crmLeadId: lead.crmLeadId }
 
