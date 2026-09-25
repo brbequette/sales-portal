@@ -231,16 +231,21 @@ export function useInvoiceDetailsData({ invoice, type = "Invoice", onClose, invo
           targetType
         })
       })
+      const data = await res.json().catch(() => null)
       if (!res.ok) {
-        alert(`Server error (${res.status}) converting document.`)
+        const code = data?.code ? ` [${data.code}]` : ""
+        const state = data?.providerState ? `${data.providerState}: ` : ""
+        const message = data?.message || data?.error || `Server error (${res.status}) converting document.`
+        alert(`Conversion ${state}${message}${code}`)
         return
       }
-      const data = await res.json()
       if (data.success) {
-        alert(`Successfully converted to ${targetType}!`)
+        alert(data.alreadyProcessed
+          ? `This document was already converted to ${targetType}; no duplicate was created.`
+          : `Successfully converted to ${targetType}!`)
         onClose()
       } else {
-        alert(`Failed to convert: ${data.message || data.error}`)
+        alert(`Failed to convert: ${data?.message || data?.error || "Unknown provider response"}`)
       }
     } catch (e: any) {
       alert(`Error converting document: ${e.message}`)
