@@ -63,6 +63,7 @@ export async function reconcileInvoiceDeal(invoiceId: string) {
     }
     const invoices = await tx.invoice.findMany({ where: { dealId: deal.id } })
     if (invoices.some(i => i.accountId !== deal!.accountId)) throw new Error('CROSS_ACCOUNT_DEAL_LINK')
+    if (invoices.some(i => booksCustomerConflicts(object(i.items).customer_id, invoice.account))) throw new Error('BOOKS_CUSTOMER_ID_MISMATCH')
     const packages = await tx.package.findMany({ where: { salesOrderId: { in: invoices.map(i => i.salesOrderZohoId).filter((id): id is string => !!id) } } })
     const checklists = await tx.salesClosingChecklist.findMany({ where: { documentId: { in: invoices.flatMap(i => [i.id, i.zohoId]) } } })
     const stage = verifiedCompletion(invoices, packages, checklists) ? 'Complete' : dispositionDeal(invoices)!

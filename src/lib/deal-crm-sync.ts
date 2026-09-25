@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client'
 import { prisma } from './prisma'
 import { getZohoAccessToken, ZOHO_DC } from './zoho-auth'
 import { getDealPackage, object } from './deal-package'
-import { isCrmId } from './deal-lifecycle'
+import { isCrmId, booksCustomerConflicts } from './deal-lifecycle'
 
 export type DealSyncConfig = { enabled: boolean; identityField: string; stages: Record<string, string>; portalUrl: string; pipeline?: string }
 export const CONFIG_KEY = 'invoice_deal_sync_config'
@@ -91,6 +91,7 @@ const successId = (result: any) => {
 
 export async function syncDealToCrm(dealId: string, config: DealSyncConfig) {
   const pkg = await getDealPackage(dealId)
+  if (pkg.invoices.some(i => i.accountId !== pkg.account.id || booksCustomerConflicts(object(i.items).customer_id, pkg.account))) throw new Error('DEAL_PACKAGE_CUSTOMER_ID_MISMATCH')
   const deal = await prisma.deal.findUniqueOrThrow({ where: { id: dealId } })
   const previous = object(deal.rawData)._portalSync || {}
   const crmAccountId = pkg.account.crmAccountId
