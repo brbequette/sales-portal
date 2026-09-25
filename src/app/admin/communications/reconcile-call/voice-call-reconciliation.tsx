@@ -1,5 +1,6 @@
 "use client"
 import { useEffect, useState } from "react"
+import { Button } from "@/components/ui/button"
 import type { VoicePreview } from "@/lib/voice-call-preview"
 
 export default function VoiceCallReconciliation() {
@@ -46,14 +47,15 @@ export default function VoiceCallReconciliation() {
     finally { setBusy(false) }
   }
   const labels = { zohoCallId: "Zoho Voice call ID", retellCallId: "Retell call reference (human-confirmed)", accountId: "Portal account ID", contactId: "Portal contact ID (optional)", taskId: "Existing CRM task ID", reason: "Human-confirmed association reason" }
-  return <div className="page-content max-w-3xl space-y-4">
+  return <div className="page-content"><div className="w-full max-w-3xl flex-none space-y-4 p-4 md:p-6">
     <h1 className="page-title">Reconcile one voice call</h1>
     <p>Preview one provider call, then save its confirmed account association. Local apply preserves the existing task. A separate action synchronizes the native CRM call with duplicate protection; no messages are sent.</p>
     <fieldset disabled={busy} className="space-y-3">
       {(Object.keys(labels) as Array<keyof typeof labels>).map(key => <label key={key} className="block">{labels[key]}
-        <input className="block w-full rounded border p-2 bg-transparent" value={fields[key]} onChange={event => { setFields({ ...fields, [key]: event.target.value }); setPreview(null); setCallId(""); setAudioUrl("") }} />
+        {key === "reason" ? <textarea rows={4} className="block w-full rounded border p-2 bg-transparent" value={fields[key]} onChange={event => { setFields({ ...fields, [key]: event.target.value }); setPreview(null); setCallId(""); setAudioUrl("") }} /> :
+          <input className="block w-full rounded border p-2 bg-transparent" value={fields[key]} onChange={event => { setFields({ ...fields, [key]: event.target.value }); setPreview(null); setCallId(""); setAudioUrl("") }} />}
       </label>)}
-      <button onClick={() => submit("preview")} className="btn-primary">{busy ? "Working…" : "Preview exact call"}</button>
+      <Button disabled={busy} variant="primary" onClick={() => submit("preview")}>{busy ? "Working…" : "Preview exact call"}</Button>
     </fieldset>
     <p role="status" aria-live="polite">{message}</p>
     {preview && <section className="space-y-3 rounded border p-4">
@@ -64,9 +66,9 @@ export default function VoiceCallReconciliation() {
       <p>Recording: {preview.preview.evidence.recordingFilename ? "Provider filename available; playback requires verification" : "Unavailable; filename will not be guessed"}</p>
       <pre className="whitespace-pre-wrap">{preview.preview.transcript}</pre>
       <p>{preview.preview.reason}</p>
-      <button disabled={busy} className="btn-primary" onClick={() => submit("apply")}>{busy ? "Saving…" : "Apply confirmed association"}</button>
+      <Button disabled={busy} variant="primary" onClick={() => submit("apply")}>{busy ? "Saving…" : "Apply confirmed association"}</Button>
     </section>}
-    {callId && <section><p>Portal call ID: {callId}</p><button disabled={busy} onClick={play}>Load protected recording</button><button disabled={busy} onClick={syncCrm}>Sync or verify native CRM call</button></section>}
-    {audioUrl && <audio controls src={audioUrl} />}
-  </div>
+    {callId && <section className="space-y-3"><p className="break-all">Portal call ID: {callId}</p><div className="flex flex-wrap gap-3"><Button disabled={busy} onClick={play}>Load protected recording</Button><Button disabled={busy} variant="primary" onClick={syncCrm}>Sync or verify native CRM call</Button></div></section>}
+    {audioUrl && <audio aria-label="Verified Zoho call recording" controls src={audioUrl} style={{ width: "100%", height: 54, minHeight: 54 }} />}
+  </div></div>
 }
