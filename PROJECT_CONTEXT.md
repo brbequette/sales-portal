@@ -1,5 +1,9 @@
 # Titan Diamond — Consolidated Project Context
 
+## Created-deal readback acceptance (2026-09-25)
+
+- Initial queue acceptance found Zoho accepted new Deals but its search index did not expose them immediately. The scheduler was paused; exact unique-ID searches subsequently proved one matching record per attempted create, with no duplicate creates. The write audit now persists the returned provider record ID before verification and reads newly accepted records directly by ID. Ambiguous historical creates are reconciled through reads before continuing, and missing known CRM IDs cannot trigger replacement creation.
+
 ## Shared-deal identity boundary (2026-09-25)
 
 - Reconciliation checks Books customer identity on every invoice in a shared deal, and the CRM write boundary independently rejects conflicting packages. This prevents an otherwise valid sibling invoice from publishing another customer's data. The guarded CRM canary and replay passed; full historical activation still requires production publication and queue acceptance.
