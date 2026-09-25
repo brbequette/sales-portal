@@ -36,7 +36,7 @@ function fingerprint(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex')
 }
 
-async function lookupAcceptedLead(email: string | null, company: string, token: string): Promise<string | null> {
+export async function lookupAcceptedLead(email: string | null, company: string, token: string): Promise<string | null> {
   if (!email) return null
   const criteria = encodeURIComponent(`(Email:equals:${email})`)
   const response = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Leads/search?criteria=${criteria}&fields=id,Company,Email`, {

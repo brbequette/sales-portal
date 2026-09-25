@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { buildCrmLeadCreatePayload } from './zoho-crm-lifecycle'
+import { describe, expect, it, vi } from 'vitest'
+import { buildCrmLeadCreatePayload, lookupAcceptedLead } from './zoho-crm-lifecycle'
 import { interpretCrmWriteResponse } from './zoho-crm-response'
 
 describe('CRM lead reconciliation create payload', () => {
@@ -17,5 +17,22 @@ describe('CRM write diagnostics', () => {
     expect(interpretCrmWriteResponse(400, {
       data: [{ status: 'error', code: 'INVALID_DATA', message: 'invalid data', details: { api_name: 'Owner' } }],
     })).toEqual({ ok: false, code: 'INVALID_DATA', message: 'invalid data (field: Owner) Missing returned record ID.' })
+  })
+})
+
+describe('CRM lead reconciliation lookup', () => {
+  it('requires one exact email and company match and never accepts company-only evidence', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: [
+        { id: 'wrong-email', Company: 'TEST Incorporated - Lifecycle 20260924', Email: 'other@example.com' },
+        { id: 'exact', Company: 'TEST Incorporated - Lifecycle 20260924', Email: 'ben@titandiamond.net' },
+      ] }),
+    }))
+
+    await expect(lookupAcceptedLead('ben@titandiamond.net', 'TEST Incorporated - Lifecycle 20260924', 'token')).resolves.toBe('exact')
+    await expect(lookupAcceptedLead(null, 'TEST Incorporated - Lifecycle 20260924', 'token')).resolves.toBeNull()
+    expect(fetch).toHaveBeenCalledTimes(1)
   })
 })

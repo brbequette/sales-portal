@@ -95,7 +95,7 @@ const SIGNATURE_FAMILIES = [
 ]
 
 export const TITAN_GIFT_HAT_BOOKS_ITEM_ID = "1254360000043727500"
-const TITAN_GIFT_HAT = { id: 'titan-gift-hat', zohoId: TITAN_GIFT_HAT_BOOKS_ITEM_ID, name: 'TRUCKER HAT - TITAN DIAMOND USA - WHS', sku: 'TRUCKER HAT - TITAN DIAMOND USA - WHS', price: 0, cost: 20, costQuality: 'AUTHORITATIVE', giftItem: true, subjectToVig: false, description: JSON.stringify({ cost: 20, itemId: TITAN_GIFT_HAT_BOOKS_ITEM_ID, status: 'active' }) }
+export const TITAN_GIFT_HAT = { id: 'titan-gift-hat', zohoId: TITAN_GIFT_HAT_BOOKS_ITEM_ID, name: 'TRUCKER HAT - TITAN DIAMOND USA - WHS', sku: 'TRUCKER HAT - TITAN DIAMOND USA - WHS', price: 0, cost: 20, costQuality: 'AUTHORITATIVE', giftItem: true, subjectToVig: false, description: JSON.stringify({ cost: 20, itemId: TITAN_GIFT_HAT_BOOKS_ITEM_ID, status: 'active' }) }
 
 export function getBooksItemId(product: any): string | undefined {
   const description = parseDesc(product?.description)
