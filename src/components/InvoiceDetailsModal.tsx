@@ -7,6 +7,7 @@ import { createPortal } from "react-dom"
 import Link from "next/link"
 import { FiFileText, FiDatabase, FiRefreshCw, FiBox, FiTruck, FiDownload, FiMail, FiDollarSign, FiXCircle, FiCheckCircle, FiSlash, FiSend, FiCheck, FiCpu, FiChevronLeft, FiChevronRight, FiCheckSquare, FiExternalLink, FiMapPin, FiSliders, FiUser } from "react-icons/fi"
 import { getZohoBooksUrl } from "@/lib/zoho-urls"
+import { buildDocumentLifecycleRefreshToken } from "@/lib/document-lifecycle"
 import { CreatePackageModal } from "./CreatePackageModal"
 import { CreateDropshipmentModal } from "./CreateDropshipmentModal"
 import { RecordPaymentModal } from "./RecordPaymentModal"
@@ -991,6 +992,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 <DocumentLifecycle 
                   zohoId={zohoId} 
                   type={currentType} 
+                  refreshToken={buildDocumentLifecycleRefreshToken(displayData.dropshipments)}
                   onNavigateDoc={(navType, navId) => {
                     setInternalInvoiceOverride(navId)
                     setInternalTypeOverride(navType)

@@ -8,16 +8,17 @@ import { getZohoBooksUrl } from "@/lib/zoho-urls"
 interface DocumentLifecycleProps {
   zohoId: string
   type: 'Invoice' | 'SalesOrder' | 'Quote'
+  refreshToken?: string
   onNavigateDoc?: (type: 'Quote' | 'SalesOrder' | 'Invoice', id: string) => void
 }
 
-export function DocumentLifecycle({ zohoId, type, onNavigateDoc }: DocumentLifecycleProps) {
+export function DocumentLifecycle({ zohoId, type, refreshToken, onNavigateDoc }: DocumentLifecycleProps) {
   const [lifecycle, setLifecycle] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetchLifecycle()
-  }, [zohoId])
+  }, [zohoId, type, refreshToken])
 
   const fetchLifecycle = async () => {
     try {
