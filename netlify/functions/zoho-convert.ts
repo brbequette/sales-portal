@@ -214,6 +214,10 @@ export const handler: Handler = async (event, context) => {
     })
 
     if (dbAccount) {
+      const syncedAt = new Date()
+      const providerModifiedAt = data[resultKey]?.last_modified_time
+        ? new Date(data[resultKey].last_modified_time)
+        : syncedAt
       if (targetType === "SalesOrder") {
         await prisma.salesOrder.create({
           data: {
@@ -222,7 +226,12 @@ export const handler: Handler = async (event, context) => {
             amount: data[resultKey].total || 0,
             status: "Pending",
             orderDate: data[resultKey].date ? new Date(data[resultKey].date) : new Date(),
-            items: { ...(data[resultKey] || {}), line_items: data[resultKey]?.line_items || originalData?.line_items || [] }
+            items: { ...(data[resultKey] || {}), line_items: data[resultKey]?.line_items || originalData?.line_items || [] },
+            rawData: data[resultKey] || {},
+            zohoModifiedTime: providerModifiedAt,
+            lastZohoModifiedTime: providerModifiedAt,
+            lastSyncedAt: syncedAt,
+            appModifiedAt: syncedAt,
           }
         })
       } else if (targetType === "Invoice") {
@@ -233,7 +242,12 @@ export const handler: Handler = async (event, context) => {
             amount: data[resultKey].total || 0,
             status: "Draft",
             issueDate: data[resultKey].date ? new Date(data[resultKey].date) : (originalData?.date ? new Date(originalData.date) : new Date()),
-            items: []
+            items: data[resultKey] || {},
+            rawData: data[resultKey] || {},
+            zohoModifiedTime: providerModifiedAt,
+            lastZohoModifiedTime: providerModifiedAt,
+            lastSyncedAt: syncedAt,
+            appModifiedAt: syncedAt,
           }
         })
       }

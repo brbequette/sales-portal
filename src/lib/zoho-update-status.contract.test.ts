@@ -4,6 +4,15 @@ import { describe, expect, it } from 'vitest'
 const handler = readFileSync('netlify/functions/zoho-update-status.ts', 'utf8')
 
 describe('Zoho quote status transition contract', () => {
+  it('adopts a missing conversion baseline only from the exact successful conversion audit', () => {
+    expect(handler).toContain('async function adoptVerifiedConversionBaseline')
+    expect(handler).toContain('remote.estimate_id')
+    expect(handler).toContain('books:document:convert:Quote:${sourceQuote.id}:SalesOrder')
+    expect(handler).toContain("operation?.state !== 'SUCCEEDED'")
+    expect(handler).toContain("String(providerIds?.newDocumentId || '') !== String(salesOrder.zohoId)")
+    expect(handler).toContain('const reconciledSalesOrder = await adoptVerifiedConversionBaseline(dbSalesOrder, token, baseUrl)')
+  })
+
   it('moves a draft quote through sent before accepted without emailing it', () => {
     expect(handler).toContain("if (currentStatus === 'draft')")
     expect(handler).toContain("await postStatus('sent')")
