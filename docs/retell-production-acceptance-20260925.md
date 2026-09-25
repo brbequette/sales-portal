@@ -37,6 +37,14 @@ Original-caller provider-leg correlation, duplicate recording-notice cleanup, ne
 - https://docs.retellai.com/features/webhook-overview
 
 
-## Durable unassigned inbox follow-up (local, release pending)
+## Durable unassigned inbox follow-up (published and accepted)
 
 Acceptance review identified that acknowledging unmatched events without storing them would lose pre-association transfer evidence. The follow-up stores sanitized signed events in an immutable RETELL_UNASSIGNED_EVIDENCE inbox under a Retell-call advisory lock and unique fingerprint. No account/contact, task or CRM write is made. Later confirmed exact-ID reconciliation also reads this inbox, preserving transfer events regardless of association timing. Administrators can inspect the 25 latest unassigned-at-receipt audit entries through a database-only endpoint. Retryable database errors do not receive success acknowledgement. This supersedes the initial discard design when deployed.
+
+PR #124 merged as `4a45432da531df396a76ffb7bebf51bfe91d7869`. Netlify deploy `6ab6a488f973dd00083360e1` published successfully; build ended at 2026-09-25 16:50:11 UTC. GitHub run `36161818731`, preview deployment, and 42 focused tests against the combined production source passed. Voice changes require no migration; other changes in this combined release have their own migration requirements.
+
+The signed Retell dashboard test returned success and independently persisted action `cmuh77be90001skeq8gca69pd`, provider ID `test_call`, source `call_started`, at `2026-09-25T16:51:43.857Z`. Account ID is null; no recording URL is stored. The production admin inbox displayed the same provider ID and timestamp after visible loading/success feedback. This verifies actual signed test delivery and persistence, not a fresh real telephone call or human-answered transfer. The original associated evidence count remains one.
+
+Runtime credential diagnosis reproduced HTTP 401 OAUTH_SCOPE_MISMATCH using the unexpired shared Zoho token cache. The already-consented credentials produced a fresh token that passed CRM Calls metadata, Books and Inventory reads; only the shared cache was replaced. Independent post-deploy cache verification returned HTTP 200 and 37 Calls fields. No new consent or business-record change was needed. Warm function memory was replaced by the final deploy.
+
+Two unpublished queued deployments (`6ab6a35d70276e00084a8eff`, `6ab6a42a86c24700081b74e8`) were cancelled after verifying their source commits are ancestors of the final combined release. Their application changes remain included. No additional paid calls, messages, financial transactions or outbound automation were initiated by this voice verification work. Historical cumulative spending still requires reconciliation before paid acceptance calls.
