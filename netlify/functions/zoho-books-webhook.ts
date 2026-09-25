@@ -413,6 +413,7 @@ export const handler: Handler = async (event) => {
       reference_number:       doc.reference_number || currentItems.reference_number,
       date:                   doc.date || currentItems.date,
       zcrm_potential_id:      doc.zcrm_potential_id ?? currentItems.zcrm_potential_id,
+      customer_id:            doc.customer_id ?? currentItems.customer_id,
       zcrm_potential_name:    doc.zcrm_potential_name ?? currentItems.zcrm_potential_name,
       line_items:             doc.line_items    || currentItems.line_items    || [],
       custom_fields:          doc.custom_fields || currentItems.custom_fields || [],
