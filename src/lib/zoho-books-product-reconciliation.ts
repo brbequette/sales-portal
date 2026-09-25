@@ -71,7 +71,10 @@ export async function reconcileExactBooksProduct(sku: string, booksItemId?: stri
     return { state: 'FAILED', sku: exactSku, dropshipEligibility: 'BLOCKED_UNKNOWN', message: 'The exact preferred vendor was not verified as an active Books vendor.' }
   }
 
-  const explicitDropship = item?.is_drop_shipment_enabled === true
+  // Books exposes transaction-level drop-shipment fields on purchase orders,
+  // not an authoritative item eligibility flag. Preserve an audited local
+  // business authorization instead of inventing or clearing provider evidence.
+  const locallyAuthorizedDropship = products[0].canDropship === true
   await prisma.product.update({
     where: { id: products[0].id },
     data: {
@@ -80,12 +83,14 @@ export async function reconcileExactBooksProduct(sku: string, booksItemId?: stri
       unitCost: purchaseRate,
       costQuality: 'AUTHORITATIVE',
       vendor: preferredVendorId,
-      canDropship: explicitDropship ? true : null,
+      canDropship: locallyAuthorizedDropship ? true : null,
     },
   })
   return {
     state: 'SUCCEEDED', productId: products[0].id, sku: exactSku, costQuality: 'AUTHORITATIVE',
-    dropshipEligibility: explicitDropship ? 'AUTHORIZED' : 'BLOCKED_UNKNOWN',
-    message: explicitDropship ? 'Product and explicit dropship eligibility reconciled.' : 'Product financials and preferred vendor reconciled; dropship remains blocked because Books supplied no authoritative eligibility flag.',
+    dropshipEligibility: locallyAuthorizedDropship ? 'AUTHORIZED' : 'BLOCKED_UNKNOWN',
+    message: locallyAuthorizedDropship
+      ? 'Product financials and preferred vendor reconciled; audited application-managed dropship authorization was preserved.'
+      : 'Product financials and preferred vendor reconciled; dropship remains blocked pending audited application-managed business authorization.',
   }
 }
