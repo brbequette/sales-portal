@@ -94,6 +94,13 @@ const SIGNATURE_FAMILIES = [
 ]
 
 export const TITAN_GIFT_HAT_BOOKS_ITEM_ID = "1254360000043727500"
+const TITAN_GIFT_HAT = { id: 'titan-gift-hat', zohoId: TITAN_GIFT_HAT_BOOKS_ITEM_ID, name: 'TRUCKER HAT - TITAN DIAMOND USA - WHS', sku: 'TRUCKER HAT - TITAN DIAMOND USA - WHS', price: 0, cost: 20, giftItem: true, subjectToVig: false, description: JSON.stringify({ cost: 20, itemId: TITAN_GIFT_HAT_BOOKS_ITEM_ID, status: 'active' }) }
+
+export function getBooksItemId(product: any): string | undefined {
+  const description = parseDesc(product?.description)
+  const value = product?.booksItemId || description.itemId || product?.zohoId
+  return value ? String(value) : undefined
+}
 
 function isAdministrativeCatalogProduct(product: any) {
   const haystack = `${product?.name || ""} ${product?.sku || ""} ${product?.category || ""}`.toLowerCase()
@@ -329,12 +336,12 @@ export function useOrderBuilderData({
           name: p.name as string,
           sku: p.sku as string,
           price: (p.price || 0) as number,
-          cost: (desc.cost || 0) as number,
+          cost: Number(p.unitCost ?? desc.cost ?? 0),
           application: matchApplication(p.name, p.category || ""),
           size: extractSize(p.name),
           type: matchType(p.name, p.category || ""),
           subjectToVig: p.subjectToVig !== false,
-          itemId: p.zohoId,
+          itemId: getBooksItemId(p),
         }
       })
       .sort((a, b) => Number(isSignatureBlade(b)) - Number(isSignatureBlade(a)) || a.name.localeCompare(b.name))
@@ -347,16 +354,19 @@ export function useOrderBuilderData({
     const cost = orderLines.reduce((sum, line) => sum + line.quantity * line.cost * (line.subjectToVig === false || line.giftItem ? 1 : vigRate), 0)
     const availableProfit = Math.max(0, subtotal - cost)
     const allowance = availableProfit * 0.2
-    return catalogProducts
+    const giftCatalog = catalogProducts.some(product => getBooksItemId(product) === TITAN_GIFT_HAT_BOOKS_ITEM_ID)
+      ? catalogProducts
+      : [...catalogProducts, TITAN_GIFT_HAT]
+    return giftCatalog
       .filter(product => {
         const desc = parseDesc(product.description)
-        const cost = Number(desc.cost || product.cost || 0)
-        const isApprovedGift = product.giftItem || String(product.zohoId || '') === TITAN_GIFT_HAT_BOOKS_ITEM_ID
+        const cost = Number(product.unitCost ?? desc.cost ?? product.cost ?? 0)
+        const isApprovedGift = product.giftItem || getBooksItemId(product) === TITAN_GIFT_HAT_BOOKS_ITEM_ID
         return isApprovedGift && !isAdministrativeCatalogProduct(product) && desc.status !== "inactive" && cost <= allowance
       })
       .map(product => {
         const desc = parseDesc(product.description)
-        return { name: product.name, sku: product.sku, price: 0, cost: Number(desc.cost || product.cost || 0), giftItem: true, subjectToVig: false, itemId: product.zohoId }
+        return { name: product.name, sku: product.sku, price: 0, cost: Number(product.unitCost ?? desc.cost ?? product.cost ?? 0), giftItem: true, subjectToVig: false, itemId: getBooksItemId(product) }
       })
       .sort((a, b) => a.cost - b.cost)
       .slice(0, 10)

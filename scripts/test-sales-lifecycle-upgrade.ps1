@@ -16,6 +16,7 @@ INSERT INTO "User" ("id","email","name","updatedAt") VALUES ('lifecycle-user','l
 INSERT INTO "Account" ("id","zohoId","name","ownerId","updatedAt") VALUES ('lifecycle-account','acc_from_lead_local_fixture','Lifecycle Fixture','lifecycle-user',NOW());
 INSERT INTO "Contact" ("id","zohoId","accountId","firstName","lastName","updatedAt") VALUES ('lifecycle-contact','cnt_lifecycle-account','lifecycle-account','Fixture','Contact',NOW());
 INSERT INTO "Lead" ("id","zohoId","company","ownerId","updatedAt","convertedAccountId") VALUES ('lifecycle-lead','lead_local_fixture','Lifecycle Fixture','lifecycle-user',NOW(),'lifecycle-account');
+INSERT INTO "Product" ("id","sku","name","price","updatedAt") VALUES ('lifecycle-product','LIFECYCLE-SKU','Lifecycle Product',1.25,NOW());
 '@
 $fixtures | & psql $ConnectionString -v ON_ERROR_STOP=1
 if ($LASTEXITCODE -ne 0) { throw 'Unable to create lifecycle upgrade fixtures' }
@@ -33,6 +34,7 @@ DO $$ BEGIN
  IF EXISTS (SELECT 1 FROM "Lead" WHERE "id"='lifecycle-lead' AND "crmLeadId" IS NOT NULL) THEN RAISE EXCEPTION 'legacy lead placeholder was inferred as provider identity'; END IF;
  IF (SELECT "providerSyncState"::text FROM "Lead" WHERE "id"='lifecycle-lead') <> 'PENDING' THEN RAISE EXCEPTION 'legacy lead state is not pending reconciliation'; END IF;
  IF (SELECT count(*) FROM "ProviderWriteOperation") <> 0 THEN RAISE EXCEPTION 'migration invented provider operations'; END IF;
+ IF NOT EXISTS (SELECT 1 FROM "Product" WHERE "id"='lifecycle-product' AND "sku"='LIFECYCLE-SKU' AND "booksItemId" IS NULL AND "unitCost" IS NULL AND "canDropship" IS NULL) THEN RAISE EXCEPTION 'product upgrade was not additive'; END IF;
 END $$;
 '@
 $assertions | & psql $ConnectionString -v ON_ERROR_STOP=1

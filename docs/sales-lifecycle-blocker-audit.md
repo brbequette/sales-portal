@@ -19,6 +19,7 @@ Status: implementation in progress; not released and not production-verified.
 - Books customer creation now has one durable operation per local Account. It persists the returned Books customer ID, reconciles by exact stored CRM Account linkage, never matches by company name alone, and does not automatically resend an ambiguous POST.
 - Order submission retains Books catalog item IDs. The authoritative gift hat (`1254360000043727500`) is selectable even when its local gift flag is stale, while administrative lines are excluded from merchandise and gift choices.
 - Quote and sales-order POSTs use a caller-stable request UUID and an atomic durable operation claim. Provider acceptance is recorded before local persistence; an interruption in that window becomes ambiguous and ordinary retries cannot create another Books document.
+- Read-only production evidence: DADGR458S is active and priced at $0.45, but Books reports a $0 purchase rate and no authoritative dropship flag, so cost/dropship acceptance remains blocked rather than guessed. Hat item `1254360000043727500` is active with a $0 sales rate, $20 purchase rate, and inventory tracking. The additive migration stores Books item IDs, purchase cost, and dropship eligibility explicitly, and the verified hat remains selectable if a bounded catalog response omits it.
 
 ## Still required before release
 

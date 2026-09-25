@@ -79,4 +79,14 @@ describe("useOrderBuilderData", () => {
     await waitFor(() => expect(result.current.qualifyingGifts).toHaveLength(1))
     expect(result.current.qualifyingGifts[0]).toMatchObject({ itemId: TITAN_GIFT_HAT_BOOKS_ITEM_ID, sku: "HAT" })
   })
+
+  it("restores the authoritative hat when the bounded local catalog omitted it", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input) === "/api/admin/business-defaults") return new Response(JSON.stringify({ success: true, defaults: { defaultVigRate: 1, defaultCommissionPct: 50 } }), { status: 200 })
+      throw new Error(`Unexpected request: ${String(input)}`)
+    }))
+    const { result } = renderHook(() => useOrderBuilderData({ orderLines: [startingLine], catalogProducts: [], accountPurchases: [] }))
+    await waitFor(() => expect(result.current.qualifyingGifts).toHaveLength(1))
+    expect(result.current.qualifyingGifts[0]).toMatchObject({ itemId: TITAN_GIFT_HAT_BOOKS_ITEM_ID, cost: 20, price: 0 })
+  })
 })

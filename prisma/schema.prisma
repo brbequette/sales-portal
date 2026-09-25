@@ -339,6 +339,7 @@ model Quote {
 
 model Product {
   id           String  @id @default(cuid())
+  booksItemId  String? @unique
   sku          String  @unique
   name         String
   description  String?
@@ -348,6 +349,8 @@ model Product {
   subjectToVig Boolean @default(true)
   giftItem     Boolean @default(false)
   showOnWeb    Boolean @default(true)
+  unitCost     Float?
+  canDropship  Boolean?
 
   // Custom Classifications
   size         String?

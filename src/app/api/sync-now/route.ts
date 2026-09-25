@@ -799,11 +799,14 @@ export async function POST(req: NextRequest) {
               if (!item.sku) continue
 
               const productData = {
+                booksItemId: String(item.item_id || '').trim() || null,
                 name: item.name || item.item_name,
                 description: item.description,
                 price: parseFloat(item.rate || item.price || 0),
                 category: item.group_name || 'General',
                 stock: parseInt(item.stock_on_hand || 0),
+                unitCost: Number.isFinite(Number(item.purchase_rate)) ? Number(item.purchase_rate) : null,
+                canDropship: typeof item.is_drop_shipment_enabled === 'boolean' ? item.is_drop_shipment_enabled : null,
               }
 
               batch.push(prisma.product.upsert({
