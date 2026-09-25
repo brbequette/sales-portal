@@ -24,6 +24,17 @@ describe('Books primary contact reconciliation', () => {
     expect(mocks.updateContact).not.toHaveBeenCalled()
   })
 
+  it('uses the contact-scoped contact-person endpoint when the customer detail omits people', async () => {
+    mocks.findAccount.mockResolvedValue({ id: 'a1', booksCustomerId: 'bc1', contacts: [{ id: 'c1', email: 'test@example.com', phone: null, mobilePhone: null, booksContactId: null }] })
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ code: 0, contact: { contact_persons: [] } }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ code: 0, contact_persons: [{ contact_person_id: 'bp1', contact_id: 'bc1', email: 'test@example.com' }] }) }))
+
+    await expect(reconcileBooksPrimaryContact('a1')).resolves.toMatchObject({ state: 'SUCCEEDED', booksContactId: 'bp1' })
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(String(vi.mocked(fetch).mock.calls[1][0])).toContain('/contacts/bc1/contactpersons')
+  })
+
   it('maps Street1 to the documented Books address field and falls shipping back to billing', () => {
     const payload = buildBooksCustomerPayload({ name: 'Test', billingStreet: '160 S. Pullen Blvd', billingCity: 'Centralia', billingState: 'IL', billingZip: '62801' })
     expect(payload.billing_address).toEqual({ address: '160 S. Pullen Blvd', city: 'Centralia', state: 'IL', zip: '62801', country: 'US' })

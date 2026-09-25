@@ -36,8 +36,22 @@ async function fetchBooksCustomer(booksCustomerId: string, token: string) {
   return body.contact
 }
 
-function resolveExactContactPerson(primary: any, providerContact: any) {
-  const people = Array.isArray(providerContact?.contact_persons) ? providerContact.contact_persons : []
+async function fetchBooksContactPeople(booksCustomerId: string, token: string) {
+  const response = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/contacts/${encodeURIComponent(booksCustomerId)}/contactpersons?organization_id=${encodeURIComponent(organizationId())}`, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  })
+  const body = await response.json().catch(() => null)
+  if (!response.ok || Number(body?.code) !== 0 || !Array.isArray(body?.contact_persons)) {
+    throw new Error(String(body?.message || `Zoho Books contact-person lookup failed (HTTP ${response.status}).`))
+  }
+  return body.contact_persons
+}
+
+function resolveExactContactPerson(primary: any, providerContactOrPeople: any) {
+  const people = Array.isArray(providerContactOrPeople)
+    ? providerContactOrPeople
+    : Array.isArray(providerContactOrPeople?.contact_persons) ? providerContactOrPeople.contact_persons : []
   const email = String(primary?.email || '').trim().toLowerCase()
   const phones = new Set([normalizePhone(primary?.phone), normalizePhone(primary?.mobilePhone)].filter(Boolean))
   const matches = people.filter((person: any) => {
@@ -63,7 +77,12 @@ export async function reconcileBooksPrimaryContact(accountId: string): Promise<B
 
   const token = await getZohoAccessToken()
   const providerContact = await fetchBooksCustomer(account.booksCustomerId, token)
-  const booksContactId = resolveExactContactPerson(primary, providerContact)
+  let booksContactId = resolveExactContactPerson(primary, providerContact)
+  const embeddedPeople = Array.isArray(providerContact?.contact_persons) ? providerContact.contact_persons : []
+  if (!booksContactId && embeddedPeople.length === 0) {
+    const contactPeople = await fetchBooksContactPeople(account.booksCustomerId, token)
+    booksContactId = resolveExactContactPerson(primary, contactPeople)
+  }
   if (!booksContactId) {
     return { state: 'FAILED', booksCustomerId: account.booksCustomerId, message: 'No unique Books contact person matched the local primary contact by exact email or phone.' }
   }

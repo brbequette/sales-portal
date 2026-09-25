@@ -57,4 +57,18 @@ describe('admin lifecycle account reconciliation', () => {
       crm: { leadMapped: true, accountMapped: true, contactMapped: true },
     })
   })
+
+  it('always returns a structured JSON failure when reconciliation throws', async () => {
+    mocks.auth.mockResolvedValue({ isAdmin: true, user: { id: 'admin' } })
+    mocks.account.mockRejectedValue(new Error('sanitized provider failure'))
+
+    const response = await POST(request())
+    expect(response.status).toBe(500)
+    await expect(response.json()).resolves.toMatchObject({
+      success: false,
+      stage: 'UNHANDLED',
+      providerState: 'FAILED',
+      message: 'sanitized provider failure',
+    })
+  })
 })

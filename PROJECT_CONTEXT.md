@@ -1,6 +1,9 @@
 # Titan Diamond — Consolidated Project Context
 
-## Browser-retest lifecycle repairs (pending release, 2026-09-25)
+## Browser-retest lifecycle repairs (production plus reconciliation follow-up, 2026-09-25)
+
+- PR #108 merged as `f7ae55df09a8ce5a00ea647c5e60ef6a85190625` and Netlify deploy `6ab647a19b05db0008ab9d98` published the POS, gift, bundle, address-payload, and communication repairs. Production browser review verified the TEST Account, exact dropship vendor, $0.36 COGS, $0.91 subtotal, and full local Centralia addresses without submitting a document.
+- The first exact-account provider-profile reconciliation returned an opaque non-JSON HTTP 500 before provider street verification completed. The follow-up makes Books contact-person discovery use the documented contact-scoped endpoint when customer detail omits the array, decouples profile repair from contact-person persistence, creates the provider-write audit before writes, GET-verifies partial/previous outcomes before any write, quarantines ambiguous timeouts, and always returns stage-aware JSON. No blind retry, financial document, or communication is part of the repair.
 
 - The catalog product `giftItem` selection remains the source of truth for order-builder gift shortcuts. Ordinary gifts retain the 20%-of-available-profit limit. An administrator can grant one idempotent, audited profit-limit exception to an exact Books-mapped gift; the exception does not change its $0 sales price or authoritative cost. Missing cost remains `UNKNOWN` and is never relabeled as authoritative zero.
 - Gift Item information includes an in-app bundle builder. Fixed components reference exact catalog products; variable components reference a shared gift tag such as `shirt`. Saving rejects components without Books mappings or authoritative cost. POS derives the available exact variants and actual component cost, requires the rep to choose the shirt product/size, and persists a server-revalidated selection plus the immediate/paid-in-full release rule in the fulfillment plan.
