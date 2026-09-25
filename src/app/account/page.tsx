@@ -90,7 +90,7 @@ function AccountLeftRail({
     }
   }
   const handleSms = () => {
-    window.dispatchEvent(new CustomEvent("inAppSms"))
+    sessionStorage.setItem('openSmsComposer', JSON.stringify({ accountId: account.id, phone: cleanPhone }))
     onTabSwitch("comms")
   }
 
@@ -747,7 +747,7 @@ function AccountHubContent() {
     }
   }
   const handleHeaderSms = () => {
-    window.dispatchEvent(new CustomEvent("inAppSms"))
+    sessionStorage.setItem('openSmsComposer', JSON.stringify({ accountId: account.id, phone: cleanPhone }))
     setActiveTab("comms")
   }
 

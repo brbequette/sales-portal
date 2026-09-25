@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { TITAN_GIFT_HAT_BOOKS_ITEM_ID, useOrderBuilderData, type OrderLine } from "./useOrderBuilderData"
+import { TITAN_GIFT_HAT, TITAN_GIFT_HAT_BOOKS_ITEM_ID, useOrderBuilderData, type OrderLine } from "./useOrderBuilderData"
 
 vi.mock("@/components/ZohoProvider", () => ({
   useZoho: () => ({ zohoContext: { email: "rep@development.invalid" } }),
@@ -24,6 +24,9 @@ const startingLine: OrderLine = {
   cost: 100,
   isPromo: false,
   itemId: "books-item-zeus",
+  canDropship: true,
+  vendor: "Verified Vendor",
+  fulfillmentMethod: "DROPSHIP",
 }
 
 describe("useOrderBuilderData", () => {
@@ -63,6 +66,7 @@ describe("useOrderBuilderData", () => {
     await waitFor(() => expect(result.current.orderLines).toHaveLength(0))
     expect(onSuccess).toHaveBeenCalledWith({ type: "SalesOrder", localId: "local-quote", booksId: "books-quote", documentNumber: "EST-100", alreadyProcessed: false })
     expect(submittedBody.lineItems[0].itemId).toBe("books-item-zeus")
+    expect(submittedBody.lineItems[0]).toMatchObject({ fulfillmentMethod: "DROPSHIP", vendor: "Verified Vendor" })
     expect(submittedBody.requestId).toMatch(/^[0-9a-f-]{36}$/i)
   })
 
@@ -87,14 +91,17 @@ describe("useOrderBuilderData", () => {
     expect(result.current.qualifyingGifts.map(gift => gift.sku)).not.toEqual(expect.arrayContaining(["FREESHIP", "OLD", "UNKNOWN"]))
   })
 
-  it("restores the authoritative hat when the bounded local catalog omitted it regardless of cart profit", async () => {
+  it("preserves ordinary profit limits and permits only an audited gift override", async () => {
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
       if (String(input) === "/api/admin/business-defaults") return new Response(JSON.stringify({ success: true, defaults: { defaultVigRate: 1, defaultCommissionPct: 50 } }), { status: 200 })
       throw new Error(`Unexpected request: ${String(input)}`)
     }))
-    const { result } = renderHook(() => useOrderBuilderData({ orderLines: [startingLine], catalogProducts: [], accountPurchases: [] }))
+    const lowProfitLine = { ...startingLine, unitPrice: 0.91, cost: 0.36 }
+    const { result, rerender } = renderHook(({ products }) => useOrderBuilderData({ orderLines: [lowProfitLine], catalogProducts: products, accountPurchases: [] }), { initialProps: { products: [] as any[] } })
+    await waitFor(() => expect(result.current.qualifyingGifts).toHaveLength(0))
+    rerender({ products: [{ ...TITAN_GIFT_HAT, attributes: { giftProfitOverride: true, giftReleaseRule: 'IMMEDIATE', giftTags: ['shirt', 'patriot'], giftSizes: ['M', 'L'], giftBundleRequiresShirt: true } }] })
     await waitFor(() => expect(result.current.qualifyingGifts).toHaveLength(1))
-    expect(result.current.qualifyingGifts[0]).toMatchObject({ itemId: TITAN_GIFT_HAT_BOOKS_ITEM_ID, cost: 20, price: 0 })
+    expect(result.current.qualifyingGifts[0]).toMatchObject({ itemId: TITAN_GIFT_HAT_BOOKS_ITEM_ID, cost: 20, price: 0, giftReleaseRule: 'IMMEDIATE', giftTags: ['shirt', 'patriot'], giftSizes: ['M', 'L'], giftBundleRequiresShirt: true })
   })
 
   it("blocks missing cost while preserving an explicitly verified zero", async () => {
@@ -108,5 +115,20 @@ describe("useOrderBuilderData", () => {
     expect(result.current.pendingItem).toBeNull()
     act(() => result.current.openAddItemModal({ name: 'Verified Gift', sku: 'ZERO', price: 0, cost: 0, costQuality: 'VERIFIED_ZERO', giftItem: true }))
     expect(result.current.pendingItem).toMatchObject({ sku: 'ZERO', cost: 0, costQuality: 'VERIFIED_ZERO' })
+  })
+
+  it('requires and persists a shirt size for a bundled gift', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input) === '/api/admin/business-defaults') return new Response(JSON.stringify({ success: true, defaults: { defaultVigRate: 1, defaultCommissionPct: 50 } }), { status: 200 })
+      throw new Error(`Unexpected request: ${String(input)}`)
+    }))
+    const { result } = renderHook(() => useOrderBuilderData({ catalogProducts: [], accountPurchases: [] }))
+    const bundle = { name: 'Patriot Pack', sku: 'PATRIOT', price: 0, cost: 25, costQuality: 'AUTHORITATIVE' as const, giftItem: true, giftBundleRequiresShirt: true, giftSizes: ['M', 'L'], giftReleaseRule: 'PAID_IN_FULL' as const, fixedBundleCost: 12, giftBundleComponents: [{ mode: 'VARIABLE_TAG' as const, optionTag: 'shirt', quantity: 1 }], bundleOptions: [{ productId: 'shirt-l', booksItemId: 'books-shirt-l', sku: 'SHIRT-L', name: 'Titan Shirt L', size: 'L', cost: 8, quantity: 1 }] }
+    act(() => result.current.openAddItemModal(bundle))
+    act(() => result.current.confirmAddItem())
+    expect(result.current.orderLines).toHaveLength(0)
+    act(() => result.current.setSelectedGiftOptionId('shirt-l::L'))
+    act(() => result.current.confirmAddItem())
+    expect(result.current.orderLines).toEqual([expect.objectContaining({ sku: 'PATRIOT', isPromo: true, cost: 20, selectedGiftSize: 'L', selectedBundleOption: expect.objectContaining({ booksItemId: 'books-shirt-l', sku: 'SHIRT-L' }), giftBundleRequiresShirt: true, giftReleaseRule: 'PAID_IN_FULL' })])
   })
 })

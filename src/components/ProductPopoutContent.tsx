@@ -23,6 +23,7 @@ export function ProductPopoutContent({ productId, onClose }: ProductPopoutConten
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<{type: "success"|"error", text: string} | null>(null)
   const [reactivating, setReactivating] = useState(false)
+  const [catalogOptions, setCatalogOptions] = useState<any[]>([])
 
   const fetchProduct = async () => {
     setLoading(true)
@@ -31,6 +32,7 @@ export function ProductPopoutContent({ productId, onClose }: ProductPopoutConten
       const res = await fetch("/api/get-products")
       const data = await res.json()
       if (data.success) {
+        setCatalogOptions(data.products || [])
         const found = data.products.find((p: any) => p.id === productId || p.sku === productId)
         if (found) {
           setProduct(found)
@@ -45,6 +47,11 @@ export function ProductPopoutContent({ productId, onClose }: ProductPopoutConten
             qualityTier: found.qualityTier || "",
             subjectToVig: !!found.subjectToVig,
             giftItem: !!found.giftItem,
+            giftReleaseRule: found.attributes?.giftReleaseRule === 'IMMEDIATE' ? 'IMMEDIATE' : 'PAID_IN_FULL',
+            giftTags: Array.isArray(found.attributes?.giftTags) ? found.attributes.giftTags.join(', ') : '',
+            giftSizes: Array.isArray(found.attributes?.giftSizes) ? found.attributes.giftSizes.join(', ') : '',
+            giftBundleRequiresShirt: found.attributes?.giftBundleRequiresShirt === true,
+            giftBundleComponents: Array.isArray(found.attributes?.giftBundleComponents) ? found.attributes.giftBundleComponents : [],
             showOnWeb: found.showOnWeb !== false && !found.giftItem
           })
           fetchHistory(found.sku)
@@ -401,6 +408,31 @@ export function ProductPopoutContent({ productId, onClose }: ProductPopoutConten
                 <p className="pl-6 text-xs text-neutral-500">
                   Active gift items with a Books item ID and authoritative cost appear in the order builder at a $0 sales price.
                 </p>
+                {editForm.giftItem && <label className="pl-6 text-xs text-neutral-400">
+                  Gift release
+                  <select value={editForm.giftReleaseRule || 'PAID_IN_FULL'} onChange={e => setEditForm({...editForm, giftReleaseRule: e.target.value})} className="mt-1 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white">
+                    <option value="IMMEDIATE">Send right away</option>
+                    <option value="PAID_IN_FULL">Release when paid in full</option>
+                  </select>
+                </label>}
+                {editForm.giftItem && <div className="pl-6 space-y-2">
+                  <label className="block text-xs text-neutral-400">Gift tags for search
+                    <input value={editForm.giftTags || ''} onChange={e => setEditForm({...editForm, giftTags: e.target.value})} placeholder="shirt, apparel, patriot" className="mt-1 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white" />
+                  </label>
+                  <label className="block text-xs text-neutral-400">Available shirt / apparel sizes
+                    <input value={editForm.giftSizes || ''} onChange={e => setEditForm({...editForm, giftSizes: e.target.value})} placeholder="S, M, L, XL, 2XL" className="mt-1 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white" />
+                  </label>
+                  <label className="flex items-center gap-2 text-xs text-neutral-300"><input type="checkbox" checked={!!editForm.giftBundleRequiresShirt} onChange={e => setEditForm({...editForm, giftBundleRequiresShirt: e.target.checked})} /> Bundle requires a shirt-size choice</label>
+                  <div className="rounded-xl border border-purple-500/20 bg-purple-950/10 p-3 space-y-2">
+                    <div className="flex items-center justify-between"><div><p className="text-xs font-black text-purple-200">Bundle components</p><p className="text-[10px] text-neutral-500">Fixed products use an exact catalog item. Variable products use a shared gift tag such as <code>shirt</code>.</p></div><button type="button" onClick={() => setEditForm({...editForm, giftBundleComponents: [...(editForm.giftBundleComponents || []), { mode: 'FIXED', productId: '', optionTag: '', quantity: 1 }]})} className="rounded-lg bg-purple-600 px-2 py-1 text-[10px] font-black text-white">Add component</button></div>
+                    {(editForm.giftBundleComponents || []).map((component: any, index: number) => <div key={index} className="grid grid-cols-[110px_1fr_70px_28px] gap-2">
+                      <select value={component.mode || 'FIXED'} onChange={e => { const rows = [...editForm.giftBundleComponents]; rows[index] = {...component, mode: e.target.value}; setEditForm({...editForm, giftBundleComponents: rows}) }} className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-xs text-white"><option value="FIXED">Fixed item</option><option value="VARIABLE_TAG">Variable tag</option></select>
+                      {component.mode === 'VARIABLE_TAG' ? <input value={component.optionTag || ''} onChange={e => { const rows = [...editForm.giftBundleComponents]; rows[index] = {...component, optionTag: e.target.value}; setEditForm({...editForm, giftBundleComponents: rows}) }} placeholder="shirt" className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-xs text-white" /> : <select value={component.productId || ''} onChange={e => { const rows = [...editForm.giftBundleComponents]; rows[index] = {...component, productId: e.target.value}; setEditForm({...editForm, giftBundleComponents: rows}) }} className="min-w-0 rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-xs text-white"><option value="">Choose exact product</option>{catalogOptions.filter(option => option.id !== product?.id).map(option => <option key={option.id} value={option.id}>{option.sku} — {option.name}</option>)}</select>}
+                      <input type="number" min="1" max="99" value={component.quantity || 1} onChange={e => { const rows = [...editForm.giftBundleComponents]; rows[index] = {...component, quantity: Math.max(1, Number(e.target.value) || 1)}; setEditForm({...editForm, giftBundleComponents: rows}) }} className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-xs text-white" />
+                      <button type="button" aria-label="Remove bundle component" onClick={() => setEditForm({...editForm, giftBundleComponents: editForm.giftBundleComponents.filter((_: any, rowIndex: number) => rowIndex !== index)})} className="text-rose-400">×</button>
+                    </div>)}
+                  </div>
+                </div>}
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={editForm.showOnWeb} disabled={editForm.giftItem} onChange={e => setEditForm({...editForm, showOnWeb: e.target.checked})} className="rounded bg-black/40 border-white/10 text-sky-500 focus:ring-sky-500 disabled:opacity-40" />
                   <span className="text-sm font-semibold text-neutral-300">Show on web</span>

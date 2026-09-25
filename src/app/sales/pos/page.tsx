@@ -30,6 +30,7 @@ export default function StandalonePosPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [accounts, setAccounts] = useState<Account[]>([])
   const [loading, setLoading] = useState(false)
+  const [hasSearched, setHasSearched] = useState(false)
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null)
   const [lastCreatedDocument, setLastCreatedDocument] = useState<OrderCreationResult | null>(null)
   const [showDocumentActions, setShowDocumentActions] = useState(false)
@@ -39,6 +40,7 @@ export default function StandalonePosPage() {
   useEffect(() => {
     if (searchQuery.trim().length < 2) {
       setAccounts([])
+      setHasSearched(false)
       return
     }
 
@@ -46,6 +48,7 @@ export default function StandalonePosPage() {
 
     searchTimeoutRef.current = setTimeout(async () => {
       setLoading(true)
+      setHasSearched(false)
       try {
         const res = await fetch(`/api/get-accounts?search=${encodeURIComponent(searchQuery)}&ownerIdFilter=all&limit=20`)
         const data = await res.json()
@@ -56,6 +59,7 @@ export default function StandalonePosPage() {
         console.error("Failed to search accounts:", err)
       } finally {
         setLoading(false)
+        setHasSearched(true)
       }
     }, 300)
 
@@ -188,7 +192,7 @@ export default function StandalonePosPage() {
                 </div>
               )}
 
-              {searchQuery.trim().length >= 2 && accounts.length === 0 && !loading && (
+              {searchQuery.trim().length >= 2 && accounts.length === 0 && !loading && hasSearched && (
                 <div className="text-xs text-neutral-500 italic p-4 bg-white/[0.01] rounded-2xl border border-white/5">
                   No accounts found matching "{searchQuery}"
                 </div>

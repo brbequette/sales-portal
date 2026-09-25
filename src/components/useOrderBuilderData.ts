@@ -15,6 +15,17 @@ export type OrderLine = {
   subjectToVig?: boolean
   itemId?: string
   costQuality?: 'AUTHORITATIVE' | 'VERIFIED_ZERO' | 'UNKNOWN'
+  vendor?: string | null
+  canDropship?: boolean | null
+  fulfillmentMethod?: 'DROPSHIP' | 'WAREHOUSE' | 'PICKUP' | 'UNASSIGNED'
+  giftReleaseRule?: 'IMMEDIATE' | 'PAID_IN_FULL'
+  giftTags?: string[]
+  giftSizes?: string[]
+  giftBundleRequiresShirt?: boolean
+  selectedGiftSize?: string
+  giftBundleComponents?: Array<{ mode: 'FIXED' | 'VARIABLE_TAG'; productId?: string; optionTag?: string; quantity: number }>
+  bundleOptions?: Array<{ productId: string; booksItemId: string; sku: string; name: string; size: string; cost: number; quantity: number }>
+  selectedBundleOption?: { productId: string; booksItemId: string; sku: string; name: string; size: string; cost: number; quantity: number }
 }
 
 export interface UseOrderBuilderDataProps {
@@ -216,6 +227,11 @@ export function useOrderBuilderData({
   const [showMockOrder, setShowMockOrder] = useState(false)
 
   const handleConfirmOrder = useCallback(async () => {
+    const unresolvedFulfillment = orderLines.filter(line => !line.isPromo && (!line.fulfillmentMethod || line.fulfillmentMethod === 'UNASSIGNED'))
+    if (unresolvedFulfillment.length > 0) {
+      toast.error(`Choose fulfillment for ${unresolvedFulfillment.length} sold item${unresolvedFulfillment.length === 1 ? '' : 's'} before creating the document.`)
+      return
+    }
     if (!accountId) {
       setShowMockOrder(false)
       return
@@ -239,7 +255,13 @@ export function useOrderBuilderData({
         rate: i.unitPrice,
         discount: 0,
         quantity: i.quantity,
-        description: `SKU: ${i.sku}` + (i.isPromo ? " (PROMO FREE)" : "")
+        description: `SKU: ${i.sku}` + (i.isPromo ? " (PROMO FREE)" : ""),
+        fulfillmentMethod: i.fulfillmentMethod || (i.isPromo ? 'WAREHOUSE' : 'UNASSIGNED'),
+        vendor: i.vendor || null,
+        giftReleaseRule: i.isPromo ? (i.giftReleaseRule || 'PAID_IN_FULL') : null,
+        selectedGiftSize: i.isPromo ? (i.selectedGiftSize || null) : null,
+        giftBundleRequiresShirt: i.isPromo ? Boolean(i.giftBundleRequiresShirt) : false,
+        selectedBundleOption: i.isPromo ? (i.selectedBundleOption || null) : null,
       }))
 
       const effectiveEmail = preferences?.impersonatedUser ? preferences.impersonatedUser.email : (user?.email || "")
@@ -338,10 +360,12 @@ export function useOrderBuilderData({
   }, [])
   
   // Pending Add Item State
-  const [pendingItem, setPendingItem] = useState<{name: string, sku: string, cost: number, defaultPrice: number, giftItem?: boolean, subjectToVig?: boolean, itemId?: string, costQuality?: 'AUTHORITATIVE' | 'VERIFIED_ZERO' | 'UNKNOWN'} | null>(null)
+  const [pendingItem, setPendingItem] = useState<{name: string, sku: string, cost: number, defaultPrice: number, giftItem?: boolean, subjectToVig?: boolean, itemId?: string, costQuality?: 'AUTHORITATIVE' | 'VERIFIED_ZERO' | 'UNKNOWN', vendor?: string | null, canDropship?: boolean | null, giftReleaseRule?: 'IMMEDIATE' | 'PAID_IN_FULL', giftTags?: string[], giftSizes?: string[], giftBundleRequiresShirt?: boolean, giftBundleComponents?: OrderLine['giftBundleComponents'], bundleOptions?: OrderLine['bundleOptions'], fixedBundleCost?: number} | null>(null)
   const [addPaidQty, setAddPaidQty] = useState(1)
   const [addFreeQty, setAddFreeQty] = useState(0)
   const [addPrice, setAddPrice] = useState(0)
+  const [selectedGiftSize, setSelectedGiftSize] = useState('')
+  const [selectedGiftOptionId, setSelectedGiftOptionId] = useState('')
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -377,40 +401,87 @@ export function useOrderBuilderData({
           type: matchType(p.name, p.category || ""),
           subjectToVig: p.subjectToVig !== false,
           itemId: getBooksItemId(p),
+          vendor: p.vendor || null,
+          canDropship: p.canDropship ?? null,
+          imageUrl: p.imageUrl || null,
+          salesQuantity: Number(p.salesQuantity || 0),
         }
       })
-      .sort((a, b) => Number(isSignatureBlade(b)) - Number(isSignatureBlade(a)) || a.name.localeCompare(b.name))
+      .sort((a, b) => Number(isSignatureBlade(b)) - Number(isSignatureBlade(a)) || Number(b.salesQuantity > 0) - Number(a.salesQuantity > 0) || b.salesQuantity - a.salesQuantity || a.name.localeCompare(b.name))
   }, [catalogProducts])
 
-  const topBladeProducts = useMemo(() => activeBlades.slice(0, 10), [activeBlades])
+  const topBladeProducts = useMemo(() => activeBlades.filter(isSignatureBlade).slice(0, 10), [activeBlades])
 
   const qualifyingGifts = useMemo(() => {
+    const subtotal = orderLines.reduce((sum, line) => sum + (line.isPromo ? 0 : line.quantity * line.unitPrice), 0)
+    const cost = orderLines.reduce((sum, line) => sum + line.quantity * line.cost * (line.subjectToVig === false || line.giftItem ? 1 : vigRate), 0)
+    const allowance = Math.max(0, subtotal - cost) * 0.2
     const giftCatalog = catalogProducts.some(product => getBooksItemId(product) === TITAN_GIFT_HAT_BOOKS_ITEM_ID)
       ? catalogProducts
       : [...catalogProducts, TITAN_GIFT_HAT]
+    const bundleConfiguration = (product: any) => {
+      const attributes = product.attributes && typeof product.attributes === 'object' ? product.attributes : {}
+      const components = Array.isArray(attributes.giftBundleComponents) ? attributes.giftBundleComponents : []
+      let fixedBundleCost = 0
+      const bundleOptions: NonNullable<OrderLine['bundleOptions']> = []
+      let valid = true
+      for (const raw of components) {
+        const quantity = Math.max(1, Number(raw?.quantity) || 1)
+        if (raw?.mode === 'VARIABLE_TAG') {
+          const optionTag = String(raw?.optionTag || '').toLowerCase()
+          const options = catalogProducts.filter(candidate => {
+            const candidateAttributes = candidate.attributes && typeof candidate.attributes === 'object' ? candidate.attributes : {}
+            return Array.isArray(candidateAttributes.giftTags) && candidateAttributes.giftTags.map((tag: unknown) => String(tag).toLowerCase()).includes(optionTag)
+              && Boolean(getBooksItemId(candidate))
+              && (Number(candidate.unitCost) > 0 || candidate.costQuality === 'VERIFIED_ZERO')
+          })
+          if (!options.length) valid = false
+          for (const option of options) {
+            const optionAttributes = option.attributes && typeof option.attributes === 'object' ? option.attributes : {}
+            const sizes = Array.isArray(optionAttributes.giftSizes) && optionAttributes.giftSizes.length ? optionAttributes.giftSizes : [option.size || 'STANDARD']
+            for (const size of sizes) bundleOptions.push({ productId: option.id, booksItemId: getBooksItemId(option)!, sku: option.sku, name: option.name, size: String(size), cost: Number(option.unitCost || 0), quantity })
+          }
+        } else {
+          const fixed = catalogProducts.find(candidate => candidate.id === raw?.productId)
+          if (!fixed || !getBooksItemId(fixed) || (!(Number(fixed.unitCost) > 0) && fixed.costQuality !== 'VERIFIED_ZERO')) valid = false
+          else fixedBundleCost += Number(fixed.unitCost || 0) * quantity
+        }
+      }
+      const minimumVariableCost = bundleOptions.length ? Math.min(...bundleOptions.map(option => option.cost * option.quantity)) : 0
+      return { components, bundleOptions, fixedBundleCost, calculatedCost: components.length ? fixedBundleCost + minimumVariableCost : Number(product.unitCost ?? parseDesc(product.description).cost ?? product.cost ?? 0), valid }
+    }
     return giftCatalog
       .filter(product => {
         const desc = parseDesc(product.description)
-        const cost = Number(product.unitCost ?? desc.cost ?? product.cost ?? 0)
+        const bundle = bundleConfiguration(product)
+        const cost = bundle.calculatedCost
         const costQuality = product.costQuality === 'VERIFIED_ZERO'
           ? 'VERIFIED_ZERO'
           : cost > 0
             ? 'AUTHORITATIVE'
             : 'UNKNOWN'
         const isApprovedGift = product.giftItem || getBooksItemId(product) === TITAN_GIFT_HAT_BOOKS_ITEM_ID
+        const attributes = product.attributes && typeof product.attributes === 'object' ? product.attributes : {}
+        const auditedProfitOverride = attributes.giftProfitOverride === true
         return isApprovedGift
           && !isAdministrativeCatalogProduct(product)
           && desc.status !== "inactive"
           && Boolean(getBooksItemId(product))
           && costQuality !== 'UNKNOWN'
+          && bundle.valid
+          && (cost <= allowance || auditedProfitOverride)
       })
       .map(product => {
         const desc = parseDesc(product.description)
-        const cost = Number(product.unitCost ?? desc.cost ?? product.cost ?? 0)
-        return { name: product.name, sku: product.sku, price: 0, cost, costQuality: (product.costQuality === 'VERIFIED_ZERO' ? 'VERIFIED_ZERO' : 'AUTHORITATIVE') as 'VERIFIED_ZERO' | 'AUTHORITATIVE', giftItem: true, subjectToVig: false, itemId: getBooksItemId(product) }
+        const bundle = bundleConfiguration(product)
+        const cost = bundle.calculatedCost
+        const attributes = product.attributes && typeof product.attributes === 'object' ? product.attributes : {}
+        const giftSizes = Array.isArray(attributes.giftSizes) ? attributes.giftSizes.map(String) : []
+        const giftTags = Array.isArray(attributes.giftTags) ? attributes.giftTags.map(String) : []
+        return { name: product.name, sku: product.sku, price: 0, cost, costQuality: (product.costQuality === 'VERIFIED_ZERO' ? 'VERIFIED_ZERO' : 'AUTHORITATIVE') as 'VERIFIED_ZERO' | 'AUTHORITATIVE', giftItem: true, subjectToVig: false, itemId: getBooksItemId(product), vendor: product.vendor || null, canDropship: product.canDropship ?? null, giftReleaseRule: attributes.giftReleaseRule === 'IMMEDIATE' ? 'IMMEDIATE' as const : 'PAID_IN_FULL' as const, giftTags, giftSizes: bundle.bundleOptions.length ? [...new Set(bundle.bundleOptions.map(option => option.size))] : giftSizes, giftBundleRequiresShirt: attributes.giftBundleRequiresShirt === true || bundle.bundleOptions.length > 0, giftBundleComponents: bundle.components, bundleOptions: bundle.bundleOptions, fixedBundleCost: bundle.fixedBundleCost, imageUrl: product.imageUrl || null, salesQuantity: Number(product.salesQuantity || 0) }
       })
-      .sort((a, b) => a.cost - b.cost)
-  }, [catalogProducts])
+      .sort((a, b) => Number(b.salesQuantity > 0) - Number(a.salesQuantity > 0) || b.salesQuantity - a.salesQuantity || a.cost - b.cost)
+  }, [catalogProducts, orderLines, vigRate])
 
   const previousPurchasesNoGifts = useMemo(() => {
     const raw = externalAccountPurchases || fetchedPurchases || []
@@ -481,7 +552,7 @@ export function useOrderBuilderData({
   }, [activeBlades, filterApp, filterSize, filterType])
 
   const tieredBlades = useMemo(() => {
-    const sorted = [...filteredBlades].sort((a, b) => a.price - b.price)
+    const sorted = [...filteredBlades].sort((a, b) => Number(b.salesQuantity > 0) - Number(a.salesQuantity > 0) || a.price - b.price)
     if (sorted.length === 0) return []
     if (sorted.length === 1) return [{ ...sorted[0], tier: "Best" as const }]
     if (sorted.length === 2) return [
@@ -519,14 +590,16 @@ export function useOrderBuilderData({
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
-  const openAddItemModal = useCallback((p: { name: string; sku: string; price: number; cost: number; giftItem?: boolean; subjectToVig?: boolean; itemId?: string; costQuality?: 'AUTHORITATIVE' | 'VERIFIED_ZERO' | 'UNKNOWN' }) => {
+  const openAddItemModal = useCallback((p: { name: string; sku: string; price: number; cost: number; giftItem?: boolean; subjectToVig?: boolean; itemId?: string; costQuality?: 'AUTHORITATIVE' | 'VERIFIED_ZERO' | 'UNKNOWN'; vendor?: string | null; canDropship?: boolean | null; giftReleaseRule?: 'IMMEDIATE' | 'PAID_IN_FULL'; giftTags?: string[]; giftSizes?: string[]; giftBundleRequiresShirt?: boolean; giftBundleComponents?: OrderLine['giftBundleComponents']; bundleOptions?: OrderLine['bundleOptions']; fixedBundleCost?: number }) => {
     const costQuality = p.costQuality || (p.cost > 0 ? 'AUTHORITATIVE' : 'UNKNOWN')
     if (costQuality === 'UNKNOWN') {
       toast.error(`${p.sku || p.name} is blocked because authoritative cost is missing.`)
       return
     }
     const isGift = !!p.giftItem
-    setPendingItem({ name: p.name, sku: p.sku, defaultPrice: p.price, cost: p.cost, giftItem: isGift, subjectToVig: p.subjectToVig !== false, itemId: p.itemId, costQuality })
+    setPendingItem({ name: p.name, sku: p.sku, defaultPrice: p.price, cost: p.cost, giftItem: isGift, subjectToVig: p.subjectToVig !== false, itemId: p.itemId, costQuality, vendor: p.vendor || null, canDropship: p.canDropship ?? null, giftReleaseRule: isGift ? (p.giftReleaseRule || 'PAID_IN_FULL') : undefined, giftTags: p.giftTags || [], giftSizes: p.giftSizes || [], giftBundleRequiresShirt: !!p.giftBundleRequiresShirt, giftBundleComponents: p.giftBundleComponents || [], bundleOptions: p.bundleOptions || [], fixedBundleCost: p.fixedBundleCost || 0 })
+    setSelectedGiftSize(p.giftSizes?.length === 1 ? p.giftSizes[0] : '')
+    setSelectedGiftOptionId('')
     setAddPaidQty(isGift ? 0 : 1)
     setAddFreeQty(isGift ? 1 : 0)
     setAddPrice(isGift ? 0 : p.price)
@@ -536,6 +609,11 @@ export function useOrderBuilderData({
 
   const confirmAddItem = useCallback(() => {
     if (!pendingItem) return
+    if (pendingItem.giftItem && ((pendingItem.bundleOptions?.length || 0) > 0 ? !selectedGiftOptionId : (pendingItem.giftBundleRequiresShirt || (pendingItem.giftSizes?.length || 0) > 1) && !selectedGiftSize)) {
+      toast.error('Choose a shirt size before adding this gift.')
+      return
+    }
+    const selectedBundleOption = pendingItem.bundleOptions?.find(option => `${option.productId}::${option.size}` === selectedGiftOptionId)
     const newLines: OrderLine[] = []
     
     if (addPaidQty > 0) {
@@ -545,12 +623,15 @@ export function useOrderBuilderData({
         sku: pendingItem.sku,
         quantity: addPaidQty,
         unitPrice: addPrice,
-        cost: pendingItem.cost,
+        cost: (pendingItem.giftBundleComponents?.length || 0) > 0 ? Number(pendingItem.fixedBundleCost || 0) + Number(selectedBundleOption ? selectedBundleOption.cost * selectedBundleOption.quantity : 0) : pendingItem.cost,
         isPromo: false,
         giftItem: pendingItem.giftItem,
         subjectToVig: pendingItem.subjectToVig,
         itemId: pendingItem.itemId,
         costQuality: pendingItem.costQuality,
+        vendor: pendingItem.vendor,
+        canDropship: pendingItem.canDropship,
+        fulfillmentMethod: pendingItem.canDropship === true ? 'DROPSHIP' : pendingItem.canDropship === false ? 'WAREHOUSE' : 'UNASSIGNED',
       })
     }
     
@@ -561,12 +642,23 @@ export function useOrderBuilderData({
         sku: pendingItem.sku,
         quantity: addFreeQty,
         unitPrice: 0,
-        cost: pendingItem.cost,
+        cost: (pendingItem.giftBundleComponents?.length || 0) > 0 ? Number(pendingItem.fixedBundleCost || 0) + Number(selectedBundleOption ? selectedBundleOption.cost * selectedBundleOption.quantity : 0) : pendingItem.cost,
         isPromo: true,
         giftItem: pendingItem.giftItem,
         subjectToVig: pendingItem.subjectToVig,
         itemId: pendingItem.itemId,
         costQuality: pendingItem.costQuality,
+        vendor: pendingItem.vendor,
+        canDropship: pendingItem.canDropship,
+        fulfillmentMethod: 'WAREHOUSE',
+        giftReleaseRule: pendingItem.giftReleaseRule || 'PAID_IN_FULL',
+        giftTags: pendingItem.giftTags,
+        giftSizes: pendingItem.giftSizes,
+        giftBundleRequiresShirt: pendingItem.giftBundleRequiresShirt,
+        selectedGiftSize: selectedBundleOption?.size || selectedGiftSize || undefined,
+        giftBundleComponents: pendingItem.giftBundleComponents,
+        bundleOptions: pendingItem.bundleOptions,
+        selectedBundleOption,
       })
     }
 
@@ -574,7 +666,7 @@ export function useOrderBuilderData({
       setOrderLines((prev: OrderLine[]) => [...prev, ...newLines])
     }
     setPendingItem(null)
-  }, [pendingItem, addPaidQty, addFreeQty, addPrice, setOrderLines])
+  }, [pendingItem, addPaidQty, addFreeQty, addPrice, selectedGiftSize, selectedGiftOptionId, setOrderLines])
 
   const updateLine = useCallback((id: string, patch: Partial<OrderLine>) =>
     setOrderLines((prev: OrderLine[]) => prev.map(l => l.id === id ? { ...l, ...patch } : l)), [setOrderLines])
@@ -605,6 +697,7 @@ export function useOrderBuilderData({
           p.category?.toLowerCase().includes(term)
         )
       })
+      .sort((a, b) => Number(Number(b.salesQuantity || 0) > 0) - Number(Number(a.salesQuantity || 0) > 0) || Number(b.salesQuantity || 0) - Number(a.salesQuantity || 0))
       .slice(0, 8)
   }, [productSearch, catalogProducts, remoteSearchProducts])
 
@@ -627,6 +720,8 @@ export function useOrderBuilderData({
     addPaidQty, setAddPaidQty,
     addFreeQty, setAddFreeQty,
     addPrice, setAddPrice,
+    selectedGiftSize, setSelectedGiftSize,
+    selectedGiftOptionId, setSelectedGiftOptionId,
     handleConfirmOrder,
     activeBlades,
     topBladeProducts,
