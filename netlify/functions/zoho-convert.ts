@@ -120,7 +120,10 @@ export const handler: Handler = async (event, context) => {
       throw new Error("Invalid conversion path")
     }
 
-    const requestFingerprint = createHash("sha256").update(JSON.stringify({ sourceType, booksSourceId, targetType, payload })).digest("hex")
+    const sourceStatus = String(originalData?.status || "").trim().toUpperCase()
+    const requestFingerprint = createHash("sha256")
+      .update(JSON.stringify({ sourceType, booksSourceId, sourceStatus, targetType, payload }))
+      .digest("hex")
     const operationKey = `books:document:convert:${sourceType}:${localSource.id}:${targetType}`
     providerOperationKey = operationKey
     const operation = await prisma.providerWriteOperation.upsert({

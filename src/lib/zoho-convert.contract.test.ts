@@ -19,6 +19,8 @@ describe('Zoho document conversion safety contract', () => {
   })
 
   it('reopens only a definitively failed operation after the corrected payload changes', () => {
+    expect(handler).toContain('const sourceStatus = String(originalData?.status || "").trim().toUpperCase()')
+    expect(handler).toContain('JSON.stringify({ sourceType, booksSourceId, sourceStatus, targetType, payload })')
     expect(handler).toContain('operation.state !== "FAILED"')
     expect(handler).toContain('where: { operationKey, state: "FAILED", requestFingerprint: operation.requestFingerprint }')
     expect(handler).toContain('requestFingerprint,\n          state: "PENDING"')

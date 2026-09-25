@@ -161,15 +161,51 @@ export const handler: Handler = async (event) => {
         await assertNoBooksConflictBeforeWrite("quote", dbQuote)
       }
 
-      const res = await fetch(`${baseUrl}/estimates/${booksId}/status/${action}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
-        method: 'POST',
-        headers: {
-          'Authorization': `Zoho-oauthtoken ${token}`,
-          'Content-Type': 'application/json'
+      const statusUrl = (status: string) => `${baseUrl}/estimates/${booksId}/status/${status}?organization_id=${ORG_ID}`
+      const postStatus = async (status: string) => {
+        const response = await fetch(statusUrl(status), {
+          signal: AbortSignal.timeout(15000),
+          method: 'POST',
+          headers: {
+            'Authorization': `Zoho-oauthtoken ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+        const data: any = await response.json().catch(() => null)
+        if (!response.ok || data?.code !== 0) {
+          const code = data?.code != null ? ` [${data.code}]` : ''
+          throw new Error(`Zoho error: ${data?.message || `Failed to ${status} quote`}${code}`)
         }
-      })
-      const data: any = await res.json()
-      if (data.code !== 0) throw new Error(`Zoho error: ${data.message || `Failed to ${action} quote`}`)
+      }
+
+      // Zoho only accepts a quote after it has reached Sent. Marking it sent
+      // changes lifecycle state only; it does not invoke the email endpoint.
+      if (action === 'accepted') {
+        const currentResponse = await fetch(`${baseUrl}/estimates/${booksId}?organization_id=${ORG_ID}`, {
+          signal: AbortSignal.timeout(15000),
+          headers: { 'Authorization': `Zoho-oauthtoken ${token}` }
+        })
+        const currentData: any = await currentResponse.json().catch(() => null)
+        if (!currentResponse.ok || currentData?.code !== 0) {
+          const code = currentData?.code != null ? ` [${currentData.code}]` : ''
+          throw new Error(`Zoho error: ${currentData?.message || 'Failed to verify quote status'}${code}`)
+        }
+        const currentStatus = String(currentData?.estimate?.status || '').toLowerCase()
+        if (currentStatus === 'draft') {
+          await postStatus('sent')
+          if (dbRecord) {
+            await prisma.quote.update({
+              where: { id: dbRecord.id },
+              data: { status: 'sent', appModifiedAt: new Date(), lastSyncedAt: new Date() }
+            })
+          }
+        } else if (currentStatus !== 'sent' && currentStatus !== 'accepted') {
+          throw new Error(`Zoho error: Quote cannot be accepted from status '${currentStatus || 'unknown'}'`)
+        }
+        if (currentStatus !== 'accepted') await postStatus('accepted')
+      } else {
+        await postStatus(action)
+      }
 
       if (dbRecord) {
         await prisma.quote.update({
