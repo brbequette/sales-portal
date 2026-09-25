@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { disconnectTelegram, makePairCode, telegramEnabled } from '@/lib/telegram-service'
 import { portalKey, telegramEligible } from '@/lib/telegram-policy'
+import { telegramOriginAllowed } from '@/lib/telegram-origin'
 
 async function currentUser() {
   const session = await getServerSession(authOptions)
@@ -18,7 +19,7 @@ export async function GET() {
   return NextResponse.json({ enabled: telegramEnabled(), linked: Boolean(link), username: process.env.TELEGRAM_BOT_USERNAME || null }, { headers: { 'Cache-Control': 'no-store' } })
 }
 export async function POST(req: NextRequest) {
-  if (req.headers.get('origin') !== req.nextUrl.origin) return NextResponse.json({ error: 'Origin mismatch' }, { status: 403 })
+  if (!telegramOriginAllowed(req.headers.get('origin'), process.env.TELEGRAM_PUBLIC_ORIGIN)) return NextResponse.json({ error: 'Origin mismatch' }, { status: 403 })
   const user = await currentUser()
   if (!user) return NextResponse.json({ error: 'Sign in required.' }, { status: 401 })
   if (!telegramEnabled()) return NextResponse.json({ error: 'Telegram is not configured yet.' }, { status: 503 })
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(await makePairCode(user.id), { headers: { 'Cache-Control': 'no-store' } })
 }
 export async function DELETE(req: NextRequest) {
-  if (req.headers.get('origin') !== req.nextUrl.origin) return NextResponse.json({ error: 'Origin mismatch' }, { status: 403 })
+  if (!telegramOriginAllowed(req.headers.get('origin'), process.env.TELEGRAM_PUBLIC_ORIGIN)) return NextResponse.json({ error: 'Origin mismatch' }, { status: 403 })
   const user = await currentUser()
   if (!user) return NextResponse.json({ error: 'Sign in required.' }, { status: 401 })
   await disconnectTelegram(user.id)

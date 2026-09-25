@@ -1,0 +1,21 @@
+name: Telegram validation
+on:
+  pull_request:
+    paths:
+      - 'src/lib/telegram*'
+      - 'src/app/api/telegram/**'
+      - 'tests/telegram*'
+      - '.github/workflows/telegram-validation.yml'
+jobs:
+  telegram:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24', cache: npm }
+      - run: npm ci
+      - run: npx prisma generate
+      - run: node --test tests/telegram-origin.test.mjs
+      - run: npx vitest run src/lib/telegram-policy.test.ts src/lib/telegram-actions.test.ts src/lib/telegram-confidence.test.ts src/lib/telegram-agent.test.ts
+      - run: npx tsc --noEmit --incremental false
+      - run: npx eslint src/lib/telegram-origin.ts src/app/api/telegram/link/route.ts
