@@ -25,4 +25,9 @@ describe('dropship purchase-order safety contract', () => {
     expect(source).toContain('operation.state === "FAILED"')
     expect(source).toContain('was not resubmitted')
   })
+
+  it('does not submit a sales-order display name to a purchase-order dropdown', () => {
+    expect(source).not.toContain('api_name: "cf_sales_person"')
+    expect(source).toContain('payload.zcrm_owner_id = so.salesperson_id')
+  })
 })
