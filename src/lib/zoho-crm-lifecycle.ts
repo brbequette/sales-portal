@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { prisma } from '@/lib/prisma'
 import { getZohoAccessToken } from '@/lib/zoho-auth'
+import { interpretCrmConversionResponse, interpretCrmWriteResponse } from '@/lib/zoho-crm-response'
 
 const ZOHO_DC = process.env.ZOHO_DC?.trim().replace(/^(?:["'])(.*)(?:["'])$/, '$1') || 'com'
 const CRM_TIMEOUT_MS = 15000
@@ -14,15 +15,6 @@ type ProviderResult = {
 
 function fingerprint(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex')
-}
-
-function crmRow(payload: any): any {
-  return Array.isArray(payload?.data) ? payload.data[0] : null
-}
-
-function successfulRecordId(payload: any): string | null {
-  const row = crmRow(payload)
-  return String(row?.details?.id || row?.id || '').trim() || null
 }
 
 async function lookupAcceptedLead(email: string | null, company: string, token: string): Promise<string | null> {
@@ -105,18 +97,16 @@ export async function persistPortalLeadToCrm(leadId: string): Promise<ProviderRe
       signal: AbortSignal.timeout(CRM_TIMEOUT_MS),
     })
     const body = await response.json().catch(() => null)
-    const row = crmRow(body)
-    const id = successfulRecordId(body)
-    if (!response.ok || row?.status !== 'success' || !id) {
-      const code = String(row?.code || body?.code || `HTTP_${response.status}`)
-      const message = String(row?.message || body?.message || 'Zoho CRM rejected the lead.')
+    const result = interpretCrmWriteResponse(response.status, body)
+    if (!result.ok) {
+      const { code, message } = result
       await prisma.$transaction([
         prisma.lead.update({ where: { id: lead.id }, data: { providerSyncState: 'FAILED', providerSyncError: `${code}: ${message}` } }),
         prisma.providerWriteOperation.update({ where: { operationKey }, data: { state: 'FAILED', providerCode: code, providerMessage: message, lastError: message, completedAt: new Date() } }),
       ])
       return { state: 'FAILED', code, message }
     }
-    return completeLeadWrite(lead.id, operationKey, id, String(row.code || 'SUCCESS'), String(row.message || 'success'))
+    return completeLeadWrite(lead.id, operationKey, result.id, result.code, result.message)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown provider submission error'
     await prisma.$transaction([
@@ -154,22 +144,20 @@ export async function convertPersistedCrmLead(leadId: string, accountId: string)
       signal: AbortSignal.timeout(CRM_TIMEOUT_MS),
     })
     const body = await response.json().catch(() => null)
-    const row = crmRow(body)
-    const details = row?.details || {}
-    const crmAccountId = String(details.Accounts || details.accounts || '').trim()
-    const crmContactId = String(details.Contacts || details.contacts || '').trim()
-    if (!response.ok || row?.status !== 'success' || !crmAccountId) {
-      const code = String(row?.code || body?.code || `HTTP_${response.status}`)
-      const message = String(row?.message || body?.message || 'Zoho CRM rejected the conversion.')
+    const result = interpretCrmConversionResponse(response.status, body)
+    if (!result.ok) {
+      const { code, message } = result
       await prisma.providerWriteOperation.update({ where: { operationKey }, data: { state: 'FAILED', providerCode: code, providerMessage: message, lastError: message, completedAt: new Date() } })
       await prisma.account.update({ where: { id: accountId }, data: { providerSyncState: 'FAILED', providerSyncError: `${code}: ${message}` } })
       return { state: 'FAILED', code, message }
     }
+    const crmAccountId = result.accountId!
+    const crmContactId = result.contactId || ''
     const primaryContact = await prisma.contact.findFirst({ where: { accountId, isPrimary: true }, select: { id: true } })
     await prisma.$transaction([
       prisma.account.update({ where: { id: accountId }, data: { crmAccountId, providerSyncState: 'SUCCEEDED', providerSyncError: null, providerSyncedAt: new Date() } }),
       ...(primaryContact && crmContactId ? [prisma.contact.update({ where: { id: primaryContact.id }, data: { crmContactId, providerSyncState: 'SUCCEEDED', providerSyncError: null, providerSyncedAt: new Date() } })] : []),
-      prisma.providerWriteOperation.update({ where: { operationKey }, data: { state: 'SUCCEEDED', providerRecordIds: { crmLeadId: lead.crmLeadId, crmAccountId, crmContactId: crmContactId || null }, providerCode: String(row.code || 'SUCCESS'), providerMessage: String(row.message || 'success'), completedAt: new Date(), lastError: null } }),
+      prisma.providerWriteOperation.update({ where: { operationKey }, data: { state: 'SUCCEEDED', providerRecordIds: { crmLeadId: lead.crmLeadId, crmAccountId, crmContactId: crmContactId || null }, providerCode: result.code, providerMessage: result.message, completedAt: new Date(), lastError: null } }),
     ])
     return { state: 'SUCCEEDED', crmAccountId, crmContactId: crmContactId || undefined }
   } catch (error) {

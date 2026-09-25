@@ -15,11 +15,13 @@ Status: implementation in progress; not released and not production-verified.
 - Provider HTTP and per-record results are validated. Pending, syncing, successful, failed, and ambiguous outcomes are explicit.
 - Timeout after submission becomes ambiguous. Lead creation performs an exact email/company lookup before retry; conversion requires reconciliation and is not automatically resent.
 - Sync batches flush completely. Provider pages are bounded and resumable with a durable page pointer. The original timestamp checkpoint advances only after complete persistence; unresolved dependencies keep the current page recoverable.
+- GitHub CI uses an isolated PostgreSQL 16 service to apply the full migration chain twice and rehearse an upgrade from the preceding schema. The first PR #95 run passed both database gates.
+- Books customer creation now has one durable operation per local Account. It persists the returned Books customer ID, reconciles by exact stored CRM Account linkage, never matches by company name alone, and does not automatically resend an ambiguous POST.
+- Order submission retains Books catalog item IDs. The authoritative gift hat (`1254360000043727500`) is selectable even when its local gift flag is stale, while administrative lines are excluded from merchandise and gift choices.
 
 ## Still required before release
 
-- Disposable PostgreSQL full-chain and production-schema upgrade rehearsal.
 - Mocked provider concurrency, rejection, accepted-timeout, lock-expiry, and transaction-failure coverage.
-- Idempotent Books customer/contact persistence and reconciliation of local TEST account `cmug0bjgs0002z35hikn7od9w` without creating another account.
-- Product/gift/fulfillment and UI feedback corrections.
+- Read-only reconciliation of local TEST account `cmug0bjgs0002z35hikn7od9w` against its exact CRM/Books mappings without creating another account.
+- Remaining fulfillment idempotency, address/shipping/tax preview, and truthful pending/ambiguous UI feedback corrections.
 - Full lint, build, function bundle, preview, reviewed merge, backup, production deploy, and browser/provider acceptance.

@@ -8,6 +8,7 @@ import { internalHandler as processQuoteCosts } from "./process-quote-costs"
 import { internalHandler as processSalesOrderCosts } from "./process-salesorder-costs"
 import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
 import { isAdminRole } from "../../src/lib/roles"
+import { ensureBooksCustomer } from "../../src/lib/zoho-books-customer"
 import { classifyZohoLineItem, financialZohoLineItems, orderedZohoLineItems, structuralZohoLineItemPayload } from "../../src/lib/zoho-line-items"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
@@ -90,35 +91,11 @@ export const handler: Handler = async (event, context) => {
       zohoDoc = { line_items: lineItems || [], localDevelopmentTransaction: true }
     } else {
       token = await getZohoAccessToken()
-      let booksContactId = null
-
-      // First, resolve the true Zoho Books Contact ID.
-      const searchRes = await fetch(`${baseUrl}/contacts?organization_id=${ORG_ID}&zcrm_account_id=${account.zohoId}`, { signal: AbortSignal.timeout(15000),
-        headers: { Authorization: `Zoho-oauthtoken ${token}` }
-      })
-      const searchData = await searchRes.json()
-
-      if (searchData.contacts && searchData.contacts.length > 0) {
-        booksContactId = searchData.contacts[0].contact_id
-      } else {
-        const searchByNameRes = await fetch(`${baseUrl}/contacts?organization_id=${ORG_ID}&contact_name=${encodeURIComponent(account.name)}`, { signal: AbortSignal.timeout(15000),
-          headers: { Authorization: `Zoho-oauthtoken ${token}` }
-        })
-        const searchByNameData = await searchByNameRes.json()
-
-        if (searchByNameData.contacts && searchByNameData.contacts.length > 0) {
-          booksContactId = searchByNameData.contacts[0].contact_id
-        } else {
-          const createRes = await fetch(`${baseUrl}/contacts?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
-            method: "POST",
-            headers: { Authorization: `Zoho-oauthtoken ${token}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ contact_name: account.name, zcrm_account_id: account.zohoId })
-          })
-          const createData = await createRes.json()
-          if (createData.code !== 0) throw new Error(`Zoho Books Error (Create Contact): ${createData.message}`)
-          booksContactId = createData.contact.contact_id
-        }
+      const booksCustomer = await ensureBooksCustomer(account.id)
+      if (booksCustomer.state !== 'SUCCEEDED' || !booksCustomer.booksCustomerId) {
+        return { statusCode: booksCustomer.state === 'FAILED' ? 422 : 202, body: JSON.stringify({ success: false, providerState: booksCustomer.state, message: booksCustomer.message || 'Books customer is not ready.' }) }
       }
+      const booksContactId = booksCustomer.booksCustomerId
 
       const payload = {
         customer_id: booksContactId,
