@@ -1455,3 +1455,8 @@ live state before destructive changes or external writes.
 ## Voice follow-up replay safeguards (local, unreleased, 2026-09-25)
 - Branch codex/voice-followup-replay-safety: callback deadlines derive from call time, replay preserves user task edits, recommendations use a deterministic primary key, reviewed legacy recommendations are retained, and unmatched holding-account events do not schedule customer work.
 - Five mocked regression tests pass. No production writes/deployments; full release gates remain open. Caller-leg reconciliation and CRM persistence are not established. User explicitly approved assigning the 04:51 test call to TEST Incorporated; this authorization has not been applied to production.
+
+## Transcript parser repair (local, unreleased, 2026-09-25)
+- Branch rebased onto origin/main d68f00b3. Existing replay safeguards retained.
+- Official Zoho transcription response uses serialized transcribeObj with transcriptJson; the former parser could return the raw JSON as transcript text. A pure parser now extracts segment text, supports existing wrappers, rejects provider errors/analysis-only or malformed JSON, and bounds nesting. Five additional regression cases pass (10 focused tests total); focused lint passes.
+- The TEST follow-up has since been saved in production and independently verified as CRM task 6821836000027791003. Do not duplicate it. Native CallLog/recording import, audited preview/apply, protected playback and CRM Calls synchronization remain unimplemented and must not be represented as complete.

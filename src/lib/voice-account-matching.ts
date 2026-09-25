@@ -30,18 +30,4 @@ export async function matchVoiceCallToAccount(input: { direction?: unknown; from
   return { status: accounts.size > 1 ? "AMBIGUOUS" as const : "UNRESOLVED" as const, normalized, matches }
 }
 
-export function transcriptText(payload: unknown): string {
-  if (!payload || typeof payload !== "object") return ""
-  const data = payload as Record<string, unknown>
-  const raw = data.transcribeObj || data.transcription || data.transcript || data.data
-  if (typeof raw === "string") {
-    try { return transcriptText(JSON.parse(raw)) || raw.trim() } catch { return raw.trim() }
-  }
-  if (Array.isArray(raw)) return raw.map(item => transcriptText(item)).filter(Boolean).join("\n")
-  if (raw && typeof raw === "object") {
-    const record = raw as Record<string, unknown>
-    const segments = record.transcript || record.transcripts || record.segments
-    if (Array.isArray(segments)) return segments.map(segment => typeof segment === "string" ? segment : String((segment as Record<string, unknown>)?.transcript || (segment as Record<string, unknown>)?.text || "")).filter(Boolean).join("\n")
-  }
-  return ""
-}
+export { transcriptText } from "./voice-transcript"
