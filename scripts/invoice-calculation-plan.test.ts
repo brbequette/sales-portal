@@ -25,6 +25,12 @@ describe('invoice reconciliation evidence gates', () => {
   it('blocks missing payment evidence on a paid invoice', () => {
     expect(invoiceCalculationPlan(row,source,null,[],[],{})).toMatchObject({ready:false,reason:'MISSING_PAYMENT_EVIDENCE'})
   })
+  it('requires the payments to reconcile after documented applied credits', () => {
+    const payment=[{amount:25,mode:'Check'}]
+    expect(invoiceCalculationPlan(row,source,null,payment,[],{})).toMatchObject({ready:false,reason:'PAYMENT_TOTAL_MISMATCH'})
+    const result=invoiceCalculationPlan(row,{...source,credits_applied:100},null,payment,[],{})
+    expect(result.ready && result.values.ccFees).toBe(0)
+  })
   it('blocks missing costs rather than using a catalog or percentage estimate', () => {
     expect(invoiceCalculationPlan(row,source,{sub_total:100,total:125,line_items:[{quantity:1,purchase_rate:'',rate:100}]},card,[],{})).toMatchObject({ready:false,reason:'UNVERIFIED_LINE_COST'})
   })

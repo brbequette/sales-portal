@@ -78,8 +78,9 @@ export function invoiceCalculationPlan(row: any, source: any, detail: any, payme
   const hasCard = paid.some(p=>isCardPaymentMode(mode(p)))
   if (!hasCard && paid.some(p=>!knownNonCard.test(String(mode(p)||'').trim()))) return fail('UNVERIFIED_PAYMENT_MODE')
   const fees = hasCard ? calculateCardProcessingFee(total) : 0
-  const expectedPaid = total - Number(detail?.balance ?? source.balance ?? 0) - Number(source.write_off_amount || 0)
+  const expectedPaid = total - Number(detail?.balance ?? source.balance ?? 0) - Number(detail?.write_off_amount ?? source.write_off_amount ?? 0) - Number(detail?.credits_applied ?? items.credits_applied ?? source.credits_applied ?? 0)
   if (expectedPaid > 0.011 && paid.length === 0) return fail('MISSING_PAYMENT_EVIDENCE')
+  if (Math.abs(paid.reduce((sum,p)=>sum+Number(p.amount),0)-expectedPaid)>0.011) return fail('PAYMENT_TOTAL_MISMATCH')
   let commissionPercent = field(doc, 'COMMISSION FROM PROFIT %', 'cf_commision_from_profit') ?? number(items.commissionPercent) ?? 50
   if (commissionPercent===40 && (year===2025 || year===2026)) commissionPercent=50
   if (commissionPercent < 0 || commissionPercent > 100) return fail('INVALID_COMMISSION_PERCENT')
