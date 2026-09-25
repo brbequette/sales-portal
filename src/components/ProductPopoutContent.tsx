@@ -29,10 +29,13 @@ export function ProductPopoutContent({ productId, onClose }: ProductPopoutConten
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch("/api/get-products")
-      const data = await res.json()
+      const [res, giftOptionsRes] = await Promise.all([
+        fetch(`/api/get-products?id=${encodeURIComponent(productId)}`, { cache: 'no-store' }),
+        fetch('/api/get-products?giftOnly=true', { cache: 'no-store' }),
+      ])
+      const [data, giftOptionsData] = await Promise.all([res.json(), giftOptionsRes.json()])
       if (data.success) {
-        setCatalogOptions(data.products || [])
+        setCatalogOptions(giftOptionsData.success ? giftOptionsData.products || [] : [])
         const found = data.products.find((p: any) => p.id === productId || p.sku === productId)
         if (found) {
           setProduct(found)

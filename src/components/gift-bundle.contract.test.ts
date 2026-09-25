@@ -7,9 +7,13 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), '
 describe('gift bundle configuration and POS selection contract', () => {
   it('supports exact fixed products and tag-driven variable products in Product Information', () => {
     const editor = read('src/components/ProductPopoutContent.tsx')
+    const catalog = read('netlify/functions/get-products.ts')
     expect(editor).toContain('Bundle components')
     expect(editor).toContain("value=\"VARIABLE_TAG\"")
     expect(editor).toContain('Choose exact product')
+    expect(editor).toContain('/api/get-products?id=')
+    expect(editor).toContain('/api/get-products?giftOnly=true')
+    expect(catalog).toContain('where: id ? { id } : giftOnly ? { giftItem: true } : searchWhere')
   })
 
   it('rejects unmapped or unknown-cost bundle options and revalidates exact POS selections', () => {
