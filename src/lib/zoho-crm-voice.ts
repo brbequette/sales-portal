@@ -28,6 +28,7 @@ export function verifyCrmVoiceRecord(value: unknown, expected: ReturnType<typeof
   if (!providerId(row.id) || row.Subject !== expected.Subject || row.Description !== expected.Description || row.Call_Type !== expected.Call_Type ||
       record(row.What_Id).id !== expected.What_Id.id || (record(row.Who_Id).id || null) !== (expected.Who_Id?.id || null) ||
       new Date(String(row.Call_Start_Time)).getTime() !== new Date(expected.Call_Start_Time).getTime() || row.Call_Duration !== expected.Call_Duration) return null
+  if (expected.Call_Type === "Outbound" && row.Outgoing_Call_Status !== "Completed") return null
   const parts = expected.Call_Duration.split(":").map(Number)
   if (row.Call_Duration_in_seconds !== undefined && Number(row.Call_Duration_in_seconds) !== parts[0] * 60 + parts[1]) return null
   return String(row.id)

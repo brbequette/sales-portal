@@ -34,3 +34,8 @@ Still release-blocking: database integration tests covering concurrent bulk/webh
 - Provider returned 3437f313-1e67-4745-af19-f5f3013cc26f_recording.mp3. Uppercase mode=Play was rejected with ZVT015; lowercase mode=play returned HTTP 200, application/octet-stream, 111744 bytes and an MP3 frame header. Proxy now validates audio signatures and limits buffering to 25 MB. Full portal playback still requires deployed browser verification.
 - Shared caller matching excludes known Titan routing numbers (plus additive VOICE_BUSINESS_NUMBERS), removes name-only fallback and international suffix collisions, and keeps multiple-account matches ambiguous. No bulk production reconciliation was run.
 - 44 focused mocked tests pass. Native CRM Calls code is implemented locally but no CRM Calls write has been made. Real PostgreSQL concurrency CI and deployment checks remain required.
+
+## Review follow-up
+- Manual apply now resolves the exact account-match exception and moves source-linked commitment associations atomically. Local replay reports CRM verification NOT_CHECKED rather than incorrectly declaring an already-synced call incomplete.
+- CRM-only administrator endpoint tests added (47 focused mocked tests total). Disposable PostgreSQL lock/rollback tests, complete migration chain and upgrade rehearsal passed in GitHub run 36139154048.
+- Live CRM read-only preflight: exact source-subject search HTTP 204; existing native call readback confirmed Call_Duration 00:07 means 7 seconds. The exact TEST transcript returned four matching segments via transcribeObj.transcriptJson. Recording buffer limit reduced to 4 MiB for bounded serverless playback.

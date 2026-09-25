@@ -19,7 +19,7 @@ export default function VoiceCallReconciliation() {
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || "Reconciliation failed")
       if (mode === "preview") { setPreview(data); setCallId(""); setAudioUrl(""); setMessage("Preview ready. Review the exact call, account and evidence before applying.") }
-      else { setCallId(data.callId); setPreview(null); setMessage(`${data.replay ? "Existing association verified" : "Portal call association saved"}. Existing task preserved. Native CRM Calls synchronization is NOT complete.`) }
+      else { setCallId(data.callId); setPreview(null); setMessage(`${data.replay ? "Existing association verified" : "Portal call association saved"}. Existing task preserved. Use the separate CRM action to synchronize or verify the native call.`) }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Request failed")
       if (mode === "apply") setPreview(null)

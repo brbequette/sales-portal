@@ -71,6 +71,12 @@ export async function POST(req: Request) {
       const metadata = { associationBasis: "HUMAN_CONFIRMED", zohoCallId: evidence.zohoCallId, retellCallId: preview.retellCallId,
         taskId: preview.taskId, recordingFilename: evidence.recordingFilename, reason: preview.reason }
       await tx.communicationEvent.updateMany({ where: { sourceId: call.id, sourceType: { in: ["CALL_LOG", "CallLog"] } }, data: { accountId, contactId } })
+      await tx.salesCommitment.updateMany({ where: { sourceId: call.id, sourceType: "CALL_LOG" }, data: { accountId, contactId } })
+      await tx.integrationException.upsert({
+        where: { integration_entityType_externalId_exceptionType: { integration: "ZOHO_VOICE", entityType: "CALL_LOG", externalId: evidence.zohoCallId, exceptionType: "ACCOUNT_MATCH" } },
+        update: { status: "RESOLVED", resolvedEntityId: accountId, resolvedBy: actorId, resolvedAt: new Date() },
+        create: { integration: "ZOHO_VOICE", entityType: "CALL_LOG", externalId: evidence.zohoCallId, exceptionType: "ACCOUNT_MATCH", status: "RESOLVED", summary: "Human-confirmed account association", resolvedEntityId: accountId, resolvedBy: actorId, resolvedAt: new Date() },
+      })
       await tx.communicationEvent.upsert({ where: { sourceType_sourceId_eventType: { sourceType: "CALL_LOG", sourceId: call.id, eventType: "CALL" } },
         update: { accountId, contactId, occurredAt: data.createdAt, metadata, summary: `Voice call: ${evidence.status}` },
         create: { accountId, contactId, actorId, sourceType: "CALL_LOG", sourceId: call.id, eventType: "CALL", channel: "VOICE", direction: data.direction,
@@ -80,7 +86,7 @@ export async function POST(req: Request) {
         result: { callId: call.id, nativeCrmCallSynced: false, taskPreserved: true } } })
       return { replay: false, callId: call.id }
     })
-    return NextResponse.json({ success: true, ...result, nativeCrmCallSynced: false, outboundActions: 0 })
+    return NextResponse.json({ success: true, ...result, crmVerification: "NOT_CHECKED", outboundActions: 0 })
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && ["P2002", "P2034"].includes(error.code)) return NextResponse.json({ error: "Concurrent update; reconcile before retrying" }, { status: 409 })
     // Do not expose provider response bodies, tokens, or database details.

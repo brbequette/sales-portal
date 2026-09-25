@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     if (!response.ok || !response.body) return NextResponse.json({ error: "Provider recording is unavailable" }, { status: 502 })
     // Voice currently returns valid MP3 bytes as application/octet-stream.
     // Validate file signature instead of trusting either MIME or extension alone.
-    const maxBytes = 25 * 1024 * 1024
+    const maxBytes = 4 * 1024 * 1024
     if (Number(response.headers.get("content-length")) > maxBytes) {
       await response.body.cancel()
       return NextResponse.json({ error: "Recording exceeds playback size limit" }, { status: 413 })

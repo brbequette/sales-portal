@@ -23,6 +23,7 @@ describe("scoped call apply", () => {
       $executeRaw: vi.fn().mockResolvedValue(1),
       operationalAction: { findUnique: mocks.auditFind, create: mocks.auditCreate },
       callLog: { findUnique: mocks.callFind, upsert: mocks.callUpsert }, task: { findUnique: mocks.taskFind }, contact: { findFirst: mocks.contactFind },
+      salesCommitment: { updateMany: vi.fn() }, integrationException: { upsert: vi.fn() },
       communicationEvent: { updateMany: mocks.eventUpdate, upsert: mocks.eventUpsert },
     }))
   })
@@ -32,10 +33,10 @@ describe("scoped call apply", () => {
     expect(mocks.transaction).not.toHaveBeenCalled()
     expect(mocks.token).not.toHaveBeenCalled()
   })
-  it("persists one audited call and reports CRM synchronization incomplete", async () => {
+  it("persists one audited call and leaves CRM verification to the separate provider action", async () => {
     const result = await POST(request())
     expect(result.status).toBe(200)
-    expect(await result.json()).toMatchObject({ callId: "local-call", nativeCrmCallSynced: false, outboundActions: 0 })
+    expect(await result.json()).toMatchObject({ callId: "local-call", crmVerification: "NOT_CHECKED", outboundActions: 0 })
     expect(mocks.callUpsert).toHaveBeenCalledOnce()
     expect(mocks.auditCreate).toHaveBeenCalledOnce()
     expect(mocks.token).not.toHaveBeenCalled()
