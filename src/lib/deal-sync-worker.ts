@@ -12,10 +12,15 @@ export async function runDealSyncBatch(limit = 5) {
   for (let index = 0; index < Math.min(20, Math.max(1, limit)) && Date.now() - started < 40000; index++) {
     const rows = await prisma.$queryRaw<{ invoiceId: string; revision: string; lease: string }[]>`
       UPDATE "DealSyncJob" SET "leaseUntil" = clock_timestamp() + interval '5 minutes', "attempts" = "attempts" + 1
-      WHERE "invoiceId" = (SELECT "invoiceId" FROM "DealSyncJob"
+      WHERE "invoiceId" = (SELECT j."invoiceId" FROM "DealSyncJob" j
         WHERE ("leaseUntil" IS NULL OR "leaseUntil" < clock_timestamp()) AND "nextAttemptAt" <= clock_timestamp()
         AND ("checkedAt" IS NULL OR "changedAt" > "checkedAt" OR "checkedAt" < clock_timestamp() - interval '1 day')
-        ORDER BY "nextAttemptAt", "changedAt" FOR UPDATE SKIP LOCKED LIMIT 1)
+        ORDER BY CASE WHEN ${index === 1} AND j."lastError" IS NULL
+          AND (j."checkedAt" IS NULL OR j."changedAt" > j."checkedAt")
+          AND EXISTS (SELECT 1 FROM "Invoice" i JOIN "Deal" d ON d.id = i."dealId"
+            WHERE i.id = j."invoiceId" AND d."rawData"->'_portalSync'->>'state' = 'SYNCED')
+          THEN 0 ELSE 1 END,
+          j."nextAttemptAt", j."changedAt" FOR UPDATE OF j SKIP LOCKED LIMIT 1)
       RETURNING "invoiceId", "changedAt"::text AS revision, "leaseUntil"::text AS lease`
     if (!rows[0]) break
     const job = rows[0]
