@@ -1,8 +1,8 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { normalizeAiRole } from './ai-action-policy'
 
-export type TelegramAgent = 'accounting' | 'graphics' | 'operations' | 'collections' | 'sales' | 'products'
-export const telegramAgents: TelegramAgent[] = ['accounting', 'graphics', 'operations', 'collections', 'sales', 'products']
+export type TelegramAgent = 'accounting' | 'data' | 'zoho' | 'collections' | 'graphics' | 'operations' | 'billing' | 'sales' | 'products'
+export const telegramAgents: TelegramAgent[] = ['accounting', 'data', 'zoho', 'collections', 'graphics', 'operations', 'billing', 'sales', 'products']
 export function agentAllowed(agent: TelegramAgent, role: string) {
   return telegramAgents.includes(agent) && (agent !== 'accounting' || ['master_admin', 'admin', 'administrator', 'manager'].includes(role.trim().toLowerCase()))
 }
