@@ -1271,6 +1271,7 @@ model PurchaseOrder {
   total            Float     @default(0)
   status           String?
   items            Json?
+  salesOrderLinkEvidence Json?
   salesOrderId     String?
   salesOrderNumber String?
   isDropshipment   Boolean   @default(false)
