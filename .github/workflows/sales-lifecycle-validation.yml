@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "prisma/**"
+      - "src/lib/purchase-order-link*"
+      - "scripts/test-po-order-link-migration.mjs"
       - "src/app/api/leads/**"
       - "src/app/api/sync-now/**"
       - "src/lib/zoho-crm-**"
@@ -61,6 +63,10 @@ jobs:
       - name: Voice concurrent database writers and scoped routes
         run: |
           npx vitest run src/app/api/admin/communications/retell-inbox/route.test.ts src/lib/retell-signature.test.ts src/app/api/admin/communications/retell-call/route.test.ts src/lib/retell-evidence.test.ts src/lib/retell-sync.test.ts src/app/api/webhooks/retell/route.test.ts src/lib/voice-account-matching.test.ts src/lib/zoho-crm-voice.test.ts tests/voice-call-lock.postgres.test.ts src/lib/voice-call-lock.test.ts src/lib/voice-call-preview.test.ts src/lib/voice-transcript.test.ts src/lib/communication-automation.test.ts src/app/api/admin/communications/reconcile-call/route.test.ts src/app/api/admin/communications/call-recording/route.test.ts src/app/api/admin/communications/crm-call/route.test.ts
+      - name: Durable purchase-order link contract
+        run: |
+          npx vitest run src/lib/purchase-order-link.test.ts
+          node scripts/test-po-order-link-migration.mjs
       - name: Lifecycle and sync contracts
         run: |
           npx vitest run tests/zoho-incremental-filter.test.ts tests/zoho-pagination.test.ts tests/zoho-crm-response.test.ts

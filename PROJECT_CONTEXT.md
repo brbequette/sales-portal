@@ -1,5 +1,11 @@
 # Titan Diamond — Consolidated Project Context
 
+## Durable purchase-order link release (pending)
+
+- Added a nullable dedicated link-evidence column and database guard so every existing Books upsert preserves audited inferred PO/order links when the provider omits its ID. Agreeing IDs remain valid; conflicting replacements and evidence erasure fail closed.
+- Internal linking requires fresh, unique, corroborated provider evidence, a version guard, a serializable transaction, an operational event, and local readback. No HTTP auto-link endpoint or production backfill is introduced.
+- This branch requires PR validation/review, a fresh backup, and additive migration deployment before the generated Prisma client is deployed. No production migration or inferred links have been applied by this change. See docs/durable-purchase-order-links.md for gates and conflict handling.
+
 ## CRM owner preflight follow-up
 
 - New CRM deal creation now verifies the exact owner is active before claiming a provider write. Disabled/missing owner status produces CRM_ACTIVE_OWNER_REQUIRED and preserves local historical ownership; no fallback owner is guessed. Existing ambiguous writes continue through read-only reconciliation. Focused tests cover disabled, deleted and missing status responses.
