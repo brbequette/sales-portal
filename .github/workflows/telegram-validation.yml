@@ -6,6 +6,7 @@ on:
       - 'src/app/api/telegram/**'
       - 'src/proxy.ts'
       - 'netlify/functions/telegram*'
+      - 'netlify.toml'
       - 'tests/telegram*'
       - '.github/workflows/telegram-validation.yml'
 jobs:
@@ -18,6 +19,6 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - run: node --test tests/telegram-origin.test.mjs
-      - run: npx vitest run src/lib/telegram-policy.test.ts src/lib/telegram-actions.test.ts src/lib/telegram-confidence.test.ts src/lib/telegram-agent.test.ts tests/telegram-worker.test.ts tests/telegram-directions.test.ts
+      - run: npx vitest run src/lib/telegram-policy.test.ts src/lib/telegram-actions.test.ts src/lib/telegram-confidence.test.ts src/lib/telegram-agent.test.ts tests/telegram-worker.test.ts tests/telegram-directions.test.ts tests/telegram-system.test.ts tests/telegram-monitor.test.ts
       - run: npx tsc --noEmit --incremental false
       - run: npx eslint src/lib/telegram-origin.ts src/app/api/telegram/link/route.ts

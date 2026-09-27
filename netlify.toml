@@ -4,6 +4,9 @@
 [functions."telegram-agent-dispatch"]
   schedule = "* * * * *"
 
+[functions."telegram-admin-monitor"]
+  schedule = "*/15 * * * *"
+
 [build]
   command = "npm run build:netlify"
 
