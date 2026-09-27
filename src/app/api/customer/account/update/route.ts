@@ -1,3 +1,4 @@
+import { crmBudgetFetch } from '../../../../../lib/crm-request-budget'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyCustomerToken } from '@/lib/customer-auth'
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
 
     const token = await getZohoAccessToken();
     const headers = { Authorization: `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' };
-    const crmAccount = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts/${account.zohoId}`, {
+    const crmAccount = await crmBudgetFetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts/${account.zohoId}`, {
       method: 'PUT', headers, signal: AbortSignal.timeout(15000),
       body: JSON.stringify({ data: [{ Account_Name: accountData.name, Billing_Street: accountData.billingStreet, Billing_City: accountData.billingCity, Billing_State: accountData.billingState, Billing_Code: accountData.billingZip, Shipping_Street: accountData.shippingStreet, Shipping_City: accountData.shippingCity, Shipping_State: accountData.shippingState, Shipping_Code: accountData.shippingZip }] })
     });
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
     if (!crmAccount.ok || accountResult?.data?.[0]?.code !== 'SUCCESS') throw new Error(accountResult?.data?.[0]?.message || 'Zoho rejected the account update.');
 
     if (primary?.zohoId && !primary.zohoId.startsWith('mock-')) {
-      const crmContact = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Contacts/${primary.zohoId}`, {
+      const crmContact = await crmBudgetFetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Contacts/${primary.zohoId}`, {
         method: 'PUT', headers, signal: AbortSignal.timeout(15000),
         body: JSON.stringify({ data: [{ First_Name: contactData.firstName, Last_Name: contactData.lastName || '-', Email: contactData.email || null, Phone: contactData.phone || null, Mobile: contactData.mobilePhone || null }] })
       });

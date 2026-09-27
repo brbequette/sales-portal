@@ -1,3 +1,4 @@
+import { crmBudgetFetch } from '../../../src/lib/crm-request-budget'
 import { prisma } from "./prisma"
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -122,7 +123,7 @@ export async function pushZohoNote(
       }],
     }
 
-    const res = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Notes`, { signal: AbortSignal.timeout(15000),
+    const res = await crmBudgetFetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Notes`, { signal: AbortSignal.timeout(15000),
       method:  'POST',
       headers: { Authorization: `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' },
       body:    JSON.stringify(zohoPayload),

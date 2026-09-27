@@ -13,8 +13,22 @@ vi.mock('./deal-crm-sync', () => ({
 }))
 vi.mock('./deal-reconciliation', () => ({ reconcileInvoiceDeal: async (id: string) => `deal-${id}` }))
 import { runDealSyncBatch } from './deal-sync-worker'
+import { syncDealToCrm } from './deal-crm-sync'
+import { prisma } from './prisma'
+import { CrmBudgetBlocked } from './crm-request-budget'
 beforeEach(() => { state.priorities = []; state.calls = 0; state.fail = false })
 describe('bounded follow-up scheduling', () => {
+  it('releases only its lease and preserves business holds when quota defers work', async () => {
+    vi.mocked(syncDealToCrm).mockRejectedValueOnce(new CrmBudgetBlocked('LIMIT'))
+    const result = await runDealSyncBatch(5)
+    expect(result.results).toHaveLength(1)
+    expect(result.results[0].status).toBe('DEFERRED')
+    const sql = vi.mocked(prisma.$executeRaw).mock.calls.at(-1)!
+    const statement = (sql[0] as unknown as string[]).join('?')
+    expect(statement).toContain('"leaseUntil" = ?::timestamptz')
+    expect(statement).not.toContain('"lastError" =')
+    expect(statement).not.toContain('"checkedAt" =')
+  })
   it('serves oldest work first and reserves only one follow-up slot', async () => {
     const result = await runDealSyncBatch(5)
     expect(state.priorities).toEqual([false, true, false, false, false])

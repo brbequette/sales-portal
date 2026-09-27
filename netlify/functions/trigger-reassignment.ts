@@ -1,3 +1,4 @@
+import { crmBudgetFetch } from '../../src/lib/crm-request-budget'
 import { withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken, ZOHO_DC } from "./lib/zoho-auth"
@@ -169,7 +170,7 @@ const authenticatedHandler: Handler = async (event) => {
             id: update.id,
             Owner: update.Owner
           }
-          const crmRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts/${update.id}`, { signal: AbortSignal.timeout(15000),
+          const crmRes = await crmBudgetFetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts/${update.id}`, { signal: AbortSignal.timeout(15000),
             method: "PUT",
             headers: {
               "Authorization": `Zoho-oauthtoken ${token}`,

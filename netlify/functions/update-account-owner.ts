@@ -1,3 +1,4 @@
+import { crmBudgetFetch } from '../../src/lib/crm-request-budget'
 import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken } from "./lib/zoho-auth"
@@ -119,7 +120,7 @@ const authenticatedHandler: Handler = async (event) => {
     let crmAccountId = account.zohoId
     
     const attemptOwnerUpdate = async (accountCrmId: string) => {
-      const crmRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts`, { signal: AbortSignal.timeout(15000),
+      const crmRes = await crmBudgetFetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts`, { signal: AbortSignal.timeout(15000),
         method: "PUT",
         headers: authHeaders,
         body: JSON.stringify({
@@ -138,7 +139,7 @@ const authenticatedHandler: Handler = async (event) => {
       console.warn(`Direct account owner update failed (${invalidMsg}); trying the bounded account lookup fallback`)
       
       try {
-        const searchRes = await fetch(
+        const searchRes = await crmBudgetFetch(
           `https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts/search?criteria=(Account_Name:equals:${encodeURIComponent(account.name)})&fields=id,Account_Name,Owner`,
           { headers: authHeaders }
         )
@@ -184,7 +185,7 @@ const authenticatedHandler: Handler = async (event) => {
     let contactsUpdated = 0
     let contactErrors: string[] = []
     try {
-      const searchRes = await fetch(
+      const searchRes = await crmBudgetFetch(
         `https://www.zohoapis.${ZOHO_DC}/crm/v3/Contacts/search?criteria=(Account_Name.id:equals:${crmAccountId})&fields=id,Full_Name`,
         { headers: authHeaders }
       )
@@ -198,7 +199,7 @@ const authenticatedHandler: Handler = async (event) => {
           for (let i = 0; i < contacts.length; i += 100) {
             const batch = contacts.slice(i, i + 100)
             try {
-              const contactRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Contacts`, { signal: AbortSignal.timeout(15000),
+              const contactRes = await crmBudgetFetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Contacts`, { signal: AbortSignal.timeout(15000),
                 method: "PUT",
                 headers: authHeaders,
                 body: JSON.stringify({

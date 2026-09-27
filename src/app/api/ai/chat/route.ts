@@ -1,3 +1,4 @@
+import { crmBudgetFetch } from '../../../../lib/crm-request-budget'
 import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'node:crypto';
 import { prisma } from '@/lib/prisma';
@@ -1045,7 +1046,7 @@ async function executeTool(name: string, args: any, context: { userId: string, u
           taskData.$se_module = 'Accounts';
         }
 
-        const res = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Tasks`, {
+        const res = await crmBudgetFetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Tasks`, {
           method: 'POST',
           headers: {
             'Authorization': `Zoho-oauthtoken ${token}`,
@@ -1177,7 +1178,7 @@ async function executeTool(name: string, args: any, context: { userId: string, u
           if (status) payloadData.Account_Status = status;
           if (quality) payloadData.Quality = quality;
 
-          await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts`, {
+          await crmBudgetFetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts`, {
             method: 'PUT',
             headers: {
               'Authorization': `Zoho-oauthtoken ${token}`,
@@ -1811,7 +1812,7 @@ async function executeCustomTool(
   }
 
   try {
-    const res = await fetch(url, fetchOptions);
+    const res = await crmBudgetFetch(url, fetchOptions);
     const data = await res.json().catch(() => null);
     if (data) return data;
     

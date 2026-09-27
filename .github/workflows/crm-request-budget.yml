@@ -1,0 +1,45 @@
+name: CRM request budget validation
+on:
+  pull_request:
+    paths:
+      - 'src/lib/crm-request-budget*'
+      - 'src/lib/deal-crm-sync*'
+      - 'src/lib/deal-sync-worker*'
+      - 'tests/crm-request-budget*'
+      - 'scripts/validate-crm-request-budget.mjs'
+      - '.github/workflows/crm-request-budget.yml'
+  workflow_dispatch:
+jobs:
+  request-budget:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: budget_test
+          POSTGRES_PASSWORD: local_fixture_only
+          POSTGRES_DB: budget_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd 'pg_isready -U budget_test -d budget_test'
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://budget_test:local_fixture_only@localhost:5432/budget_test
+      CRM_BUDGET_TEST_DATABASE_URL: postgresql://budget_test:local_fixture_only@localhost:5432/budget_test
+      NEXT_TELEMETRY_DISABLED: '1'
+      NEXTAUTH_SECRET: disposable-ci-build-secret-not-for-production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: npm }
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Database concurrency, lease and transport safety
+        run: npx vitest run tests/crm-request-budget.postgres.test.ts src/lib/crm-request-budget.test.ts src/lib/deal-crm-sync.test.ts src/lib/deal-sync-worker.test.ts
+      - name: Affected CRM callers and pagination
+        run: npx vitest run src/lib/zoho-crm-voice.test.ts src/lib/zoho-crm-lifecycle-payload.test.ts src/app/api/admin/lifecycle/reconcile-account/route.test.ts src/lib/create-task-function.test.ts tests/zoho-pagination.test.ts tests/zoho-crm-response.test.ts
+      - run: npx tsc --noEmit --incremental false
+      - run: npx eslint src/lib/crm-request-budget.ts src/lib/crm-request-budget.test.ts tests/crm-request-budget.postgres.test.ts src/lib/deal-sync-worker.ts scripts/validate-crm-request-budget.mjs
+      - run: node scripts/validate-crm-request-budget.mjs
+      - run: npm run build:netlify
+      - run: git diff --check

@@ -1,3 +1,4 @@
+import { crmBudgetFetch, CrmBudgetBlocked } from './crm-request-budget'
 import { createHash } from 'node:crypto'
 import { Prisma } from '@prisma/client'
 import { prisma } from './prisma'
@@ -14,7 +15,7 @@ export async function getDealSyncConfig(): Promise<DealSyncConfig | null> {
 }
 export async function crmRequest(path: string, options: RequestInit = {}) {
   const token = await getZohoAccessToken()
-  const response = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v8/${path}`, {
+  const response = await crmBudgetFetch(`https://www.zohoapis.${ZOHO_DC}/crm/v8/${path}`, {
     ...options, headers: { Authorization: `Zoho-oauthtoken ${token}`, ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }), ...options.headers }, signal: AbortSignal.timeout(20000),
   })
   if (response.status === 204) return { data: [] }
@@ -82,8 +83,10 @@ export async function guardedWrite(key: string, dealId: string, payload: unknown
   }
   const claimed = await prisma.providerWriteOperation.updateMany({ where: { id: operation.id, state: 'PENDING' }, data: { state: 'SYNCING', attemptCount: { increment: 1 }, lastAttemptAt: new Date() } })
   if (claimed.count !== 1) throw new Error('CRM_OPERATION_ALREADY_CLAIMED')
+  let accepted = false
   try {
     const id = await write()
+    accepted = true
     // Keep the accepted provider ID even if readback fails; search indexing can lag creation.
     await prisma.providerWriteOperation.update({ where: { id: operation.id }, data: { providerRecordIds: { id } } })
     const verified = await verify(id)
@@ -91,6 +94,12 @@ export async function guardedWrite(key: string, dealId: string, payload: unknown
     await prisma.providerWriteOperation.update({ where: { id: operation.id }, data: { state: 'SUCCEEDED', completedAt: new Date(), providerRecordIds: { id } } })
     return id
   } catch (error) {
+    // Each write callback submits exactly one request. A blocked reservation proves
+    // that request was not sent; a blocked readback after acceptance does not.
+    if (!accepted && error instanceof CrmBudgetBlocked) {
+      await prisma.providerWriteOperation.updateMany({ where: { id: operation.id, state: 'SYNCING' }, data: { state: 'PENDING', lastError: error.message } })
+      throw error
+    }
     await prisma.providerWriteOperation.update({ where: { id: operation.id }, data: { state: 'AMBIGUOUS', lastError: error instanceof Error ? error.message : 'CRM_UNKNOWN_OUTCOME' } })
     throw error
   }
@@ -174,7 +183,7 @@ export async function syncDealToCrm(dealId: string, config: DealSyncConfig) {
         if (matches.length > 1) throw new Error('DUPLICATE_PACKAGE_ATTACHMENT')
         if (matches[0]) {
           const token = await getZohoAccessToken()
-          const response = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v8/Deals/${remote.id}/Attachments/${matches[0].id}`, { headers: { Authorization: `Zoho-oauthtoken ${token}` }, signal: AbortSignal.timeout(20000) })
+          const response = await crmBudgetFetch(`https://www.zohoapis.${ZOHO_DC}/crm/v8/Deals/${remote.id}/Attachments/${matches[0].id}`, { headers: { Authorization: `Zoho-oauthtoken ${token}` }, signal: AbortSignal.timeout(20000) })
           if (!response.ok || digest(await response.json()) !== hash) throw new Error('PACKAGE_ATTACHMENT_CONTENT_MISMATCH')
           return matches[0].id as string
         }
