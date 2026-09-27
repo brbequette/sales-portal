@@ -64,6 +64,7 @@ describe('administrator monitoring schedule', () => {
     expect(request.skipDuplicates).toBe(true)
     expect(request.data[0].idempotencyKey).toBe('telegram-monitor-report:admin-1:nonce-current:daily:2026-09-27')
     expect(request.data[0].payload).toMatchObject({ monitor: true, nonce: binding.nonce, chatId: binding.chatId })
+    expect(request.data[0].payload.monitoringEvidence).toMatchObject({ reportType: 'daily', alertWindow: { urgent: true } })
   })
   it('can queue a later urgent report when the daily digest key already exists', async () => {
     db.operationalAction.count.mockResolvedValue(3)
@@ -71,6 +72,7 @@ describe('administrator monitoring schedule', () => {
     await enqueueMonitorReports(new Date('2026-09-27T17:00:00Z'))
     expect(db.operationalAction.createMany).toHaveBeenCalledTimes(2)
     expect(db.operationalAction.createMany.mock.calls[1][0].data[0].idempotencyKey).toContain(':alert:')
+    expect(db.operationalAction.createMany.mock.calls[1][0].data[0].payload.monitoringEvidence.reportType).toBe('alert')
   })
   it('suppresses work for a stale pairing or revoked administrator role', async () => {
     db.systemSetting.findUnique.mockResolvedValue({ value: JSON.stringify({ ...binding, nonce: 'changed' }) })
