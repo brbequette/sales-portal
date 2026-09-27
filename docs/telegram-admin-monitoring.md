@@ -52,3 +52,29 @@ subscribed administrator's still-valid paired Telegram chat.
 No database migration is required. SystemSetting stores subscriptions;
 OperationalAction stores check audits and queued reports. Disabling monitoring
 does not erase the operational audit history.
+
+## Verified operational reporting
+
+`/report`, natural-language recorded-activity reviews, scheduled reports and
+the interaction-review tool use the same validated, deterministic renderer.
+Neither model pass can rewrite its aggregate findings. Invalid/missing snapshots
+produce an explicit unavailable result, never zero counts. Alert classification
+is calculated from the completed interval's numeric counts, independently of
+the digest delivery type or any supplied prose. Reports show UTC and Phoenix
+timestamps, actual record references and the existing workbench link.
+
+Supported next steps are tied to observed overdue work, failed jobs or failed
+messages. Empty activity and successful jobs do not produce a defect finding.
+The existing filters, owners/deadlines and scorecard are documented to avoid
+inventing missing widgets. These aggregate reports do not infer conversation
+outcomes from sampled content; account-specific transcript analysis remains an
+interactive tool. Design suggestions outside the verified report remain proposals
+and require inspection of the actual workflow.
+
+`/monitor coverage` returns fixed schedule, scope and capability facts. Urgent
+alerts can occur before 8 AM; approval never creates missing administration tools.
+Completed consultation names are appended by the server, and bounded model/tool/
+consultation metadata is saved with the reply audit. No tool arguments, secrets
+or transcript contents are copied into that trace.
+
+Evaluation approach: [OpenAI agent workflow evaluation](https://developers.openai.com/api/docs/guides/agent-evals).
