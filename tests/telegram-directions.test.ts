@@ -69,4 +69,16 @@ describe('persistent role directions and Telegram command delivery', () => {
     expect(text).not.toContain('/accounting')
     expect(text).toContain('/directions')
   })
+  it('delivers a useful failure message when the answer provider fails', async () => {
+    vi.mocked(answerTelegram).mockRejectedValueOnce(new Error('private-provider-diagnostic'))
+    const text = await command('Review my account')
+    expect(text).toContain('I could not finish checking')
+    expect(text).not.toContain('private-provider-diagnostic')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+  it('acknowledges reset without invoking the model', async () => {
+    binding.agent = 'system'
+    expect(await command('/reset')).toContain('Starting fresh')
+    expect(answerTelegram).not.toHaveBeenCalled()
+  })
 })

@@ -25,7 +25,7 @@ export async function bindTelegram(code: string, telegramId: string, chatId: str
     const consumed = await tx.systemSetting.deleteMany({ where: { key: pair.key, value: pair.value } })
     if (consumed.count !== 1) return false
     await tx.systemSetting.deleteMany({ where: { key: pending.key, value: pending.value } })
-    const binding: TelegramBinding = { userId: user.id, telegramId, chatId, nonce: randomBytes(16).toString('hex'), agent: 'sales' }
+    const binding: TelegramBinding = { userId: user.id, telegramId, chatId, nonce: randomBytes(16).toString('hex'), agent: 'system' }
     await tx.systemSetting.create({ data: { key: bindingKey(telegramId), value: JSON.stringify(binding) } })
     await tx.systemSetting.create({ data: { key: portalKey(user.id), value: telegramId } })
     return true
@@ -90,7 +90,8 @@ export async function processTelegramJob(id: string) {
     else if (review) answer = await reviewTelegramAction(binding, review[1], review[2] === 'correct')
     else if (cancel) { const result = await prisma.operationalAction.updateMany({ where: { id: cancel[1], actorId: user.id, status: 'AWAITING_APPROVAL', actionType: { startsWith: 'TELEGRAM_ACTION_' } }, data: { status: 'CANCELLED', completedAt: new Date() } }); answer = result.count ? 'Proposed action cancelled.' : 'No pending action found for your account.' }
     else if (auto) answer = await setTelegramAuto(binding, auto[1] === 'on')
-    else if (['/start', '/help'].includes(command)) answer = `Connected to Titan. Choose ${telegramAgents.filter(a => agentAllowed(a, user.role)).map(a => '/' + a).join(', ')} to see that role's responsibilities, workflow, limits, and an example request. Use /directions for the selected role. Include the relevant company, product, or task and desired outcome in each request; previous messages are not included as context. I can propose portal task creation/completion and template SVG flyer rendering. Review the exact proposal and use /approve ACTION_ID or /cancel ACTION_ID. Review verified outcomes with /review ACTION_ID correct|incorrect. Management may enable eligible task creation with /auto create_task on. Financial changes, direct Zoho changes, and campaign/customer sends are not enabled. Disconnect from the portal Telegram page.`
+    else if (command === '/reset') answer = binding.agent === 'system' ? 'Starting fresh. In /system, future answers will no longer use earlier user requests as follow-up context. This does not delete the operational audit history.' : 'Select /system first, then send /reset to clear its follow-up context. Other roles do not load previous messages.'
+    else if (['/start', '/help'].includes(command)) answer = `Connected to Titan. Use /system for a conversation about the whole portal, its workflows, and accessible records. Choose ${telegramAgents.filter(a => agentAllowed(a, user.role)).map(a => '/' + a).join(', ')} to see that role's responsibilities, workflow, limits, and an example request. Use /directions for the selected role and /reset to clear system follow-up context. Include the relevant company, product, or task and desired outcome in each request; only /system receives limited recent user-request context for follow-ups. I can propose portal task creation/completion and template SVG flyer rendering. Review the exact proposal and use /approve ACTION_ID or /cancel ACTION_ID. Review verified outcomes with /review ACTION_ID correct|incorrect. Management may enable eligible task creation with /auto create_task on. Financial changes, direct Zoho changes, and campaign/customer sends are not enabled. Disconnect from the portal Telegram page.`
     else if (['/directions', '/instructions'].includes(command)) {
       answer = agentAllowed(binding.agent, user.role) ? roleIntroduction(binding.agent) : 'This role is unavailable for your current portal access. Use /help to select an available role.'
     }
@@ -102,13 +103,16 @@ export async function processTelegramJob(id: string) {
       if (!old || JSON.parse(old.value).nonce !== payload.nonce) throw new Error('TELEGRAM_LINK_REVOKED')
       await prisma.systemSetting.updateMany({ where: { key: old.key, value: old.value }, data: { value: JSON.stringify(binding) } })
       answer = roleIntroduction(binding.agent)
-    } else answer = await answerTelegram(binding.userId, binding.agent, payload.text, binding, job.id)
+    } else {
+      try { answer = await answerTelegram(binding.userId, binding.agent, payload.text, binding, job.id) }
+      catch { answer = 'I could not finish checking that request. No completed action is confirmed by this reply. Please try a more focused question or use /help. If you requested an action, check the portal before repeating it.' }
+    }
     // Recheck both pairing and role immediately before delivering any account data.
     const [latest, latestUser] = await Promise.all([getBinding(payload.telegramId), prisma.user.findUnique({ where: { id: binding.userId } })])
     if (!telegramEnabled() || latest?.nonce !== binding.nonce || !latestUser || !telegramEligible(latestUser) || latestUser.role !== user.role) throw new Error('TELEGRAM_ACCESS_CHANGED')
     const messageId = await sendTelegram(binding.chatId, answer)
     if (svg) await sendFlyer(binding.chatId, svg)
-    await prisma.operationalAction.update({ where: { id }, data: { status: 'SUCCEEDED', completedAt: new Date(), result: { agent: binding.agent, telegramMessageId: messageId || null } } })
+    await prisma.operationalAction.update({ where: { id }, data: { status: 'SUCCEEDED', completedAt: new Date(), result: { agent: binding.agent, portalRole: user.role, telegramMessageId: messageId || null } } })
   } catch {
     // Network outcomes may be ambiguous. Never automatically re-send a customer-data reply.
     await prisma.operationalAction.update({ where: { id }, data: { status: 'FAILED', completedAt: new Date(), errorCode: 'TELEGRAM_REPLY_FAILED', errorMessage: 'Reply failed or delivery is unconfirmed. Inspect the job before any manual retry.' } })
