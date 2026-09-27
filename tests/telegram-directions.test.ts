@@ -81,4 +81,21 @@ describe('persistent role directions and Telegram command delivery', () => {
     expect(await command('/reset')).toContain('Starting fresh')
     expect(answerTelegram).not.toHaveBeenCalled()
   })
+  it('suppresses a queued monitor report after monitoring is disabled', async () => {
+    db.operationalAction.findUniqueOrThrow.mockResolvedValue({ id: 'job-1', actorId: binding.userId, createdAt: new Date(), payload: { ...binding, text: 'Monitor', monitor: true, monitoringEvidence: {} } })
+    await processTelegramJob('job-1')
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(answerTelegram).not.toHaveBeenCalled()
+    expect(db.operationalAction.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: 'CANCELLED' }) }))
+  })
+  it('delivers an enabled monitor report in the paired chat without changing the selected specialist', async () => {
+    binding.agent = 'operations'
+    db.systemSetting.findUnique.mockImplementation(async ({ where }) => ({ value: JSON.stringify(where.key.startsWith('telegram:monitor:') ? { ...binding, mode: 'daily' } : binding) }))
+    vi.mocked(answerTelegram).mockResolvedValueOnce('Monitoring report: no changes executed.')
+    db.operationalAction.findUniqueOrThrow.mockResolvedValue({ id: 'job-1', actorId: binding.userId, createdAt: new Date(), payload: { ...binding, text: 'Monitor', monitor: true, monitoringEvidence: { checkedAt: 'today' } } })
+    await processTelegramJob('job-1')
+    expect(binding.agent).toBe('operations')
+    expect(answerTelegram).toHaveBeenCalledWith('user-1', 'system', 'Monitor', expect.objectContaining({ agent: 'system' }), 'job-1', { checkedAt: 'today' })
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ chat_id: '123', text: 'Monitoring report: no changes executed.' })
+  })
 })

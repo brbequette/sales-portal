@@ -2,6 +2,8 @@ import { randomBytes } from 'node:crypto'
 import { prisma } from './prisma'
 import { answerTelegram } from './telegram-agent'
 import { roleIntroduction } from './telegram-directions'
+import { configureMonitor, monitorStillEnabled, type MonitorMode } from './telegram-monitor'
+import { isAdministratorRole } from './roles'
 import { approveTelegramAction, reviewTelegramAction, setTelegramAuto } from './telegram-actions'
 import { agentAllowed, telegramAgents, bindingKey, pairKey, portalKey, telegramEligible, type TelegramBinding } from './telegram-policy'
 
@@ -77,7 +79,7 @@ export async function processTelegramJob(id: string) {
   if (!claim.count) return
   try {
     const job = await prisma.operationalAction.findUniqueOrThrow({ where: { id } })
-    const payload = job.payload as { telegramId: string; chatId: string; text: string; nonce: string }
+    const payload = job.payload as { telegramId: string; chatId: string; text: string; nonce: string; monitor?: boolean; monitoringEvidence?: unknown }
     if (Date.now() - job.createdAt.getTime() > 3600000) throw new Error('TELEGRAM_JOB_EXPIRED')
     const binding = await getBinding(payload.telegramId)
     if (!binding || binding.userId !== job.actorId || binding.chatId !== payload.chatId || binding.nonce !== payload.nonce) throw new Error('TELEGRAM_LINK_REVOKED')
@@ -85,8 +87,19 @@ export async function processTelegramJob(id: string) {
     if (!user || !telegramEligible(user)) throw new Error('TELEGRAM_ACCESS_REVOKED')
     let answer: string, svg: string | undefined
     const command = payload.text.toLowerCase()
+    const monitor = command.match(/^\/monitor (daily|alerts|hourly|status|off)$/)
     const approve = payload.text.match(/^\/approve ([\w-]{1,80})$/), review = payload.text.match(/^\/review ([\w-]{1,80}) (correct|incorrect)$/), cancel = payload.text.match(/^\/cancel ([\w-]{1,80})$/), auto = payload.text.match(/^\/auto create_task (on|off)$/)
-    if (approve) { const result = await approveTelegramAction(binding, approve[1]); answer = result.message; svg = result.svg }
+    if (payload.monitor) {
+      if (!isAdministratorRole(user.role) || !await monitorStillEnabled(binding)) {
+        await prisma.operationalAction.update({ where: { id }, data: { status: 'CANCELLED', completedAt: new Date() } })
+        return
+      }
+      answer = await answerTelegram(binding.userId, 'system', payload.text, { ...binding, agent: 'system' }, job.id, payload.monitoringEvidence ?? {})
+    }
+    else if (monitor) answer = await configureMonitor(binding, monitor[1] as MonitorMode | 'off' | 'status')
+    else if (command === '/monitor') answer = 'Use /monitor daily for an 8 AM Phoenix digest plus threshold alerts, /monitor alerts, /monitor hourly, /monitor status, or /monitor off. Administrator access is required.'
+    else if (command === '/agents') answer = `Your specialist roles: ${telegramAgents.filter(a => a !== 'system' && agentAllowed(a, user.role)).map(a => '/' + a).join(', ')}. Use /system for the Titan Admin & Architect. Administrators can ask it to consult up to two specialists and combine their findings. Consultations produce analysis or drafts; supported actions still use their approval flow. Use /directions for the selected role and /monitor status for your monitoring settings.`
+    else if (approve) { const result = await approveTelegramAction(binding, approve[1]); answer = result.message; svg = result.svg }
     else if (review) answer = await reviewTelegramAction(binding, review[1], review[2] === 'correct')
     else if (cancel) { const result = await prisma.operationalAction.updateMany({ where: { id: cancel[1], actorId: user.id, status: 'AWAITING_APPROVAL', actionType: { startsWith: 'TELEGRAM_ACTION_' } }, data: { status: 'CANCELLED', completedAt: new Date() } }); answer = result.count ? 'Proposed action cancelled.' : 'No pending action found for your account.' }
     else if (auto) answer = await setTelegramAuto(binding, auto[1] === 'on')
@@ -110,9 +123,10 @@ export async function processTelegramJob(id: string) {
     // Recheck both pairing and role immediately before delivering any account data.
     const [latest, latestUser] = await Promise.all([getBinding(payload.telegramId), prisma.user.findUnique({ where: { id: binding.userId } })])
     if (!telegramEnabled() || latest?.nonce !== binding.nonce || !latestUser || !telegramEligible(latestUser) || latestUser.role !== user.role) throw new Error('TELEGRAM_ACCESS_CHANGED')
+    if (payload.monitor && (!isAdministratorRole(latestUser.role) || !await monitorStillEnabled(binding))) throw new Error('MONITOR_DISABLED')
     const messageId = await sendTelegram(binding.chatId, answer)
     if (svg) await sendFlyer(binding.chatId, svg)
-    await prisma.operationalAction.update({ where: { id }, data: { status: 'SUCCEEDED', completedAt: new Date(), result: { agent: binding.agent, portalRole: user.role, telegramMessageId: messageId || null } } })
+    await prisma.operationalAction.update({ where: { id }, data: { status: 'SUCCEEDED', completedAt: new Date(), result: { agent: payload.monitor ? 'monitor' : binding.agent, portalRole: user.role, telegramMessageId: messageId || null } } })
   } catch {
     // Network outcomes may be ambiguous. Never automatically re-send a customer-data reply.
     await prisma.operationalAction.update({ where: { id }, data: { status: 'FAILED', completedAt: new Date(), errorCode: 'TELEGRAM_REPLY_FAILED', errorMessage: 'Reply failed or delivery is unconfirmed. Inspect the job before any manual retry.' } })

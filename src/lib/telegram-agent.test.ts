@@ -78,4 +78,30 @@ describe('system assistant status boundaries', () => {
     expect(request.tools!.some(t => t.type === 'function' && ['read_invoice_calculations', 'read_system_status'].includes(t.function.name))).toBe(false)
     expect(db.operationalAction.findMany.mock.calls[0][0]).toMatchObject({ where: { actorId: 'rep', entityId: '123', status: 'SUCCEEDED', id: { not: 'job-new' } }, take: 6 })
   })
+  it('makes scheduled monitoring read-only and does not replay prior requests', async () => {
+    db.user.findUnique.mockResolvedValue({ id: 'admin', role: 'ADMIN', name: 'Admin' })
+    vi.mocked(createAIChatCompletion).mockResolvedValue({ response: { choices: [{ message: { content: 'No supported issue was found.' } }] } } as never)
+    await answerTelegram('admin', 'system', 'Monitor', { userId: 'admin', telegramId: '123', chatId: '123', nonce: 'new', agent: 'system' }, 'monitor-1', { checkedAt: '2026-09-27', overdueTasks: 0 })
+    expect(db.operationalAction.findMany).not.toHaveBeenCalled()
+    const request = vi.mocked(createAIChatCompletion).mock.calls[0][0]
+    expect(request.tools!.some(t => t.type === 'function' && t.function.name === 'propose_action')).toBe(false)
+    expect(request.tools!.some(t => t.type === 'function' && t.function.name === 'consult_specialist')).toBe(false)
+    expect(request.tools!.some(t => t.type === 'function' && t.function.name === 'read_interaction_review')).toBe(true)
+  })
+  it('coordinates a specialist without granting it actions or recursive delegation', async () => {
+    db.user.findUnique.mockResolvedValue({ id: 'admin', role: 'ADMIN', name: 'Admin' })
+    db.operationalAction.findMany.mockResolvedValue([])
+    const plain = { response: { choices: [{ message: { content: 'Ask for the exact account and review due tasks.' } }] } }
+    vi.mocked(createAIChatCompletion)
+      .mockResolvedValueOnce({ response: { choices: [{ message: { role: 'assistant', content: null, tool_calls: [{ id: 'consult-1', type: 'function', function: { name: 'consult_specialist', arguments: '{"agent":"operations","question":"Suggest a process review for Example Company."}' } }] } }] } } as never)
+      .mockResolvedValueOnce(plain as never).mockResolvedValueOnce(plain as never)
+      .mockResolvedValueOnce(plain as never).mockResolvedValueOnce(plain as never)
+    await answerTelegram('admin', 'system', 'Coordinate an operations review', { userId: 'admin', telegramId: '123', chatId: '123', nonce: 'new', agent: 'system' }, 'guru-1')
+    const calls = vi.mocked(createAIChatCompletion).mock.calls
+    expect(calls).toHaveLength(5)
+    const childTools = calls[1][0].tools!
+    expect(childTools.some(t => t.type === 'function' && ['consult_specialist', 'propose_action'].includes(t.function.name))).toBe(false)
+    const consultation = calls[3][0].messages.find(message => message.role === 'tool')
+    expect(JSON.parse(String(consultation?.content))).toHaveProperty('actionTaken', false)
+  })
 })
