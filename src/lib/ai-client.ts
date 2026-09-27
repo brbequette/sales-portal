@@ -98,6 +98,7 @@ export function getAIProviderStatus() {
  */
 export async function createAIChatCompletion(
   request: Omit<ChatCompletionCreateParamsNonStreaming, 'model'>,
+  options: { openAIModel?: string } = {},
 ): Promise<AICompletionResult> {
   const candidates = getAIClientCandidates()
   const errors: string[] = []
@@ -108,10 +109,10 @@ export async function createAIChatCompletion(
       : Number(process.env.OPENAI_TIMEOUT_MS || 45000)
     try {
       const response = await candidate.client.chat.completions.create(
-        { ...request, model: candidate.model },
+        { ...request, model: candidate.provider === 'openai' && options.openAIModel ? options.openAIModel : candidate.model },
         { timeout },
       )
-      return { response, provider: candidate.provider, model: candidate.model }
+      return { response, provider: candidate.provider, model: candidate.provider === 'openai' && options.openAIModel ? options.openAIModel : candidate.model }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       errors.push(`${candidate.provider}: ${message}`)

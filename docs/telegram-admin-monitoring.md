@@ -7,6 +7,15 @@ consultations, not independent background workers. Their findings return to the
 main assistant; they cannot execute actions. Existing task/flyer approval flows
 remain the mechanism for supported changes.
 
+Telegram OpenAI completions use `gpt-4.1` by default, configurable through
+`TELEGRAM_OPENAI_MODEL`. This override affects Telegram only; the existing provider
+chain and other application model settings stay in effect. Both answer generation
+and final verification apply evidence rules: zero rows do not establish broken
+logging or missed work, digests are not automatically alerts, and recommendations
+cannot change monitoring coverage or thresholds. Report evidence carries its actual
+daily/hourly/alert delivery type. Live answer quality still requires evaluation;
+passing mocked tests does not prove factual accuracy.
+
 ## Telegram monitoring
 
 An administrator enables `/monitor daily` in the paired private Telegram chat.

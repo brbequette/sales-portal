@@ -22,6 +22,14 @@ describe('system knowledge retrieval', () => {
     expect(searchSystemKnowledge('tell me anything about the system', 'ADMIN').matches[0].title).toBe('System overview')
     expect(searchSystemKnowledge('zyxnonexistentfeature', 'ADMIN').matches).toEqual([])
   })
+  it('retrieves the specific delivery contract for a realistic failure question', () => {
+    const result = searchSystemKnowledge('A bot has credentials configured and a worker returns HTTP 202. Does that prove Zoho is healthy or Telegram delivery succeeded? Why can replies lag?', 'ADMIN')
+    expect(result.matches.some(item => item.title === 'Telegram delivery and troubleshooting')).toBe(true)
+  })
+  it('retrieves monitoring scope and controls without relying on live activity', () => {
+    const result = searchSystemKnowledge('Do you monitor every interaction and UI click? State lookback, counts versus content coverage, frequency, digest timezone, urgent threshold, and what you can improve without approval.', 'ADMIN')
+    expect(result.matches.some(item => item.title === 'Administrator monitoring coverage and controls')).toBe(true)
+  })
   it('links only to actual portal screens', () => {
     for (const topic of systemTopics) expect(existsSync(`src/app${topic.path}/page.tsx`), topic.path).toBe(true)
   })
