@@ -111,7 +111,7 @@ export function buildInvoiceUpdateData(input: {
   paymentSummary: { paymentExpected: number | null; balance: number | null; lastPaymentDate: Date | null }
 }): Prisma.InvoiceUpdateInput {
   const currentItems = input.existingItems && typeof input.existingItems === 'object' && !Array.isArray(input.existingItems) ? input.existingItems as Record<string, unknown> : {}
-  const mergedItems = { ...currentItems, status: input.zohoDoc.status, customer_name: input.zohoDoc.customer_name, salesperson_name: input.zohoDoc.salesperson_name, sub_total: input.zohoDoc.sub_total, total: input.zohoDoc.total, balance: input.zohoDoc.balance, payment_made: input.zohoDoc.payment_made, currency_code: input.zohoDoc.currency_code, line_items: input.zohoDoc.line_items, custom_fields: input.zohoDoc.custom_fields, ...input.calcItems, paymentDate: input.paymentSummary.lastPaymentDate?.toISOString().split('T')[0] ?? currentItems.paymentDate }
+  const mergedItems = { ...currentItems, status: input.zohoDoc.status, customer_name: input.zohoDoc.customer_name, salesperson_name: input.zohoDoc.salesperson_name, sub_total: input.zohoDoc.sub_total, total: input.zohoDoc.total, balance: input.zohoDoc.balance, payment_made: input.zohoDoc.payment_made, currency_code: input.zohoDoc.currency_code, line_items: input.zohoDoc.line_items, custom_fields: input.zohoDoc.custom_fields, ...input.calcItems, date: input.zohoDoc.date || currentItems.date, due_date: input.zohoDoc.due_date || null, paymentDate: input.paymentSummary.lastPaymentDate?.toISOString().split('T')[0] ?? currentItems.paymentDate }
   const finite = (value: unknown): number | null => { const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value ?? '')); return Number.isFinite(parsed) ? parsed : null }
   const commission = finite(input.calcItems.commission)
   const status = String(input.zohoDoc.status || '').toLowerCase()
@@ -523,6 +523,9 @@ export async function updateInvoiceRecord(opts: {
     custom_fields:      zohoDoc.custom_fields,
     // App-owned calculated
     ...calcItems,
+    // Match issueDate preservation and dueDate clearing in the invoice columns.
+    date:               zohoDoc.date || currentItems.date,
+    due_date:           zohoDoc.due_date || null,
     // Payment
     paymentDate:        lastPaymentDate?.toISOString().split("T")[0] ?? currentItems.paymentDate,
   }
