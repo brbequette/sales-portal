@@ -16,7 +16,7 @@ it('limits changes to authoritative dates and matching link metadata, preserving
   expect(row).toEqual(before)
 })
 it.each([
-  { invoice_id: 'wrong' }, { customer_id: 'wrong' }, { zcrm_potential_id: 'wrong' }, { date: '2026-02-30' }, { date: null },
+  { invoice_id: 'wrong' }, { customer_id: 'wrong' }, { zcrm_potential_id: 'wrong' }, { date: '2026-02-30' }, { date: null }, { due_date: false },
 ])('rejects identity/link/date anomalies before any write: %j', changes => {
   expect(() => targetedInvoicePatch(row, { ...provider, ...changes }, 'customer', 'crm')).toThrow()
 })
@@ -110,4 +110,11 @@ it('does not refresh an invoice whose current package revision is unverified', a
   db.invoice.findUnique.mockResolvedValue({ ...eligibleFixture(), dealSyncJob: { changedAt: new Date(), checkedAt: null } })
   await expect(refreshTargetedInvoice(row.zohoId, row.updatedAt.toISOString(), 'admin')).rejects.toThrow('INVOICE_HOLD')
   expect(fetch).not.toHaveBeenCalled()
+})
+it('rejects an indeterminate token expiry without claiming or fetching', async () => {
+  setupRefresh()
+  db.systemSetting.findUnique.mockResolvedValue({ value: JSON.stringify({ token: 'test-token' }) })
+  await expect(refreshTargetedInvoice(row.zohoId, row.updatedAt.toISOString(), 'admin')).rejects.toThrow('FRESH_TOKEN_REQUIRED')
+  expect(fetch).not.toHaveBeenCalled()
+  expect(db.operationalAction.create).not.toHaveBeenCalled()
 })

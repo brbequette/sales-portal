@@ -29,7 +29,7 @@ export function targetedInvoicePatch(row: Invoice, provider: Record<string, unkn
   for (const key of ['date', 'due_date']) {
     const value = provider[key]
     if (key === 'date' && !value) throw Error('PROVIDER_DATE_REQUIRED')
-    if (value && (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value) || !Number.isFinite(Date.parse(value)) || new Date(value).toISOString().slice(0, 10) !== value)) throw Error('PROVIDER_DATE_INVALID')
+    if (value !== null && value !== undefined && value !== '' && (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value) || !Number.isFinite(Date.parse(value)) || new Date(value).toISOString().slice(0, 10) !== value)) throw Error('PROVIDER_DATE_INVALID')
   }
   const potential = provider.zcrm_potential_id
   if (potential && potential !== crmId) throw Error('PROVIDER_LINK_MISMATCH')
@@ -61,7 +61,7 @@ export async function refreshTargetedInvoice(booksId: string, expectedUpdatedAt:
   // Use an already-valid cache: this route never hides extra OAuth requests or retries.
   const setting = await prisma.systemSetting.findUnique({ where: { key: 'zoho_token_cache' } })
   const token = object(setting ? JSON.parse(setting.value) : null)
-  if (typeof token.token !== 'string' || Number(token.expiresAt) < Date.now() + 30000) throw Error('FRESH_TOKEN_REQUIRED')
+  if (typeof token.token !== 'string' || !token.token || !Number.isFinite(Number(token.expiresAt)) || Number(token.expiresAt) < Date.now() + 30000) throw Error('FRESH_TOKEN_REQUIRED')
   const operation = await prisma.operationalAction.create({ data: { idempotencyKey: key, actionType: 'BOOKS_INVOICE_METADATA_REFRESH', entityType: 'invoice', entityId: before.id, status: 'RUNNING', maxAttempts: 1, attemptCount: 1, startedAt: new Date(), actorId, payload: json({ before, providerCallsReserved: 1 }) } })
   try {
     const response = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/invoices/${booksId}?organization_id=${ZOHO_ORGANIZATION_ID}`, { headers: { Authorization: `Zoho-oauthtoken ${token.token}` }, signal: AbortSignal.timeout(15000) })
