@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import TargetedInvoiceRefresh from '@/components/TargetedInvoiceRefresh'
 const dispositions = ['Needs Review','Written Off','Voided','Draft Invoice','Credited / Refunded','Settled — Review Payment','Overdue','Partially Paid','Invoiced','Paid','Complete']
 export default function DealSyncAdmin() {
   const [data, setData] = useState<any>(null)
@@ -27,6 +28,7 @@ export default function DealSyncAdmin() {
     {dispositions.map(stage => <label key={stage} className="grid gap-2 sm:grid-cols-2">{stage}<select className="rounded bg-neutral-900 p-2" value={config.stages[stage] || ''} onChange={e => setConfig({ ...config, stages: { ...config.stages, [stage]: e.target.value } })}><option value="">Choose CRM stage</option>{stages.map((s: any) => <option key={s.actual_value} value={s.actual_value}>{s.display_value}</option>)}</select></label>)}
     <label className="flex gap-3"><input type="checkbox" checked={config.enabled} onChange={e => setConfig({ ...config, enabled: e.target.checked })} />Enable scheduled CRM writes and historical reconciliation</label>
     <div className="flex gap-3"><button disabled={busy || !data} onClick={() => act('configure')} className="rounded bg-emerald-700 px-4 py-2 disabled:opacity-40">Save configuration</button><button disabled={busy || !data?.config?.enabled} onClick={() => act('run')} className="rounded bg-neutral-700 px-4 py-2 disabled:opacity-40">Run next batch</button></div></div>
+    {data && <TargetedInvoiceRefresh />}
     <h2 className="text-xl font-semibold">Reconciliation exceptions</h2><div className="space-y-2">{data?.exceptions?.map((row: any) => <div className="rounded border border-white/10 p-3 text-sm" key={row.invoiceId}><p>{row.invoiceId}</p><p className="text-amber-300">{row.lastError}</p></div>)}</div>
   </main>
 }
