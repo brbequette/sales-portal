@@ -63,6 +63,8 @@ function setupRefresh() {
 it('fetches once, writes only metadata, and independently verifies after commit and on replay', async () => {
   setupRefresh()
   const after = { ...row, ...targetedInvoicePatch(row, provider, 'customer', 'crm'), updatedAt: new Date('2026-09-27T00:00:00Z') }
+  // PostgreSQL jsonb may return object keys in a different order.
+  after.items = Object.fromEntries(Object.entries(after.items as object).reverse())
   db.invoice.updateMany.mockResolvedValue({ count: 1 })
   db.invoice.findUniqueOrThrow.mockResolvedValue(after)
   db.operationalAction.update.mockImplementation(async ({ data }) => {

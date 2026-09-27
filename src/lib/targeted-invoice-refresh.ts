@@ -6,7 +6,12 @@ import { ZOHO_DC, ZOHO_ORGANIZATION_ID } from './zoho-auth'
 
 const object = (v: unknown): Record<string, unknown> => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {}
 const json = (v: unknown) => JSON.parse(JSON.stringify(v)) as Prisma.InputJsonValue
-const fingerprint = (v: unknown) => createHash('sha256').update(JSON.stringify(v)).digest('hex')
+function canonical(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(canonical)
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b)).map(([key, value]) => [key, canonical(value)]))
+  return v
+}
+const fingerprint = (v: unknown) => createHash('sha256').update(JSON.stringify(canonical(json(v)))).digest('hex')
 const include = { account: true, deal: true, dealSyncJob: true } as const
 type Snapshot = Prisma.InvoiceGetPayload<{ include: typeof include }>
 
