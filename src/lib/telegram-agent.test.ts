@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const db = vi.hoisted(() => ({ operationalAction: { findMany: vi.fn(), groupBy: vi.fn() }, user: { findUnique: vi.fn() }, account: { findFirst: vi.fn(), findMany: vi.fn() }, callLog: { findMany: vi.fn(), count: vi.fn() }, task: { findMany: vi.fn() }, invoice: { findMany: vi.fn() }, product: { findMany: vi.fn() } }))
 vi.mock('./prisma', () => ({ prisma: db }))
 vi.mock('./ai-client', () => ({ createAIChatCompletion: vi.fn() }))
+vi.mock('./telegram-monitor', () => ({ readInteractionReview: vi.fn() }))
 import { answerTelegram, executeTelegramRead } from './telegram-agent'
 import { createAIChatCompletion } from './ai-client'
 import { telegramAgents } from './telegram-policy'
 import { roleInstructions } from './telegram-directions'
+import { readInteractionReview } from './telegram-monitor'
 
 describe('Telegram tools enforce record access before retrieval', () => {
   const rep = { id: 'rep-a', role: 'AGENT', name: 'Rep' }
@@ -38,7 +40,7 @@ describe('role instructions reach drafting and final response validation', () =>
     const completion = { response: { choices: [{ message: { content: 'Which company should I review?' } }] } }
     vi.mocked(createAIChatCompletion).mockResolvedValue(completion as never)
     const binding = { userId: 'admin', telegramId: '123', chatId: '123', nonce: 'nonce', agent }
-    expect(await answerTelegram('admin', agent, 'Help me get started', binding, 'job-1')).toBe('Which company should I review?')
+    expect(await answerTelegram('admin', agent, 'Help me get started', binding, 'job-1')).toContain('Which company should I review?')
     const calls = vi.mocked(createAIChatCompletion).mock.calls
     expect(calls).toHaveLength(2)
     for (const [request] of calls) expect(request.messages[0].content).toContain(roleInstructions(agent))
@@ -78,15 +80,33 @@ describe('system assistant status boundaries', () => {
     expect(request.tools!.some(t => t.type === 'function' && ['read_invoice_calculations', 'read_system_status'].includes(t.function.name))).toBe(false)
     expect(db.operationalAction.findMany.mock.calls[0][0]).toMatchObject({ where: { actorId: 'rep', entityId: '123', status: 'SUCCEEDED', id: { not: 'job-new' } }, take: 6 })
   })
-  it('makes scheduled monitoring read-only and does not replay prior requests', async () => {
+  it('renders scheduled monitoring without model calls or history and fails closed on incomplete evidence', async () => {
     db.user.findUnique.mockResolvedValue({ id: 'admin', role: 'ADMIN', name: 'Admin' })
-    vi.mocked(createAIChatCompletion).mockResolvedValue({ response: { choices: [{ message: { content: 'No supported issue was found.' } }] } } as never)
-    await answerTelegram('admin', 'system', 'Monitor', { userId: 'admin', telegramId: '123', chatId: '123', nonce: 'new', agent: 'system' }, 'monitor-1', { checkedAt: '2026-09-27', overdueTasks: 0 })
+    const result = await answerTelegram('admin', 'system', 'Monitor', { userId: 'admin', telegramId: '123', chatId: '123', nonce: 'new', agent: 'system' }, 'monitor-1', { checkedAt: '2026-09-27', overdueTasks: 0 })
+    expect(result).toContain('Missing data is not zero activity')
     expect(db.operationalAction.findMany).not.toHaveBeenCalled()
-    const request = vi.mocked(createAIChatCompletion).mock.calls[0][0]
-    expect(request.tools!.some(t => t.type === 'function' && t.function.name === 'propose_action')).toBe(false)
-    expect(request.tools!.some(t => t.type === 'function' && t.function.name === 'consult_specialist')).toBe(false)
-    expect(request.tools!.some(t => t.type === 'function' && t.function.name === 'read_interaction_review')).toBe(true)
+    expect(createAIChatCompletion).not.toHaveBeenCalled()
+  })
+  it('routes a live review through the same report without exposing it to model rewrites', async () => {
+    db.user.findUnique.mockResolvedValue({ id: 'admin', role: 'ADMIN', name: 'Admin' })
+    vi.mocked(readInteractionReview).mockResolvedValue({} as never)
+    const result = await answerTelegram('admin', 'system', 'Review recorded activity now and identify process improvements.', { userId: 'admin', telegramId: '123', chatId: '123', nonce: 'new', agent: 'system' }, 'review-1')
+    expect(result).toContain('Missing data is not zero activity')
+    expect(readInteractionReview).toHaveBeenCalledTimes(1)
+    expect(createAIChatCompletion).not.toHaveBeenCalled()
+  })
+  it('denies company-wide reports to a rep before querying evidence', async () => {
+    db.user.findUnique.mockResolvedValue({ id: 'rep', role: 'AGENT', name: 'Rep' })
+    const result = await answerTelegram('rep', 'system', '/report', { userId: 'rep', telegramId: '123', chatId: '123', nonce: 'new', agent: 'system' }, 'review-1')
+    expect(result).toContain('Administrator access is required')
+    expect(readInteractionReview).not.toHaveBeenCalled()
+  })
+  it('returns exact monitoring capabilities without a model reinterpretation', async () => {
+    db.user.findUnique.mockResolvedValue({ id: 'admin', role: 'ADMIN', name: 'Admin' })
+    const result = await answerTelegram('admin', 'system', '/monitor coverage', { userId: 'admin', telegramId: '123', chatId: '123', nonce: 'new', agent: 'system' }, 'coverage-1')
+    expect(result).toContain('including before 8 AM')
+    expect(result).toContain('does not add tools')
+    expect(createAIChatCompletion).not.toHaveBeenCalled()
   })
   it('coordinates a specialist without granting it actions or recursive delegation', async () => {
     db.user.findUnique.mockResolvedValue({ id: 'admin', role: 'ADMIN', name: 'Admin' })
@@ -96,7 +116,11 @@ describe('system assistant status boundaries', () => {
       .mockResolvedValueOnce({ response: { choices: [{ message: { role: 'assistant', content: null, tool_calls: [{ id: 'consult-1', type: 'function', function: { name: 'consult_specialist', arguments: '{"agent":"operations","question":"Suggest a process review for Example Company."}' } }] } }] } } as never)
       .mockResolvedValueOnce(plain as never).mockResolvedValueOnce(plain as never)
       .mockResolvedValueOnce(plain as never).mockResolvedValueOnce(plain as never)
-    await answerTelegram('admin', 'system', 'Coordinate an operations review', { userId: 'admin', telegramId: '123', chatId: '123', nonce: 'new', agent: 'system' }, 'guru-1')
+    const trace: import('./telegram-agent').TelegramTrace = []
+    const result = await answerTelegram('admin', 'system', 'Coordinate an operations review', { userId: 'admin', telegramId: '123', chatId: '123', nonce: 'new', agent: 'system' }, 'guru-1', undefined, false, trace)
+    expect(result).toContain('Specialist consultations completed: operations (read-only)')
+    expect(trace.filter(event => event.kind === 'consultation_completed')).toEqual([{ kind: 'consultation_completed', agent: 'operations' }])
+    expect(JSON.stringify(trace)).not.toContain('Example Company')
     const calls = vi.mocked(createAIChatCompletion).mock.calls
     expect(calls).toHaveLength(5)
     const childTools = calls[1][0].tools!
