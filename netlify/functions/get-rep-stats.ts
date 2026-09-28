@@ -119,7 +119,7 @@ const authenticatedHandler: Handler = async (event) => {
       : null
     if (requestedRep) repIdFilter = requestedRep.id
     let requestedRepNames = [];
-      if (requestedRep) {
+      if (requestedRep && requestedRep.name) {
         requestedRepNames.push(requestedRep.name.toLowerCase().trim());
         const aliasGroups = [
           ["ben bequette", "benjamin bequette"],
@@ -133,11 +133,11 @@ const authenticatedHandler: Handler = async (event) => {
         }
       }
       const invoiceRepFilterSql = requestedRep
-        ? Prisma.sql`AND (a."ownerId" = ${requestedRep.id} OR LOWER(TRIM(COALESCE(i."computedSalesperson", ''))) IN (${Prisma.join(requestedRepNames)}) OR LOWER(TRIM(COALESCE(i.items->>'salesperson', ''))) IN (${Prisma.join(requestedRepNames)}))`
+        ? (requestedRepNames.length > 0 ? Prisma.sql`AND (a."ownerId" = ${requestedRep.id} OR LOWER(TRIM(COALESCE(i."computedSalesperson", ''))) IN (${Prisma.join(requestedRepNames)}) OR LOWER(TRIM(COALESCE(i.items->>'salesperson', ''))) IN (${Prisma.join(requestedRepNames)}))` : Prisma.sql`AND a."ownerId" = ${requestedRep.id}`)
         : repIdFilter !== 'all' ? Prisma.sql`AND a."ownerId" = ${repIdFilter}` : Prisma.empty
 
     const salesOrderRepFilterSql = requestedRep
-        ? Prisma.sql`AND (a."ownerId" = ${requestedRep.id} OR LOWER(TRIM(COALESCE(s.items->>'salesperson_name', s.items->>'salesperson', ''))) IN (${Prisma.join(requestedRepNames)}))`
+        ? (requestedRepNames.length > 0 ? Prisma.sql`AND (a."ownerId" = ${requestedRep.id} OR LOWER(TRIM(COALESCE(s.items->>'salesperson_name', s.items->>'salesperson', ''))) IN (${Prisma.join(requestedRepNames)}))` : Prisma.sql`AND a."ownerId" = ${requestedRep.id}`)
         : repIdFilter !== 'all' ? Prisma.sql`AND a."ownerId" = ${repIdFilter}` : Prisma.empty
     const rosterYear = periodParam === 'all_time' || periodParam === 'all' ? now.getFullYear() : rangeStart.getUTCFullYear()
     const rosterYearStart = new Date(Date.UTC(rosterYear, 0, 1))
