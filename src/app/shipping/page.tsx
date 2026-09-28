@@ -379,7 +379,7 @@ export default function ShippingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tables: ["packages", "purchaseOrders", "salesOrders", "invoices", "vendors", "payments", "products"],
+          tables: ["packages", "purchaseOrders", "salesOrders"],
           force: true
         })
       })

@@ -36,7 +36,7 @@ const ZOHO_DC = process.env.ZOHO_DC?.trim().replace(/^(["'])(.*)\1$/, '$2') || '
  *   4. Upserts changes to DB
  *   5. Updates sync_status with new lastSyncAt + count
  */
-const TIMEOUT_MS = 55000;
+const TIMEOUT_MS = 8000;
 const BATCH_SIZE = 50;
 const PAGE_SIZE = 200;
 
