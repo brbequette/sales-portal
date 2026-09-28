@@ -51,7 +51,10 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
       if (saved) {
         setPreferences(JSON.parse(saved))
       } else {
-        setPreferences({ defaultPageSize: 25 })
+        setPreferences({ 
+          defaultPageSize: 25,
+          impersonatedUser: { id: user.id || "", name: user.name || "", email: user.email || "", role: user.role || "" }
+        })
       }
     } catch (e) {
       console.error("Failed to load user preferences", e)

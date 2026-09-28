@@ -66,7 +66,12 @@ export default function CommissionsPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [byRep, setByRep] = useState<Record<string, any>>({})
-  const [selectedRepId, setSelectedRepId] = useState<string>("")
+  const [selectedRepId, setSelectedRepId] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("preferred_commission_rep") || "";
+    }
+    return "";
+  })
   const [selectedYear, setSelectedYear] = useState<string>(() => new Date().getFullYear().toString())
   const [availableYears, setAvailableYears] = useState<number[]>([])
   const [showStatement, setShowStatement] = useState(false)
@@ -396,7 +401,11 @@ export default function CommissionsPage() {
               <FiUser className="text-neutral-500 shrink-0" size={13} />
               <select
                 value={selectedRepId}
-                onChange={e => setSelectedRepId(e.target.value)}
+                onChange={e => {
+    const val = e.target.value;
+    setSelectedRepId(val);
+    localStorage.setItem("preferred_commission_rep", val);
+  }}
                 className="td-select"
               >
                 {repOptions.map(r => (
