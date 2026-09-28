@@ -9,6 +9,7 @@ import { TaskModal } from "@/components/TaskModal"
 import { NotificationCenter } from "@/components/NotificationCenter"
 import { useGlobalTopBarData } from "./useGlobalTopBarData"
 import { DualScreenController } from "@/components/DualScreenController"
+import { isAdministratorRole } from "@/lib/roles"
 
 export function GlobalTopBar() {
   const {

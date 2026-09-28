@@ -43,7 +43,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ accountI
   }
 
   const dateFilter = beforeDate ? { lt: beforeDate } : undefined
-  const [indexed, notes, messages, calls, emails, invoices, salesOrders, deals] = await Promise.all([
+  const [indexed, notes, messages, calls, emails] = await Promise.all([
     prisma.communicationEvent.findMany({
       where: { accountId: account.id, ...(dateFilter ? { occurredAt: dateFilter } : {}) },
       include: { contact: { select: { id: true, firstName: true, lastName: true } }, actor: { select: { id: true, name: true } } },
