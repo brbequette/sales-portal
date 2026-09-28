@@ -11,6 +11,7 @@ import { AutodialerSetupModal } from "@/components/AutodialerSetupModal"
 import type { AutodialerPlan } from "@/lib/autodialer-plan"
 import { OrderNextSteps } from "@/components/OrderNextSteps"
 import { NewCustomerModal } from "@/components/NewCustomerModal"
+import { AccountTimelineDrawer } from "@/components/AccountTimelineDrawer"
 import { NewLeadModal } from "@/components/NewLeadModal"
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
@@ -214,6 +215,7 @@ export default function SalesPage() {
   const [apiError, setApiError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [expandedContactsAccountIds, setExpandedContactsAccountIds] = useState<string[]>([])
+  const [timelineAccountId, setTimelineAccountId] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState("All")
   const [industryFilter, setIndustryFilter] = useState("All")
   const [mobileTab, setMobileTab] = useState<"accounts" | "tasks">("accounts")
@@ -2371,6 +2373,11 @@ export default function SalesPage() {
       {/* Add Account Modal */}
       {showAddLead && typeof window !== "undefined" && createPortal(
         <NewLeadModal isOpen={showAddLead} onClose={() => setShowAddLead(false)} onCreated={fetchLeads} />,
+        document.body
+      )}
+
+      {timelineAccountId && typeof window !== "undefined" && createPortal(
+        <AccountTimelineDrawer accountId={timelineAccountId} onClose={() => setTimelineAccountId(null)} />,
         document.body
       )}
 

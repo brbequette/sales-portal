@@ -118,7 +118,7 @@ const authenticatedHandler: Handler = async (event) => {
         })
       : null
     if (requestedRep) repIdFilter = requestedRep.id
-    let requestedRepNames = [];
+    const requestedRepNames: string[] = [];
       if (requestedRep && requestedRep.name) {
         requestedRepNames.push(requestedRep.name.toLowerCase().trim());
         const aliasGroups = [

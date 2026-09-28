@@ -29,18 +29,7 @@ export function GlobalTopBar() {
         This ensures the stats strip always renders directly below the topbar,
         regardless of whether the impersonation banner is visible. */}
     <div className="sticky top-0 z-40 flex flex-col">
-    {preferences.impersonatedUser && (
-      <div className="bg-amber-500/20 border-b border-amber-500/30 text-amber-200 px-4 py-2 flex items-center justify-center gap-3 text-sm font-bold relative">
-        <FiUserPlus size={16} />
-        <span>Viewing as {preferences.impersonatedUser.name}</span>
-        <button
-          onClick={() => updatePreferences({ impersonatedUser: null })}
-          className="bg-amber-500 hover:bg-amber-400 text-black px-3 py-1 rounded shadow-lg transition-colors ml-2"
-        >
-          Exit Impersonation
-        </button>
-      </div>
-    )}
+    
     <div className="glass-panel border-x-0 border-t-0 px-4 py-3 flex items-center justify-between rounded-none shadow-lg">
       
       {/* Left side: Search */}
@@ -267,6 +256,32 @@ export function GlobalTopBar() {
       )}
 
       {/* Right side: Quick Add Actions */}
+        {/* Global View Scope Toggle */}
+        {isAdministratorRole(currentUser?.role) && (
+          <div className="hidden md:flex items-center bg-black/40 border border-white/10 rounded-lg p-0.5 text-xs font-bold mr-1 shrink-0">
+            <button
+              onClick={() => updatePreferences({ impersonatedUser: { id: currentUser?.id || "", name: currentUser?.name || "", email: currentUser?.email || "", role: currentUser?.role || "" } })}
+              className={`px-3 py-1.5 rounded-md transition-colors ${
+                preferences.impersonatedUser && preferences.impersonatedUser.id !== 'all'
+                  ? "bg-white/15 text-white shadow"
+                  : "text-neutral-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              Personal
+            </button>
+            <button
+              onClick={() => updatePreferences({ impersonatedUser: null })}
+              className={`px-3 py-1.5 rounded-md transition-colors ${
+                !preferences.impersonatedUser || preferences.impersonatedUser.id === 'all'
+                  ? "bg-emerald-500/20 text-emerald-300 shadow border border-emerald-500/20"
+                  : "text-neutral-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              Company
+            </button>
+          </div>
+        )}
+
       <div className="flex items-center gap-2 lg:gap-3 ml-4 shrink-0">
         
         {/* Timeclock Toggle Widget */}

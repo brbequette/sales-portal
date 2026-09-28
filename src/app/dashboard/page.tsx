@@ -23,9 +23,10 @@ export default function HomeDashboard() {
     normalizedRole.includes("collections") ||
     normalizedRole.includes("manager")
 
-  // Always show the personal rep view on the homepage
-  const displayRepName = currentUser?.name || null
-  const displayRepEmail = currentUser?.email || null
+  // Check if they want to view the company or personal
+  const isCompanyView = isAdminUser && (!preferences.impersonatedUser || preferences.impersonatedUser.id === 'all')
+  const displayRepName = isCompanyView ? 'all' : (preferences.impersonatedUser?.name || currentUser?.name || null)
+  const displayRepEmail = isCompanyView ? '' : (preferences.impersonatedUser?.email || currentUser?.email || null)
 
   useEffect(() => { fetchUsers() }, [])
 
@@ -83,7 +84,7 @@ export default function HomeDashboard() {
       <div className="page-body animate-fade-in">
         <DashboardView
           repName={displayRepName}
-          isAdmin={false}
+          isAdmin={isCompanyView}
           repEmail={displayRepEmail}
           triggerCustomize={customizeTrigger}
         />
