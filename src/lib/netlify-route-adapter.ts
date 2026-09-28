@@ -45,7 +45,7 @@ export async function executeSessionScopedNetlifyHandler(
 
     if (req.method === "GET" && scopeOptions.includeDatabaseFreshness && typeof body === "string") {
       if ((result.statusCode || 200) >= 400) {
-        body = JSON.stringify({ success: false, error: LOCAL_DATA_INCOMPLETE })
+        // body = JSON.stringify({ success: false, error: LOCAL_DATA_INCOMPLETE })
       } else {
         const payload = JSON.parse(body) as Record<string, unknown>
         payload.freshness = await getDatabaseFreshness()
@@ -60,3 +60,4 @@ export async function executeSessionScopedNetlifyHandler(
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
+
