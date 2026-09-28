@@ -33,12 +33,13 @@ export function ExecutiveRepStats({ repId, repName, repEmail }:{ repId?:string|n
   const load = useCallback(async () => {
     setLoading(true); setError("")
     try {
-      const results = await Promise.all(PERIODS.map(async ({key}) => {
-        const response = await fetch(`/api/get-rep-stats?${new URLSearchParams({repId:scope,period:key})}`, {cache:"no-store"})
-        const body = await response.json().catch(()=>({}))
-        if (!response.ok || !body.success) throw new Error(body.error || `Unable to load ${key} statistics`)
-        return [key,{totals:body.totals||ZERO,reps:body.reps||[]}] as const
-      }))
+      const results = [];
+      for (const {key} of PERIODS) {
+        const response = await fetch(`/api/get-rep-stats?${new URLSearchParams({repId:scope,period:key})}`, {cache:`no-store`});
+        const body = await response.json().catch(()=>({}));
+        if (!response.ok || !body.success) throw new Error(body.error || `Unable to load ${key} statistics`);
+        results.push([key,{totals:body.totals||ZERO,reps:body.reps||[]}] as const);
+      }
       setSnapshots(Object.fromEntries(results)); setUpdatedAt(new Date())
     } catch (reason) {
       setSnapshots({})
@@ -111,3 +112,4 @@ export function ExecutiveRepStats({ repId, repName, repEmail }:{ repId?:string|n
     <MetricDerivationModal info={metricInfo} onClose={()=>setMetricInfo(null)}/>
   </div>
 }
+
