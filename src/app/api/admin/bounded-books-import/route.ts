@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from '@/lib/zoho-auth'
 import { collectBoundedBooks, redactedCounts, validateBoundedRange, type BoundedRange, type ReadTransport } from '@/lib/bounded-books-import'
 import { persistBoundedImportedInvoices } from '@/lib/write-off-recovery-trigger'
+import { booksPaymentStatusFields } from '@/lib/zoho-payment-status'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -83,7 +84,7 @@ async function localImport(body: Record<string, unknown>, actorId: string) {
       if (!id) continue
       const invoiceId = typeof row.invoices === 'object' && Array.isArray(row.invoices) ? String((row.invoices[0] as Record<string, unknown>)?.invoice_id || '') : ''
       const invoice = invoiceId ? await prisma.invoice.findUnique({ where: { zohoId: invoiceId }, select: { id: true } }) : null
-      await prisma.payment.upsert({ where: { zohoId: id }, update: { invoiceId: invoiceId || null, invoiceDbId: invoice?.id || null, invoiceNumber: String((row.invoices as Record<string, unknown>[] | undefined)?.[0]?.invoice_number || '') || null, amount: Number(row.amount) || 0, date: row.date ? new Date(String(row.date)) : null, mode: String(row.payment_mode || '') || null, status: String(row.payment_status || row.status || '') || null, referenceNumber: String(row.reference_number || '') || null, bankCharges: Number(row.bank_charges) || 0, description: null }, create: { zohoId: id, invoiceId: invoiceId || null, invoiceDbId: invoice?.id || null, invoiceNumber: null, amount: Number(row.amount) || 0, date: row.date ? new Date(String(row.date)) : null, mode: String(row.payment_mode || '') || null, status: String(row.payment_status || row.status || '') || null, referenceNumber: String(row.reference_number || '') || null, bankCharges: Number(row.bank_charges) || 0, description: null } })
+      await prisma.payment.upsert({ where: { zohoId: id }, update: { invoiceId: invoiceId || null, invoiceDbId: invoice?.id || null, invoiceNumber: String((row.invoices as Record<string, unknown>[] | undefined)?.[0]?.invoice_number || '') || null, amount: Number(row.amount) || 0, date: row.date ? new Date(String(row.date)) : null, mode: String(row.payment_mode || '') || null, ...booksPaymentStatusFields(row), referenceNumber: String(row.reference_number || '') || null, bankCharges: Number(row.bank_charges) || 0, description: null }, create: { zohoId: id, invoiceId: invoiceId || null, invoiceDbId: invoice?.id || null, invoiceNumber: null, amount: Number(row.amount) || 0, date: row.date ? new Date(String(row.date)) : null, mode: String(row.payment_mode || '') || null, ...booksPaymentStatusFields(row), referenceNumber: String(row.reference_number || '') || null, bankCharges: Number(row.bank_charges) || 0, description: null } })
       processed += 1
     }
     await prisma.boundedBooksImportJob.update({ where: { id: job.id }, data: { status: 'COMPLETE', stage: 'COMPLETE', processed, succeeded: processed, total: Object.values(collection.counts).reduce((a, b) => a + b, 0), completedAt: new Date(), heartbeatAt: new Date() } })
