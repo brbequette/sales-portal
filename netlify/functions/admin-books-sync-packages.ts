@@ -3,6 +3,7 @@ import { prisma } from './lib/prisma'
 import { getZohoAccessToken, ZOHO_DC, ZOHO_ORGANIZATION_ID } from './lib/zoho-auth'
 import { corsHeaders, handleOptions } from './lib/cors'
 import { authenticateFunction, authErrorResponse } from './lib/auth-middleware'
+import { booksPaymentStatusFields } from '../../src/lib/zoho-payment-status'
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 
@@ -184,7 +185,7 @@ export const handler: Handler = async (event) => {
           amount: parseFloat(pay.amount || 0),
           date: pay.date ? new Date(pay.date) : null,
           mode: pay.payment_mode || null,
-          status: pay.payment_status || pay.status || null,
+          ...booksPaymentStatusFields(pay),
           referenceNumber: pay.reference_number || null,
           bankCharges: parseFloat(pay.bank_charges || 0),
           invoiceId,

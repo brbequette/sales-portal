@@ -7,6 +7,7 @@ import { getZohoAccessToken, ZOHO_ORGANIZATION_ID } from '@/lib/zoho-auth'
 import { isAdministratorRole } from '@/lib/roles'
 import { zohoBooksSinceParam, zohoCrmReadHeaders } from '@/lib/zoho-incremental-filter'
 import { fetchZohoPages } from '@/lib/zoho-pagination'
+import { booksPaymentStatusFields } from '@/lib/zoho-payment-status'
 import {
   getSyncConfig,
   getSyncStatus,
@@ -688,7 +689,7 @@ export async function POST(req: NextRequest) {
                 amount: safeAmt,
                 date: pmtDate,
                 mode: pmt.payment_mode,
-                status: 'received',
+                ...booksPaymentStatusFields(pmt),
                 referenceNumber: pmt.reference_number,
                 bankCharges: safeBankCharges,
                 description: pmt.description,

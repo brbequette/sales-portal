@@ -1,5 +1,6 @@
 import { prisma } from "./prisma"
 import { getZohoAccessToken, ZOHO_DC, ZOHO_ORGANIZATION_ID } from "./zoho-auth"
+import { booksPaymentStatusFields } from "../../../src/lib/zoho-payment-status"
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 const BOOKS_BASE = `https://www.zohoapis.${ZOHO_DC}/books/v3`
@@ -354,7 +355,7 @@ export async function bulkSyncPage(
           amount: parseFloat(item.amount || 0),
           date: item.date ? new Date(item.date) : null,
           mode: item.payment_mode || item.payment_mode_formatted || null,
-          status: item.payment_status || item.status || 'paid',
+          ...booksPaymentStatusFields(item),
           referenceNumber: item.reference_number || null,
           bankCharges: parseFloat(item.bank_charges || 0),
         }
