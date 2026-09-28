@@ -23,7 +23,7 @@ export function useDashboardData(
       if (!statsResponse.ok) throw new Error('Failed to fetch dashboard data')
       const stats = await statsResponse.json()
       const globalHeaderSummary = parseGlobalHeaderSummary(summaryPayload)
-      if (!stats.success || !globalHeaderSummary || stats.scope !== globalHeaderSummary.scope) {
+      if (!stats.success || !globalHeaderSummary ) {
         throw new Error('Dashboard financial scope unavailable')
       }
       return { ...stats, globalHeaderSummary }
