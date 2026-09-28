@@ -267,18 +267,7 @@ const authenticatedHandler: Handler = async (event) => {
           ${soExcludedSql}
           AND s."syncConflict" = false AND s."pendingZohoFetch" = false
           AND NOT EXISTS (
-            SELECT 1 FROM "Invoice" linked
-            WHERE (
-              NULLIF(lower(s."zohoId"), '') IS NOT NULL
-              AND lower(s."zohoId") IN (
-                lower(COALESCE(linked."salesOrderZohoId", '')),
-                lower(COALESCE(linked.items->>'salesorder_id', '')),
-                lower(COALESCE(linked.items->>'sales_order_id', ''))
-              )
-            ) OR (
-              NULLIF(lower(COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber', '')), '') IS NOT NULL
-              AND lower(COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber', '')) IN (
-                lower(COALESCE(linked."salesorderNumber", '')),
+            SELECT 1 FROM "Invoice" linked WHERE (NULLIF(s."zohoId", '') IS NOT NULL AND linked."salesOrderZohoId" = s."zohoId") OR (NULLIF(COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber'), '') IS NOT NULL AND linked."salesorderNumber" = COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber')),
                 lower(COALESCE(linked.items->>'salesorder_number', '')),
                 lower(COALESCE(linked.items->>'salesOrderNumber', ''))
               )
@@ -306,12 +295,7 @@ const authenticatedHandler: Handler = async (event) => {
           COALESCE(s.items->>'salesperson_name', s.items->>'salesperson') AS salesperson,
           a."ownerId" AS "accountOwnerId", a.name AS "accountName",
           EXISTS (
-            SELECT 1 FROM "Invoice" linked WHERE (
-              NULLIF(lower(s."zohoId"), '') IS NOT NULL
-              AND lower(s."zohoId") IN (lower(COALESCE(linked."salesOrderZohoId", '')), lower(COALESCE(linked.items->>'salesorder_id', '')), lower(COALESCE(linked.items->>'sales_order_id', '')))
-            ) OR (
-              NULLIF(lower(COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber', '')), '') IS NOT NULL
-              AND lower(COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber', '')) IN (lower(COALESCE(linked."salesorderNumber", '')), lower(COALESCE(linked.items->>'salesorder_number', '')), lower(COALESCE(linked.items->>'salesOrderNumber', '')))
+            SELECT 1 FROM "Invoice" linked WHERE (NULLIF(s."zohoId", '') IS NOT NULL AND linked."salesOrderZohoId" = s."zohoId") OR (NULLIF(COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber'), '') IS NOT NULL AND linked."salesorderNumber" = COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber'))
             )
           ) AS "invoiceLinked"
         FROM "SalesOrder" s JOIN "Account" a ON a.id = s."accountId"
@@ -320,13 +304,8 @@ const authenticatedHandler: Handler = async (event) => {
           AND (
             lower(s.status) IN ('void','voided','draft','declined','cancelled','canceled','orphaned','deleted','converted','invoiced','billed','partially_invoiced')
             OR EXISTS (
-              SELECT 1 FROM "Invoice" linked WHERE (
-                NULLIF(lower(s."zohoId"), '') IS NOT NULL
-                AND lower(s."zohoId") IN (lower(COALESCE(linked."salesOrderZohoId", '')), lower(COALESCE(linked.items->>'salesorder_id', '')), lower(COALESCE(linked.items->>'sales_order_id', '')))
-              ) OR (
-                NULLIF(lower(COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber', '')), '') IS NOT NULL
-                AND lower(COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber', '')) IN (lower(COALESCE(linked."salesorderNumber", '')), lower(COALESCE(linked.items->>'salesorder_number', '')), lower(COALESCE(linked.items->>'salesOrderNumber', '')))
-              )
+              SELECT 1 FROM "Invoice" linked WHERE (NULLIF(s."zohoId", '') IS NOT NULL AND linked."salesOrderZohoId" = s."zohoId") OR (NULLIF(COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber'), '') IS NOT NULL AND linked."salesorderNumber" = COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber'))
+            )
             )
           )
       `).catch(() => []) : Promise.resolve([]),
@@ -347,12 +326,7 @@ const authenticatedHandler: Handler = async (event) => {
           ${soExcludedSql}
           AND s."syncConflict" = false AND s."pendingZohoFetch" = false
           AND NOT EXISTS (
-            SELECT 1 FROM "Invoice" linked WHERE (
-              NULLIF(lower(s."zohoId"), '') IS NOT NULL
-              AND lower(s."zohoId") IN (lower(COALESCE(linked."salesOrderZohoId", '')), lower(COALESCE(linked.items->>'salesorder_id', '')), lower(COALESCE(linked.items->>'sales_order_id', '')))
-            ) OR (
-              NULLIF(lower(COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber', '')), '') IS NOT NULL
-              AND lower(COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber', '')) IN (lower(COALESCE(linked."salesorderNumber", '')), lower(COALESCE(linked.items->>'salesorder_number', '')), lower(COALESCE(linked.items->>'salesOrderNumber', '')))
+            SELECT 1 FROM "Invoice" linked WHERE (NULLIF(s."zohoId", '') IS NOT NULL AND linked."salesOrderZohoId" = s."zohoId") OR (NULLIF(COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber'), '') IS NOT NULL AND linked."salesorderNumber" = COALESCE(s.items->>'salesorder_number', s.items->>'salesOrderNumber'))
             )
           )
           ${salesOrderRepFilterSql}
@@ -775,3 +749,4 @@ const authenticatedHandler: Handler = async (event) => {
 }
 
 export const handler = authenticatedHandler
+
