@@ -21,32 +21,42 @@ export function computePOMatchScore(po: any, invoice: any): MatchScoreResult {
   const poItems = po.items || {}
 
   // -------------------------------------------------------------
-  // 1. Reference Number & Sales Order Match (Up to 50 points)
+  // 1. Reference Number & Estimate / Sales Order Match (Up to 55 points)
   // -------------------------------------------------------------
   const poRef = String(po.referenceNumber || po.salesOrderNumber || poItems.reference_number || poItems.salesorder_number || po.poNumber || "").trim().toLowerCase()
+  
   const invSalesOrderNum = String(invItems.salesOrderNumber || invItems.salesorder_number || invItems.reference_number || invItems.invoiceNumber || invoice.zohoId || "").trim().toLowerCase()
-  const invRefNum = String(invItems.reference_number || invItems.customer_po || "").trim().toLowerCase()
+  const invRefNum = String(invItems.reference_number || invItems.customer_po || invItems.estimate_number || invItems.estimateNumber || "").trim().toLowerCase()
 
-  if (poRef && poRef.length > 2) {
+  // Extract clean digits for reference / estimate matching
+  const poDigits = poRef.replace(/\D/g, "")
+  const invSoDigits = invSalesOrderNum.replace(/\D/g, "")
+  const invRefDigits = invRefNum.replace(/\D/g, "")
+
+  if (poRef && poRef.length >= 2) {
     if (poRef === invSalesOrderNum || poRef === invRefNum) {
-      score += 50
+      score += 55
       reasons.push(`Ref #${poRef.toUpperCase()} Exact Match`)
       matchDetails.referenceMatch = `Exact Ref #${poRef.toUpperCase()}`
-    } else if (invSalesOrderNum.includes(poRef) || poRef.includes(invSalesOrderNum) || invRefNum.includes(poRef)) {
-      score += 35
-      reasons.push(`Ref #${poRef.toUpperCase()} Substring Match`)
-      matchDetails.referenceMatch = `Ref #${poRef.toUpperCase()} Substring`
+    } else if (invSalesOrderNum.includes(poRef) || poRef.includes(invSalesOrderNum) || invRefNum.includes(poRef) || (poRef.length >= 3 && invRefNum.includes(poRef))) {
+      score += 40
+      reasons.push(`Ref #${poRef.toUpperCase()} Match`)
+      matchDetails.referenceMatch = `Ref #${poRef.toUpperCase()}`
+    } else if (poDigits.length >= 4 && (invSoDigits === poDigits || invRefDigits === poDigits)) {
+      score += 40
+      reasons.push(`Ref Number #${poDigits} Match`)
+      matchDetails.referenceMatch = `Ref Number #${poDigits}`
     }
   }
 
   // -------------------------------------------------------------
-  // 2. Address & Customer Name Match (Up to 35 points)
+  // 2. Customer / Ship-To Name & Address Match (Up to 45 points)
   // -------------------------------------------------------------
-  const shipTo = String(po.shipToName || poItems.delivery_customer_name || poItems.customer_name || poItems.ship_via || poItems.recipient_address || "").toLowerCase().trim()
-  const poAddress = String(poItems.delivery_address || poItems.shipping_address || poItems.recipient_address || poItems.address || poItems.city || "").toLowerCase().trim()
+  const shipTo = String(po.shipToName || poItems.delivery_customer_name || poItems.customer_name || poItems.ship_via || poItems.recipient_name || poItems.attention || "").toLowerCase().trim()
+  const poAddress = String(po.shippingAddress || poItems.delivery_address || poItems.shipping_address || poItems.recipient_address || poItems.address || poItems.city || "").toLowerCase().trim()
   
   const customerName = String(invoice.account?.name || invItems.customer_name || "").toLowerCase().trim()
-  const invAddress = String(invItems.shipping_address || invItems.billing_address || invItems.address || "").toLowerCase().trim()
+  const invAddress = String(invItems.shipping_address || invItems.billing_address || invItems.address || invoice.account?.mailingStreet || "").toLowerCase().trim()
 
   if (shipTo && customerName) {
     if (shipTo === customerName || customerName.includes(shipTo) || shipTo.includes(customerName)) {
@@ -64,13 +74,16 @@ export function computePOMatchScore(po: any, invoice: any): MatchScoreResult {
     }
   }
 
-  if (poAddress && invAddress && poAddress.length > 4) {
-    const poAddTokens = poAddress.split(/[\s,]+/).filter((t: string) => t.length > 3)
-    const matchedAddTokens = poAddTokens.filter((t: string) => invAddress.includes(t))
-    if (matchedAddTokens.length >= 2 || (poAddTokens.length > 0 && invAddress.includes(poAddress))) {
-      score += 20
-      reasons.push(`Address match: ${matchedAddTokens.join(", ")}`)
-      matchDetails.addressMatch = (matchDetails.addressMatch ? `${matchDetails.addressMatch} + ` : "") + `Address match (${matchedAddTokens.join(", ")})`
+  // Shipping Address Matching (Street, City, State, Zip)
+  if (poAddress && poAddress.length > 4) {
+    if (invAddress && invAddress.length > 4) {
+      const poAddTokens = poAddress.split(/[\s,]+/).filter((t: string) => t.length > 3)
+      const matchedAddTokens = poAddTokens.filter((t: string) => invAddress.includes(t))
+      if (matchedAddTokens.length >= 2 || invAddress.includes(poAddress) || poAddress.includes(invAddress)) {
+        score += 25
+        reasons.push(`Address Match: ${matchedAddTokens.join(", ")}`)
+        matchDetails.addressMatch = (matchDetails.addressMatch ? `${matchDetails.addressMatch} + ` : "") + `Address match (${matchedAddTokens.join(", ")})`
+      }
     }
   }
 

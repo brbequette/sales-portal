@@ -1267,6 +1267,7 @@ model PurchaseOrder {
   poNumber         String?
   vendorName       String?
   shipToName       String?
+  shippingAddress  String?
   referenceNumber  String?
   date             DateTime?
   total            Float     @default(0)
@@ -1287,6 +1288,7 @@ model PurchaseOrder {
   @@index([referenceNumber])
   @@index([shipToName])
   @@index([poNumber])
+  @@index([shippingAddress])
 }
 
 model Payment {

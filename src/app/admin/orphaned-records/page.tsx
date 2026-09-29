@@ -32,6 +32,7 @@ interface PurchaseOrder {
   poNumber?: string | null
   vendorName: string | null
   shipToName?: string | null
+  shippingAddress?: string | null
   referenceNumber: string | null
   date: string | null
   total: number
@@ -126,7 +127,7 @@ function ExpandedRowSearch({
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by Invoice #, Customer Name, Ref #, SKU, Address..."
+          placeholder="Search by Invoice #, Customer Name, Estimate #, Ref #, Address, SKU..."
           className="w-full bg-slate-950 border border-slate-750 rounded-xl py-2 px-3 pl-9 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
         />
         <FiSearch className="absolute left-3 top-2.5 text-slate-500" size={13} />
@@ -158,10 +159,11 @@ function ExpandedRowSearch({
                 <div className="text-slate-300 font-medium truncate mt-0.5">
                   {inv.customerName}
                 </div>
-                {(inv.referenceNumber || inv.issueDate) && (
-                  <div className="text-[11px] text-slate-500 flex items-center gap-3 mt-0.5">
+                {(inv.referenceNumber || inv.issueDate || inv.shipTo) && (
+                  <div className="text-[11px] text-slate-500 flex items-center gap-3 mt-0.5 flex-wrap">
                     {inv.issueDate && <span>Date: {new Date(inv.issueDate).toLocaleDateString()}</span>}
                     {inv.referenceNumber && <span>Ref: {inv.referenceNumber}</span>}
+                    {inv.shipTo && <span className="truncate max-w-[150px]">Ship: {inv.shipTo}</span>}
                   </div>
                 )}
               </div>
@@ -555,7 +557,7 @@ export default function OrphanedRecordsPage() {
                 <input
                   value={tableSearch}
                   onChange={(event) => setTableSearch(event.target.value)}
-                  placeholder={activeTab === "pos" ? "Search PO, vendor, status, or sales order..." : "Search payment, customer, mode, or reference..."}
+                  placeholder={activeTab === "pos" ? "Search PO, vendor, status, address, or sales order..." : "Search payment, customer, mode, or reference..."}
                   className="w-full rounded-lg border border-slate-800 bg-slate-950 py-2.5 pl-10 pr-4 text-sm text-white outline-none focus:border-blue-500"
                 />
               </label>
@@ -595,7 +597,7 @@ export default function OrphanedRecordsPage() {
                     <tr>
                       <th className="w-10 px-3 py-4 text-center">Expand</th>
                       <th className="px-6 py-4">PO Number</th>
-                      <th className="px-6 py-4">Vendor</th>
+                      <th className="px-6 py-4">Vendor & Ship To Address</th>
                       <th className="px-6 py-4">Date</th>
                       <th className="px-6 py-4">Total</th>
                       <th className="px-6 py-4">Linked Sales Order</th>
@@ -610,6 +612,9 @@ export default function OrphanedRecordsPage() {
                       const poSuggestions = suggestions[po.zohoId]
                       const topMatch = poSuggestions?.bestMatch || (poSuggestions?.score ? poSuggestions : null)
                       const candidatesList: any[] = poSuggestions?.candidates || (topMatch ? [topMatch] : [])
+
+                      const displayShipName = po.shipToName || po.items?.delivery_customer_name || po.items?.customer_name
+                      const displayShipAddr = po.shippingAddress || po.items?.delivery_address || po.items?.shipping_address || po.items?.recipient_address
 
                       return (
                         <tr key={po.id} className="group hover:bg-slate-900/40 transition">
@@ -656,9 +661,18 @@ export default function OrphanedRecordsPage() {
                                         </div>
                                       )}
                                     </td>
-                                    <td className="px-6 py-4 w-1/5">
-                                      <div className="font-medium text-slate-200">{po.vendorName || "Unknown Vendor"}</div>
-                                      {po.shipToName && <div className="text-[11px] text-slate-400 truncate">To: {po.shipToName}</div>}
+                                    <td className="px-6 py-4 w-1/4">
+                                      <div className="font-semibold text-slate-200">{po.vendorName || "Unknown Vendor"}</div>
+                                      {(displayShipName || displayShipAddr) && (
+                                        <div className="text-[11px] text-blue-300/90 font-medium truncate mt-0.5 flex items-center gap-1" title={`${displayShipName || ''} ${displayShipAddr || ''}`}>
+                                          <FiMapPin size={11} className="text-blue-400 flex-shrink-0" />
+                                          <span className="truncate">
+                                            {displayShipName ? `To: ${displayShipName}` : ''}
+                                            {displayShipName && displayShipAddr ? ' — ' : ''}
+                                            {displayShipAddr || ''}
+                                          </span>
+                                        </div>
+                                      )}
                                     </td>
                                     <td className="px-6 py-4 text-slate-400 w-1/6">
                                       <div className="flex items-center gap-1.5">
@@ -734,16 +748,16 @@ export default function OrphanedRecordsPage() {
                                     </div>
 
                                     {/* Reference Information Highlight Box */}
-                                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3.5 space-y-1">
+                                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3.5 space-y-1.5">
                                       <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
                                         <FiInfo size={14} />
-                                        Pertinent Reference Information
+                                        Pertinent Reference & Historical Invoice Matching
                                       </div>
                                       <div className="text-xs text-slate-200 font-mono font-semibold">
                                         Reference Number: {po.referenceNumber || po.salesOrderNumber || "None specified"}
                                       </div>
-                                      <p className="text-[11px] text-slate-400 leading-relaxed">
-                                        This reference field may contain customer purchase order numbers, job site names, sales order references, or vendor invoice numbers useful for matching.
+                                      <p className="text-[11px] text-slate-300 leading-relaxed">
+                                        💡 <strong>Historical Context:</strong> Orders prior to 2026 went directly from Estimate → Invoice without a Sales Order. POs were created manually in the PO module. Use Customer Address, Recipient Name, Estimate #, Line Items, and Total Amount below to find matching invoices.
                                       </p>
                                     </div>
 
@@ -757,16 +771,22 @@ export default function OrphanedRecordsPage() {
                                         <div className="text-slate-500 font-medium">Total Amount</div>
                                         <div className="text-emerald-400 font-bold mt-0.5">${po.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                                       </div>
-                                      <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 col-span-2">
-                                        <div className="text-slate-500 font-medium flex items-center gap-1">
-                                          <FiMapPin size={12} className="text-blue-400" /> Ship To / Customer Address
+
+                                      {/* PO Shipping Address / Recipient (Dropship Target) */}
+                                      <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 col-span-2 space-y-1">
+                                        <div className="text-slate-400 font-bold text-xs flex items-center gap-1.5">
+                                          <FiMapPin size={13} className="text-blue-400" /> PO Shipping Address / Recipient (Dropship Target)
                                         </div>
-                                        <div className="text-slate-200 font-semibold mt-0.5">
-                                          {po.shipToName || po.items?.delivery_customer_name || po.items?.customer_name || "N/A"}
+                                        <div className="text-slate-100 font-bold text-xs">
+                                          {displayShipName || "Customer / Recipient Not Specified"}
                                         </div>
-                                        {(po.items?.delivery_address || po.items?.shipping_address || po.items?.recipient_address) && (
-                                          <div className="text-[11px] text-slate-400 mt-1 leading-normal">
-                                            {po.items.delivery_address || po.items.shipping_address || po.items.recipient_address}
+                                        {displayShipAddr ? (
+                                          <div className="text-[11px] text-slate-300 mt-1 leading-normal font-mono bg-slate-950/60 p-2 rounded-lg border border-slate-800">
+                                            {displayShipAddr}
+                                          </div>
+                                        ) : (
+                                          <div className="text-[11px] text-slate-500 italic mt-0.5">
+                                            No street address recorded on PO. Will match against Customer Account & Invoice addresses.
                                           </div>
                                         )}
                                       </div>
@@ -776,7 +796,7 @@ export default function OrphanedRecordsPage() {
                                     {po.items && (po.items.lineItems || po.items.line_items) && (
                                       <div className="space-y-2">
                                         <div className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                                          <FiList size={13} className="text-blue-400" /> PO Items
+                                          <FiList size={13} className="text-blue-400" /> PO Line Items
                                         </div>
                                         <div className="max-h-36 overflow-y-auto bg-slate-900/80 border border-slate-800 rounded-xl p-2 space-y-1.5 text-xs custom-scrollbar">
                                           {((po.items.lineItems || po.items.line_items) as any[]).map((item, idx) => (
@@ -853,7 +873,7 @@ export default function OrphanedRecordsPage() {
                                       <ExpandedRowSearch
                                         recordZohoId={po.zohoId}
                                         type="po"
-                                        initialQuery={po.referenceNumber || po.salesOrderNumber || po.shipToName || ""}
+                                        initialQuery={displayShipAddr || displayShipName || po.referenceNumber || po.salesOrderNumber || ""}
                                         onLink={handleQuickLink}
                                       />
                                     </div>

@@ -143,11 +143,15 @@ export async function POST(req: NextRequest) {
         const isDropshipment = !!(po.delivery_customer_id || po.salesorder_id)
         if (isDropshipment) dropshipCount++
 
+        const shipToName = po.delivery_customer_name || po.customer_name || null
+        const shippingAddress = po.delivery_address || po.shipping_address || po.recipient_address || po.address || null
+
         const poData: Prisma.PurchaseOrderCreateInput = {
           zohoId,
           poNumber:         po.purchaseorder_number || null,
           vendorName:       po.vendor_name             || null,
-          shipToName:       po.delivery_customer_name || po.customer_name || null,
+          shipToName,
+          shippingAddress,
           referenceNumber:  po.reference_number || po.salesorder_number  || null,
           date:             po.date ? new Date(po.date) : null,
           total:            po.total           || 0,

@@ -516,10 +516,14 @@ export async function POST(req: NextRequest) {
               if (Date.now() - startTime > TIMEOUT_MS) { incompleteReason = 'timeout while persisting page results'; break; }
               if (!po.purchaseorder_id) continue
 
+              const shipToName = po.delivery_customer_name || po.customer_name || po.ship_via || null
+              const shippingAddress = po.delivery_address || po.shipping_address || po.recipient_address || po.address || null
+
               const poData = {
                 poNumber: po.purchaseorder_number || null,
                 vendorName: po.vendor_name,
-                shipToName: po.delivery_customer_name || po.customer_name || po.ship_via,
+                shipToName,
+                shippingAddress,
                 referenceNumber: po.reference_number || po.salesorder_number,
                 date: po.date ? new Date(po.date) : null,
                 total: po.total || 0,
