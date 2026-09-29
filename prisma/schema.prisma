@@ -1264,6 +1264,7 @@ model Reimbursement {
 model PurchaseOrder {
   id               String    @id @default(cuid())
   zohoId           String    @unique
+  poNumber         String?
   vendorName       String?
   shipToName       String?
   referenceNumber  String?
@@ -1285,6 +1286,7 @@ model PurchaseOrder {
   @@index([invoiceId])
   @@index([referenceNumber])
   @@index([shipToName])
+  @@index([poNumber])
 }
 
 model Payment {

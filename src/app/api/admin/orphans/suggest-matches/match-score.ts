@@ -1,79 +1,153 @@
 import { financialZohoLineItems } from '@/lib/zoho-line-items'
 
-export function computePOMatchScore(po: any, invoice: any) {
+export interface MatchScoreResult {
+  score: number
+  reasons: string[]
+  matchDetails: {
+    referenceMatch?: string | null
+    addressMatch?: string | null
+    itemMatch?: string | null
+    dateMatch?: string | null
+    amountMatch?: string | null
+  }
+}
+
+export function computePOMatchScore(po: any, invoice: any): MatchScoreResult {
   let score = 0
   const reasons: string[] = []
+  const matchDetails: MatchScoreResult['matchDetails'] = {}
 
   const invItems = invoice.items || {}
-  const poRef = (po.referenceNumber || po.salesOrderNumber || "").trim()
-  const invSalesOrderNum = String(invItems.salesOrderNumber || invItems.reference_number || "").trim()
+  const poItems = po.items || {}
 
-  // 1. Direct Sales Order / Reference Number Match (50 points)
-  if (poRef && invSalesOrderNum && (poRef === invSalesOrderNum || invSalesOrderNum.includes(poRef) || poRef.includes(invSalesOrderNum))) {
-    score += 50
-    reasons.push(`Sales Order #${poRef}`)
+  // -------------------------------------------------------------
+  // 1. Reference Number & Sales Order Match (Up to 50 points)
+  // -------------------------------------------------------------
+  const poRef = String(po.referenceNumber || po.salesOrderNumber || poItems.reference_number || poItems.salesorder_number || po.poNumber || "").trim().toLowerCase()
+  const invSalesOrderNum = String(invItems.salesOrderNumber || invItems.salesorder_number || invItems.reference_number || invItems.invoiceNumber || invoice.zohoId || "").trim().toLowerCase()
+  const invRefNum = String(invItems.reference_number || invItems.customer_po || "").trim().toLowerCase()
+
+  if (poRef && poRef.length > 2) {
+    if (poRef === invSalesOrderNum || poRef === invRefNum) {
+      score += 50
+      reasons.push(`Ref #${poRef.toUpperCase()} Exact Match`)
+      matchDetails.referenceMatch = `Exact Ref #${poRef.toUpperCase()}`
+    } else if (invSalesOrderNum.includes(poRef) || poRef.includes(invSalesOrderNum) || invRefNum.includes(poRef)) {
+      score += 35
+      reasons.push(`Ref #${poRef.toUpperCase()} Substring Match`)
+      matchDetails.referenceMatch = `Ref #${poRef.toUpperCase()} Substring`
+    }
   }
 
-  // 2. Customer / Ship-To Name Match (Up to 35 points)
-  const shipTo = (po.shipToName || "").toLowerCase().trim()
-  const customerName = String(invItems.customer_name || invoice.account?.name || "").toLowerCase().trim()
+  // -------------------------------------------------------------
+  // 2. Address & Customer Name Match (Up to 35 points)
+  // -------------------------------------------------------------
+  const shipTo = String(po.shipToName || poItems.delivery_customer_name || poItems.customer_name || poItems.ship_via || poItems.recipient_address || "").toLowerCase().trim()
+  const poAddress = String(poItems.delivery_address || poItems.shipping_address || poItems.recipient_address || poItems.address || poItems.city || "").toLowerCase().trim()
+  
+  const customerName = String(invoice.account?.name || invItems.customer_name || "").toLowerCase().trim()
+  const invAddress = String(invItems.shipping_address || invItems.billing_address || invItems.address || "").toLowerCase().trim()
 
   if (shipTo && customerName) {
     if (shipTo === customerName || customerName.includes(shipTo) || shipTo.includes(customerName)) {
       score += 35
       reasons.push(`Customer '${invoice.account?.name || invItems.customer_name}'`)
+      matchDetails.addressMatch = `Customer '${invoice.account?.name || invItems.customer_name}'`
     } else {
       const poTokens = shipTo.split(/\s+/).filter((t: string) => t.length > 2)
       const matchesToken = poTokens.some((t: string) => customerName.includes(t))
       if (matchesToken) {
         score += 20
         reasons.push(`Customer Token Match`)
+        matchDetails.addressMatch = `Customer Token Match`
       }
     }
   }
 
+  if (poAddress && invAddress && poAddress.length > 4) {
+    const poAddTokens = poAddress.split(/[\s,]+/).filter((t: string) => t.length > 3)
+    const matchedAddTokens = poAddTokens.filter((t: string) => invAddress.includes(t))
+    if (matchedAddTokens.length >= 2 || (poAddTokens.length > 0 && invAddress.includes(poAddress))) {
+      score += 20
+      reasons.push(`Address match: ${matchedAddTokens.join(", ")}`)
+      matchDetails.addressMatch = (matchDetails.addressMatch ? `${matchDetails.addressMatch} + ` : "") + `Address match (${matchedAddTokens.join(", ")})`
+    }
+  }
+
+  // -------------------------------------------------------------
   // 3. Line Item SKU / Product Match (Up to 30 points)
-  const poLineItems = financialZohoLineItems(po.items?.lineItems || po.items)
-  const invLineItems = financialZohoLineItems(invItems.lineItemDetails || invItems.line_items)
+  // -------------------------------------------------------------
+  const poLineItems = financialZohoLineItems(poItems.lineItems || poItems.line_items || poItems)
+  const invLineItems = financialZohoLineItems(invItems.lineItemDetails || invItems.line_items || invItems)
 
   if (Array.isArray(poLineItems) && Array.isArray(invLineItems) && poLineItems.length > 0 && invLineItems.length > 0) {
-    let skuMatched = false
+    let matchedItemName = ""
     for (const poItem of poLineItems) {
-      const poSku = (poItem.sku || poItem.name || "").toLowerCase().trim()
-      if (!poSku) continue
+      const poSku = String(poItem.sku || poItem.name || poItem.description || "").toLowerCase().trim()
+      if (!poSku || poSku.length < 3) continue
       for (const invItem of invLineItems) {
-        const invSku = (invItem.sku || invItem.name || invItem.description || "").toLowerCase().trim()
+        const invSku = String(invItem.sku || invItem.name || invItem.description || "").toLowerCase().trim()
         if (poSku && invSku && (invSku.includes(poSku) || poSku.includes(invSku))) {
-          skuMatched = true
+          matchedItemName = poItem.name || poItem.sku || poSku
           break
         }
       }
-      if (skuMatched) break
+      if (matchedItemName) break
     }
-    if (skuMatched) {
+    if (matchedItemName) {
       score += 30
-      reasons.push("Product SKU Match")
+      reasons.push(`Product Match: ${matchedItemName}`)
+      matchDetails.itemMatch = `Product: ${matchedItemName}`
     }
   }
 
-  // 4. Date Proximity Match (Up to 15 points)
-  if (po.date && invoice.issueDate) {
-    const poTime = new Date(po.date).getTime()
-    const invTime = new Date(invoice.issueDate).getTime()
-    const diffDays = Math.abs(poTime - invTime) / (1000 * 60 * 60 * 24)
+  // -------------------------------------------------------------
+  // 4. Date Proximity Match (Up to 20 points)
+  // -------------------------------------------------------------
+  const poDate = po.date ? new Date(po.date) : null
+  const invDate = invoice.issueDate ? new Date(invoice.issueDate) : (invItems.date ? new Date(invItems.date) : null)
 
-    if (diffDays <= 7) {
+  if (poDate && invDate && !isNaN(poDate.getTime()) && !isNaN(invDate.getTime())) {
+    const diffDays = Math.abs(poDate.getTime() - invDate.getTime()) / (1000 * 60 * 60 * 24)
+
+    if (diffDays <= 3) {
+      score += 20
+      reasons.push(`Date ±${Math.round(diffDays)}d`)
+      matchDetails.dateMatch = `Date ±${Math.round(diffDays)}d`
+    } else if (diffDays <= 7) {
       score += 15
       reasons.push(`Date ±${Math.round(diffDays)}d`)
+      matchDetails.dateMatch = `Date ±${Math.round(diffDays)}d`
     } else if (diffDays <= 14) {
       score += 10
       reasons.push(`Date ±${Math.round(diffDays)}d`)
+      matchDetails.dateMatch = `Date ±${Math.round(diffDays)}d`
     } else if (diffDays <= 30) {
       score += 5
       reasons.push(`Date ±${Math.round(diffDays)}d`)
+      matchDetails.dateMatch = `Date ±${Math.round(diffDays)}d`
+    }
+  }
+
+  // -------------------------------------------------------------
+  // 5. Total Amount Proximity Match (Up to 25 points)
+  // -------------------------------------------------------------
+  const poTotal = Number(po.total || poItems.total || 0)
+  const invTotal = Number(invoice.amount || invItems.total || 0)
+
+  if (poTotal > 0 && invTotal > 0) {
+    const diff = Math.abs(poTotal - invTotal)
+    if (diff < 0.01) {
+      score += 25
+      reasons.push(`Exact Total $${poTotal.toFixed(2)}`)
+      matchDetails.amountMatch = `Exact Amount $${poTotal.toFixed(2)}`
+    } else if (diff / poTotal < 0.05) {
+      score += 15
+      reasons.push(`Close Total ($${poTotal.toFixed(2)} vs $${invTotal.toFixed(2)})`)
+      matchDetails.amountMatch = `Near Amount ($${poTotal.toFixed(2)} vs $${invTotal.toFixed(2)})`
     }
   }
 
   const finalScore = Math.min(100, score)
-  return { score: finalScore, reasons }
+  return { score: finalScore, reasons, matchDetails }
 }

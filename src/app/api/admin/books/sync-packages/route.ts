@@ -145,6 +145,7 @@ export async function POST(req: NextRequest) {
 
         const poData: Prisma.PurchaseOrderCreateInput = {
           zohoId,
+          poNumber:         po.purchaseorder_number || null,
           vendorName:       po.vendor_name             || null,
           shipToName:       po.delivery_customer_name || po.customer_name || null,
           referenceNumber:  po.reference_number || po.salesorder_number  || null,

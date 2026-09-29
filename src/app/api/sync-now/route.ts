@@ -517,6 +517,7 @@ export async function POST(req: NextRequest) {
               if (!po.purchaseorder_id) continue
 
               const poData = {
+                poNumber: po.purchaseorder_number || null,
                 vendorName: po.vendor_name,
                 shipToName: po.delivery_customer_name || po.customer_name || po.ship_via,
                 referenceNumber: po.reference_number || po.salesorder_number,
