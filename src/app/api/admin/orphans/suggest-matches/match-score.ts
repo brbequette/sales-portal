@@ -21,31 +21,33 @@ export function computePOMatchScore(po: any, invoice: any): MatchScoreResult {
   const poItems = po.items || {}
 
   // -------------------------------------------------------------
-  // 1. Reference Number & Estimate / Sales Order Match (Up to 55 points)
+  // 1. Sales Order Number & Reference Number Match (Up to 80 points)
   // -------------------------------------------------------------
-  const poRef = String(po.referenceNumber || po.salesOrderNumber || poItems.reference_number || poItems.salesorder_number || po.poNumber || "").trim().toLowerCase()
+  // Check top-level po.salesOrderNumber AND po.referenceNumber
+  const poRef = String(po.salesOrderNumber || po.referenceNumber || poItems.salesorder_number || poItems.reference_number || po.poNumber || "").trim().toLowerCase()
   
-  const invSalesOrderNum = String(invItems.salesOrderNumber || invItems.salesorder_number || invItems.reference_number || invItems.invoiceNumber || invoice.zohoId || "").trim().toLowerCase()
+  // Check top-level invoice.salesorderNumber AND items JSON fields
+  const invSalesOrderNum = String(invoice.salesorderNumber || invItems.salesOrderNumber || invItems.salesorder_number || invItems.reference_number || invItems.invoiceNumber || invoice.zohoId || "").trim().toLowerCase()
   const invRefNum = String(invItems.reference_number || invItems.customer_po || invItems.estimate_number || invItems.estimateNumber || "").trim().toLowerCase()
 
-  // Extract clean digits for reference / estimate matching
+  // Clean numeric digits for reference / SO / estimate matching
   const poDigits = poRef.replace(/\D/g, "")
   const invSoDigits = invSalesOrderNum.replace(/\D/g, "")
   const invRefDigits = invRefNum.replace(/\D/g, "")
 
   if (poRef && poRef.length >= 2) {
     if (poRef === invSalesOrderNum || poRef === invRefNum) {
-      score += 55
-      reasons.push(`Ref #${poRef.toUpperCase()} Exact Match`)
-      matchDetails.referenceMatch = `Exact Ref #${poRef.toUpperCase()}`
+      score += 80 // Direct Sales Order match gives high-confidence score
+      reasons.push(`Sales Order / Ref #${poRef.toUpperCase()} Exact Match`)
+      matchDetails.referenceMatch = `Exact SO / Ref #${poRef.toUpperCase()}`
     } else if (invSalesOrderNum.includes(poRef) || poRef.includes(invSalesOrderNum) || invRefNum.includes(poRef) || (poRef.length >= 3 && invRefNum.includes(poRef))) {
-      score += 40
-      reasons.push(`Ref #${poRef.toUpperCase()} Match`)
-      matchDetails.referenceMatch = `Ref #${poRef.toUpperCase()}`
+      score += 60
+      reasons.push(`Sales Order / Ref #${poRef.toUpperCase()} Match`)
+      matchDetails.referenceMatch = `SO / Ref #${poRef.toUpperCase()}`
     } else if (poDigits.length >= 4 && (invSoDigits === poDigits || invRefDigits === poDigits)) {
-      score += 40
-      reasons.push(`Ref Number #${poDigits} Match`)
-      matchDetails.referenceMatch = `Ref Number #${poDigits}`
+      score += 60
+      reasons.push(`Sales Order Digits #${poDigits} Match`)
+      matchDetails.referenceMatch = `SO Digits #${poDigits}`
     }
   }
 

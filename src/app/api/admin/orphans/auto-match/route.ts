@@ -7,17 +7,18 @@ export async function POST() {
   try {
     const auth = await requireAdministrator()
     if (auth.errorResponse) return auth.errorResponse
+    
     const unassociatedPOs = await prisma.purchaseOrder.findMany({
       where: {
         invoiceId: null,
         isInventoryOrder: false
       },
-      take: 1000,
+      take: 2000,
       orderBy: { date: "desc" }
     })
 
     const candidateInvoices = await prisma.invoice.findMany({
-      take: 1000,
+      take: 3000,
       orderBy: { issueDate: "desc" },
       include: { account: { select: { id: true, name: true } } }
     })
@@ -39,8 +40,15 @@ export async function POST() {
         }
       }
 
-      // High confidence threshold for automatic linking (>= 75%)
-      if (bestMatch && maxScore >= 75) {
+      // Direct Sales Order match or high confidence threshold (>= 75%)
+      const poSO = (po.salesOrderNumber || po.referenceNumber || "").trim()
+      const isDirectSOMatch = bestMatch && poSO && (
+        (bestMatch.salesorderNumber && bestMatch.salesorderNumber === poSO) ||
+        (bestMatch.items?.salesorder_number && bestMatch.items.salesorder_number === poSO) ||
+        (bestMatch.items?.reference_number && bestMatch.items.reference_number === poSO)
+      )
+
+      if (bestMatch && (maxScore >= 75 || isDirectSOMatch)) {
         const invData = bestMatch.items as any || {}
         const finalInvoiceNum = invData.invoiceNumber || bestMatch.zohoId
 
@@ -68,7 +76,7 @@ export async function POST() {
       success: true,
       linkedCount,
       linkedSummary,
-      message: `Successfully auto-matched and linked ${linkedCount} Purchase Orders to Invoices with high confidence.`
+      message: `Successfully auto-matched and linked ${linkedCount} Purchase Orders to Invoices.`
     })
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
