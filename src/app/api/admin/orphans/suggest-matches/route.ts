@@ -145,8 +145,8 @@ export async function GET(req: Request) {
       if (candidates.length > 0) {
         const topMatch = candidates[0]
 
-        // 100% Match Auto Approve & Instant Link!
-        if (topMatch.score >= 100) {
+        // 85%+ Match Auto Approve & Instant Link!
+        if (topMatch.score >= 85) {
           const finalDocNum = topMatch.docNumber || topMatch.invoiceNumber
           let invoiceIdToSet = topMatch.docId || topMatch.invoiceId
           if (topMatch.docType === "SalesOrder") {

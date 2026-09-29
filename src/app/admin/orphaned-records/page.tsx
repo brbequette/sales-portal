@@ -289,7 +289,7 @@ export default function OrphanedRecordsPage() {
           setSuggestions(prev => ({ ...prev, ...data.suggestions }))
         }
         if (data.autoApprovedCount && data.autoApprovedCount > 0) {
-          setSyncMessage(`Auto-approved and linked ${data.autoApprovedCount} 100% matched Purchase Order(s)!`)
+          setSyncMessage(`Auto-approved and linked ${data.autoApprovedCount} 85%+ matched Purchase Order(s)!`)
           setTimeout(() => setSyncMessage(""), 5000)
           fetchData()
         }

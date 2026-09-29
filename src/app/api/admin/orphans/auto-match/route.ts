@@ -8,14 +8,24 @@ export async function POST() {
     const auth = await requireAdministrator()
     if (auth.errorResponse) return auth.errorResponse
     
+    // Take up to 300 unassociated POs per batch for ultra-fast performance under serverless timeouts
     const unassociatedPOs = await prisma.purchaseOrder.findMany({
       where: {
         invoiceId: null,
         isInventoryOrder: false
       },
-      take: 2000,
+      take: 300,
       orderBy: { date: "desc" }
     })
+
+    if (unassociatedPOs.length === 0) {
+      return NextResponse.json({
+        success: true,
+        linkedCount: 0,
+        linkedSummary: [],
+        message: "No unassociated Purchase Orders found."
+      })
+    }
 
     const accountSelect = {
       id: true,
@@ -32,17 +42,17 @@ export async function POST() {
 
     const [candidateInvoices, candidateSalesOrders, candidateQuotes] = await Promise.all([
       prisma.invoice.findMany({
-        take: 2000,
+        take: 1200,
         orderBy: { issueDate: "desc" },
         include: { account: { select: accountSelect } }
       }),
       prisma.salesOrder.findMany({
-        take: 1000,
+        take: 600,
         orderBy: { orderDate: "desc" },
         include: { account: { select: accountSelect } }
       }),
       prisma.quote.findMany({
-        take: 1000,
+        take: 600,
         orderBy: { createdAt: "desc" },
         include: { account: { select: accountSelect } }
       })
@@ -50,6 +60,7 @@ export async function POST() {
 
     let linkedCount = 0
     const linkedSummary: any[] = []
+    const updatePromises: Promise<any>[] = []
 
     for (const po of unassociatedPOs) {
       let bestMatch: any = null
@@ -90,7 +101,7 @@ export async function POST() {
         }
       }
 
-      // Direct SO/Ref match or high confidence threshold (>= 75%)
+      // Direct SO/Ref match or 85%+ score threshold
       const poSO = (po.salesOrderNumber || po.referenceNumber || "").trim()
       const isDirectMatch = bestMatch && poSO && (
         (bestMatch.salesorderNumber && bestMatch.salesorderNumber === poSO) ||
@@ -100,35 +111,32 @@ export async function POST() {
         (bestMatch.items?.quote_number && bestMatch.items.quote_number === poSO)
       )
 
-      if (bestMatch && (maxScore >= 75 || isDirectMatch)) {
+      if (bestMatch && (maxScore >= 85 || isDirectMatch)) {
         const docData = bestMatch.items as any || {}
         const finalDocNum = docData.invoiceNumber || docData.salesorder_number || docData.estimate_number || docData.quote_number || bestMatch.zohoId
 
         // Resolve invoice link
         let invoiceIdToSet = bestMatch.zohoId
         if (matchType === "SalesOrder") {
-          const linkedInvoice = await prisma.invoice.findFirst({
-            where: {
-              OR: [
-                { salesOrderZohoId: bestMatch.zohoId },
-                { salesorderNumber: String(finalDocNum) }
-              ]
-            }
-          })
+          const linkedInvoice = candidateInvoices.find(inv =>
+            inv.salesOrderZohoId === bestMatch.zohoId || inv.salesorderNumber === String(finalDocNum)
+          )
           if (linkedInvoice) {
             invoiceIdToSet = linkedInvoice.zohoId
           }
         }
 
-        await prisma.purchaseOrder.update({
-          where: { id: po.id },
-          data: {
-            invoiceId: invoiceIdToSet,
-            invoiceNumber: String(finalDocNum),
-            salesOrderId: matchType === "SalesOrder" ? bestMatch.zohoId : po.salesOrderId,
-            salesOrderNumber: matchType === "SalesOrder" ? String(finalDocNum) : po.salesOrderNumber
-          }
-        })
+        updatePromises.push(
+          prisma.purchaseOrder.update({
+            where: { id: po.id },
+            data: {
+              invoiceId: invoiceIdToSet,
+              invoiceNumber: String(finalDocNum),
+              salesOrderId: matchType === "SalesOrder" ? bestMatch.zohoId : po.salesOrderId,
+              salesOrderNumber: matchType === "SalesOrder" ? String(finalDocNum) : po.salesOrderNumber
+            }
+          })
+        )
 
         linkedCount++
         linkedSummary.push({
@@ -143,11 +151,15 @@ export async function POST() {
       }
     }
 
+    if (updatePromises.length > 0) {
+      await Promise.all(updatePromises)
+    }
+
     return NextResponse.json({
       success: true,
       linkedCount,
       linkedSummary,
-      message: `Successfully auto-matched and linked ${linkedCount} Purchase Orders across Invoices, Sales Orders, and Estimates.`
+      message: `Successfully auto-matched and linked ${linkedCount} Purchase Orders (85%+ score across Invoices, Sales Orders & Estimates).`
     })
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
