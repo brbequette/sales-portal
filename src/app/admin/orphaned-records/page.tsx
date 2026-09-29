@@ -22,7 +22,10 @@ import {
   FiList,
   FiUser,
   FiLayers,
-  FiInfo
+  FiInfo,
+  FiEye,
+  FiChevronLeft,
+  FiChevronRight
 } from "react-icons/fi"
 import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 
@@ -59,6 +62,8 @@ interface Payment {
 interface InvoiceSearchResult {
   id: string
   zohoId: string
+  docType?: "Invoice" | "SalesOrder" | "Estimate"
+  docNumber?: string
   invoiceNumber: string
   customerName: string
   issueDate: string | null
@@ -73,12 +78,14 @@ function ExpandedRowSearch({
   recordZohoId,
   type,
   initialQuery,
-  onLink
+  onLink,
+  onViewDoc
 }: {
   recordZohoId: string
   type: "po" | "payment"
   initialQuery: string
   onLink: (recordZohoId: string, invoiceNumber: string) => Promise<void>
+  onViewDoc: (doc: { zohoId: string; docNumber: string; type: "Invoice" | "SalesOrder" | "Quote" }) => void
 }) {
   const [query, setQuery] = useState(initialQuery)
   const [results, setResults] = useState<InvoiceSearchResult[]>([])
@@ -117,7 +124,7 @@ function ExpandedRowSearch({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-          <FiSearch className="text-blue-400" /> Search Invoices for Match
+          <FiSearch className="text-blue-400" /> Search Sales Docs (Invoices, Sales Orders & Estimates)
         </label>
         {searching && <span className="text-xs text-blue-400 animate-pulse">Searching...</span>}
       </div>
@@ -127,56 +134,74 @@ function ExpandedRowSearch({
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by Invoice #, Customer Name, Estimate #, Ref #, Address, SKU..."
+          placeholder="Search by Invoice #, SO #, Estimate #, Customer Name, Ref #, Address, SKU..."
           className="w-full bg-slate-950 border border-slate-750 rounded-xl py-2 px-3 pl-9 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
         />
         <FiSearch className="absolute left-3 top-2.5 text-slate-500" size={13} />
       </div>
 
-      <div className="max-h-56 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+      <div className="max-h-64 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
         {results.length === 0 ? (
           <div className="p-4 text-center text-xs text-slate-500 bg-slate-950/40 rounded-xl border border-slate-800">
-            {searching ? "Searching invoices..." : "No matching invoices found. Try changing your search query."}
+            {searching ? "Searching sales documents..." : "No matching documents found. Try changing your search query."}
           </div>
         ) : (
-          results.map((inv) => (
-            <div
-              key={inv.id}
-              className="bg-slate-950/70 hover:bg-slate-900 border border-slate-800 hover:border-blue-500/40 rounded-xl p-2.5 flex items-center justify-between gap-3 transition"
-            >
-              <div className="min-w-0 flex-1 text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-white">Inv #{inv.invoiceNumber}</span>
-                  <span className="text-[10px] text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded font-mono">
-                    ${inv.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                  {inv.status && (
-                    <span className="text-[10px] uppercase font-semibold text-slate-400 bg-slate-800/80 px-1.5 py-0.5 rounded">
-                      {inv.status}
+          results.map((inv) => {
+            const dType = inv.docType || "Invoice"
+            const dNum = inv.docNumber || inv.invoiceNumber
+            const typeLabel = dType === "SalesOrder" ? "SO" : dType === "Estimate" ? "Est" : "Inv"
+            const badgeBg = dType === "SalesOrder" ? "bg-amber-500/20 text-amber-300 border-amber-500/30" : dType === "Estimate" ? "bg-purple-500/20 text-purple-300 border-purple-500/30" : "bg-blue-500/20 text-blue-300 border-blue-500/30"
+
+            return (
+              <div
+                key={inv.id}
+                className="bg-slate-950/70 hover:bg-slate-900 border border-slate-800 hover:border-blue-500/40 rounded-xl p-2.5 flex items-center justify-between gap-3 transition"
+              >
+                <div className="min-w-0 flex-1 text-xs">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded border ${badgeBg}`}>
+                      {typeLabel} #{dNum}
                     </span>
+                    <span className="text-[10px] text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded font-mono">
+                      ${inv.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                    {inv.status && (
+                      <span className="text-[10px] uppercase font-semibold text-slate-400 bg-slate-800/80 px-1.5 py-0.5 rounded">
+                        {inv.status}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-slate-300 font-medium truncate mt-0.5">
+                    {inv.customerName}
+                  </div>
+                  {(inv.referenceNumber || inv.issueDate || inv.shipTo) && (
+                    <div className="text-[11px] text-slate-500 flex items-center gap-3 mt-0.5 flex-wrap">
+                      {inv.issueDate && <span>Date: {new Date(inv.issueDate).toLocaleDateString()}</span>}
+                      {inv.referenceNumber && <span>Ref: {inv.referenceNumber}</span>}
+                      {inv.shipTo && <span className="truncate max-w-[180px]">Ship: {inv.shipTo}</span>}
+                    </div>
                   )}
                 </div>
-                <div className="text-slate-300 font-medium truncate mt-0.5">
-                  {inv.customerName}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => onViewDoc({ zohoId: inv.zohoId, docNumber: dNum, type: dType === "SalesOrder" ? "SalesOrder" : dType === "Estimate" ? "Quote" : "Invoice" })}
+                    className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold px-2.5 py-1.5 rounded-lg text-xs transition flex items-center gap-1"
+                    title="Review document in popup"
+                  >
+                    <FiEye size={12} /> Review
+                  </button>
+                  <button
+                    onClick={() => handleExecuteLink(dNum)}
+                    disabled={linkingInv === dNum}
+                    className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition flex items-center gap-1 disabled:opacity-50"
+                  >
+                    <FiLink size={12} />
+                    {linkingInv === dNum ? "Linking..." : "Link"}
+                  </button>
                 </div>
-                {(inv.referenceNumber || inv.issueDate || inv.shipTo) && (
-                  <div className="text-[11px] text-slate-500 flex items-center gap-3 mt-0.5 flex-wrap">
-                    {inv.issueDate && <span>Date: {new Date(inv.issueDate).toLocaleDateString()}</span>}
-                    {inv.referenceNumber && <span>Ref: {inv.referenceNumber}</span>}
-                    {inv.shipTo && <span className="truncate max-w-[150px]">Ship: {inv.shipTo}</span>}
-                  </div>
-                )}
               </div>
-              <button
-                onClick={() => handleExecuteLink(inv.invoiceNumber)}
-                disabled={linkingInv === inv.invoiceNumber}
-                className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition flex items-center gap-1 flex-shrink-0 disabled:opacity-50"
-              >
-                <FiLink size={12} />
-                {linkingInv === inv.invoiceNumber ? "Linking..." : "Link"}
-              </button>
-            </div>
-          ))
+            )
+          })
         )}
       </div>
     </div>
@@ -194,8 +219,12 @@ export default function OrphanedRecordsPage() {
   // Expanded Row State
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
 
-  // Clicked Sales Order for Modal
-  const [selectedSalesOrder, setSelectedSalesOrder] = useState<{ zohoId: string; salesOrderNumber: string } | null>(null)
+  // Selected Sales Document for Review Popup Modal
+  const [selectedSalesDoc, setSelectedSalesDoc] = useState<{
+    zohoId: string
+    docNumber: string
+    type: "Invoice" | "SalesOrder" | "Quote"
+  } | null>(null)
 
   // Link Form State
   const [linkingRecordId, setLinkingRecordId] = useState<string | null>(null)
@@ -205,12 +234,16 @@ export default function OrphanedRecordsPage() {
   const [linkSuccess, setLinkSuccess] = useState("")
   const [isLinking, setIsLinking] = useState(false)
 
-  // Smart Matching States
+  // Smart Matching & Filter States
   const [suggestions, setSuggestions] = useState<Record<string, any>>({})
   const [autoMatching, setAutoMatching] = useState(false)
   const [tableSearch, setTableSearch] = useState("")
   const [dateFilter, setDateFilter] = useState<"all" | "dated" | "missing">("all")
   const [tableSort, setTableSort] = useState<"date-desc" | "date-asc" | "amount-desc" | "amount-asc" | "name-asc">("date-desc")
+
+  // Pagination States
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState<number | "all">(25)
 
   const filterAndSort = <T extends PurchaseOrder | Payment>(records: T[]) => {
     const query = tableSearch.trim().toLowerCase()
@@ -237,6 +270,29 @@ export default function OrphanedRecordsPage() {
 
   const visiblePOs = useMemo(() => filterAndSort(pos), [pos, tableSearch, dateFilter, tableSort])
   const visiblePayments = useMemo(() => filterAndSort(payments), [payments, tableSearch, dateFilter, tableSort])
+
+  // Active list based on active tab
+  const activeRecords = activeTab === "pos" ? visiblePOs : visiblePayments
+  const totalRecords = activeRecords.length
+  const totalPages = pageSize === "all" ? 1 : Math.max(1, Math.ceil(totalRecords / (pageSize as number)))
+
+  // Reset to Page 1 when filters/search/tab change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [tableSearch, dateFilter, tableSort, activeTab, pageSize])
+
+  // Paginated Slices
+  const paginatedPOs = useMemo(() => {
+    if (pageSize === "all") return visiblePOs
+    const start = (currentPage - 1) * (pageSize as number)
+    return visiblePOs.slice(start, start + (pageSize as number))
+  }, [visiblePOs, currentPage, pageSize])
+
+  const paginatedPayments = useMemo(() => {
+    if (pageSize === "all") return visiblePayments
+    const start = (currentPage - 1) * (pageSize as number)
+    return visiblePayments.slice(start, start + (pageSize as number))
+  }, [visiblePayments, currentPage, pageSize])
 
   const fetchSuggestions = async () => {
     try {
@@ -273,7 +329,7 @@ export default function OrphanedRecordsPage() {
 
   const handleAutoMatch = async () => {
     setAutoMatching(true)
-    setSyncMessage("Scanning unassociated POs against Invoices for high-confidence matches...")
+    setSyncMessage("Scanning unassociated POs against Invoices, Sales Orders & Estimates for matches...")
     try {
       const res = await fetch("/api/admin/orphans/auto-match", { method: "POST" })
       const data = await res.json()
@@ -360,9 +416,9 @@ export default function OrphanedRecordsPage() {
         setLinkSuccess(data.message)
         setInvoiceInput("")
         setTimeout(() => {
-          setLinkingRecordId(null)
-          setLinkingType(null)
-          setLinkSuccess("")
+          setLinkingRecordId(null);
+          setLinkingType(null);
+          setLinkSuccess("");
           fetchData()
         }, 2000)
       } else {
@@ -402,18 +458,23 @@ export default function OrphanedRecordsPage() {
     return po.zohoId
   }
 
+  const startRecordNum = totalRecords === 0 ? 0 : pageSize === "all" ? 1 : (currentPage - 1) * (pageSize as number) + 1
+  const endRecordNum = pageSize === "all" ? totalRecords : Math.min(currentPage * (pageSize as number), totalRecords)
+
   return (
     <div className="page-content">
-      {/* ─── Sales Order Details Modal ─────────────── */}
-      {selectedSalesOrder && (
+      {/* ─── Document Review Details Modal (Invoices, Sales Orders, Estimates) ─────────────── */}
+      {selectedSalesDoc && (
         <InvoiceDetailsModal
           invoice={{
-            zohoId: selectedSalesOrder.zohoId,
-            salesorder_number: selectedSalesOrder.salesOrderNumber,
-            salesOrderNumber: selectedSalesOrder.salesOrderNumber
+            zohoId: selectedSalesDoc.zohoId,
+            invoiceNumber: selectedSalesDoc.docNumber,
+            salesorder_number: selectedSalesDoc.docNumber,
+            quote_number: selectedSalesDoc.docNumber,
+            estimate_number: selectedSalesDoc.docNumber
           }}
-          type="SalesOrder"
-          onClose={() => setSelectedSalesOrder(null)}
+          type={selectedSalesDoc.type}
+          onClose={() => setSelectedSalesDoc(null)}
         />
       )}
 
@@ -425,7 +486,7 @@ export default function OrphanedRecordsPage() {
           </div>
           <div>
             <h1 className="page-title">Orphaned Files Manager</h1>
-            <p className="page-subtitle">Link unassociated Purchase Orders and Payments to customer Invoices</p>
+            <p className="page-subtitle">Link unassociated Purchase Orders and Payments across Invoices, Sales Orders & Estimates</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -435,7 +496,7 @@ export default function OrphanedRecordsPage() {
             className="td-btn td-btn-primary td-btn-sm disabled:opacity-50"
           >
             <FiCheck size={13} className={autoMatching ? "animate-spin" : ""} />
-            {autoMatching ? "Matching..." : "Auto-Link High Confidence"}
+            {autoMatching ? "Matching..." : "Auto-Link Confident Matches"}
           </button>
           <button
             onClick={handleSync}
@@ -511,17 +572,17 @@ export default function OrphanedRecordsPage() {
           <div className="bg-slate-900/80 backdrop-blur-md border border-blue-500/30 rounded-2xl p-6 shadow-2xl animate-in fade-in slide-in-from-top duration-300">
             <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
               <FiLink className="text-blue-400" />
-              Link {linkingType === "po" ? "Purchase Order" : "Payment"} to Invoice
+              Link {linkingType === "po" ? "Purchase Order" : "Payment"} to Sales Document
             </h3>
             <p className="text-sm text-slate-400 mb-4">
-              Enter the exact Invoice Number to link this record (e.g. 10860).
+              Enter the exact Invoice Number, Sales Order Number, or Estimate Number (e.g. 10860 or 46392).
             </p>
             <form onSubmit={handleLink} className="flex flex-col sm:flex-row gap-3">
               <input
                 type="text"
                 value={invoiceInput}
                 onChange={(e) => setInvoiceInput(e.target.value)}
-                placeholder="Invoice Number"
+                placeholder="Invoice, Sales Order, or Estimate Number"
                 className="bg-slate-950 border border-slate-800 rounded-lg py-2 px-4 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 flex-grow"
                 required
               />
@@ -550,45 +611,69 @@ export default function OrphanedRecordsPage() {
         {/* Content Table / List */}
         <div className="bg-slate-900/20 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
           {!loading && (
-            <div className="flex flex-col gap-3 border-b border-slate-800 bg-slate-950/40 p-4 lg:flex-row lg:items-center">
-              <label className="relative min-w-0 flex-1">
-                <span className="sr-only">Search orphaned records</span>
-                <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                <input
-                  value={tableSearch}
-                  onChange={(event) => setTableSearch(event.target.value)}
-                  placeholder={activeTab === "pos" ? "Search PO, vendor, status, address, or sales order..." : "Search payment, customer, mode, or reference..."}
-                  className="w-full rounded-lg border border-slate-800 bg-slate-950 py-2.5 pl-10 pr-4 text-sm text-white outline-none focus:border-blue-500"
-                />
-              </label>
-              <select aria-label="Filter by date availability" value={dateFilter} onChange={(event) => setDateFilter(event.target.value as typeof dateFilter)} className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2.5 text-sm text-white">
-                <option value="all">All dates</option>
-                <option value="dated">Has date</option>
-                <option value="missing">Missing date</option>
-              </select>
-              <select aria-label="Sort orphaned records" value={tableSort} onChange={(event) => setTableSort(event.target.value as typeof tableSort)} className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2.5 text-sm text-white">
-                <option value="date-desc">Newest date</option>
-                <option value="date-asc">Oldest date</option>
-                <option value="amount-desc">Highest amount</option>
-                <option value="amount-asc">Lowest amount</option>
-                <option value="name-asc">Name A–Z</option>
-              </select>
-              <span className="whitespace-nowrap text-xs font-bold uppercase tracking-wider text-slate-500">
-                {activeTab === "pos" ? visiblePOs.length : visiblePayments.length} results
-              </span>
+            <div className="flex flex-col gap-3 border-b border-slate-800 bg-slate-950/40 p-4 lg:flex-row lg:items-center justify-between">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center flex-1">
+                <label className="relative min-w-0 flex-1">
+                  <span className="sr-only">Search orphaned records</span>
+                  <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input
+                    value={tableSearch}
+                    onChange={(event) => setTableSearch(event.target.value)}
+                    placeholder={activeTab === "pos" ? "Search PO, vendor, status, address, or sales order..." : "Search payment, customer, mode, or reference..."}
+                    className="w-full rounded-lg border border-slate-800 bg-slate-950 py-2 pl-10 pr-4 text-xs text-white outline-none focus:border-blue-500"
+                  />
+                </label>
+                <select aria-label="Filter by date availability" value={dateFilter} onChange={(event) => setDateFilter(event.target.value as typeof dateFilter)} className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white">
+                  <option value="all">All dates</option>
+                  <option value="dated">Has date</option>
+                  <option value="missing">Missing date</option>
+                </select>
+                <select aria-label="Sort orphaned records" value={tableSort} onChange={(event) => setTableSort(event.target.value as typeof tableSort)} className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white">
+                  <option value="date-desc">Newest date</option>
+                  <option value="date-asc">Oldest date</option>
+                  <option value="amount-desc">Highest amount</option>
+                  <option value="amount-asc">Lowest amount</option>
+                  <option value="name-asc">Name A–Z</option>
+                </select>
+              </div>
+
+              {/* Pagination Per Page Dropdown & Counter */}
+              <div className="flex items-center gap-3 text-xs">
+                <div className="flex items-center gap-1.5 text-slate-400">
+                  <span>Per page:</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setPageSize(val === "all" ? "all" : parseInt(val, 10))
+                    }}
+                    className="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-white text-xs font-semibold focus:outline-none focus:border-blue-500"
+                  >
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                    <option value="all">All</option>
+                  </select>
+                </div>
+                <span className="text-slate-400 font-medium">
+                  Showing <strong className="text-white">{startRecordNum}–{endRecordNum}</strong> of <strong className="text-white">{totalRecords}</strong>
+                </span>
+              </div>
             </div>
           )}
+
           {loading ? (
             <div className="p-12 flex flex-col items-center justify-center text-slate-400 gap-3">
               <FiRefreshCw className="animate-spin text-3xl text-blue-400" />
               <span>Loading orphaned records...</span>
             </div>
           ) : activeTab === "pos" ? (
-            visiblePOs.length === 0 ? (
+            paginatedPOs.length === 0 ? (
               <div className="p-12 flex flex-col items-center justify-center text-slate-400 gap-2">
                 <FiCheckCircle className="text-4xl text-emerald-400" />
                 <span className="font-semibold text-white">No orphaned Purchase Orders</span>
-                <span>All POs are associated with invoices or marked as inventory.</span>
+                <span>All POs are associated with sales documents or marked as inventory.</span>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -605,7 +690,7 @@ export default function OrphanedRecordsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 bg-slate-900/10">
-                    {visiblePOs.map((po) => {
+                    {paginatedPOs.map((po) => {
                       const isExpanded = expandedRowId === po.zohoId
                       const displayPO = getDisplayPONumber(po)
                       const targetSO = po.salesOrderNumber || po.referenceNumber
@@ -650,11 +735,25 @@ export default function OrphanedRecordsPage() {
                                       )}
                                       {topMatch && !isExpanded && (
                                         <div className="mt-1 flex items-center gap-1.5 text-[11px] text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20 max-w-max">
-                                          <span>🎯 Inv #{topMatch.invoiceNumber} ({topMatch.customerName})</span>
+                                          <span>🎯 {topMatch.docType || 'Inv'} #{topMatch.docNumber || topMatch.invoiceNumber} ({topMatch.customerName})</span>
                                           <span className="font-black text-[10px] bg-emerald-500/20 px-1 py-0.2 rounded text-emerald-300">{topMatch.score}% Match</span>
                                           <button
-                                            onClick={(e) => { e.stopPropagation(); handleQuickLink(po.zohoId, topMatch.invoiceNumber); }}
-                                            className="ml-1 underline text-[11px] hover:text-white font-bold cursor-pointer"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              setSelectedSalesDoc({
+                                                zohoId: topMatch.docId || topMatch.invoiceId,
+                                                docNumber: topMatch.docNumber || topMatch.invoiceNumber,
+                                                type: (topMatch.docType as any) || "Invoice"
+                                              })
+                                            }}
+                                            className="ml-1 hover:text-white font-bold cursor-pointer text-slate-300 flex items-center gap-0.5"
+                                            title="Review document details"
+                                          >
+                                            <FiEye size={11} /> Review
+                                          </button>
+                                          <button
+                                            onClick={(e) => { e.stopPropagation(); handleQuickLink(po.zohoId, topMatch.docNumber || topMatch.invoiceNumber); }}
+                                            className="ml-1 underline text-[11px] text-emerald-300 hover:text-white font-bold cursor-pointer"
                                           >
                                             Link Now
                                           </button>
@@ -686,9 +785,9 @@ export default function OrphanedRecordsPage() {
                                     <td className="px-6 py-4 text-slate-400 w-1/6" onClick={(e) => e.stopPropagation()}>
                                       {targetSO ? (
                                         <button
-                                          onClick={() => setSelectedSalesOrder({ zohoId: po.salesOrderId || targetSO, salesOrderNumber: targetSO })}
+                                          onClick={() => setSelectedSalesDoc({ zohoId: po.salesOrderId || targetSO, docNumber: targetSO, type: "SalesOrder" })}
                                           className="inline-flex items-center gap-1.5 font-bold text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 px-2.5 py-1 rounded-lg transition text-xs cursor-pointer group"
-                                          title="Click to view Sales Order details"
+                                          title="Click to popup Sales Order review details"
                                         >
                                           <span>SO #{targetSO}</span>
                                           <FiExternalLink size={12} className="group-hover:translate-x-0.5 transition-transform" />
@@ -751,13 +850,13 @@ export default function OrphanedRecordsPage() {
                                     <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3.5 space-y-1.5">
                                       <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
                                         <FiInfo size={14} />
-                                        Pertinent Reference & Historical Invoice Matching
+                                        Pertinent Reference & Historical Document Matching
                                       </div>
                                       <div className="text-xs text-slate-200 font-mono font-semibold">
                                         Reference Number: {po.referenceNumber || po.salesOrderNumber || "None specified"}
                                       </div>
                                       <p className="text-[11px] text-slate-300 leading-relaxed">
-                                        💡 <strong>Historical Context:</strong> Orders prior to 2026 went directly from Estimate → Invoice without a Sales Order. POs were created manually in the PO module. Use Customer Address, Recipient Name, Estimate #, Line Items, and Total Amount below to find matching invoices.
+                                        💡 <strong>Historical Context:</strong> Orders prior to 2026 went directly from Estimate → Invoice without a Sales Order. POs were created manually. Matches search across Estimates, Sales Orders & Invoices by customer address, SKU items, dates, and amounts.
                                       </p>
                                     </div>
 
@@ -786,7 +885,7 @@ export default function OrphanedRecordsPage() {
                                           </div>
                                         ) : (
                                           <div className="text-[11px] text-slate-500 italic mt-0.5">
-                                            No street address recorded on PO. Will match against Customer Account & Invoice addresses.
+                                            No street address recorded on PO. Matches against Customer Account & Document addresses.
                                           </div>
                                         )}
                                       </div>
@@ -813,57 +912,74 @@ export default function OrphanedRecordsPage() {
                                   {/* Right Col: Candidate Matches & Search Workspace */}
                                   <div className="lg:col-span-7 space-y-5">
 
-                                    {/* Rank Candidate Matches Section */}
+                                    {/* All Suggested Candidate Matches Section */}
                                     {candidatesList.length > 0 && (
                                       <div className="space-y-3">
                                         <div className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
                                           <span className="flex items-center gap-1.5 text-emerald-400 font-bold">
-                                            <FiLayers /> Suggested Invoice Matches ({candidatesList.length})
+                                            <FiLayers /> All Suggested Document Matches ({candidatesList.length})
                                           </span>
                                           <span className="text-[11px] text-slate-500 font-normal">Ranked by address, items, dates & ref #</span>
                                         </div>
 
-                                        <div className="grid grid-cols-1 gap-2.5">
-                                          {candidatesList.map((cand, cIdx) => (
-                                            <div
-                                              key={cIdx}
-                                              className="bg-slate-900/90 hover:bg-slate-900 border border-emerald-500/30 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md"
-                                            >
-                                              <div className="space-y-1 min-w-0 flex-1">
-                                                <div className="flex items-center gap-2 flex-wrap">
-                                                  <span className="font-bold text-white text-sm">Invoice #{cand.invoiceNumber}</span>
-                                                  <span className="text-xs text-slate-300 font-semibold">{cand.customerName}</span>
-                                                  <span className="text-[11px] font-black bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-md border border-emerald-500/30">
-                                                    🎯 {cand.score}% Match
-                                                  </span>
-                                                </div>
+                                        <div className="max-h-80 overflow-y-auto grid grid-cols-1 gap-2.5 pr-1 custom-scrollbar">
+                                          {candidatesList.map((cand, cIdx) => {
+                                            const dType = cand.docType || "Invoice"
+                                            const dNum = cand.docNumber || cand.invoiceNumber
+                                            const badgeStyle = dType === "SalesOrder" ? "bg-amber-500/20 text-amber-300 border-amber-500/30" : dType === "Estimate" ? "bg-purple-500/20 text-purple-300 border-purple-500/30" : "bg-blue-500/20 text-blue-300 border-blue-500/30"
 
-                                                <div className="flex items-center gap-3 text-xs text-slate-400">
-                                                  <span>Amount: <strong className="text-white">${(cand.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
-                                                  {cand.issueDate && <span>Date: {new Date(cand.issueDate).toLocaleDateString()}</span>}
-                                                </div>
-
-                                                {/* Match Reason Breakdown Badges */}
-                                                {cand.reasons && cand.reasons.length > 0 && (
-                                                  <div className="flex flex-wrap gap-1.5 pt-1">
-                                                    {cand.reasons.map((r: string, rIdx: number) => (
-                                                      <span key={rIdx} className="text-[10px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded font-medium">
-                                                        ✓ {r}
-                                                      </span>
-                                                    ))}
-                                                  </div>
-                                                )}
-                                              </div>
-
-                                              <button
-                                                onClick={() => handleQuickLink(po.zohoId, cand.invoiceNumber)}
-                                                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3.5 py-2 rounded-lg text-xs transition flex items-center justify-center gap-1.5 whitespace-nowrap shadow-lg"
+                                            return (
+                                              <div
+                                                key={cIdx}
+                                                className="bg-slate-900/90 hover:bg-slate-900 border border-emerald-500/30 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md"
                                               >
-                                                <FiLink size={13} />
-                                                Link to Inv #{cand.invoiceNumber}
-                                              </button>
-                                            </div>
-                                          ))}
+                                                <div className="space-y-1 min-w-0 flex-1">
+                                                  <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md border ${badgeStyle}`}>
+                                                      {dType} #{dNum}
+                                                    </span>
+                                                    <span className="text-xs text-slate-300 font-semibold">{cand.customerName}</span>
+                                                    <span className="text-[11px] font-black bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-md border border-emerald-500/30">
+                                                      🎯 {cand.score}% Match
+                                                    </span>
+                                                  </div>
+
+                                                  <div className="flex items-center gap-3 text-xs text-slate-400">
+                                                    <span>Amount: <strong className="text-white">${(cand.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                                                    {cand.issueDate && <span>Date: {new Date(cand.issueDate).toLocaleDateString()}</span>}
+                                                  </div>
+
+                                                  {/* Match Reason Breakdown Badges */}
+                                                  {cand.reasons && cand.reasons.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1.5 pt-1">
+                                                      {cand.reasons.map((r: string, rIdx: number) => (
+                                                        <span key={rIdx} className="text-[10px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded font-medium">
+                                                          ✓ {r}
+                                                        </span>
+                                                      ))}
+                                                    </div>
+                                                  )}
+                                                </div>
+
+                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                                  <button
+                                                    onClick={() => setSelectedSalesDoc({ zohoId: cand.docId || cand.invoiceId, docNumber: dNum, type: dType === "SalesOrder" ? "SalesOrder" : dType === "Estimate" ? "Quote" : "Invoice" })}
+                                                    className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold px-3 py-2 rounded-lg text-xs transition flex items-center gap-1"
+                                                    title="Review document in popup"
+                                                  >
+                                                    <FiEye size={12} /> Review
+                                                  </button>
+                                                  <button
+                                                    onClick={() => handleQuickLink(po.zohoId, dNum)}
+                                                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3.5 py-2 rounded-lg text-xs transition flex items-center justify-center gap-1.5 whitespace-nowrap shadow-lg"
+                                                  >
+                                                    <FiLink size={13} />
+                                                    Link to #{dNum}
+                                                  </button>
+                                                </div>
+                                              </div>
+                                            )
+                                          })}
                                         </div>
                                       </div>
                                     )}
@@ -875,6 +991,7 @@ export default function OrphanedRecordsPage() {
                                         type="po"
                                         initialQuery={displayShipAddr || displayShipName || po.referenceNumber || po.salesOrderNumber || ""}
                                         onLink={handleQuickLink}
+                                        onViewDoc={(doc) => setSelectedSalesDoc(doc)}
                                       />
                                     </div>
 
@@ -891,7 +1008,7 @@ export default function OrphanedRecordsPage() {
               </div>
             )
           ) : (
-            visiblePayments.length === 0 ? (
+            paginatedPayments.length === 0 ? (
               <div className="p-12 flex flex-col items-center justify-center text-slate-400 gap-2">
                 <FiCheckCircle className="text-4xl text-emerald-400" />
                 <span className="font-semibold text-white">No orphaned Payments</span>
@@ -912,7 +1029,7 @@ export default function OrphanedRecordsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 bg-slate-900/10">
-                    {visiblePayments.map((p) => {
+                    {paginatedPayments.map((p) => {
                       const isExpanded = expandedRowId === p.zohoId
                       return (
                         <tr key={p.id} className="group hover:bg-slate-900/40 transition">
@@ -1005,6 +1122,7 @@ export default function OrphanedRecordsPage() {
                                         type="payment"
                                         initialQuery={p.referenceNumber || p.customerName || ""}
                                         onLink={handleQuickLink}
+                                        onViewDoc={(doc) => setSelectedSalesDoc(doc)}
                                       />
                                     </div>
                                   </div>
@@ -1019,6 +1137,68 @@ export default function OrphanedRecordsPage() {
                 </table>
               </div>
             )
+          )}
+
+          {/* ─── Pagination Footer ────────────────────────────── */}
+          {!loading && totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-slate-800 bg-slate-950/60 text-xs">
+              <div className="text-slate-400">
+                Page <strong className="text-white">{currentPage}</strong> of <strong className="text-white">{totalPages}</strong>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 disabled:opacity-40 font-semibold"
+                >
+                  First
+                </button>
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 disabled:opacity-40 flex items-center gap-1 font-semibold"
+                >
+                  <FiChevronLeft size={14} /> Prev
+                </button>
+                <div className="flex items-center gap-1 px-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum = currentPage
+                    if (totalPages <= 5) pageNum = i + 1
+                    else if (currentPage <= 3) pageNum = i + 1
+                    else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i
+                    else pageNum = currentPage - 2 + i
+
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`w-7 h-7 rounded-lg text-xs font-bold transition ${
+                          currentPage === pageNum
+                            ? "bg-blue-600 text-white"
+                            : "bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800"
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    )
+                  })}
+                </div>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 disabled:opacity-40 flex items-center gap-1 font-semibold"
+                >
+                  Next <FiChevronRight size={14} />
+                </button>
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 disabled:opacity-40 font-semibold"
+                >
+                  Last
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>
