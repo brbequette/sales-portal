@@ -245,87 +245,95 @@ export default function OrphanedRecordsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState<number | "all">(25)
 
-  const filterAndSort = <T extends PurchaseOrder | Payment>(records: T[]) => {
-    const query = tableSearch.trim().toLowerCase()
-    return records
-      .filter((record) => {
-        if (dateFilter === "dated" && !record.date) return false
-        if (dateFilter === "missing" && record.date) return false
-        if (!query) return true
-        return Object.values(record).some((value) => String(value ?? "").toLowerCase().includes(query))
-      })
-      .sort((a, b) => {
-        const amountA = "total" in a ? a.total : a.amount
-        const amountB = "total" in b ? b.total : b.amount
-        const nameA = "vendorName" in a ? a.vendorName : a.customerName
-        const nameB = "vendorName" in b ? b.vendorName : b.customerName
-        if (tableSort === "amount-desc") return amountB - amountA
-        if (tableSort === "amount-asc") return amountA - amountB
-        if (tableSort === "name-asc") return String(nameA || "").localeCompare(String(nameB || ""))
-        const dateA = a.date ? new Date(a.date).getTime() : 0
-        const dateB = b.date ? new Date(b.date).getTime() : 0
-        return tableSort === "date-asc" ? dateA - dateB : dateB - dateA
-      })
+  // Summary Counts & Server Totals
+  const [poCount, setPoCount] = useState(0)
+  const [paymentCount, setPaymentCount] = useState(0)
+  const [totalServerRecords, setTotalServerRecords] = useState(0)
+  const [serverTotalPages, setServerTotalPages] = useState(1)
+
+  // Reset page to 1 when search, filter, sort, tab, or page size changes
+  const handleTabChange = (newTab: "pos" | "payments") => {
+    setActiveTab(newTab)
+    setCurrentPage(1)
+    setLinkingRecordId(null)
+    setExpandedRowId(null)
   }
 
-  const visiblePOs = useMemo(() => filterAndSort(pos), [pos, tableSearch, dateFilter, tableSort])
-  const visiblePayments = useMemo(() => filterAndSort(payments), [payments, tableSearch, dateFilter, tableSort])
-
-  // Active list based on active tab
-  const activeRecords = activeTab === "pos" ? visiblePOs : visiblePayments
-  const totalRecords = activeRecords.length
-  const totalPages = pageSize === "all" ? 1 : Math.max(1, Math.ceil(totalRecords / (pageSize as number)))
-
-  // Reset to Page 1 when filters/search/tab change
-  useEffect(() => {
+  const handleSearchChange = (val: string) => {
+    setTableSearch(val)
     setCurrentPage(1)
-  }, [tableSearch, dateFilter, tableSort, activeTab, pageSize])
+  }
 
-  // Paginated Slices
-  const paginatedPOs = useMemo(() => {
-    if (pageSize === "all") return visiblePOs
-    const start = (currentPage - 1) * (pageSize as number)
-    return visiblePOs.slice(start, start + (pageSize as number))
-  }, [visiblePOs, currentPage, pageSize])
+  const handleDateFilterChange = (val: "all" | "dated" | "missing") => {
+    setDateFilter(val)
+    setCurrentPage(1)
+  }
 
-  const paginatedPayments = useMemo(() => {
-    if (pageSize === "all") return visiblePayments
-    const start = (currentPage - 1) * (pageSize as number)
-    return visiblePayments.slice(start, start + (pageSize as number))
-  }, [visiblePayments, currentPage, pageSize])
+  const handleSortChange = (val: typeof tableSort) => {
+    setTableSort(val)
+    setCurrentPage(1)
+  }
 
-  const fetchSuggestions = async () => {
+  const handlePageSizeChange = (val: string) => {
+    setPageSize(val === "all" ? "all" : parseInt(val, 10))
+    setCurrentPage(1)
+  }
+
+  const fetchSuggestions = async (poIds?: string) => {
     try {
-      const res = await fetch("/api/admin/orphans/suggest-matches")
+      const url = poIds ? `/api/admin/orphans/suggest-matches?poIds=${encodeURIComponent(poIds)}` : `/api/admin/orphans/suggest-matches`
+      const res = await fetch(url)
       const data = await res.json()
       if (data.success && data.suggestions) {
-        setSuggestions(data.suggestions)
+        setSuggestions(prev => ({ ...prev, ...data.suggestions }))
       }
     } catch (e) {
       console.error("Error fetching match suggestions:", e)
     }
   }
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch("/api/admin/orphans")
+      const params = new URLSearchParams()
+      params.set("page", String(currentPage))
+      params.set("limit", String(pageSize))
+      params.set("tab", activeTab)
+      if (tableSearch.trim()) params.set("q", tableSearch.trim())
+      if (dateFilter !== "all") params.set("dateFilter", dateFilter)
+      params.set("sort", tableSort)
+
+      const res = await fetch(`/api/admin/orphans?${params.toString()}`)
       const data = await res.json()
       if (data.success) {
-        setPOs(data.purchaseOrders)
-        setPayments(data.payments)
-        fetchSuggestions()
+        if (activeTab === "pos") {
+          setPOs(data.purchaseOrders || [])
+          setPayments([])
+        } else {
+          setPOs([])
+          setPayments(data.payments || [])
+        }
+        setTotalServerRecords(data.totalCount || 0)
+        setPoCount(data.poCount || 0)
+        setPaymentCount(data.paymentCount || 0)
+        setServerTotalPages(data.totalPages || 1)
+
+        // Fetch match suggestions ONLY for the POs on the current page for lightning speed
+        if (activeTab === "pos" && data.purchaseOrders && data.purchaseOrders.length > 0) {
+          const pagePoIds = data.purchaseOrders.map((p: any) => p.zohoId).join(",")
+          fetchSuggestions(pagePoIds)
+        }
       }
     } catch (e) {
       console.error("Error fetching orphans:", e)
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentPage, pageSize, activeTab, tableSearch, dateFilter, tableSort])
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [fetchData])
 
   const handleAutoMatch = async () => {
     setAutoMatching(true)
@@ -458,8 +466,8 @@ export default function OrphanedRecordsPage() {
     return po.zohoId
   }
 
-  const startRecordNum = totalRecords === 0 ? 0 : pageSize === "all" ? 1 : (currentPage - 1) * (pageSize as number) + 1
-  const endRecordNum = pageSize === "all" ? totalRecords : Math.min(currentPage * (pageSize as number), totalRecords)
+  const startRecordNum = totalServerRecords === 0 ? 0 : pageSize === "all" ? 1 : (currentPage - 1) * (pageSize as number) + 1
+  const endRecordNum = pageSize === "all" ? totalServerRecords : Math.min(currentPage * (pageSize as number), totalServerRecords)
 
   return (
     <div className="page-content">
@@ -528,7 +536,7 @@ export default function OrphanedRecordsPage() {
             </div>
             <div>
               <div className="text-sm text-slate-400 font-medium">Orphaned POs</div>
-              <div className="text-3xl font-bold text-white mt-0.5">{pos.length}</div>
+              <div className="text-3xl font-bold text-white mt-0.5">{poCount}</div>
             </div>
           </div>
 
@@ -538,7 +546,7 @@ export default function OrphanedRecordsPage() {
             </div>
             <div>
               <div className="text-sm text-slate-400 font-medium">Orphaned Payments</div>
-              <div className="text-3xl font-bold text-white mt-0.5">{payments.length}</div>
+              <div className="text-3xl font-bold text-white mt-0.5">{paymentCount}</div>
             </div>
           </div>
         </div>
@@ -546,24 +554,24 @@ export default function OrphanedRecordsPage() {
         {/* Main Tabs */}
         <div className="border-b border-slate-800 flex gap-6">
           <button
-            onClick={() => { setActiveTab("pos"); setLinkingRecordId(null); setExpandedRowId(null); }}
+            onClick={() => handleTabChange("pos")}
             className={`pb-4 text-lg font-semibold transition ${
               activeTab === "pos"
                 ? "text-blue-400 border-b-2 border-blue-400"
                 : "text-slate-400 hover:text-white"
             }`}
           >
-            Unassociated POs ({pos.length})
+            Unassociated POs ({poCount})
           </button>
           <button
-            onClick={() => { setActiveTab("payments"); setLinkingRecordId(null); setExpandedRowId(null); }}
+            onClick={() => handleTabChange("payments")}
             className={`pb-4 text-lg font-semibold transition ${
               activeTab === "payments"
                 ? "text-blue-400 border-b-2 border-blue-400"
                 : "text-slate-400 hover:text-white"
             }`}
           >
-            Unassociated Payments ({payments.length})
+            Unassociated Payments ({paymentCount})
           </button>
         </div>
 
@@ -618,17 +626,17 @@ export default function OrphanedRecordsPage() {
                   <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                   <input
                     value={tableSearch}
-                    onChange={(event) => setTableSearch(event.target.value)}
+                    onChange={(event) => handleSearchChange(event.target.value)}
                     placeholder={activeTab === "pos" ? "Search PO, vendor, status, address, or sales order..." : "Search payment, customer, mode, or reference..."}
                     className="w-full rounded-lg border border-slate-800 bg-slate-950 py-2 pl-10 pr-4 text-xs text-white outline-none focus:border-blue-500"
                   />
                 </label>
-                <select aria-label="Filter by date availability" value={dateFilter} onChange={(event) => setDateFilter(event.target.value as typeof dateFilter)} className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white">
+                <select aria-label="Filter by date availability" value={dateFilter} onChange={(event) => handleDateFilterChange(event.target.value as typeof dateFilter)} className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white">
                   <option value="all">All dates</option>
                   <option value="dated">Has date</option>
                   <option value="missing">Missing date</option>
                 </select>
-                <select aria-label="Sort orphaned records" value={tableSort} onChange={(event) => setTableSort(event.target.value as typeof tableSort)} className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white">
+                <select aria-label="Sort orphaned records" value={tableSort} onChange={(event) => handleSortChange(event.target.value as typeof tableSort)} className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white">
                   <option value="date-desc">Newest date</option>
                   <option value="date-asc">Oldest date</option>
                   <option value="amount-desc">Highest amount</option>
@@ -643,10 +651,7 @@ export default function OrphanedRecordsPage() {
                   <span>Per page:</span>
                   <select
                     value={pageSize}
-                    onChange={(e) => {
-                      const val = e.target.value
-                      setPageSize(val === "all" ? "all" : parseInt(val, 10))
-                    }}
+                    onChange={(e) => handlePageSizeChange(e.target.value)}
                     className="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-white text-xs font-semibold focus:outline-none focus:border-blue-500"
                   >
                     <option value={10}>10</option>
@@ -657,7 +662,7 @@ export default function OrphanedRecordsPage() {
                   </select>
                 </div>
                 <span className="text-slate-400 font-medium">
-                  Showing <strong className="text-white">{startRecordNum}–{endRecordNum}</strong> of <strong className="text-white">{totalRecords}</strong>
+                  Showing <strong className="text-white">{startRecordNum}–{endRecordNum}</strong> of <strong className="text-white">{totalServerRecords}</strong>
                 </span>
               </div>
             </div>
@@ -669,7 +674,7 @@ export default function OrphanedRecordsPage() {
               <span>Loading orphaned records...</span>
             </div>
           ) : activeTab === "pos" ? (
-            paginatedPOs.length === 0 ? (
+            pos.length === 0 ? (
               <div className="p-12 flex flex-col items-center justify-center text-slate-400 gap-2">
                 <FiCheckCircle className="text-4xl text-emerald-400" />
                 <span className="font-semibold text-white">No orphaned Purchase Orders</span>
@@ -690,7 +695,8 @@ export default function OrphanedRecordsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 bg-slate-900/10">
-                    {paginatedPOs.map((po) => {
+                    {pos.map((po) => {
+
                       const isExpanded = expandedRowId === po.zohoId
                       const displayPO = getDisplayPONumber(po)
                       const targetSO = po.salesOrderNumber || po.referenceNumber
@@ -1140,10 +1146,10 @@ export default function OrphanedRecordsPage() {
           )}
 
           {/* ─── Pagination Footer ────────────────────────────── */}
-          {!loading && totalPages > 1 && (
+          {!loading && serverTotalPages > 1 && (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-slate-800 bg-slate-950/60 text-xs">
               <div className="text-slate-400">
-                Page <strong className="text-white">{currentPage}</strong> of <strong className="text-white">{totalPages}</strong>
+                Page <strong className="text-white">{currentPage}</strong> of <strong className="text-white">{serverTotalPages}</strong>
               </div>
               <div className="flex items-center gap-1.5">
                 <button
@@ -1161,11 +1167,11 @@ export default function OrphanedRecordsPage() {
                   <FiChevronLeft size={14} /> Prev
                 </button>
                 <div className="flex items-center gap-1 px-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  {Array.from({ length: Math.min(5, serverTotalPages) }, (_, i) => {
                     let pageNum = currentPage
-                    if (totalPages <= 5) pageNum = i + 1
+                    if (serverTotalPages <= 5) pageNum = i + 1
                     else if (currentPage <= 3) pageNum = i + 1
-                    else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i
+                    else if (currentPage >= serverTotalPages - 2) pageNum = serverTotalPages - 4 + i
                     else pageNum = currentPage - 2 + i
 
                     return (
@@ -1184,15 +1190,15 @@ export default function OrphanedRecordsPage() {
                   })}
                 </div>
                 <button
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(p => Math.min(serverTotalPages, p + 1))}
+                  disabled={currentPage === serverTotalPages}
                   className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 disabled:opacity-40 flex items-center gap-1 font-semibold"
                 >
                   Next <FiChevronRight size={14} />
                 </button>
                 <button
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(serverTotalPages)}
+                  disabled={currentPage === serverTotalPages}
                   className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 disabled:opacity-40 font-semibold"
                 >
                   Last

@@ -9,13 +9,24 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url)
     const poId = searchParams.get("poId")
+    const poIdsParam = searchParams.get("poIds")
 
     const poWhere: any = { invoiceId: null, isInventoryOrder: false }
-    if (poId) poWhere.OR = [{ id: poId }, { zohoId: poId }]
+    if (poId) {
+      poWhere.OR = [{ id: poId }, { zohoId: poId }]
+    } else if (poIdsParam) {
+      const splitIds = poIdsParam.split(",").map(s => s.trim()).filter(Boolean)
+      if (splitIds.length > 0) {
+        poWhere.OR = [
+          { id: { in: splitIds } },
+          { zohoId: { in: splitIds } }
+        ]
+      }
+    }
 
     const pos = await prisma.purchaseOrder.findMany({
       where: poWhere,
-      take: poId ? 1 : 100,
+      take: (poId || poIdsParam) ? 50 : 25,
       orderBy: { date: "desc" }
     })
 
