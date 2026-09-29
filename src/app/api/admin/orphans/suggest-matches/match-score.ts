@@ -21,6 +21,53 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
   const poItems = po.items || {}
 
   // -------------------------------------------------------------
+  // 0. Strict Customer Company Filter
+  // If PO specifies a customer/recipient company, candidate must belong to that customer!
+  // -------------------------------------------------------------
+  const poCustomer = String(
+    po.shipToName ||
+    poItems.delivery_customer_name ||
+    poItems.customer_name ||
+    poItems.recipient_name ||
+    poItems.attention ||
+    ""
+  ).toLowerCase().trim()
+
+  const docCustomer = String(
+    doc.account?.name ||
+    docItems.customer_name ||
+    ""
+  ).toLowerCase().trim()
+
+  const stopWords = new Set(['llc', 'inc', 'corp', 'corporation', 'co', 'company', 'ltd', 'limited', 'services', 'tool', 'general', 'and', '&', 'the', 'usa'])
+  const poTokens = poCustomer.split(/[\s,.-]+/).filter(t => t.length > 2 && !stopWords.has(t))
+  const docTokens = docCustomer.split(/[\s,.-]+/).filter(t => t.length > 2 && !stopWords.has(t))
+
+  if (poTokens.length > 0 && docTokens.length > 0) {
+    const hasOverlap = poTokens.some(t => docCustomer.includes(t)) || docTokens.some(t => poCustomer.includes(t))
+    
+    const accountShipAddr = `${doc.account?.shippingStreet || ''} ${doc.account?.shippingCity || ''} ${doc.account?.shippingState || ''} ${doc.account?.shippingZip || ''}`.toLowerCase().trim()
+    const accountBillAddr = `${doc.account?.billingStreet || ''} ${doc.account?.billingCity || ''} ${doc.account?.billingState || ''} ${doc.account?.billingZip || ''}`.toLowerCase().trim()
+    const poAddress = String(po.shippingAddress || poItems.delivery_address || poItems.shipping_address || "").toLowerCase().trim()
+    
+    const poAddrTokens = poAddress.split(/[\s,]+/).filter(t => t.length > 2 && !['street', 'road', 'drive', 'blvd', 'suite', 'unit', 'north', 'south', 'east', 'west', 'avenue', 'lane', 'court'].includes(t))
+    const addressOverlap = poAddrTokens.some(t => accountShipAddr.includes(t) || accountBillAddr.includes(t))
+
+    const poRef = String(po.salesOrderNumber || po.referenceNumber || poItems.salesorder_number || poItems.reference_number || "").trim().toLowerCase()
+    const docNumber = String(doc.invoiceNumber || doc.salesorderNumber || docItems.invoiceNumber || docItems.salesorder_number || doc.zohoId || "").trim().toLowerCase()
+    const isRefMatch = poRef && poRef.length >= 3 && (docNumber.includes(poRef) || poRef.includes(docNumber))
+
+    // If both PO and document specify customer names, but share ZERO name/address tokens and no reference match: exclude!
+    if (!hasOverlap && !addressOverlap && !isRefMatch) {
+      return {
+        score: 0,
+        reasons: [`Customer mismatch: PO customer '${po.shipToName || poCustomer}' does not match doc customer '${doc.account?.name || docCustomer}'`],
+        matchDetails: {}
+      }
+    }
+  }
+
+  // -------------------------------------------------------------
   // 1. Sales Order / Estimate / Reference Number Match (Up to 80 points)
   // -------------------------------------------------------------
   const poRef = String(po.salesOrderNumber || po.referenceNumber || poItems.salesorder_number || poItems.reference_number || po.poNumber || "").trim().toLowerCase()
@@ -190,7 +237,7 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
   }
 
   // -------------------------------------------------------------
-  // 5. Total Amount Proximity Match (Up to 25 points)
+  // 5. Total Amount Cost vs Retail Proximity Matcher (Up to 25 points)
   // -------------------------------------------------------------
   const poTotal = Number(po.total || poItems.total || 0)
   const docTotal = Number(doc.amount || docItems.total || 0)
@@ -201,9 +248,14 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
       score += 25
       reasons.push(`Exact Total $${poTotal.toFixed(2)}`)
       matchDetails.amountMatch = `Exact Amount $${poTotal.toFixed(2)}`
-    } else if (diff / poTotal < 0.05) {
+    } else if (poTotal <= docTotal && poTotal / docTotal >= 0.35) {
+      const costPercent = Math.round((poTotal / docTotal) * 100)
+      score += 25
+      reasons.push(`Cost vs Retail Total (${costPercent}% of retail: $${poTotal.toFixed(2)} vs $${docTotal.toFixed(2)})`)
+      matchDetails.amountMatch = `Cost vs Retail (${costPercent}% of retail)`
+    } else if (diff / poTotal < 0.08) {
       score += 15
-      reasons.push(`Close Total ($${poTotal.toFixed(2)} vs $${docTotal.toFixed(2)})`)
+      reasons.push(`Near Total ($${poTotal.toFixed(2)} vs $${docTotal.toFixed(2)})`)
       matchDetails.amountMatch = `Near Amount ($${poTotal.toFixed(2)} vs $${docTotal.toFixed(2)})`
     }
   }
@@ -211,4 +263,3 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
   const finalScore = Math.min(100, score)
   return { score: finalScore, reasons, matchDetails }
 }
-
