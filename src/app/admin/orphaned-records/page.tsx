@@ -1014,7 +1014,7 @@ export default function OrphanedRecordsPage() {
               </div>
             )
           ) : (
-            paginatedPayments.length === 0 ? (
+            payments.length === 0 ? (
               <div className="p-12 flex flex-col items-center justify-center text-slate-400 gap-2">
                 <FiCheckCircle className="text-4xl text-emerald-400" />
                 <span className="font-semibold text-white">No orphaned Payments</span>
@@ -1035,7 +1035,7 @@ export default function OrphanedRecordsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 bg-slate-900/10">
-                    {paginatedPayments.map((p) => {
+                    {payments.map((p: Payment) => {
                       const isExpanded = expandedRowId === p.zohoId
                       return (
                         <tr key={p.id} className="group hover:bg-slate-900/40 transition">

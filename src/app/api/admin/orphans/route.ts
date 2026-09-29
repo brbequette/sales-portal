@@ -94,7 +94,8 @@ export async function GET(req: Request) {
           { zohoId: { contains: q, mode: "insensitive" } },
           { referenceNumber: { contains: q, mode: "insensitive" } },
           { mode: { contains: q, mode: "insensitive" } },
-          { customerName: { contains: q, mode: "insensitive" } },
+          { invoiceNumber: { contains: q, mode: "insensitive" } },
+          { description: { contains: q, mode: "insensitive" } },
         ]
       }
 
@@ -102,7 +103,7 @@ export async function GET(req: Request) {
       if (sort === "date-asc") orderBy = { date: "asc" }
       else if (sort === "amount-desc") orderBy = { amount: "desc" }
       else if (sort === "amount-asc") orderBy = { amount: "asc" }
-      else if (sort === "name-asc") orderBy = { customerName: "asc" }
+      else if (sort === "name-asc") orderBy = { referenceNumber: "asc" }
 
       const [totalCount, payments, totalUnassociatedPOs, totalUnassociatedPayments] = await Promise.all([
         prisma.payment.count({ where }),
