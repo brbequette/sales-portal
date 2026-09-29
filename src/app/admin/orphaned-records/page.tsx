@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, Fragment } from "react"
 import Link from "next/link"
 import {
   FiAlertTriangle,
@@ -696,15 +696,16 @@ export default function OrphanedRecordsPage() {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-left text-sm text-slate-300">
-                  <thead className="bg-slate-900/60 text-xs font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-800">
+                  <thead className="bg-slate-900/80 text-xs font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-800">
                     <tr>
-                      <th className="w-10 px-3 py-4 text-center">Expand</th>
-                      <th className="px-6 py-4">PO Number</th>
-                      <th className="px-6 py-4">Vendor & Ship To Address</th>
-                      <th className="px-6 py-4">Date</th>
-                      <th className="px-6 py-4">Total</th>
-                      <th className="px-6 py-4">Linked Sales Order</th>
-                      <th className="px-6 py-4 text-right">Actions</th>
+                      <th className="w-10 px-3 py-3.5 text-center"></th>
+                      <th className="px-4 py-3.5 text-left">PO Number</th>
+                      <th className="px-4 py-3.5 text-left">Suggested Match</th>
+                      <th className="px-4 py-3.5 text-left">Vendor & Ship To Address</th>
+                      <th className="px-4 py-3.5 text-left">Date</th>
+                      <th className="px-4 py-3.5 text-left">Total</th>
+                      <th className="px-4 py-3.5 text-left">Linked Sales Order</th>
+                      <th className="px-4 py-3.5 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 bg-slate-900/10">
@@ -721,136 +722,152 @@ export default function OrphanedRecordsPage() {
                       const displayShipAddr = po.shippingAddress || po.items?.delivery_address || po.items?.shipping_address || po.items?.recipient_address
 
                       return (
-                        <tr key={po.id} className="group hover:bg-slate-900/40 transition">
-                          {/* Row Table Content */}
-                          <td colSpan={7} className="p-0">
-                            <div className="flex items-center w-full px-0 py-0">
-                              <table className="w-full border-collapse">
-                                <tbody>
-                                  <tr className="transition hover:bg-slate-850/40 cursor-pointer" onClick={() => setExpandedRowId(isExpanded ? null : po.zohoId)}>
-                                    <td className="w-10 px-3 py-4 text-center">
-                                      <button
-                                        type="button"
-                                        aria-label="Expand row details"
-                                        onClick={(e) => { e.stopPropagation(); setExpandedRowId(isExpanded ? null : po.zohoId); }}
-                                        className="p-1 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white transition"
-                                      >
-                                        {isExpanded ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
-                                      </button>
-                                    </td>
-                                    <td className="px-6 py-4 font-semibold text-white w-1/5">
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-base font-bold text-white tracking-tight">{displayPO}</span>
-                                        {po.isDropshipment && (
-                                          <span className="text-[10px] uppercase font-extrabold bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.5 rounded">
-                                            Dropship
-                                          </span>
-                                        )}
-                                      </div>
-                                      {displayPO !== po.zohoId && (
-                                        <div className="text-[11px] text-slate-500 font-mono mt-0.5">
-                                          ID: {po.zohoId}
-                                        </div>
-                                      )}
-                                      {topMatch && !isExpanded && (
-                                        <div className="mt-1 flex items-center gap-1.5 text-[11px] text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20 max-w-max">
-                                          <span>🎯 {topMatch.docType || 'Inv'} #{topMatch.docNumber || topMatch.invoiceNumber} ({topMatch.customerName})</span>
-                                          <span className="font-black text-[10px] bg-emerald-500/20 px-1 py-0.2 rounded text-emerald-300">{topMatch.score}% Match</span>
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              setSelectedSalesDoc({
-                                                zohoId: topMatch.docId || topMatch.invoiceId,
-                                                docNumber: topMatch.docNumber || topMatch.invoiceNumber,
-                                                type: (topMatch.docType as any) || "Invoice"
-                                              })
-                                            }}
-                                            className="ml-1 hover:text-white font-bold cursor-pointer text-slate-300 flex items-center gap-0.5"
-                                            title="Review document details"
-                                          >
-                                            <FiEye size={11} /> Review
-                                          </button>
-                                          <button
-                                            onClick={(e) => { e.stopPropagation(); handleQuickLink(po.zohoId, topMatch.docNumber || topMatch.invoiceNumber); }}
-                                            className="ml-1 underline text-[11px] text-emerald-300 hover:text-white font-bold cursor-pointer"
-                                          >
-                                            Link Now
-                                          </button>
-                                        </div>
-                                      )}
-                                    </td>
-                                    <td className="px-6 py-4 w-1/4">
-                                      <div className="font-semibold text-slate-200">{po.vendorName || "Unknown Vendor"}</div>
-                                      {(displayShipName || displayShipAddr) && (
-                                        <div className="text-[11px] text-blue-300/90 font-medium truncate mt-0.5 flex items-center gap-1" title={`${displayShipName || ''} ${displayShipAddr || ''}`}>
-                                          <FiMapPin size={11} className="text-blue-400 flex-shrink-0" />
-                                          <span className="truncate">
-                                            {displayShipName ? `To: ${displayShipName}` : ''}
-                                            {displayShipName && displayShipAddr ? ' — ' : ''}
-                                            {displayShipAddr || ''}
-                                          </span>
-                                        </div>
-                                      )}
-                                    </td>
-                                    <td className="px-6 py-4 text-slate-400 w-1/6">
-                                      <div className="flex items-center gap-1.5">
-                                        <FiCalendar size={13} />
-                                        {po.date ? new Date(po.date).toLocaleDateString() : "N/A"}
-                                      </div>
-                                    </td>
-                                    <td className="px-6 py-4 font-bold text-white w-1/6">
-                                      ${po.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </td>
-                                    <td className="px-6 py-4 text-slate-400 w-1/6" onClick={(e) => e.stopPropagation()}>
-                                      {targetSO ? (
-                                        <button
-                                          onClick={() => setSelectedSalesDoc({ zohoId: po.salesOrderId || targetSO, docNumber: targetSO, type: "SalesOrder" })}
-                                          className="inline-flex items-center gap-1.5 font-bold text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 px-2.5 py-1 rounded-lg transition text-xs cursor-pointer group"
-                                          title="Click to popup Sales Order review details"
-                                        >
-                                          <span>SO #{targetSO}</span>
-                                          <FiExternalLink size={12} className="group-hover:translate-x-0.5 transition-transform" />
-                                        </button>
-                                      ) : (
-                                        <span className="text-xs text-slate-500 italic">No Sales Order</span>
-                                      )}
-                                      {po.referenceNumber && po.referenceNumber !== targetSO && (
-                                        <div className="text-[11px] text-amber-400 font-mono mt-1">
-                                          Ref: {po.referenceNumber}
-                                        </div>
-                                      )}
-                                    </td>
-                                    <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
-                                      <div className="flex justify-end gap-2">
-                                        <button
-                                          onClick={() => setExpandedRowId(isExpanded ? null : po.zohoId)}
-                                          className="bg-slate-800 text-slate-300 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1"
-                                        >
-                                          {isExpanded ? "Collapse" : "Find Match"}
-                                        </button>
-                                        <button
-                                          onClick={() => { setLinkingRecordId(po.zohoId); setLinkingType("po"); }}
-                                          className="bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1"
-                                        >
-                                          <FiLink /> Tie
-                                        </button>
-                                        <button
-                                          onClick={() => handleMarkInventory(po.zohoId)}
-                                          className="bg-slate-800 text-slate-300 hover:bg-slate-700 p-2 rounded-lg text-xs transition"
-                                          title="Mark Inventory Stock"
-                                        >
-                                          <FiArchive />
-                                        </button>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                </tbody>
-                              </table>
-                            </div>
+                        <Fragment key={po.id}>
+                          <tr
+                            className="transition hover:bg-slate-850/40 cursor-pointer"
+                            onClick={() => setExpandedRowId(isExpanded ? null : po.zohoId)}
+                          >
+                            <td className="w-10 px-3 py-4 text-center">
+                              <button
+                                type="button"
+                                aria-label="Expand row details"
+                                onClick={(e) => { e.stopPropagation(); setExpandedRowId(isExpanded ? null : po.zohoId); }}
+                                className="p-1 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white transition"
+                              >
+                                {isExpanded ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
+                              </button>
+                            </td>
+
+                            <td className="px-4 py-4 font-semibold text-white">
+                              <div className="flex items-center gap-2">
+                                <span className="text-base font-bold text-white tracking-tight">{displayPO}</span>
+                                {po.isDropshipment && (
+                                  <span className="text-[10px] uppercase font-extrabold bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.5 rounded">
+                                    Dropship
+                                  </span>
+                                )}
+                              </div>
+                              {displayPO !== po.zohoId && (
+                                <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+                                  ID: {po.zohoId}
+                                </div>
+                              )}
+                            </td>
+
+                            <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                              {topMatch ? (
+                                <div className="bg-emerald-950/40 border border-emerald-500/30 rounded-xl p-2 space-y-1 min-w-[190px] max-w-xs shadow-sm">
+                                  <div className="flex items-center justify-between gap-1 flex-wrap">
+                                    <span className="text-[10px] font-black uppercase text-emerald-300 bg-emerald-500/20 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                                      {topMatch.docType || 'Inv'} #{topMatch.docNumber || topMatch.invoiceNumber}
+                                    </span>
+                                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                                      🎯 {topMatch.score}% Match
+                                    </span>
+                                  </div>
+                                  <div className="text-xs text-slate-200 font-semibold truncate" title={topMatch.customerName}>
+                                    {topMatch.customerName}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 pt-0.5">
+                                    <button
+                                      onClick={() => setSelectedSalesDoc({
+                                        zohoId: topMatch.docId || topMatch.invoiceId,
+                                        docNumber: topMatch.docNumber || topMatch.invoiceNumber,
+                                        type: (topMatch.docType as any) || "Invoice"
+                                      })}
+                                      className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold px-2 py-1 rounded text-[11px] transition flex items-center gap-1"
+                                      title="Review document details"
+                                    >
+                                      <FiEye size={11} /> Review
+                                    </button>
+                                    <button
+                                      onClick={() => handleQuickLink(po.zohoId, topMatch.docNumber || topMatch.invoiceNumber)}
+                                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-2.5 py-1 rounded text-[11px] transition flex items-center gap-1"
+                                    >
+                                      <FiLink size={11} /> Link Now
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-slate-500 italic">No match suggested</span>
+                              )}
+                            </td>
+
+                            <td className="px-4 py-4 max-w-xs">
+                              <div className="font-semibold text-slate-200 truncate">{po.vendorName || "Unknown Vendor"}</div>
+                              {(displayShipName || displayShipAddr) && (
+                                <div className="text-[11px] text-blue-300/90 font-medium truncate mt-0.5 flex items-center gap-1" title={`${displayShipName || ''} ${displayShipAddr || ''}`}>
+                                  <FiMapPin size={11} className="text-blue-400 flex-shrink-0" />
+                                  <span className="truncate">
+                                    {displayShipName ? `To: ${displayShipName}` : ''}
+                                    {displayShipName && displayShipAddr ? ' — ' : ''}
+                                    {displayShipAddr || ''}
+                                  </span>
+                                </div>
+                              )}
+                            </td>
+
+                            <td className="px-4 py-4 text-slate-400 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5">
+                                <FiCalendar size={13} />
+                                {po.date ? new Date(po.date).toLocaleDateString() : "N/A"}
+                              </div>
+                            </td>
+
+                            <td className="px-4 py-4 font-bold text-white whitespace-nowrap">
+                              ${po.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+
+                            <td className="px-4 py-4 text-slate-400" onClick={(e) => e.stopPropagation()}>
+                              {targetSO ? (
+                                <button
+                                  onClick={() => setSelectedSalesDoc({ zohoId: po.salesOrderId || targetSO, docNumber: targetSO, type: "SalesOrder" })}
+                                  className="inline-flex items-center gap-1.5 font-bold text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 px-2.5 py-1 rounded-lg transition text-xs cursor-pointer group whitespace-nowrap"
+                                  title="Click to popup Sales Order review details"
+                                >
+                                  <span>SO #{targetSO}</span>
+                                  <FiExternalLink size={12} className="group-hover:translate-x-0.5 transition-transform" />
+                                </button>
+                              ) : (
+                                <span className="text-xs text-slate-500 italic">No Sales Order</span>
+                              )}
+                              {po.referenceNumber && po.referenceNumber !== targetSO && (
+                                <div className="text-[11px] text-amber-400 font-mono mt-1">
+                                  Ref: {po.referenceNumber}
+                                </div>
+                              )}
+                            </td>
+
+                            <td className="px-4 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex justify-end gap-1.5">
+                                <button
+                                  onClick={() => setExpandedRowId(isExpanded ? null : po.zohoId)}
+                                  className="bg-slate-800 text-slate-300 hover:bg-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1 whitespace-nowrap"
+                                >
+                                  {isExpanded ? "Collapse" : "Find Match"}
+                                </button>
+                                <button
+                                  onClick={() => { setLinkingRecordId(po.zohoId); setLinkingType("po"); }}
+                                  className="bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1 whitespace-nowrap"
+                                >
+                                  <FiLink /> Tie
+                                </button>
+                                <button
+                                  onClick={() => handleMarkInventory(po.zohoId)}
+                                  className="bg-slate-800 text-slate-300 hover:bg-slate-700 p-2 rounded-lg text-xs transition"
+                                  title="Mark Inventory Stock"
+                                >
+                                  <FiArchive />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
 
                             {/* ─── Expanded Drawer Section ─────────────────── */}
                             {isExpanded && (
-                              <div className="border-t border-blue-500/20 bg-slate-950/90 p-6 shadow-2xl animate-in fade-in duration-200">
+                              <tr key={`${po.id}-expanded`} className="bg-slate-950/90">
+                                <td colSpan={8} className="p-0 border-b border-slate-800">
+                                  <div className="border-t border-blue-500/20 bg-slate-950/90 p-6 shadow-2xl animate-in fade-in duration-200">
                                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
                                   {/* Left Col: PO Reference & Metadata */}
@@ -1017,11 +1034,12 @@ export default function OrphanedRecordsPage() {
                                   </div>
                                 </div>
                               </div>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    })}
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    )
+                  })}
                   </tbody>
                 </table>
               </div>
@@ -1036,120 +1054,119 @@ export default function OrphanedRecordsPage() {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-left text-sm text-slate-300">
-                  <thead className="bg-slate-900/60 text-xs font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-800">
+                  <thead className="bg-slate-900/80 text-xs font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-800">
                     <tr>
-                      <th className="w-10 px-3 py-4 text-center">Expand</th>
-                      <th className="px-6 py-4">Payment ID</th>
-                      <th className="px-6 py-4">Customer Name</th>
-                      <th className="px-6 py-4">Date</th>
-                      <th className="px-6 py-4">Mode</th>
-                      <th className="px-6 py-4">Amount</th>
-                      <th className="px-6 py-4 text-right">Actions</th>
+                      <th className="w-10 px-3 py-3.5 text-center"></th>
+                      <th className="px-4 py-3.5 text-left">Payment ID</th>
+                      <th className="px-4 py-3.5 text-left">Customer Name</th>
+                      <th className="px-4 py-3.5 text-left">Date</th>
+                      <th className="px-4 py-3.5 text-left">Mode</th>
+                      <th className="px-4 py-3.5 text-left">Amount</th>
+                      <th className="px-4 py-3.5 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 bg-slate-900/10">
                     {payments.map((p: Payment) => {
                       const isExpanded = expandedRowId === p.zohoId
                       return (
-                        <tr key={p.id} className="group hover:bg-slate-900/40 transition">
-                          <td colSpan={7} className="p-0">
-                            <div className="flex items-center w-full px-0 py-0">
-                              <table className="w-full border-collapse">
-                                <tbody>
-                                  <tr className="transition hover:bg-slate-850/40 cursor-pointer" onClick={() => setExpandedRowId(isExpanded ? null : p.zohoId)}>
-                                    <td className="w-10 px-3 py-4 text-center">
-                                      <button
-                                        type="button"
-                                        aria-label="Expand row details"
-                                        onClick={(e) => { e.stopPropagation(); setExpandedRowId(isExpanded ? null : p.zohoId); }}
-                                        className="p-1 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white transition"
-                                      >
-                                        {isExpanded ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
-                                      </button>
-                                    </td>
-                                    <td className="px-6 py-4 font-semibold text-white w-1/5">{p.zohoId}</td>
-                                    <td className="px-6 py-4 w-1/5">{p.customerName || "N/A"}</td>
-                                    <td className="px-6 py-4 flex items-center gap-1.5 text-slate-400 w-1/6">
-                                      <FiCalendar />
-                                      {p.date ? new Date(p.date).toLocaleDateString() : "N/A"}
-                                    </td>
-                                    <td className="px-6 py-4 w-1/6">
-                                      <span className="bg-slate-850 px-2 py-0.5 rounded text-xs text-slate-300">
-                                        {p.mode || "Offline"}
-                                      </span>
-                                    </td>
-                                    <td className="px-6 py-4 font-bold text-white w-1/6">${p.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                    <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
-                                      <div className="flex justify-end gap-2">
-                                        <button
-                                          onClick={() => setExpandedRowId(isExpanded ? null : p.zohoId)}
-                                          className="bg-slate-800 text-slate-300 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1"
-                                        >
-                                          {isExpanded ? "Collapse" : "Find Match"}
-                                        </button>
-                                        <button
-                                          onClick={() => { setLinkingRecordId(p.zohoId); setLinkingType("payment"); }}
-                                          className="bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1"
-                                        >
-                                          <FiLink /> Tie to Invoice
-                                        </button>
+                        <Fragment key={p.id}>
+                          <tr
+                            className="transition hover:bg-slate-850/40 cursor-pointer"
+                            onClick={() => setExpandedRowId(isExpanded ? null : p.zohoId)}
+                          >
+                            <td className="w-10 px-3 py-4 text-center">
+                              <button
+                                type="button"
+                                aria-label="Expand row details"
+                                onClick={(e) => { e.stopPropagation(); setExpandedRowId(isExpanded ? null : p.zohoId); }}
+                                className="p-1 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white transition"
+                              >
+                                {isExpanded ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
+                              </button>
+                            </td>
+                            <td className="px-4 py-4 font-semibold text-white">{p.zohoId}</td>
+                            <td className="px-4 py-4">{p.customerName || "N/A"}</td>
+                            <td className="px-4 py-4 text-slate-400 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5">
+                                <FiCalendar />
+                                {p.date ? new Date(p.date).toLocaleDateString() : "N/A"}
+                              </div>
+                            </td>
+                            <td className="px-4 py-4">
+                              <span className="bg-slate-850 px-2 py-0.5 rounded text-xs text-slate-300">
+                                {p.mode || "Offline"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-4 font-bold text-white whitespace-nowrap">${p.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td className="px-4 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex justify-end gap-1.5">
+                                <button
+                                  onClick={() => setExpandedRowId(isExpanded ? null : p.zohoId)}
+                                  className="bg-slate-800 text-slate-300 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1"
+                                >
+                                  {isExpanded ? "Collapse" : "Find Match"}
+                                </button>
+                                <button
+                                  onClick={() => { setLinkingRecordId(p.zohoId); setLinkingType("payment"); }}
+                                  className="bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1"
+                                >
+                                  <FiLink /> Tie to Invoice
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr key={`${p.id}-expanded`} className="bg-slate-950/90">
+                              <td colSpan={7} className="p-0 border-b border-slate-800">
+                                <div className="border-t border-blue-500/20 bg-slate-950/90 p-6 shadow-2xl animate-in fade-in duration-200">
+                                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                                    <div className="lg:col-span-5 space-y-4 border-b lg:border-b-0 lg:border-r border-slate-800 pb-6 lg:pb-0 lg:pr-6">
+                                      <div className="flex items-center justify-between">
+                                        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                                          <FiDollarSign className="text-amber-400" />
+                                          Payment Details
+                                        </h3>
+                                        <span className="text-xs font-mono text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded">
+                                          ID: {p.zohoId}
+                                        </span>
                                       </div>
-                                    </td>
-                                  </tr>
-                                </tbody>
-                              </table>
-                            </div>
+                                      <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3.5 space-y-1">
+                                        <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                                          <FiInfo size={14} /> Pertinent Payment Reference
+                                        </div>
+                                        <div className="text-xs text-slate-200 font-mono font-semibold">
+                                          Reference Number: {p.referenceNumber || "None"}
+                                        </div>
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-3 text-xs">
+                                        <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                                          <div className="text-slate-500 font-medium">Customer Name</div>
+                                          <div className="text-white font-bold mt-0.5 truncate">{p.customerName || "N/A"}</div>
+                                        </div>
+                                        <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                                          <div className="text-slate-500 font-medium">Payment Amount</div>
+                                          <div className="text-amber-400 font-bold mt-0.5">${p.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                                        </div>
+                                      </div>
+                                    </div>
 
-                            {/* ─── Expanded Drawer Section for Payments ─────────────────── */}
-                            {isExpanded && (
-                              <div className="border-t border-blue-500/20 bg-slate-950/90 p-6 shadow-2xl animate-in fade-in duration-200">
-                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                                  <div className="lg:col-span-5 space-y-4 border-b lg:border-b-0 lg:border-r border-slate-800 pb-6 lg:pb-0 lg:pr-6">
-                                    <div className="flex items-center justify-between">
-                                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                                        <FiDollarSign className="text-amber-400" />
-                                        Payment Details
-                                      </h3>
-                                      <span className="text-xs font-mono text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded">
-                                        ID: {p.zohoId}
-                                      </span>
-                                    </div>
-                                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3.5 space-y-1">
-                                      <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-                                        <FiInfo size={14} /> Pertinent Payment Reference
+                                    <div className="lg:col-span-7">
+                                      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
+                                        <ExpandedRowSearch
+                                          recordZohoId={p.zohoId}
+                                          type="payment"
+                                          initialQuery={p.referenceNumber || p.customerName || ""}
+                                          onLink={handleQuickLink}
+                                          onViewDoc={(doc) => setSelectedSalesDoc(doc)}
+                                        />
                                       </div>
-                                      <div className="text-xs text-slate-200 font-mono font-semibold">
-                                        Reference Number: {p.referenceNumber || "None"}
-                                      </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-3 text-xs">
-                                      <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-                                        <div className="text-slate-500 font-medium">Customer Name</div>
-                                        <div className="text-white font-bold mt-0.5 truncate">{p.customerName || "N/A"}</div>
-                                      </div>
-                                      <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-                                        <div className="text-slate-500 font-medium">Payment Amount</div>
-                                        <div className="text-amber-400 font-bold mt-0.5">${p.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  <div className="lg:col-span-7">
-                                    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
-                                      <ExpandedRowSearch
-                                        recordZohoId={p.zohoId}
-                                        type="payment"
-                                        initialQuery={p.referenceNumber || p.customerName || ""}
-                                        onLink={handleQuickLink}
-                                        onViewDoc={(doc) => setSelectedSalesDoc(doc)}
-                                      />
                                     </div>
                                   </div>
                                 </div>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
                       )
                     })}
                   </tbody>
