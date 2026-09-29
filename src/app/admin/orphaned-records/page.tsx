@@ -284,8 +284,15 @@ export default function OrphanedRecordsPage() {
       const url = poIds ? `/api/admin/orphans/suggest-matches?poIds=${encodeURIComponent(poIds)}` : `/api/admin/orphans/suggest-matches`
       const res = await fetch(url)
       const data = await res.json()
-      if (data.success && data.suggestions) {
-        setSuggestions(prev => ({ ...prev, ...data.suggestions }))
+      if (data.success) {
+        if (data.suggestions) {
+          setSuggestions(prev => ({ ...prev, ...data.suggestions }))
+        }
+        if (data.autoApprovedCount && data.autoApprovedCount > 0) {
+          setSyncMessage(`Auto-approved and linked ${data.autoApprovedCount} 100% matched Purchase Order(s)!`)
+          setTimeout(() => setSyncMessage(""), 5000)
+          fetchData()
+        }
       }
     } catch (e) {
       console.error("Error fetching match suggestions:", e)
@@ -370,6 +377,12 @@ export default function OrphanedRecordsPage() {
       const data = await res.json()
       if (data.success) {
         setLinkSuccess(data.message)
+        // Instantly remove matched item from view so it falls off immediately
+        if (activeTab === "pos") {
+          setPOs(prev => prev.filter(p => p.zohoId !== recordZohoId && p.id !== recordZohoId))
+        } else {
+          setPayments(prev => prev.filter(p => p.zohoId !== recordZohoId && p.id !== recordZohoId))
+        }
         fetchData()
         setTimeout(() => setLinkSuccess(""), 4000)
       } else {

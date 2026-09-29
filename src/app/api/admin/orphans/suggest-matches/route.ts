@@ -67,6 +67,8 @@ export async function GET(req: Request) {
     ])
 
     const suggestions: Record<string, any> = {}
+    let autoApprovedCount = 0
+    const autoApprovedSummary: any[] = []
 
     for (const po of pos) {
       const candidates: any[] = []
@@ -141,22 +143,65 @@ export async function GET(req: Request) {
       candidates.sort((a, b) => b.score - a.score)
 
       if (candidates.length > 0) {
+        const topMatch = candidates[0]
+
+        // 100% Match Auto Approve & Instant Link!
+        if (topMatch.score >= 100) {
+          const finalDocNum = topMatch.docNumber || topMatch.invoiceNumber
+          let invoiceIdToSet = topMatch.docId || topMatch.invoiceId
+          if (topMatch.docType === "SalesOrder") {
+            const linkedInvoice = await prisma.invoice.findFirst({
+              where: {
+                OR: [
+                  { salesOrderZohoId: topMatch.docId },
+                  { salesorderNumber: String(finalDocNum) }
+                ]
+              }
+            })
+            if (linkedInvoice) {
+              invoiceIdToSet = linkedInvoice.zohoId
+            }
+          }
+
+          await prisma.purchaseOrder.update({
+            where: { id: po.id },
+            data: {
+              invoiceId: invoiceIdToSet,
+              invoiceNumber: String(finalDocNum),
+              salesOrderId: topMatch.docType === "SalesOrder" ? topMatch.docId : po.salesOrderId,
+              salesOrderNumber: topMatch.docType === "SalesOrder" ? String(finalDocNum) : po.salesOrderNumber
+            }
+          })
+
+          autoApprovedCount++
+          autoApprovedSummary.push({
+            poZohoId: po.zohoId,
+            docType: topMatch.docType,
+            docNumber: finalDocNum,
+            customerName: topMatch.customerName,
+            score: topMatch.score
+          })
+          continue // Auto-approved! Remove from unlinked suggestions list.
+        }
+
         suggestions[po.zohoId] = {
-          bestMatch: candidates[0],
+          bestMatch: topMatch,
           candidates: candidates, // Return ALL candidate matches for review!
-          invoiceId: candidates[0].invoiceId,
-          invoiceNumber: candidates[0].invoiceNumber,
-          customerName: candidates[0].customerName,
-          issueDate: candidates[0].issueDate,
-          score: candidates[0].score,
-          reasons: candidates[0].reasons
+          invoiceId: topMatch.invoiceId,
+          invoiceNumber: topMatch.invoiceNumber,
+          customerName: topMatch.customerName,
+          issueDate: topMatch.issueDate,
+          score: topMatch.score,
+          reasons: topMatch.reasons
         }
       }
     }
 
     return NextResponse.json({
       success: true,
-      suggestions
+      suggestions,
+      autoApprovedCount,
+      autoApprovedSummary
     })
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
