@@ -42,13 +42,20 @@ async function fetchPages(
     })
 
     if (!res.ok) {
+      const errorText = await res.text().catch(() => '')
       if (res.status === 401 || res.status === 403)
         throw new Error(`Zoho auth failed (${res.status}) — try again in a moment.`)
       if (res.status === 429)
         throw new Error(`Zoho rate limit hit — wait a minute and try again.`)
       if (res.status === 504)
         throw new Error(`Zoho gateway timeout (504) on ${listKey} — Zoho servers are busy.`)
-      throw new Error(`Zoho API returned ${res.status} for ${listKey}`)
+      
+      let msg = errorText
+      try {
+        const errJson = JSON.parse(errorText)
+        if (errJson.message) msg = errJson.message
+      } catch {}
+      throw new Error(`Zoho API error (${res.status}) for ${listKey}: ${msg.substring(0, 150)}`)
     }
 
     const rawText = await res.text()
@@ -89,9 +96,8 @@ export async function POST(req: NextRequest) {
     const sinceDateStr = sinceDate.toISOString().split("T")[0]
 
     // ── Packages ──────────────────────────────────────────────────────────
-    // Only pull non-draft packages from the last N days.
-    // Using date filter avoids full-table scans that cause 504s.
-    const pkgQuery = `packages?date_after=${sinceDateStr}&filter_by=Status.NotDraft`
+    // Only pull packages from the last N days using date_start filter.
+    const pkgQuery = `packages?date_start=${sinceDateStr}`
     const allPackages = await fetchPages(token, pkgQuery, "packages", 20)
 
     let pkgCreated = 0, pkgUpdated = 0, pkgErrors = 0
@@ -129,8 +135,8 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Purchase Orders ────────────────────────────────────────────────────
-    // Filter by date window and only pull open/billed (not cancelled drafts).
-    const poQuery = `purchaseorders?date_after=${sinceDateStr}&filter_by=Status.Open,Status.Billed,Status.PartiallyBilled`
+    // Filter by date window using date_start.
+    const poQuery = `purchaseorders?date_start=${sinceDateStr}`
     const allPOs = await fetchPages(token, poQuery, "purchaseorders", 20)
 
     let poCreated = 0, poUpdated = 0, poErrors = 0, dropshipCount = 0
