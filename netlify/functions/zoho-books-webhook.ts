@@ -3,6 +3,7 @@ import { getStore } from "@netlify/blobs"
 
 import { prisma } from "./lib/prisma"
 import { updateSyncState } from "../../src/lib/operational-flow"
+import { booksPaymentStatusFields } from "../../src/lib/zoho-payment-status"
 import { internalHandler as processInvoiceCosts } from "./process-invoice-costs"
 import { internalHandler as processQuoteCosts } from "./process-quote-costs"
 import { internalHandler as processSalesOrderCosts } from "./process-salesorder-costs"
@@ -131,7 +132,7 @@ export const handler: Handler = async (event) => {
           amount:          parseFloat(doc.amount || 0),
           date:            doc.date ? new Date(doc.date) : null,
           mode:            doc.payment_mode || null,
-          status:          doc.status || null,
+          ...booksPaymentStatusFields(doc),
           referenceNumber: doc.reference_number || null,
           bankCharges:     parseFloat(doc.bank_charges || 0),
           invoiceId:       invoicePayments[0]?.invoice_id || null,
@@ -142,7 +143,7 @@ export const handler: Handler = async (event) => {
           amount:          parseFloat(doc.amount || 0),
           date:            doc.date ? new Date(doc.date) : null,
           mode:            doc.payment_mode || null,
-          status:          doc.status || null,
+          ...booksPaymentStatusFields(doc),
           referenceNumber: doc.reference_number || null,
           bankCharges:     parseFloat(doc.bank_charges || 0),
           invoiceId:       invoicePayments[0]?.invoice_id || null,

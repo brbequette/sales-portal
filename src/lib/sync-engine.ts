@@ -17,6 +17,7 @@ import { prisma } from "../../netlify/functions/lib/prisma"
 import { Prisma } from "@prisma/client"
 import { getZohoAccessToken, ZOHO_DC, ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
 import { financialZohoLineItems } from "@/lib/zoho-line-items"
+import { booksPaymentStatusFields } from "@/lib/zoho-payment-status"
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 
@@ -40,6 +41,7 @@ export interface ZohoPayment {
   date: string
   payment_mode?: string
   status?: string
+  payment_status?: string
   reference_number?: string
   bank_charges?: number
   description?: string
@@ -211,7 +213,7 @@ export function buildPaymentPersistencePlan(payments: ZohoPayment[], _invoiceDbI
     const date = payment.date ? new Date(payment.date) : null
     if (date && (!lastPaymentDate || date > lastPaymentDate)) lastPaymentDate = date
     paymentMade += payment.amount ?? 0
-    return { sourcePaymentId: payment.payment_id, create: { zohoId: payment.payment_id, invoiceId: payment.invoice_id ?? null, invoiceNumber: payment.invoice_number ?? null, amount: payment.amount ?? 0, date, mode: payment.payment_mode ?? null, status: payment.status ?? null, referenceNumber: payment.reference_number ?? null, bankCharges: payment.bank_charges ?? 0, description: payment.description ?? null }, update: { amount: payment.amount ?? 0, date, mode: payment.payment_mode ?? null, status: payment.status ?? null, referenceNumber: payment.reference_number ?? null, bankCharges: payment.bank_charges ?? 0, description: payment.description ?? null } }
+    return { sourcePaymentId: payment.payment_id, create: { zohoId: payment.payment_id, invoiceId: payment.invoice_id ?? null, invoiceNumber: payment.invoice_number ?? null, amount: payment.amount ?? 0, date, mode: payment.payment_mode ?? null, ...booksPaymentStatusFields(payment), referenceNumber: payment.reference_number ?? null, bankCharges: payment.bank_charges ?? 0, description: payment.description ?? null }, update: { amount: payment.amount ?? 0, date, mode: payment.payment_mode ?? null, ...booksPaymentStatusFields(payment), referenceNumber: payment.reference_number ?? null, bankCharges: payment.bank_charges ?? 0, description: payment.description ?? null } }
   })
   return { payments: plans, summary: { paymentMade, paymentExpected: null, lastPaymentDate, balance: null, paymentCount: payments.length } }
 }
@@ -438,7 +440,7 @@ export async function syncInvoicePayments(
           amount:          pmt.amount ?? 0,
           date:            pmtDate,
           mode:            pmt.payment_mode ?? null,
-          status:          pmt.status ?? null,
+          ...booksPaymentStatusFields(pmt),
           referenceNumber: pmt.reference_number ?? null,
           bankCharges:     pmt.bank_charges ?? 0,
           description:     pmt.description ?? null,
@@ -448,7 +450,7 @@ export async function syncInvoicePayments(
           amount:          pmt.amount ?? 0,
           date:            pmtDate,
           mode:            pmt.payment_mode ?? null,
-          status:          pmt.status ?? null,
+          ...booksPaymentStatusFields(pmt),
           referenceNumber: pmt.reference_number ?? null,
           bankCharges:     pmt.bank_charges ?? 0,
           description:     pmt.description ?? null,

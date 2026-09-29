@@ -21,4 +21,20 @@ describe('payment persistence plan', () => {
     expect(plan.payments).toEqual([])
     expect(plan.summary).toMatchObject({ paymentMade: 0, paymentCount: 0, lastPaymentDate: null })
   })
+
+  it('retains the Books payment_status field in both persistence paths', () => {
+    const plan = buildPaymentPersistencePlan([
+      { payment_id: 'void-payment', amount: 10, date: '2026-01-02', payment_status: 'void' },
+    ], 'local-1')
+    expect(plan.payments[0].create.status).toBe('void')
+    expect(plan.payments[0].update.status).toBe('void')
+  })
+
+  it('does not clear a verified status when invoice-payment evidence omits it', () => {
+    const plan = buildPaymentPersistencePlan([
+      { payment_id: 'partial-payment', amount: 10, date: '2026-01-02' },
+    ], 'local-1')
+    expect(plan.payments[0].update).not.toHaveProperty('status')
+    expect(plan.payments[0].create).not.toHaveProperty('status')
+  })
 })
