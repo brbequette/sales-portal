@@ -66,7 +66,7 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
   }
 
   // -------------------------------------------------------------
-  // 2. Customer Identification via Dropship Shipping Address (Up to 50 points)
+  // 2. Customer Identification via Dropship Shipping Address & Account Address (Up to 60 points)
   // -------------------------------------------------------------
   const shipTo = String(po.shipToName || poItems.delivery_customer_name || poItems.customer_name || poItems.ship_via || poItems.recipient_name || poItems.attention || "").toLowerCase().trim()
   const poAddress = String(po.shippingAddress || poItems.delivery_address || poItems.shipping_address || poItems.recipient_address || poItems.address || poItems.city || "").toLowerCase().trim()
@@ -74,31 +74,38 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
   const customerName = String(doc.account?.name || docItems.customer_name || "").toLowerCase().trim()
   const docShipObj = docItems.shipping_address || docItems.delivery_address || {}
   const docShipStr = (typeof docShipObj === 'string' ? docShipObj : JSON.stringify(docShipObj)).toLowerCase()
-  const docAccountAddr = `${doc.account?.shippingStreet || ''} ${doc.account?.shippingCity || ''} ${doc.account?.shippingState || ''} ${doc.account?.shippingZip || ''} ${doc.account?.billingStreet || ''} ${doc.account?.billingCity || ''} ${doc.account?.billingState || ''} ${doc.account?.billingZip || ''}`.toLowerCase()
+  
+  const accountShipAddr = `${doc.account?.shippingStreet || ''} ${doc.account?.shippingCity || ''} ${doc.account?.shippingState || ''} ${doc.account?.shippingZip || ''}`.toLowerCase().trim()
+  const accountBillAddr = `${doc.account?.billingStreet || ''} ${doc.account?.billingCity || ''} ${doc.account?.billingState || ''} ${doc.account?.billingZip || ''}`.toLowerCase().trim()
+  const docAccountAddr = `${doc.account?.name || ''} ${accountShipAddr} ${accountBillAddr}`.toLowerCase()
   const docAddressCombined = `${docShipStr} ${docAccountAddr}`
 
-  if (poAddress && poAddress.length > 4) {
-    const poAddTokens = poAddress.split(/[\s,]+/).filter((t: string) => t.length > 3 && !['street', 'road', 'drive', 'blvd', 'suite', 'unit', 'north', 'south', 'east', 'west'].includes(t))
+  let addressMatched = false
+
+  if (poAddress && poAddress.length > 3) {
+    const poAddTokens = poAddress.split(/[\s,]+/).filter((t: string) => t.length > 2 && !['street', 'road', 'drive', 'blvd', 'suite', 'unit', 'north', 'south', 'east', 'west', 'avenue', 'lane', 'court'].includes(t))
     const matchedTokens = poAddTokens.filter((t: string) => docAddressCombined.includes(t))
     
     if (matchedTokens.length >= 2 || (poAddTokens.length >= 1 && (docAddressCombined.includes(poAddress) || poAddress.includes(docAddressCombined)))) {
-      score += 45 // Customer Identified by Dropship Shipping Address!
-      reasons.push(`Customer Identified by Dropship Address: ${matchedTokens.slice(0, 3).join(", ")}`)
-      matchDetails.addressMatch = `Dropship Address Match (${matchedTokens.slice(0, 3).join(", ")})`
+      addressMatched = true
+      score += 60 // Customer Account & Address Identified!
+      const label = doc.account?.name ? `Customer Account '${doc.account.name}' Address Match` : `Dropship Address Match`
+      reasons.push(`${label}: ${matchedTokens.slice(0, 3).join(", ")}`)
+      matchDetails.addressMatch = `${label} (${matchedTokens.slice(0, 3).join(", ")})`
     }
   }
 
-  if (shipTo && customerName) {
+  if (!addressMatched && shipTo && customerName) {
     if (shipTo === customerName || customerName.includes(shipTo) || shipTo.includes(customerName)) {
-      score += 35
-      reasons.push(`Customer '${doc.account?.name || docItems.customer_name}'`)
+      score += 40
+      reasons.push(`Customer Account '${doc.account?.name || docItems.customer_name}' Match`)
       matchDetails.addressMatch = (matchDetails.addressMatch ? `${matchDetails.addressMatch} + ` : "") + `Customer '${doc.account?.name || docItems.customer_name}'`
     } else {
       const poTokens = shipTo.split(/\s+/).filter((t: string) => t.length > 2)
       const matchesToken = poTokens.some((t: string) => customerName.includes(t))
       if (matchesToken) {
-        score += 20
-        reasons.push(`Customer Token Match`)
+        score += 25
+        reasons.push(`Customer Name Token Match`)
         matchDetails.addressMatch = (matchDetails.addressMatch ? `${matchDetails.addressMatch} + ` : "") + `Customer Token Match`
       }
     }

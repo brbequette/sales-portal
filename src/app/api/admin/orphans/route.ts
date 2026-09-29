@@ -34,6 +34,44 @@ export async function GET(req: Request) {
       }
 
       if (q) {
+        // Query Customer Accounts by address or name to find associated PO shipTo / shippingAddress values
+        const matchingAccounts = await prisma.account.findMany({
+          where: {
+            OR: [
+              { name: { contains: q, mode: "insensitive" } },
+              { shippingStreet: { contains: q, mode: "insensitive" } },
+              { shippingCity: { contains: q, mode: "insensitive" } },
+              { shippingState: { contains: q, mode: "insensitive" } },
+              { shippingZip: { contains: q, mode: "insensitive" } },
+              { billingStreet: { contains: q, mode: "insensitive" } },
+              { billingCity: { contains: q, mode: "insensitive" } },
+              { billingState: { contains: q, mode: "insensitive" } },
+              { billingZip: { contains: q, mode: "insensitive" } }
+            ]
+          },
+          select: {
+            name: true,
+            shippingStreet: true,
+            shippingCity: true,
+            billingStreet: true
+          },
+          take: 20
+        })
+
+        const extraCustomerOrConditions: Prisma.PurchaseOrderWhereInput[] = []
+        for (const acc of matchingAccounts) {
+          if (acc.name) {
+            extraCustomerOrConditions.push({ shipToName: { contains: acc.name, mode: "insensitive" } })
+            extraCustomerOrConditions.push({ shippingAddress: { contains: acc.name, mode: "insensitive" } })
+          }
+          if (acc.shippingStreet && acc.shippingStreet.length > 3) {
+            extraCustomerOrConditions.push({ shippingAddress: { contains: acc.shippingStreet, mode: "insensitive" } })
+          }
+          if (acc.billingStreet && acc.billingStreet.length > 3) {
+            extraCustomerOrConditions.push({ shippingAddress: { contains: acc.billingStreet, mode: "insensitive" } })
+          }
+        }
+
         where.OR = [
           { poNumber: { contains: q, mode: "insensitive" } },
           { zohoId: { contains: q, mode: "insensitive" } },
@@ -42,6 +80,7 @@ export async function GET(req: Request) {
           { shippingAddress: { contains: q, mode: "insensitive" } },
           { referenceNumber: { contains: q, mode: "insensitive" } },
           { salesOrderNumber: { contains: q, mode: "insensitive" } },
+          ...extraCustomerOrConditions
         ]
       }
 

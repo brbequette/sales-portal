@@ -34,22 +34,35 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: true, suggestions: {} })
     }
 
+    const accountSelect = {
+      id: true,
+      name: true,
+      shippingStreet: true,
+      shippingCity: true,
+      shippingState: true,
+      shippingZip: true,
+      billingStreet: true,
+      billingCity: true,
+      billingState: true,
+      billingZip: true
+    }
+
     // Fetch candidate sales documents across Invoices, Sales Orders, and Quotes (Estimates)
     const [candidateInvoices, candidateSalesOrders, candidateQuotes] = await Promise.all([
       prisma.invoice.findMany({
         take: 1500,
         orderBy: { issueDate: "desc" },
-        include: { account: { select: { id: true, name: true } } }
+        include: { account: { select: accountSelect } }
       }),
       prisma.salesOrder.findMany({
         take: 800,
         orderBy: { orderDate: "desc" },
-        include: { account: { select: { id: true, name: true } } }
+        include: { account: { select: accountSelect } }
       }),
       prisma.quote.findMany({
         take: 800,
         orderBy: { createdAt: "desc" },
-        include: { account: { select: { id: true, name: true } } }
+        include: { account: { select: accountSelect } }
       })
     ])
 

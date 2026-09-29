@@ -17,21 +17,34 @@ export async function POST() {
       orderBy: { date: "desc" }
     })
 
+    const accountSelect = {
+      id: true,
+      name: true,
+      shippingStreet: true,
+      shippingCity: true,
+      shippingState: true,
+      shippingZip: true,
+      billingStreet: true,
+      billingCity: true,
+      billingState: true,
+      billingZip: true
+    }
+
     const [candidateInvoices, candidateSalesOrders, candidateQuotes] = await Promise.all([
       prisma.invoice.findMany({
         take: 2000,
         orderBy: { issueDate: "desc" },
-        include: { account: { select: { id: true, name: true } } }
+        include: { account: { select: accountSelect } }
       }),
       prisma.salesOrder.findMany({
         take: 1000,
         orderBy: { orderDate: "desc" },
-        include: { account: { select: { id: true, name: true } } }
+        include: { account: { select: accountSelect } }
       }),
       prisma.quote.findMany({
         take: 1000,
         orderBy: { createdAt: "desc" },
-        include: { account: { select: { id: true, name: true } } }
+        include: { account: { select: accountSelect } }
       })
     ])
 

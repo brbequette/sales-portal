@@ -89,6 +89,38 @@ export async function GET(req: Request) {
       })
     }
 
+    const matchingAccounts = await prisma.account.findMany({
+      where: {
+        OR: [
+          { name: { contains: q, mode: "insensitive" } },
+          { shippingStreet: { contains: q, mode: "insensitive" } },
+          { shippingCity: { contains: q, mode: "insensitive" } },
+          { shippingState: { contains: q, mode: "insensitive" } },
+          { shippingZip: { contains: q, mode: "insensitive" } },
+          { billingStreet: { contains: q, mode: "insensitive" } },
+          { billingCity: { contains: q, mode: "insensitive" } },
+          { billingState: { contains: q, mode: "insensitive" } },
+          { billingZip: { contains: q, mode: "insensitive" } }
+        ]
+      },
+      select: { id: true },
+      take: 100
+    })
+    const matchedAccountIds = matchingAccounts.map(a => a.id)
+
+    const accountSelect = {
+      id: true,
+      name: true,
+      shippingStreet: true,
+      shippingCity: true,
+      shippingState: true,
+      shippingZip: true,
+      billingStreet: true,
+      billingCity: true,
+      billingState: true,
+      billingZip: true
+    }
+
     const [invoices, salesOrders, quotes] = await Promise.all([
       prisma.invoice.findMany({
         where: {
@@ -96,7 +128,16 @@ export async function GET(req: Request) {
             { zohoId: { contains: q, mode: "insensitive" } },
             { invoiceNumber: { contains: q, mode: "insensitive" } },
             { salesorderNumber: { contains: q, mode: "insensitive" } },
+            ...(matchedAccountIds.length > 0 ? [{ accountId: { in: matchedAccountIds } }] : []),
             { account: { name: { contains: q, mode: "insensitive" } } },
+            { account: { shippingStreet: { contains: q, mode: "insensitive" } } },
+            { account: { shippingCity: { contains: q, mode: "insensitive" } } },
+            { account: { shippingState: { contains: q, mode: "insensitive" } } },
+            { account: { shippingZip: { contains: q, mode: "insensitive" } } },
+            { account: { billingStreet: { contains: q, mode: "insensitive" } } },
+            { account: { billingCity: { contains: q, mode: "insensitive" } } },
+            { account: { billingState: { contains: q, mode: "insensitive" } } },
+            { account: { billingZip: { contains: q, mode: "insensitive" } } },
             { items: { path: ["invoiceNumber"], string_contains: q } },
             { items: { path: ["reference_number"], string_contains: q } },
             { items: { path: ["salesorder_number"], string_contains: q } },
@@ -104,38 +145,56 @@ export async function GET(req: Request) {
             { items: { path: ["shipping_address"], string_contains: q } }
           ]
         },
-        take: 20,
+        take: 25,
         orderBy: { issueDate: "desc" },
-        include: { account: { select: { id: true, name: true } } }
+        include: { account: { select: accountSelect } }
       }),
       prisma.salesOrder.findMany({
         where: {
           OR: [
             { zohoId: { contains: q, mode: "insensitive" } },
+            ...(matchedAccountIds.length > 0 ? [{ accountId: { in: matchedAccountIds } }] : []),
             { account: { name: { contains: q, mode: "insensitive" } } },
+            { account: { shippingStreet: { contains: q, mode: "insensitive" } } },
+            { account: { shippingCity: { contains: q, mode: "insensitive" } } },
+            { account: { shippingState: { contains: q, mode: "insensitive" } } },
+            { account: { shippingZip: { contains: q, mode: "insensitive" } } },
+            { account: { billingStreet: { contains: q, mode: "insensitive" } } },
+            { account: { billingCity: { contains: q, mode: "insensitive" } } },
+            { account: { billingState: { contains: q, mode: "insensitive" } } },
+            { account: { billingZip: { contains: q, mode: "insensitive" } } },
             { items: { path: ["salesorder_number"], string_contains: q } },
             { items: { path: ["reference_number"], string_contains: q } },
             { items: { path: ["customer_name"], string_contains: q } }
           ]
         },
-        take: 15,
+        take: 20,
         orderBy: { orderDate: "desc" },
-        include: { account: { select: { id: true, name: true } } }
+        include: { account: { select: accountSelect } }
       }),
       prisma.quote.findMany({
         where: {
           OR: [
             { zohoId: { contains: q, mode: "insensitive" } },
+            ...(matchedAccountIds.length > 0 ? [{ accountId: { in: matchedAccountIds } }] : []),
             { account: { name: { contains: q, mode: "insensitive" } } },
+            { account: { shippingStreet: { contains: q, mode: "insensitive" } } },
+            { account: { shippingCity: { contains: q, mode: "insensitive" } } },
+            { account: { shippingState: { contains: q, mode: "insensitive" } } },
+            { account: { shippingZip: { contains: q, mode: "insensitive" } } },
+            { account: { billingStreet: { contains: q, mode: "insensitive" } } },
+            { account: { billingCity: { contains: q, mode: "insensitive" } } },
+            { account: { billingState: { contains: q, mode: "insensitive" } } },
+            { account: { billingZip: { contains: q, mode: "insensitive" } } },
             { items: { path: ["quote_number"], string_contains: q } },
             { items: { path: ["estimate_number"], string_contains: q } },
             { items: { path: ["reference_number"], string_contains: q } },
             { items: { path: ["customer_name"], string_contains: q } }
           ]
         },
-        take: 15,
+        take: 20,
         orderBy: { createdAt: "desc" },
-        include: { account: { select: { id: true, name: true } } }
+        include: { account: { select: accountSelect } }
       })
     ])
 
