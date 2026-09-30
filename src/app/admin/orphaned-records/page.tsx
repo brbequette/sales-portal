@@ -73,6 +73,7 @@ interface InvoiceSearchResult {
   status: string | null
   referenceNumber: string | null
   shipTo?: string | null
+  lineItems?: Array<{ sku: string; name?: string; quantity: number }>
 }
 
 function formatAddressString(addr: any): string | null {
@@ -211,6 +212,16 @@ function ExpandedRowSearch({
                       {inv.issueDate && <span>Date: {new Date(inv.issueDate).toLocaleDateString()}</span>}
                       {inv.referenceNumber && <span>Ref: {safeText(inv.referenceNumber)}</span>}
                       {shipToText && <span className="truncate max-w-[200px]">Ship: {shipToText}</span>}
+                    </div>
+                  )}
+                  {inv.lineItems && inv.lineItems.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1.5 pt-1.5 border-t border-slate-800/60">
+                      <span className="text-[10px] uppercase font-bold text-slate-400">Invoice Items:</span>
+                      {inv.lineItems.map((item, iIdx) => (
+                        <span key={iIdx} className="text-[10px] font-mono font-bold bg-slate-950 text-blue-300 px-1.5 py-0.5 rounded border border-slate-800">
+                          {item.quantity}x {item.sku || item.name}
+                        </span>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -786,7 +797,7 @@ export default function OrphanedRecordsPage() {
                       const isExpanded = expandedRowId === po.zohoId
                       const displayPO = getDisplayPONumber(po)
                       const targetSO = po.salesOrderNumber || po.referenceNumber
-                      const poSuggestions = suggestions[po.zohoId]
+                      const poSuggestions = suggestions[po.zohoId] || suggestions[po.id] || (po.poNumber ? suggestions[po.poNumber] : null)
                       const topMatch = poSuggestions?.bestMatch || (poSuggestions?.score ? poSuggestions : null)
                       const candidatesList: any[] = poSuggestions?.candidates || (topMatch ? [topMatch] : [])
 
@@ -840,6 +851,11 @@ export default function OrphanedRecordsPage() {
                                   <div className="text-xs text-white font-bold truncate max-w-[210px]" title={topMatch.customerName}>
                                     {topMatch.customerName}
                                   </div>
+                                  {topMatch.lineItems && topMatch.lineItems.length > 0 && (
+                                    <div className="text-[10px] text-emerald-300 font-mono truncate max-w-[210px] mt-0.5" title={topMatch.lineItems.map((i: any) => `${i.quantity}x ${i.sku || i.name}`).join(', ')}>
+                                      Items: {topMatch.lineItems.map((i: any) => `${i.quantity}x ${i.sku || i.name}`).join(', ')}
+                                    </div>
+                                  )}
                                   <div className="flex items-center gap-2 pt-0.5">
                                     <button
                                       onClick={() => setSelectedSalesDoc({
@@ -1058,6 +1074,18 @@ export default function OrphanedRecordsPage() {
                                                       {cand.issueDate && <span>Date: {new Date(cand.issueDate).toLocaleDateString()}</span>}
                                                     </div>
 
+                                                    {/* Candidate Line Items */}
+                                                    {cand.lineItems && cand.lineItems.length > 0 && (
+                                                      <div className="flex flex-wrap items-center gap-1.5 pt-1.5 border-t border-slate-800/60">
+                                                        <span className="text-[10px] uppercase font-bold text-emerald-400">Invoice Items:</span>
+                                                        {cand.lineItems.map((item: any, iIdx: number) => (
+                                                          <span key={iIdx} className="text-[10px] font-mono font-bold bg-slate-950 text-emerald-300 px-1.5 py-0.5 rounded border border-slate-800">
+                                                            {item.quantity}x {item.sku || item.name}
+                                                          </span>
+                                                        ))}
+                                                      </div>
+                                                    )}
+
                                                     {/* Match Reason Breakdown Badges */}
                                                     {cand.reasons && cand.reasons.length > 0 && (
                                                       <div className="flex flex-wrap gap-1.5 pt-1">
@@ -1098,7 +1126,7 @@ export default function OrphanedRecordsPage() {
                                         <ExpandedRowSearch
                                           recordZohoId={po.zohoId}
                                           type="po"
-                                          initialQuery={displayShipAddr || displayShipName || po.referenceNumber || po.salesOrderNumber || ""}
+                                          initialQuery={displayShipName || po.referenceNumber || po.salesOrderNumber || displayShipAddr || ""}
                                           onLink={handleQuickLink}
                                           onViewDoc={(doc) => setSelectedSalesDoc(doc)}
                                         />

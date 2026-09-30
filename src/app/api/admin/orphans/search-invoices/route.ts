@@ -25,6 +25,22 @@ function safeString(val: any): string | null {
   return String(val)
 }
 
+function extractLineItems(doc: any, itemsData: any) {
+  if (Array.isArray(doc.lineItems) && doc.lineItems.length > 0) {
+    return doc.lineItems.map((li: any) => ({
+      name: li.sku || li.description || "Item",
+      sku: li.sku || "",
+      quantity: Number(li.quantity || 1)
+    }))
+  }
+  const rawList = Array.isArray(itemsData.line_items) ? itemsData.line_items : (Array.isArray(itemsData.lineItems) ? itemsData.lineItems : [])
+  return rawList.map((li: any) => ({
+    name: li.name || li.sku || li.description || "Item",
+    sku: li.sku || "",
+    quantity: Number(li.quantity || 1)
+  }))
+}
+
 export async function GET(req: Request) {
   try {
     const auth = await requireAdministrator()
@@ -38,17 +54,17 @@ export async function GET(req: Request) {
         prisma.invoice.findMany({
           take: 15,
           orderBy: { issueDate: "desc" },
-          include: { account: { select: { id: true, name: true } } }
+          include: { account: { select: { id: true, name: true } }, lineItems: true }
         }),
         prisma.salesOrder.findMany({
           take: 10,
           orderBy: { orderDate: "desc" },
-          include: { account: { select: { id: true, name: true } } }
+          include: { account: { select: { id: true, name: true } }, lineItems: true }
         }),
         prisma.quote.findMany({
           take: 10,
           orderBy: { createdAt: "desc" },
-          include: { account: { select: { id: true, name: true } } }
+          include: { account: { select: { id: true, name: true } }, lineItems: true }
         })
       ])
 
@@ -66,7 +82,8 @@ export async function GET(req: Request) {
           totalAmount: Number(inv.amount || itemsData.total || 0),
           status: safeString(inv.status || itemsData.status),
           referenceNumber: safeString(inv.salesorderNumber || itemsData.reference_number || itemsData.salesorder_number),
-          shipTo: formatAddr(itemsData.shipping_address || itemsData.delivery_address || itemsData.customer_name)
+          shipTo: formatAddr(itemsData.shipping_address || itemsData.delivery_address || itemsData.customer_name),
+          lineItems: extractLineItems(inv, itemsData)
         }
       })
 
@@ -84,7 +101,8 @@ export async function GET(req: Request) {
           totalAmount: Number(so.amount || itemsData.total || 0),
           status: safeString(so.status || itemsData.status),
           referenceNumber: safeString(itemsData.reference_number),
-          shipTo: formatAddr(itemsData.shipping_address || itemsData.delivery_address || itemsData.customer_name)
+          shipTo: formatAddr(itemsData.shipping_address || itemsData.delivery_address || itemsData.customer_name),
+          lineItems: extractLineItems(so, itemsData)
         }
       })
 
@@ -102,7 +120,8 @@ export async function GET(req: Request) {
           totalAmount: Number(qte.amount || itemsData.total || 0),
           status: safeString(qte.status || itemsData.status),
           referenceNumber: safeString(itemsData.reference_number),
-          shipTo: formatAddr(itemsData.shipping_address || itemsData.delivery_address || itemsData.customer_name)
+          shipTo: formatAddr(itemsData.shipping_address || itemsData.delivery_address || itemsData.customer_name),
+          lineItems: extractLineItems(qte, itemsData)
         }
       })
 
@@ -170,7 +189,7 @@ export async function GET(req: Request) {
         },
         take: 25,
         orderBy: { issueDate: "desc" },
-        include: { account: { select: accountSelect } }
+        include: { account: { select: accountSelect }, lineItems: true }
       }),
       prisma.salesOrder.findMany({
         where: {
@@ -193,7 +212,7 @@ export async function GET(req: Request) {
         },
         take: 20,
         orderBy: { orderDate: "desc" },
-        include: { account: { select: accountSelect } }
+        include: { account: { select: accountSelect }, lineItems: true }
       }),
       prisma.quote.findMany({
         where: {
@@ -217,7 +236,7 @@ export async function GET(req: Request) {
         },
         take: 20,
         orderBy: { createdAt: "desc" },
-        include: { account: { select: accountSelect } }
+        include: { account: { select: accountSelect }, lineItems: true }
       })
     ])
 
@@ -235,7 +254,8 @@ export async function GET(req: Request) {
         totalAmount: Number(inv.amount || itemsData.total || 0),
         status: safeString(inv.status || itemsData.status),
         referenceNumber: safeString(inv.salesorderNumber || itemsData.reference_number || itemsData.salesorder_number),
-        shipTo: formatAddr(itemsData.shipping_address || itemsData.delivery_address || itemsData.customer_name)
+        shipTo: formatAddr(itemsData.shipping_address || itemsData.delivery_address || itemsData.customer_name),
+        lineItems: extractLineItems(inv, itemsData)
       }
     })
 
@@ -253,7 +273,8 @@ export async function GET(req: Request) {
         totalAmount: Number(so.amount || itemsData.total || 0),
         status: safeString(so.status || itemsData.status),
         referenceNumber: safeString(itemsData.reference_number),
-        shipTo: formatAddr(itemsData.shipping_address || itemsData.delivery_address || itemsData.customer_name)
+        shipTo: formatAddr(itemsData.shipping_address || itemsData.delivery_address || itemsData.customer_name),
+        lineItems: extractLineItems(so, itemsData)
       }
     })
 
@@ -271,7 +292,8 @@ export async function GET(req: Request) {
         totalAmount: Number(qte.amount || itemsData.total || 0),
         status: safeString(qte.status || itemsData.status),
         referenceNumber: safeString(itemsData.reference_number),
-        shipTo: formatAddr(itemsData.shipping_address || itemsData.delivery_address || itemsData.customer_name)
+        shipTo: formatAddr(itemsData.shipping_address || itemsData.delivery_address || itemsData.customer_name),
+        lineItems: extractLineItems(qte, itemsData)
       }
     })
 

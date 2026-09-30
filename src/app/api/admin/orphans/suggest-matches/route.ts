@@ -269,6 +269,14 @@ export async function GET(req: Request) {
         if (score >= 30) {
           const invData: any = inv.items || {}
           const invNum = inv.invoiceNumber || invData.invoiceNumber || inv.zohoId
+          const lineItems = (Array.isArray(inv.lineItems) && inv.lineItems.length > 0)
+            ? inv.lineItems.map((li: any) => ({ name: li.sku || li.description || "Item", sku: li.sku || "", quantity: Number(li.quantity || 1) }))
+            : (Array.isArray(invData.line_items) ? invData.line_items : (Array.isArray(invData.lineItems) ? invData.lineItems : [])).map((li: any) => ({
+                name: li.name || li.sku || li.description || "Item",
+                sku: li.sku || "",
+                quantity: Number(li.quantity || 1)
+              }))
+
           candidates.push({
             docId: inv.zohoId,
             docType: "Invoice",
@@ -280,7 +288,8 @@ export async function GET(req: Request) {
             totalAmount: inv.amount || invData.total || 0,
             score,
             reasons,
-            matchDetails
+            matchDetails,
+            lineItems
           })
         }
       }
@@ -291,6 +300,14 @@ export async function GET(req: Request) {
         if (score >= 30) {
           const soData: any = so.items || {}
           const soNum = soData.salesorder_number || soData.so_number || so.zohoId
+          const lineItems = (Array.isArray(so.lineItems) && so.lineItems.length > 0)
+            ? so.lineItems.map((li: any) => ({ name: li.sku || li.description || "Item", sku: li.sku || "", quantity: Number(li.quantity || 1) }))
+            : (Array.isArray(soData.line_items) ? soData.line_items : (Array.isArray(soData.lineItems) ? soData.lineItems : [])).map((li: any) => ({
+                name: li.name || li.sku || li.description || "Item",
+                sku: li.sku || "",
+                quantity: Number(li.quantity || 1)
+              }))
+
           candidates.push({
             docId: so.zohoId,
             docType: "SalesOrder",
@@ -302,7 +319,8 @@ export async function GET(req: Request) {
             totalAmount: so.amount || soData.total || 0,
             score,
             reasons,
-            matchDetails
+            matchDetails,
+            lineItems
           })
         }
       }
@@ -313,6 +331,14 @@ export async function GET(req: Request) {
         if (score >= 30) {
           const qData: any = qte.items || {}
           const qNum = qData.quote_number || qData.estimate_number || qData.number || qte.zohoId
+          const lineItems = (Array.isArray(qte.lineItems) && qte.lineItems.length > 0)
+            ? qte.lineItems.map((li: any) => ({ name: li.sku || li.description || "Item", sku: li.sku || "", quantity: Number(li.quantity || 1) }))
+            : (Array.isArray(qData.line_items) ? qData.line_items : (Array.isArray(qData.lineItems) ? qData.lineItems : [])).map((li: any) => ({
+                name: li.name || li.sku || li.description || "Item",
+                sku: li.sku || "",
+                quantity: Number(li.quantity || 1)
+              }))
+
           candidates.push({
             docId: qte.zohoId,
             docType: "Estimate",
@@ -324,7 +350,8 @@ export async function GET(req: Request) {
             totalAmount: qte.amount || qData.total || 0,
             score,
             reasons,
-            matchDetails
+            matchDetails,
+            lineItems
           })
         }
       }
@@ -334,8 +361,7 @@ export async function GET(req: Request) {
 
       if (candidates.length > 0) {
         const topMatch = candidates[0]
-
-        suggestions[po.zohoId] = {
+        const suggestionPayload = {
           bestMatch: topMatch,
           candidates: candidates, // Return ALL candidate matches for review!
           invoiceId: topMatch.invoiceId,
@@ -343,8 +369,13 @@ export async function GET(req: Request) {
           customerName: topMatch.customerName,
           issueDate: topMatch.issueDate,
           score: topMatch.score,
-          reasons: topMatch.reasons
+          reasons: topMatch.reasons,
+          lineItems: topMatch.lineItems || []
         }
+
+        if (po.zohoId) suggestions[po.zohoId] = suggestionPayload
+        if (po.id) suggestions[po.id] = suggestionPayload
+        if (po.poNumber) suggestions[po.poNumber] = suggestionPayload
       }
     }
 
