@@ -12,12 +12,12 @@ export interface MatchScoreResult {
   }
 }
 
-export function isTitanWarehouse(str: string): boolean {
+export function isTitanWarehouse(str?: string | null): boolean {
   const s = String(str || '').toLowerCase()
   return (s.includes('8321') && s.includes('evans')) || s.includes('titan diamond')
 }
 
-export function tokenizeClean(str: string): string[] {
+export function tokenizeClean(str?: string | null): string[] {
   const stopWords = new Set([
     'llc', 'inc', 'corp', 'corporation', 'co', 'company', 'ltd', 'limited',
     'services', 'tool', 'general', 'and', '&', 'the', 'usa', 'road', 'street',
