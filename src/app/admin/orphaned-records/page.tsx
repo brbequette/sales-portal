@@ -58,6 +58,7 @@ interface Payment {
   referenceNumber: string | null
   invoiceNumber: string | null
   customerName?: string | null
+  description?: string | null
 }
 
 interface InvoiceSearchResult {
@@ -310,9 +311,10 @@ export default function OrphanedRecordsPage() {
     setCurrentPage(1)
   }
 
-  const fetchSuggestions = async (poIds?: string) => {
+  const fetchSuggestions = async (recordIds?: string, type: "po" | "payment" = "po") => {
     try {
-      const url = poIds ? `/api/admin/orphans/suggest-matches?poIds=${encodeURIComponent(poIds)}` : `/api/admin/orphans/suggest-matches`
+      const paramName = type === "po" ? "poIds" : "paymentIds"
+      const url = recordIds ? `/api/admin/orphans/suggest-matches?type=${type}&${paramName}=${encodeURIComponent(recordIds)}` : `/api/admin/orphans/suggest-matches?type=${type}`
       const res = await fetch(url)
       const data = await res.json()
       if (data.success) {
@@ -320,7 +322,7 @@ export default function OrphanedRecordsPage() {
           setSuggestions(prev => ({ ...prev, ...data.suggestions }))
         }
         if (data.autoApprovedCount && data.autoApprovedCount > 0) {
-          setSyncMessage(`Auto-approved and linked ${data.autoApprovedCount} 85%+ matched Purchase Order(s)!`)
+          setSyncMessage(`Auto-approved and linked ${data.autoApprovedCount} 85%+ matched ${type === "po" ? "Purchase Order(s)" : "Payment(s)"}!`)
           setTimeout(() => setSyncMessage(""), 5000)
           fetchData()
         }
@@ -356,10 +358,13 @@ export default function OrphanedRecordsPage() {
         setPaymentCount(data.paymentCount || 0)
         setServerTotalPages(data.totalPages || 1)
 
-        // Fetch match suggestions ONLY for the POs on the current page for lightning speed
+        // Fetch match suggestions ONLY for the records on the current page for lightning speed
         if (activeTab === "pos" && data.purchaseOrders && data.purchaseOrders.length > 0) {
           const pagePoIds = data.purchaseOrders.map((p: any) => p.zohoId).join(",")
-          fetchSuggestions(pagePoIds)
+          fetchSuggestions(pagePoIds, "po")
+        } else if (activeTab === "payments" && data.payments && data.payments.length > 0) {
+          const pagePaymentIds = data.payments.map((p: any) => p.zohoId).join(",")
+          fetchSuggestions(pagePaymentIds, "payment")
         }
       }
     } catch (e) {
@@ -1128,6 +1133,7 @@ export default function OrphanedRecordsPage() {
                     <tr>
                       <th className="w-12 px-3 py-3.5 text-center"></th>
                       <th className="w-44 px-4 py-3.5 text-left">Payment ID</th>
+                      <th className="w-[270px] px-4 py-3.5 text-left">Suggested Match</th>
                       <th className="min-w-[220px] px-4 py-3.5 text-left">Customer Name</th>
                       <th className="w-32 px-4 py-3.5 text-left">Date</th>
                       <th className="w-32 px-4 py-3.5 text-left">Mode</th>
@@ -1138,6 +1144,16 @@ export default function OrphanedRecordsPage() {
                   <tbody className="divide-y divide-slate-800/60">
                     {payments.map((p: Payment) => {
                       const isExpanded = expandedRowId === p.zohoId
+                      const pSuggestions = suggestions[p.zohoId]
+                      const topMatch = pSuggestions?.bestMatch || (pSuggestions?.score ? pSuggestions : null)
+                      const candidatesList: any[] = pSuggestions?.candidates || (topMatch ? [topMatch] : [])
+
+                      const displayPaymentCustomer = safeText(
+                        p.customerName ||
+                        (p.description && p.description.includes("Customer:") ? p.description.split("|")[0].replace(/.*customer:\s*/i, "").trim() : p.description),
+                        "N/A"
+                      )
+
                       return (
                         <Fragment key={p.id}>
                           <tr
@@ -1155,7 +1171,47 @@ export default function OrphanedRecordsPage() {
                               </button>
                             </td>
                             <td className="px-4 py-4 font-extrabold text-white">{p.zohoId}</td>
-                            <td className="px-4 py-4 font-bold text-slate-200">{p.customerName || "N/A"}</td>
+
+                            <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                              {topMatch ? (
+                                <div className="bg-emerald-950/30 border border-emerald-500/30 rounded-xl p-2.5 space-y-1.5 shadow-sm">
+                                  <div className="flex items-center justify-between gap-1 flex-wrap">
+                                    <span className="text-[10px] font-black uppercase text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-500/30">
+                                      {topMatch.docType || 'Inv'} #{topMatch.docNumber || topMatch.invoiceNumber}
+                                    </span>
+                                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                                      🎯 {topMatch.score}% Match
+                                    </span>
+                                  </div>
+                                  <div className="text-xs text-white font-bold truncate max-w-[210px]" title={topMatch.customerName}>
+                                    {safeText(topMatch.customerName, "Unknown Customer")}
+                                  </div>
+                                  <div className="flex items-center gap-2 pt-0.5">
+                                    <button
+                                      onClick={() => setSelectedSalesDoc({
+                                        zohoId: topMatch.docId || topMatch.invoiceId,
+                                        docNumber: topMatch.docNumber || topMatch.invoiceNumber,
+                                        type: (topMatch.docType as any) || "Invoice"
+                                      })}
+                                      className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-2 py-1 rounded-lg text-[10px] transition flex items-center gap-1 cursor-pointer"
+                                      title="Review document details"
+                                    >
+                                      <FiEye size={11} /> Review
+                                    </button>
+                                    <button
+                                      onClick={() => handleQuickLink(p.zohoId, topMatch.docNumber || topMatch.invoiceNumber)}
+                                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-2.5 py-1 rounded-lg text-[10px] transition flex items-center gap-1 cursor-pointer shadow-md"
+                                    >
+                                      <FiLink size={11} /> Link Now
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-slate-500 italic">No match suggested</span>
+                              )}
+                            </td>
+
+                            <td className="px-4 py-4 font-bold text-slate-200">{displayPaymentCustomer}</td>
                             <td className="px-4 py-4 text-slate-400 whitespace-nowrap">
                               <div className="flex items-center gap-1.5">
                                 <FiCalendar size={13} className="text-slate-500" />
@@ -1191,7 +1247,7 @@ export default function OrphanedRecordsPage() {
                           {/* Expanded Payment Drawer */}
                           {isExpanded && (
                             <tr key={`${p.id}-expanded`} className="bg-slate-950">
-                              <td colSpan={7} className="p-0 border-b border-slate-800">
+                              <td colSpan={8} className="p-0 border-b border-slate-800">
                                 <div className="border-t border-b border-amber-500/30 bg-slate-950/95 p-6 shadow-2xl animate-in fade-in duration-200">
                                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                                     <div className="lg:col-span-5 space-y-4 border-b lg:border-b-0 lg:border-r border-slate-800/80 pb-6 lg:pb-0 lg:pr-6">
@@ -1215,7 +1271,7 @@ export default function OrphanedRecordsPage() {
                                       <div className="grid grid-cols-2 gap-3 text-xs">
                                         <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
                                           <div className="text-slate-400 font-medium">Customer Name</div>
-                                          <div className="text-white font-bold mt-0.5 truncate">{p.customerName || "N/A"}</div>
+                                          <div className="text-white font-bold mt-0.5 truncate">{displayPaymentCustomer}</div>
                                         </div>
                                         <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
                                           <div className="text-slate-400 font-medium">Payment Amount</div>
@@ -1224,7 +1280,76 @@ export default function OrphanedRecordsPage() {
                                       </div>
                                     </div>
 
-                                    <div className="lg:col-span-7">
+                                    <div className="lg:col-span-7 space-y-5">
+                                      {candidatesList.length > 0 && (
+                                        <div className="space-y-3">
+                                          <div className="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                                            <span className="flex items-center gap-1.5 text-emerald-400">
+                                              <FiLayers /> All Candidate Invoice Matches ({candidatesList.length})
+                                            </span>
+                                            <span className="text-[11px] text-slate-500 font-normal">Ranked by Customer Account, Amount & Date</span>
+                                          </div>
+
+                                          <div className="max-h-80 overflow-y-auto grid grid-cols-1 gap-3 pr-1 custom-scrollbar">
+                                            {candidatesList.map((cand, cIdx) => {
+                                              const dType = cand.docType || "Invoice"
+                                              const dNum = cand.docNumber || cand.invoiceNumber
+
+                                              return (
+                                                <div
+                                                  key={cIdx}
+                                                  className="bg-slate-900/90 hover:bg-slate-850 border border-emerald-500/40 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md transition"
+                                                >
+                                                  <div className="space-y-1 min-w-0 flex-1">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                      <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md border bg-blue-500/20 text-blue-300 border-blue-500/40">
+                                                        {dType} #{dNum}
+                                                      </span>
+                                                      <span className="text-xs font-bold text-white truncate">{cand.customerName}</span>
+                                                      <span className="text-[11px] font-black bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-md border border-emerald-500/30">
+                                                        🎯 {cand.score}% Match
+                                                      </span>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-4 text-xs text-slate-400">
+                                                      <span>Invoice Total: <strong className="text-white">${(cand.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                                                      {cand.issueDate && <span>Date: {new Date(cand.issueDate).toLocaleDateString()}</span>}
+                                                    </div>
+
+                                                    {cand.reasons && cand.reasons.length > 0 && (
+                                                      <div className="flex flex-wrap gap-1.5 pt-1">
+                                                        {cand.reasons.map((r: string, rIdx: number) => (
+                                                          <span key={rIdx} className="text-[10px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded-md font-medium">
+                                                            ✓ {r}
+                                                          </span>
+                                                        ))}
+                                                      </div>
+                                                    )}
+                                                  </div>
+
+                                                  <div className="flex items-center gap-2 flex-shrink-0">
+                                                    <button
+                                                      onClick={() => setSelectedSalesDoc({ zohoId: cand.docId || cand.invoiceId, docNumber: dNum, type: "Invoice" })}
+                                                      className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-3 py-2 rounded-lg text-xs transition flex items-center gap-1.5 cursor-pointer"
+                                                      title="Review document in popup modal"
+                                                    >
+                                                      <FiEye size={13} /> Review
+                                                    </button>
+                                                    <button
+                                                      onClick={() => handleQuickLink(p.zohoId, dNum)}
+                                                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-4 py-2 rounded-lg text-xs transition flex items-center gap-1.5 whitespace-nowrap shadow-lg cursor-pointer"
+                                                    >
+                                                      <FiLink size={13} />
+                                                      Link to #{dNum}
+                                                    </button>
+                                                  </div>
+                                                </div>
+                                              )
+                                            })}
+                                          </div>
+                                        </div>
+                                      )}
+
                                       <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-md">
                                         <ExpandedRowSearch
                                           recordZohoId={p.zohoId}

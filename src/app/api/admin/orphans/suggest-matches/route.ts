@@ -1,38 +1,20 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAdministrator } from "@/lib/auth-helpers"
-import { computePOMatchScore } from "./match-score"
+import { computePOMatchScore, computePaymentMatchScore } from "./match-score"
 
 export async function GET(req: Request) {
   const auth = await requireAdministrator()
   if (auth.errorResponse) return auth.errorResponse
   try {
     const { searchParams } = new URL(req.url)
+    const type = searchParams.get("type") || "po"
     const poId = searchParams.get("poId")
     const poIdsParam = searchParams.get("poIds")
+    const paymentId = searchParams.get("paymentId")
+    const paymentIdsParam = searchParams.get("paymentIds")
 
-    const poWhere: any = { invoiceId: null, isInventoryOrder: false }
-    if (poId) {
-      poWhere.OR = [{ id: poId }, { zohoId: poId }]
-    } else if (poIdsParam) {
-      const splitIds = poIdsParam.split(",").map(s => s.trim()).filter(Boolean)
-      if (splitIds.length > 0) {
-        poWhere.OR = [
-          { id: { in: splitIds } },
-          { zohoId: { in: splitIds } }
-        ]
-      }
-    }
-
-    const pos = await prisma.purchaseOrder.findMany({
-      where: poWhere,
-      take: (poId || poIdsParam) ? 50 : 25,
-      orderBy: { date: "desc" }
-    })
-
-    if (pos.length === 0) {
-      return NextResponse.json({ success: true, suggestions: {} })
-    }
+    const isPaymentMode = type === "payment" || !!paymentId || !!paymentIdsParam
 
     const accountSelect = {
       id: true,
@@ -69,6 +51,114 @@ export async function GET(req: Request) {
     const suggestions: Record<string, any> = {}
     let autoApprovedCount = 0
     const autoApprovedSummary: any[] = []
+
+    if (isPaymentMode) {
+      const payWhere: any = { invoiceId: null }
+      if (paymentId) {
+        payWhere.OR = [{ id: paymentId }, { zohoId: paymentId }]
+      } else if (paymentIdsParam) {
+        const splitIds = paymentIdsParam.split(",").map(s => s.trim()).filter(Boolean)
+        if (splitIds.length > 0) {
+          payWhere.OR = [
+            { id: { in: splitIds } },
+            { zohoId: { in: splitIds } }
+          ]
+        }
+      }
+
+      const payments = await prisma.payment.findMany({
+        where: payWhere,
+        take: (paymentId || paymentIdsParam) ? 50 : 25,
+        orderBy: { date: "desc" }
+      })
+
+      for (const p of payments) {
+        const candidates: any[] = []
+        for (const inv of candidateInvoices) {
+          const { score, reasons, matchDetails } = computePaymentMatchScore(p, inv)
+          if (score >= 30) {
+            const invData: any = inv.items || {}
+            const invNum = inv.invoiceNumber || invData.invoiceNumber || inv.zohoId
+            candidates.push({
+              docId: inv.zohoId,
+              docType: "Invoice",
+              docNumber: invNum,
+              invoiceId: inv.zohoId,
+              invoiceNumber: invNum,
+              customerName: inv.account?.name || invData.customer_name || "Unknown Customer",
+              issueDate: inv.issueDate,
+              totalAmount: inv.amount || invData.total || 0,
+              score,
+              reasons,
+              matchDetails
+            })
+          }
+        }
+
+        candidates.sort((a, b) => b.score - a.score)
+
+        if (candidates.length > 0) {
+          const topMatch = candidates[0]
+
+          if (topMatch.score >= 85) {
+            const finalDocNum = topMatch.docNumber || topMatch.invoiceNumber
+            await prisma.payment.update({
+              where: { id: p.id },
+              data: {
+                invoiceId: topMatch.docId,
+                invoiceNumber: String(finalDocNum)
+              }
+            })
+
+            autoApprovedCount++
+            autoApprovedSummary.push({
+              paymentZohoId: p.zohoId,
+              docNumber: finalDocNum,
+              customerName: topMatch.customerName,
+              score: topMatch.score
+            })
+            continue
+          }
+
+          suggestions[p.zohoId] = {
+            bestMatch: topMatch,
+            candidates,
+            invoiceId: topMatch.invoiceId,
+            invoiceNumber: topMatch.invoiceNumber,
+            customerName: topMatch.customerName,
+            issueDate: topMatch.issueDate,
+            score: topMatch.score,
+            reasons: topMatch.reasons
+          }
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        suggestions,
+        autoApprovedCount,
+        autoApprovedSummary
+      })
+    }
+
+    const poWhere: any = { invoiceId: null, isInventoryOrder: false }
+    if (poId) {
+      poWhere.OR = [{ id: poId }, { zohoId: poId }]
+    } else if (poIdsParam) {
+      const splitIds = poIdsParam.split(",").map(s => s.trim()).filter(Boolean)
+      if (splitIds.length > 0) {
+        poWhere.OR = [
+          { id: { in: splitIds } },
+          { zohoId: { in: splitIds } }
+        ]
+      }
+    }
+
+    const pos = await prisma.purchaseOrder.findMany({
+      where: poWhere,
+      take: (poId || poIdsParam) ? 50 : 25,
+      orderBy: { date: "desc" }
+    })
 
     for (const po of pos) {
       const candidates: any[] = []

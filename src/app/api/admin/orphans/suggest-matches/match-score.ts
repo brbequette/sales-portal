@@ -263,3 +263,122 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
   const finalScore = Math.min(100, score)
   return { score: finalScore, reasons, matchDetails }
 }
+
+export function computePaymentMatchScore(payment: any, doc: any): MatchScoreResult {
+  let score = 0
+  const reasons: string[] = []
+  const matchDetails: MatchScoreResult['matchDetails'] = {}
+
+  const payItems = payment.items || {}
+  const docItems = doc.items || {}
+
+  // -------------------------------------------------------------
+  // 1. Customer Account & Name Matcher (Strict Filter)
+  // -------------------------------------------------------------
+  let rawPayCustomer = String(payment.customerName || payItems.customer_name || payItems.customer_id || payment.description || "").trim()
+
+  if (rawPayCustomer.toLowerCase().includes("customer:")) {
+    const parts = rawPayCustomer.split("|")
+    const custPart = parts.find(p => p.toLowerCase().includes("customer:")) || parts[0]
+    rawPayCustomer = custPart.replace(/.*customer:\s*/i, "").trim()
+  }
+
+  const payCustomer = rawPayCustomer.toLowerCase()
+  const docCustomer = String(
+    doc.account?.name ||
+    doc.accountName ||
+    doc.customer_name ||
+    docItems.customer_name ||
+    docItems.shipping_address?.company_name ||
+    docItems.billing_address?.company_name ||
+    ""
+  ).toLowerCase().trim()
+
+  const stopWords = new Set(['llc', 'inc', 'corp', 'corporation', 'co', 'company', 'ltd', 'limited', 'services', 'tool', 'general', 'and', '&', 'the', 'usa', 'pavers', 'landscaping', 'landscapes', 'dnr', 'group', 'construction', 'construct', 'concrete', 'building', 'materials', 'sons', 'bros', 'brothers', 'contracting', 'excavating', 'masonry', 'paving', 'design', 'solutions', 'enterprises', 'associates', 'supply', 'surfaces', 'surface', 'all'])
+  const payTokens = payCustomer.split(/[\s,.-]+/).filter(t => t.length > 2 && !stopWords.has(t))
+  const docTokens = docCustomer.split(/[\s,.-]+/).filter(t => t.length > 2 && !stopWords.has(t))
+
+  if (payCustomer.length > 2 && docCustomer.length > 2) {
+    const hasTokenOverlap = payTokens.some(t => docTokens.includes(t)) || docTokens.some(t => payTokens.includes(t))
+    const isExactOrSubstring = (payCustomer.length > 5 && docCustomer.length > 5 && (payCustomer.includes(docCustomer) || docCustomer.includes(payCustomer)))
+
+    const isMatch = hasTokenOverlap || isExactOrSubstring
+
+    if (!isMatch) {
+      return {
+        score: 0,
+        reasons: [`Customer mismatch: Payment customer '${rawPayCustomer}' does not match doc customer '${doc.account?.name || docCustomer.toUpperCase()}'`],
+        matchDetails: {}
+      }
+    }
+
+    score += 50 // High score for matching customer account!
+    const displayCustomerName = doc.account?.name || docCustomer.toUpperCase()
+    reasons.push(`Customer Account Match: ${displayCustomerName}`)
+    matchDetails.addressMatch = `Customer '${displayCustomerName}'`
+  }
+
+  // -------------------------------------------------------------
+  // 2. Exact or Proximity Amount Matcher
+  // -------------------------------------------------------------
+  const payAmount = Number(payment.amount || payItems.amount || 0)
+  const docTotal = Number(doc.amount || docItems.total || 0)
+
+  if (payAmount > 0 && docTotal > 0) {
+    const diff = Math.abs(payAmount - docTotal)
+    if (diff < 0.01) {
+      score += 45 // Exact amount match!
+      reasons.push(`Exact Amount $${payAmount.toFixed(2)}`)
+      matchDetails.amountMatch = `Exact Amount $${payAmount.toFixed(2)}`
+    } else if (payAmount <= docTotal) {
+      const payPercent = Math.round((payAmount / docTotal) * 100)
+      if (payPercent >= 20) {
+        score += 20
+        reasons.push(`Partial Payment (${payPercent}% of invoice total $${docTotal.toFixed(2)})`)
+        matchDetails.amountMatch = `Partial Payment (${payPercent}%)`
+      }
+    } else if (diff / payAmount < 0.05) {
+      score += 20
+      reasons.push(`Near Amount ($${payAmount.toFixed(2)} vs $${docTotal.toFixed(2)})`)
+      matchDetails.amountMatch = `Near Amount`
+    }
+  }
+
+  // -------------------------------------------------------------
+  // 3. Date Proximity Window (Invoice created before or near payment date)
+  // -------------------------------------------------------------
+  const payDate = payment.date ? new Date(payment.date) : null
+  const rawDocDate = doc.issueDate || doc.orderDate || doc.createdAt || docItems.date || docItems.issue_date
+  const docDate = rawDocDate ? new Date(rawDocDate) : null
+
+  if (payDate && docDate && !isNaN(payDate.getTime()) && !isNaN(docDate.getTime())) {
+    const diffDaysFloat = (payDate.getTime() - docDate.getTime()) / (1000 * 60 * 60 * 24)
+    const absDiffDays = Math.abs(diffDaysFloat)
+    const roundedDays = Math.round(absDiffDays)
+
+    if (diffDaysFloat >= -2 && diffDaysFloat <= 30) {
+      score += 25
+      reasons.push(`Payment Date Window (${roundedDays}d relative to Invoice)`)
+      matchDetails.dateMatch = `Payment Date Window (${roundedDays}d)`
+    } else if (absDiffDays <= 45) {
+      score += 15
+      reasons.push(`Extended Date Window (${roundedDays}d)`)
+      matchDetails.dateMatch = `Extended Date Window (${roundedDays}d)`
+    }
+  }
+
+  // -------------------------------------------------------------
+  // 4. Reference Number Match (Check #, Invoice # in reference)
+  // -------------------------------------------------------------
+  const payRef = String(payment.referenceNumber || payItems.reference_number || "").trim().toLowerCase()
+  const docNumber = String(doc.invoiceNumber || doc.salesorderNumber || docItems.invoiceNumber || doc.zohoId || "").trim().toLowerCase()
+
+  if (payRef && payRef.length >= 3 && docNumber && (docNumber.includes(payRef) || payRef.includes(docNumber))) {
+    score += 40
+    reasons.push(`Ref #${payRef.toUpperCase()} Match`)
+    matchDetails.referenceMatch = `Ref #${payRef.toUpperCase()}`
+  }
+
+  const finalScore = Math.min(100, score)
+  return { score: finalScore, reasons, matchDetails }
+}
