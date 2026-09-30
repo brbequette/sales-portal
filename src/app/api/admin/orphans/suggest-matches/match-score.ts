@@ -12,6 +12,23 @@ export interface MatchScoreResult {
   }
 }
 
+export function isTitanWarehouse(str: string): boolean {
+  const s = String(str || '').toLowerCase()
+  return (s.includes('8321') && s.includes('evans')) || s.includes('titan diamond')
+}
+
+export function tokenizeClean(str: string): string[] {
+  const stopWords = new Set([
+    'llc', 'inc', 'corp', 'corporation', 'co', 'company', 'ltd', 'limited',
+    'services', 'tool', 'general', 'and', '&', 'the', 'usa', 'road', 'street',
+    'drive', 'blvd', 'suite', 'unit', 'ave', 'avenue', 'north', 'south', 'east', 'west'
+  ])
+  return String(str || '')
+    .toLowerCase()
+    .split(/[\s,.-]+/)
+    .filter(t => t.length > 2 && !stopWords.has(t))
+}
+
 export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
   let score = 0
   const reasons: string[] = []
@@ -20,54 +37,8 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
   const docItems = doc.items || {}
   const poItems = po.items || {}
 
-  // -------------------------------------------------------------
-  // 0. Strict Customer Company Filter
-  // If PO specifies a customer/recipient company, candidate must belong to that customer!
-  // -------------------------------------------------------------
-  const poCustomer = String(
-    po.shipToName ||
-    poItems.delivery_customer_name ||
-    poItems.customer_name ||
-    poItems.recipient_name ||
-    poItems.attention ||
-    poItems.delivery_address?.attention ||
-    poItems.delivery_address?.customer_name ||
-    ""
-  ).toLowerCase().trim()
-
-  const docCustomer = String(
-    doc.account?.name ||
-    docItems.customer_name ||
-    ""
-  ).toLowerCase().trim()
-
-  const stopWords = new Set(['llc', 'inc', 'corp', 'corporation', 'co', 'company', 'ltd', 'limited', 'services', 'tool', 'general', 'and', '&', 'the', 'usa'])
-  const poTokens = poCustomer.split(/[\s,.-]+/).filter(t => t.length > 2 && !stopWords.has(t))
-  const docTokens = docCustomer.split(/[\s,.-]+/).filter(t => t.length > 2 && !stopWords.has(t))
-
-  if (poTokens.length > 0 && docTokens.length > 0) {
-    const hasOverlap = poTokens.some(t => docCustomer.includes(t)) || docTokens.some(t => poCustomer.includes(t))
-    
-    const accountShipAddr = `${doc.account?.shippingStreet || ''} ${doc.account?.shippingCity || ''} ${doc.account?.shippingState || ''} ${doc.account?.shippingZip || ''}`.toLowerCase().trim()
-    const accountBillAddr = `${doc.account?.billingStreet || ''} ${doc.account?.billingCity || ''} ${doc.account?.billingState || ''} ${doc.account?.billingZip || ''}`.toLowerCase().trim()
-    const poAddress = String(po.shippingAddress || poItems.delivery_address?.address || poItems.delivery_address || poItems.shipping_address || "").toLowerCase().trim()
-    
-    const poAddrTokens = poAddress.split(/[\s,]+/).filter(t => t.length > 2 && !['street', 'road', 'drive', 'blvd', 'suite', 'unit', 'north', 'south', 'east', 'west', 'avenue', 'lane', 'court'].includes(t))
-    const addressOverlap = poAddrTokens.some(t => accountShipAddr.includes(t) || accountBillAddr.includes(t))
-
-    const poRef = String(po.salesOrderNumber || po.referenceNumber || poItems.salesorder_number || poItems.reference_number || (poItems.salesorders && poItems.salesorders[0]?.salesorder_number) || "").trim().toLowerCase()
-    const docNumber = String(doc.invoiceNumber || doc.salesorderNumber || docItems.invoiceNumber || docItems.salesorder_number || doc.zohoId || "").trim().toLowerCase()
-    const isRefMatch = poRef && poRef.length >= 3 && (docNumber.includes(poRef) || poRef.includes(docNumber))
-
-    // If both PO and document specify customer names, but share ZERO name/address tokens and no reference match: exclude!
-    if (!hasOverlap && !addressOverlap && !isRefMatch) {
-      return {
-        score: 0,
-        reasons: [`Customer mismatch: PO customer '${po.shipToName || poCustomer}' does not match doc customer '${doc.account?.name || docCustomer}'`],
-        matchDetails: {}
-      }
-    }
-  }
+  const poTotal = Number(po.total || poItems.total || 0)
+  const docTotal = Number(doc.amount || docItems.total || 0)
 
   // -------------------------------------------------------------
   // 1. Sales Order / Estimate / Reference Number Match (Up to 80 points)
@@ -123,11 +94,38 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
 
   // -------------------------------------------------------------
   // 2. Customer Identification via Dropship Shipping Address & Account Address (Up to 60 points)
+  // Excludes Titan Diamond's own warehouse from matching against internal accounts!
   // -------------------------------------------------------------
-  const shipTo = String(po.shipToName || poItems.delivery_customer_name || poItems.customer_name || poItems.ship_via || poItems.recipient_name || poItems.attention || poItems.delivery_address?.attention || "").toLowerCase().trim()
-  const poAddress = String(po.shippingAddress || poItems.delivery_address?.address || poItems.delivery_address || poItems.shipping_address || poItems.recipient_address || poItems.address || poItems.city || "").toLowerCase().trim()
-  
-  const customerName = String(doc.account?.name || docItems.customer_name || "").toLowerCase().trim()
+  const shipTo = String(
+    po.shipToName ||
+    poItems.delivery_customer_name ||
+    poItems.customer_name ||
+    poItems.ship_via ||
+    poItems.recipient_name ||
+    poItems.attention ||
+    poItems.delivery_address?.attention ||
+    ""
+  ).toLowerCase().trim()
+
+  const poAddress = String(
+    po.shippingAddress ||
+    poItems.delivery_address?.address ||
+    poItems.delivery_address ||
+    poItems.shipping_address ||
+    poItems.recipient_address ||
+    poItems.address ||
+    poItems.city ||
+    ""
+  ).toLowerCase().trim()
+
+  const isPoToWarehouse = isTitanWarehouse(shipTo) || isTitanWarehouse(poAddress)
+
+  const docCustomer = String(
+    doc.account?.name ||
+    docItems.customer_name ||
+    ""
+  ).toLowerCase().trim()
+
   const docShipObj = docItems.shipping_address || docItems.delivery_address || {}
   const docShipStr = (typeof docShipObj === 'string' ? docShipObj : JSON.stringify(docShipObj)).toLowerCase()
   
@@ -138,31 +136,36 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
 
   let addressMatched = false
 
-  if (poAddress && poAddress.length > 3) {
-    const poAddTokens = poAddress.split(/[\s,]+/).filter((t: string) => t.length > 2 && !['street', 'road', 'drive', 'blvd', 'suite', 'unit', 'north', 'south', 'east', 'west', 'avenue', 'lane', 'court'].includes(t))
-    const matchedTokens = poAddTokens.filter((t: string) => docAddressCombined.includes(t))
-    
-    if (matchedTokens.length >= 2 || (poAddTokens.length >= 1 && (docAddressCombined.includes(poAddress) || poAddress.includes(docAddressCombined)))) {
-      addressMatched = true
-      score += 60 // Customer Account & Address Identified!
-      const label = doc.account?.name ? `Customer Account '${doc.account.name}' Address Match` : `Dropship Address Match`
-      reasons.push(`${label}: ${matchedTokens.slice(0, 3).join(", ")}`)
-      matchDetails.addressMatch = `${label} (${matchedTokens.slice(0, 3).join(", ")})`
+  if (!isPoToWarehouse) {
+    // Check dropship address
+    if (poAddress && poAddress.length > 3) {
+      const poAddTokens = tokenizeClean(poAddress)
+      const matchedTokens = poAddTokens.filter((t: string) => docAddressCombined.includes(t))
+      
+      if (matchedTokens.length >= 2 || (poAddTokens.length >= 1 && (docAddressCombined.includes(poAddress) || poAddress.includes(docAddressCombined)))) {
+        addressMatched = true
+        score += 40
+        const label = doc.account?.name ? `Customer Account '${doc.account.name}' Address Match` : `Dropship Address Match`
+        reasons.push(`${label}: ${matchedTokens.slice(0, 3).join(", ")}`)
+        matchDetails.addressMatch = `${label} (${matchedTokens.slice(0, 3).join(", ")})`
+      }
     }
-  }
 
-  if (!addressMatched && shipTo && customerName) {
-    if (shipTo === customerName || customerName.includes(shipTo) || shipTo.includes(customerName)) {
-      score += 40
-      reasons.push(`Customer Account '${doc.account?.name || docItems.customer_name}' Match`)
-      matchDetails.addressMatch = (matchDetails.addressMatch ? `${matchDetails.addressMatch} + ` : "") + `Customer '${doc.account?.name || docItems.customer_name}'`
-    } else {
-      const poTokens = shipTo.split(/\s+/).filter((t: string) => t.length > 2)
-      const matchesToken = poTokens.some((t: string) => customerName.includes(t))
-      if (matchesToken) {
-        score += 25
-        reasons.push(`Customer Name Token Match`)
-        matchDetails.addressMatch = (matchDetails.addressMatch ? `${matchDetails.addressMatch} + ` : "") + `Customer Token Match`
+    // Check customer name tokens
+    if (shipTo && docCustomer) {
+      const poTokens = tokenizeClean(shipTo)
+      const docTokens = tokenizeClean(docCustomer)
+      const tokenOverlap = poTokens.filter(t => docTokens.includes(t) || docCustomer.includes(t))
+
+      if (shipTo === docCustomer || docCustomer.includes(shipTo) || shipTo.includes(docCustomer) || tokenOverlap.length >= 2) {
+        score += 50
+        const custDisplay = doc.account?.name || docItems.customer_name
+        reasons.push(`Customer '${custDisplay}' Matched (${tokenOverlap.slice(0, 3).join(", ") || shipTo})`)
+        matchDetails.addressMatch = (matchDetails.addressMatch ? `${matchDetails.addressMatch} + ` : "") + `Customer '${custDisplay}'`
+      } else if (tokenOverlap.length === 1) {
+        score += 30
+        reasons.push(`Customer Token Matched (${tokenOverlap[0]})`)
+        matchDetails.addressMatch = (matchDetails.addressMatch ? `${matchDetails.addressMatch} + ` : "") + `Customer Token (${tokenOverlap[0]})`
       }
     }
   }
@@ -193,7 +196,7 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
     let validPoItemCount = 0
 
     for (const poItem of poLineItems) {
-      const poSku = String(poItem.sku || poItem.name || poItem.productName || poItem.description || "").toLowerCase().trim()
+      const poSku = String(poItem.sku || poItem.name || poItem.item_name || poItem.productName || poItem.description || "").toLowerCase().trim()
       const poSkuClean = poSku.replace(/[^a-z0-9]/g, "")
       const poQty = Number(poItem.quantity || poItem.quantity_ordered || poItem.qty || 0)
 
@@ -205,11 +208,16 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
       let isCompatQty = false
 
       for (const invItem of docLineItems) {
-        const invSku = String(invItem.sku || invItem.name || invItem.productName || invItem.description || "").toLowerCase().trim()
+        const invSku = String(invItem.sku || invItem.name || invItem.item_name || invItem.productName || invItem.description || "").toLowerCase().trim()
         const invSkuClean = invSku.replace(/[^a-z0-9]/g, "")
         const invQty = Number(invItem.quantity || invItem.qty || 0)
 
-        const isSkuMatch = poSkuClean && invSkuClean && (invSkuClean.includes(poSkuClean) || poSkuClean.includes(invSkuClean))
+        const isSkuMatch = poSkuClean && invSkuClean && (
+          poSkuClean === invSkuClean ||
+          (poSkuClean.length >= 5 && invSkuClean.includes(poSkuClean)) ||
+          (invSkuClean.length >= 5 && poSkuClean.includes(invSkuClean))
+        )
+
         if (isSkuMatch) {
           if (poQty > 0 && invQty === poQty) {
             bestInvMatch = invItem
@@ -226,7 +234,7 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
       }
 
       if (bestInvMatch) {
-        const itemName = poItem.name || poItem.sku || poSku
+        const itemName = poItem.name || poItem.item_name || poItem.sku || poSku
         const invRate = Number(bestInvMatch.rate || bestInvMatch.unitPrice || 0)
         matchedRetailTotal += invRate > 0 ? (invRate * (poQty > 0 ? poQty : 1)) : Number(bestInvMatch.item_total || bestInvMatch.total || 0)
 
@@ -245,11 +253,10 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
     if (validPoItemCount > 0 && matchedSummaries.length > 0) {
       const isAllExact = exactQtyCount === validPoItemCount
       const isAllCompat = (exactQtyCount + compatibleQtyCount) === validPoItemCount
-      const matchedRatio = matchedSummaries.length / validPoItemCount
 
       if (isAllExact) {
         score += 55 // All items and quantities matched!
-        const label = `${validPoItemCount} of ${validPoItemCount} Items & Qty Matched: ${matchedSummaries.slice(0, 3).join(", ")}`
+        const label = `All ${validPoItemCount} Line Items & Quantities Matched: ${matchedSummaries.slice(0, 3).join(", ")}`
         reasons.push(label)
         matchDetails.itemMatch = label
       } else if (isAllCompat) {
@@ -257,14 +264,9 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
         const label = `${matchedSummaries.length} Items & Qty Matched (Multi-PO Fulfillment): ${matchedSummaries.slice(0, 3).join(", ")}`
         reasons.push(label)
         matchDetails.itemMatch = label
-      } else if (matchedRatio >= 0.5) {
-        score += 35 // At least half the PO line items matched
-        const label = `${matchedSummaries.length} of ${validPoItemCount} Line Items Matched: ${matchedSummaries.slice(0, 3).join(", ")}`
-        reasons.push(label)
-        matchDetails.itemMatch = label
       } else {
-        score += 25 // Partial SKU match
-        const label = `Line Item Matched: ${matchedSummaries.slice(0, 2).join(", ")}`
+        score += 35 // Partial line items matched
+        const label = `${matchedSummaries.length} of ${validPoItemCount} Line Items Matched: ${matchedSummaries.slice(0, 3).join(", ")}`
         reasons.push(label)
         matchDetails.itemMatch = label
       }
@@ -272,7 +274,7 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
   }
 
   // -------------------------------------------------------------
-  // 4. 10-Day Match Window & Operational Timeline (Up to 25 points)
+  // 4. Date Proximity (Up to 25 points)
   // -------------------------------------------------------------
   const poDate = po.date ? new Date(po.date) : null
   const rawDate = doc.issueDate || doc.orderDate || doc.createdAt || docItems.date || docItems.issue_date || docItems.created_time
@@ -283,52 +285,64 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
     const absDiffDays = Math.abs(diffDaysFloat)
     const roundedDays = Math.round(absDiffDays)
 
-    if (diffDaysFloat >= -3 && diffDaysFloat <= 10) {
+    if (roundedDays === 0) {
       score += 25
-      reasons.push(`10-Day Window (+${roundedDays}d after Est/Order)`)
-      matchDetails.dateMatch = `10-Day Window (+${roundedDays}d)`
-    } else if (diffDaysFloat > 10 && diffDaysFloat <= 17) {
-      score += 15
-      reasons.push(`Processing Window (+${roundedDays}d after Est/Order)`)
+      reasons.push(`Exact Same Day (${poDate.toISOString().slice(0, 10)})`)
+      matchDetails.dateMatch = `Exact Same Day`
+    } else if (diffDaysFloat >= -2 && diffDaysFloat <= 14) {
+      score += 25
+      reasons.push(`Order Processing Window (+${roundedDays}d)`)
       matchDetails.dateMatch = `Processing Window (+${roundedDays}d)`
-    } else if (diffDaysFloat > 17 && diffDaysFloat <= 25) {
-      score += 10
-      reasons.push(`Extended Window (+${roundedDays}d)`)
-      matchDetails.dateMatch = `Extended Window (+${roundedDays}d)`
-    } else if (absDiffDays <= 10) {
-      score += 20
-      reasons.push(`Date ±${roundedDays}d`)
-      matchDetails.dateMatch = `Date ±${roundedDays}d`
+    } else if (absDiffDays <= 30) {
+      score += 15
+      reasons.push(`Date Window (±${roundedDays}d)`)
+      matchDetails.dateMatch = `Date Window (±${roundedDays}d)`
     }
   }
 
   // -------------------------------------------------------------
-  // 5. Total Amount Cost vs Retail Proximity Matcher (Up to 25 points)
-  // Accommodates multi-PO invoices (1 invoice can have multiple POs)
+  // 5. Wholesale Cost vs Retail Selling Price (The Profit Margin Math) (Up to 30 points)
+  // PO is for buying at wholesale cost; Invoice is for selling at retail for profit!
   // -------------------------------------------------------------
-  const poTotal = Number(po.total || poItems.total || 0)
-  const docTotal = Number(doc.amount || docItems.total || 0)
-
   if (poTotal > 0 && docTotal > 0) {
-    const diff = Math.abs(poTotal - docTotal)
-    if (diff < 0.01) {
-      score += 25
-      reasons.push(`Exact Total $${poTotal.toFixed(2)}`)
-      matchDetails.amountMatch = `Exact Amount $${poTotal.toFixed(2)}`
-    } else if (matchedRetailTotal > 0 && poTotal <= matchedRetailTotal) {
-      const costPercent = Math.round((poTotal / matchedRetailTotal) * 100)
-      score += 25
-      reasons.push(`Cost vs Retail for Matched Items (${costPercent}% of retail: $${poTotal.toFixed(2)} vs $${matchedRetailTotal.toFixed(2)})`)
-      matchDetails.amountMatch = `Cost vs Retail for Items (${costPercent}% of retail)`
+    // Check recorded invoice dead cost from custom fields / custom_field_hash
+    const customFields = docItems.custom_fields || []
+    const cfHash = docItems.custom_field_hash || {}
+    let recordedDeadCost = 0
+
+    if (cfHash.cf_dead_cost_total) {
+      recordedDeadCost = parseFloat(String(cfHash.cf_dead_cost_total).replace(/[^0-9.]/g, '')) || 0
+    }
+    if (!recordedDeadCost && Array.isArray(customFields)) {
+      const deadCostField = customFields.find((cf: any) => cf.api_name === 'cf_dead_cost_total' || String(cf.label || '').toLowerCase().includes('dead cost'))
+      if (deadCostField) {
+        recordedDeadCost = parseFloat(String(deadCostField.value).replace(/[^0-9.]/g, '')) || 0
+      }
+    }
+    if (!recordedDeadCost && doc.computedDeadCost) {
+      recordedDeadCost = Number(doc.computedDeadCost)
+    }
+
+    if (recordedDeadCost > 0 && Math.abs(poTotal - recordedDeadCost) / poTotal < 0.15) {
+      score += 30
+      reasons.push(`Matches Recorded Invoice Dead Cost ($${poTotal.toFixed(2)} cost vs $${recordedDeadCost.toFixed(2)} recorded)`)
+      matchDetails.amountMatch = `Matches Recorded Dead Cost ($${poTotal.toFixed(2)} vs $${recordedDeadCost.toFixed(2)})`
     } else if (poTotal <= docTotal) {
-      const costPercent = Math.round((poTotal / docTotal) * 100)
-      score += 20
-      reasons.push(`Multi-PO Compatible Total (${costPercent}% of Invoice: $${poTotal.toFixed(2)} of $${docTotal.toFixed(2)})`)
-      matchDetails.amountMatch = `Multi-PO Total (${costPercent}% of Invoice)`
-    } else if (diff / poTotal < 0.08) {
-      score += 15
-      reasons.push(`Near Total ($${poTotal.toFixed(2)} vs $${docTotal.toFixed(2)})`)
-      matchDetails.amountMatch = `Near Amount ($${poTotal.toFixed(2)} vs $${docTotal.toFixed(2)})`
+      const costRatio = poTotal / docTotal
+      const grossMargin = Math.round((1 - costRatio) * 100)
+      if (costRatio >= 0.15 && costRatio <= 0.85) {
+        score += 25
+        reasons.push(`Profitable Wholesale Cost ($${poTotal.toFixed(2)} cost on $${docTotal.toFixed(2)} retail, ${grossMargin}% gross margin)`)
+        matchDetails.amountMatch = `Profitable Wholesale Cost (${grossMargin}% Margin)`
+      } else if (matchedRetailTotal > 0 && poTotal <= matchedRetailTotal) {
+        score += 25
+        reasons.push(`Wholesale Cost for Matched Items ($${poTotal.toFixed(2)} vs $${matchedRetailTotal.toFixed(2)} retail)`)
+        matchDetails.amountMatch = `Wholesale Cost for Matched Items`
+      } else {
+        score += 15
+        reasons.push(`Wholesale Cost <= Retail Total ($${poTotal.toFixed(2)} vs $${docTotal.toFixed(2)})`)
+        matchDetails.amountMatch = `Wholesale Cost <= Retail Total`
+      }
     }
   }
 

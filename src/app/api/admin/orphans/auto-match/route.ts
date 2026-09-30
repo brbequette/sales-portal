@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { computePOMatchScore } from "../suggest-matches/match-score"
+import { computePOMatchScore, isTitanWarehouse, tokenizeClean } from "../suggest-matches/match-score"
 import { requireAdministrator } from "@/lib/auth-helpers"
 
 export async function POST() {
@@ -40,19 +40,63 @@ export async function POST() {
       billingZip: true
     }
 
+    // Extract targeting parameters across all POs in this batch
+    const poDates = unassociatedPOs.map(p => p.date ? new Date(p.date) : null).filter((d): d is Date => d !== null && !isNaN(d.getTime()))
+    const customerTokens = new Set<string>()
+    const refNumbers = new Set<string>()
+
+    for (const p of unassociatedPOs) {
+      const pItems: any = p.items || {}
+      const cust = String(p.shipToName || pItems.delivery_customer_name || pItems.customer_name || pItems.attention || "").trim()
+      if (cust && !isTitanWarehouse(cust)) {
+        tokenizeClean(cust).forEach(t => customerTokens.add(t))
+      }
+      const ref = String(p.salesOrderNumber || p.referenceNumber || (pItems.salesorders && pItems.salesorders[0]?.salesorder_number) || p.poNumber || "").trim().replace(/[^a-zA-Z0-9]/g, "")
+      if (ref && ref.length >= 3) {
+        refNumbers.add(ref)
+      }
+    }
+
+    const invOr: any[] = []
+    const soOr: any[] = []
+    const qteOr: any[] = []
+
+    if (poDates.length > 0) {
+      const minTime = Math.min(...poDates.map(d => d.getTime())) - 45 * 24 * 3600 * 1000
+      const maxTime = Math.max(...poDates.map(d => d.getTime())) + 60 * 24 * 3600 * 1000
+      invOr.push({ issueDate: { gte: new Date(minTime), lte: new Date(maxTime) } })
+      soOr.push({ orderDate: { gte: new Date(minTime), lte: new Date(maxTime) } })
+      qteOr.push({ createdAt: { gte: new Date(minTime), lte: new Date(maxTime) } })
+    }
+
+    for (const token of Array.from(customerTokens).slice(0, 50)) {
+      invOr.push({ account: { name: { contains: token, mode: "insensitive" } } })
+      soOr.push({ account: { name: { contains: token, mode: "insensitive" } } })
+      qteOr.push({ account: { name: { contains: token, mode: "insensitive" } } })
+    }
+
+    for (const ref of Array.from(refNumbers).slice(0, 30)) {
+      invOr.push({ invoiceNumber: { contains: ref, mode: "insensitive" } })
+      invOr.push({ salesorderNumber: { contains: ref, mode: "insensitive" } })
+      soOr.push({ salesorderNumber: { contains: ref, mode: "insensitive" } })
+    }
+
     const [candidateInvoices, candidateSalesOrders, candidateQuotes] = await Promise.all([
       prisma.invoice.findMany({
-        take: 1200,
+        where: invOr.length > 0 ? { OR: invOr } : undefined,
+        take: 1500,
         orderBy: { issueDate: "desc" },
         include: { account: { select: accountSelect }, lineItems: true }
       }),
       prisma.salesOrder.findMany({
-        take: 600,
+        where: soOr.length > 0 ? { OR: soOr } : undefined,
+        take: 800,
         orderBy: { orderDate: "desc" },
         include: { account: { select: accountSelect }, lineItems: true }
       }),
       prisma.quote.findMany({
-        take: 600,
+        where: qteOr.length > 0 ? { OR: qteOr } : undefined,
+        take: 800,
         orderBy: { createdAt: "desc" },
         include: { account: { select: accountSelect }, lineItems: true }
       })
