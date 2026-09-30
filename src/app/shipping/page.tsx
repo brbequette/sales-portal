@@ -123,6 +123,7 @@ export default function ShippingPage() {
   const [fetchingLineItems, setFetchingLineItems] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [syncResult, setSyncResult] = useState<string | null>(null)
+  const [fetchingLabelPkgId, setFetchingLabelPkgId] = useState<string | null>(null)
 
   // Rate Calculator State
   const [calcExpanded, setCalcExpanded] = useState(false)
@@ -254,6 +255,42 @@ export default function ShippingPage() {
       toast.error("Failed to sync items: " + e.message)
     } finally {
       setFetchingLineItems(null)
+    }
+  }
+
+  const handleGetLabelFromEasyShip = async (pkg: PackageInfo) => {
+    setFetchingLabelPkgId(pkg.id)
+    const loadingToast = toast.loading('Retrieving label from EasyShip...')
+    try {
+      const pkgItems = (pkg.items as any) || {}
+      const res = await fetch('/api/shipping/refresh-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          packageId: pkg.id,
+          trackingNumber: pkg.trackingNumber,
+          easyshipShipmentId: pkg.easyshipShipmentId || pkgItems.easyshipShipmentId,
+          packageNumber: pkg.packageNumber,
+          salesOrderNumber: pkg.salesOrderNumber
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        if (data.labelUrl) {
+          toast.success('Label retrieved successfully!', { id: loadingToast })
+          window.open(data.labelUrl, '_blank')
+        } else {
+          toast.success(`Shipment linked (${data.shipmentState || 'synced'}), but label document is pending.`, { id: loadingToast })
+        }
+        await fetchOrders()
+        await fetchCounts()
+      } else {
+        toast.error(data.error || 'Failed to retrieve label from EasyShip', { id: loadingToast })
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Error communicating with EasyShip', { id: loadingToast })
+    } finally {
+      setFetchingLabelPkgId(null)
     }
   }
 
@@ -1579,7 +1616,7 @@ export default function ShippingPage() {
                               <div className="flex gap-2 flex-wrap">
                                 {(() => {
                                   const pkgItems = (pkg.items as any) || {}
-                                  const hasEasyship = !!pkgItems.easyshipShipmentId
+                                  const hasEasyship = !!pkgItems.easyshipShipmentId || !!pkg.easyshipShipmentId
                                   const hasLabel = !!pkgItems.labelUrl && !pkgItems.labelVoided
                                   const hasTracking = !!pkg.trackingNumber
                                   const isDelivered = pkg.status === 'delivered'
@@ -1597,17 +1634,38 @@ export default function ShippingPage() {
                                         </button>
                                       )}
 
-                                      {/* View Label — when label exists */}
+                                      {/* Print Label — when label exists */}
                                       {hasLabel && (
                                         <a
                                           href={pkgItems.labelUrl}
                                           target="_blank"
                                           rel="noopener noreferrer"
                                           onClick={e => e.stopPropagation()}
-                                          className="px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-800/50 text-[10px] font-bold uppercase hover:bg-blue-600/30 transition-all flex items-center gap-1"
+                                          className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-500/50 text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-md shadow-emerald-950/50 hover:scale-[1.02] active:scale-[0.98]"
+                                          title="Open and print EasyShip shipping label"
                                         >
-                                          <FiFileText size={11} /> View Label
+                                          <FiPrinter size={13} /> Print Label
                                         </a>
+                                      )}
+
+                                      {/* Get Label from EasyShip — when no label yet, but has tracking or easyship */}
+                                      {!hasLabel && !isDelivered && (hasTracking || hasEasyship || isShipped) && (
+                                        <button
+                                          disabled={fetchingLabelPkgId === pkg.id}
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            handleGetLabelFromEasyShip(pkg)
+                                          }}
+                                          className="px-3 py-1.5 rounded-lg bg-cyan-600/25 hover:bg-cyan-600/40 text-cyan-300 border border-cyan-500/40 text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 disabled:opacity-50"
+                                          title="Fetch label and shipment details from EasyShip"
+                                        >
+                                          {fetchingLabelPkgId === pkg.id ? (
+                                            <FiRefreshCw size={11} className="animate-spin" />
+                                          ) : (
+                                            <FiDownloadCloud size={12} />
+                                          )}
+                                          Get Label from EasyShip
+                                        </button>
                                       )}
 
                                       {/* Packing Slip — if available */}
@@ -1633,8 +1691,8 @@ export default function ShippingPage() {
                                         </button>
                                       )}
 
-                                      {/* Refresh Status — when easyship shipment exists */}
-                                      {hasEasyship && !isDelivered && (
+                                      {/* Refresh Status — when easyship shipment or label exists */}
+                                      {(hasEasyship || hasLabel) && !isDelivered && (
                                         <button
                                           onClick={async (e) => {
                                             e.stopPropagation()
@@ -1642,18 +1700,23 @@ export default function ShippingPage() {
                                               const res = await fetch('/api/shipping/refresh-status', {
                                                 method: 'POST',
                                                 headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ easyshipShipmentId: pkgItems.easyshipShipmentId, packageId: pkg.id })
+                                                body: JSON.stringify({ 
+                                                  easyshipShipmentId: pkgItems.easyshipShipmentId || pkg.easyshipShipmentId, 
+                                                  packageId: pkg.id,
+                                                  trackingNumber: pkg.trackingNumber
+                                                })
                                               })
                                               const data = await res.json()
                                               if (data.success) {
-                                                toast.success(`Status: ${data.shipmentState || 'updated'} | Label: ${data.labelState || 'n/a'}`)
+                                                toast.success(`Status: ${data.shipmentState || 'updated'} | Label: ${data.labelState || (data.labelUrl ? 'ready' : 'n/a')}`)
                                                 fetchOrders(); fetchCounts()
                                               } else {
                                                 toast.error('Refresh failed: ' + (data.error || 'Unknown'))
                                               }
                                             } catch (err: any) { toast.error(err.message) }
                                           }}
-                                          className="px-3 py-1.5 rounded-lg bg-cyan-600/20 text-cyan-400 border border-cyan-800/50 text-[10px] font-bold uppercase hover:bg-cyan-600/30 transition-all flex items-center gap-1"
+                                          className="px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border border-neutral-700/50 text-[10px] font-bold uppercase transition-all flex items-center gap-1"
+                                          title="Refresh shipment & label status from EasyShip"
                                         >
                                           <FiRefreshCw size={11} /> Refresh
                                         </button>
@@ -1996,8 +2059,8 @@ export default function ShippingPage() {
                   </div>
                   <div className="flex gap-2 pt-2">
                     {shipNowResult.labelUrl && (
-                      <a href={shipNowResult.labelUrl} target="_blank" rel="noopener noreferrer" className="td-btn td-btn-sm bg-blue-600 hover:bg-blue-500 text-white border-none">
-                        <FiDownloadCloud size={14} /> Download Label
+                      <a href={shipNowResult.labelUrl} target="_blank" rel="noopener noreferrer" className="td-btn td-btn-sm bg-emerald-600 hover:bg-emerald-500 text-white border-none flex items-center gap-1.5">
+                        <FiPrinter size={14} /> Print Label
                       </a>
                     )}
                     {shipNowResult.trackingPageUrl && (
