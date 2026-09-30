@@ -40,23 +40,6 @@ export async function POST() {
       billingZip: true
     }
 
-    const INDUSTRY_STOP_WORDS = new Set([
-      'llc', 'inc', 'corp', 'corporation', 'co', 'company', 'ltd', 'limited',
-      'services', 'service', 'tool', 'tools', 'general', 'and', '&', 'the', 'usa',
-      'road', 'street', 'drive', 'blvd', 'suite', 'unit', 'ave', 'avenue', 'north', 'south', 'east', 'west',
-      'construction', 'construct', 'contracting', 'contractor', 'contractors',
-      'concrete', 'building', 'builders', 'masonry', 'paving', 'pavers',
-      'roofing', 'roof', 'landscaping', 'landscape', 'excavating', 'excavation',
-      'supply', 'supplies', 'enterprises', 'solutions', 'group', 'products', 'rentals', 'rental'
-    ])
-
-    function getDistinctCustomerTokens(name: string): string[] {
-      return String(name || '')
-        .toLowerCase()
-        .split(/[\s,.-]+/)
-        .filter(t => t.length > 1 && !INDUSTRY_STOP_WORDS.has(t))
-    }
-
     function extractDirectInvoiceNumber(po: any): string | null {
       const items = po.items || {}
       const cfHash = items.custom_field_hash || {}
@@ -92,8 +75,8 @@ export async function POST() {
       const directInv = extractDirectInvoiceNumber(po)
       const cust = String(po.shipToName || pItems.delivery_customer_name || pItems.customer_name || pItems.attention || "").trim()
       const isWarehouse = isTitanWarehouse(cust) || isTitanWarehouse(po.shippingAddress)
-      const tokens = !isWarehouse ? getDistinctCustomerTokens(cust) : []
-      const ref = String(po.salesOrderNumber || po.referenceNumber || (pItems.salesorders && pItems.salesorders[0]?.salesorder_number) || po.poNumber || "").trim().replace(/[^a-zA-Z0-9]/g, "")
+      const tokens = !isWarehouse ? tokenizeClean(cust) : []
+      const soNum = String(po.salesOrderNumber || (pItems.salesorders && pItems.salesorders[0]?.salesorder_number) || "").trim().replace(/[^a-zA-Z0-9]/g, "")
 
       const poDate = po.date ? new Date(po.date) : null
       let minDate: Date | null = null
@@ -107,33 +90,60 @@ export async function POST() {
       const soOr: any[] = []
       const qteOr: any[] = []
 
-      // 1. Direct Invoice Number
-      if (directInv) {
-        invOr.push({ invoiceNumber: directInv })
-      }
+      if (!isWarehouse && tokens.length > 0) {
+        // Strict Customer Account Scope: Only fetch candidate documents for this verified customer!
+        const customerClause = {
+          account: {
+            OR: tokens.slice(0, 3).map(token => ({
+              name: { contains: token, mode: "insensitive" as const }
+            }))
+          }
+        }
 
-      // 2. Reference / Sales Order Number
-      if (ref && ref.length >= 3) {
-        invOr.push({ invoiceNumber: { contains: ref, mode: "insensitive" } })
-        invOr.push({ salesorderNumber: { contains: ref, mode: "insensitive" } })
-        soOr.push({ salesorderNumber: { contains: ref, mode: "insensitive" } })
-      }
-
-      // 3. Customer Tokens within Date Window
-      if (tokens.length > 0) {
-        for (const token of tokens.slice(0, 3)) {
+        // 1. Direct Invoice Number (if found on PO)
+        if (directInv) {
           invOr.push({
-            account: { name: { contains: token, mode: "insensitive" } },
-            ...(minDate && maxDate ? { issueDate: { gte: minDate, lte: maxDate } } : {})
+            invoiceNumber: directInv,
+            ...customerClause
+          })
+          // Also fetch exact invoice number alone in case account name spelling differs slightly in CRM
+          invOr.push({ invoiceNumber: directInv })
+        }
+
+        // 2. Sales Order within this verified customer
+        if (soNum && soNum.length >= 3) {
+          invOr.push({
+            OR: [
+              { salesorderNumber: { contains: soNum, mode: "insensitive" as const } },
+              { invoiceNumber: { contains: soNum, mode: "insensitive" as const } }
+            ],
+            ...customerClause
           })
           soOr.push({
-            account: { name: { contains: token, mode: "insensitive" } },
-            ...(minDate && maxDate ? { orderDate: { gte: minDate, lte: maxDate } } : {})
+            salesorderNumber: { contains: soNum, mode: "insensitive" as const },
+            ...customerClause
           })
-          qteOr.push({
-            account: { name: { contains: token, mode: "insensitive" } },
-            ...(minDate && maxDate ? { createdAt: { gte: minDate, lte: maxDate } } : {})
-          })
+        }
+
+        // 3. Customer documents within date window (±45 days)
+        invOr.push({
+          ...customerClause,
+          ...(minDate && maxDate ? { issueDate: { gte: minDate, lte: maxDate } } : {})
+        })
+        soOr.push({
+          ...customerClause,
+          ...(minDate && maxDate ? { orderDate: { gte: minDate, lte: maxDate } } : {})
+        })
+        qteOr.push({
+          ...customerClause,
+          ...(minDate && maxDate ? { createdAt: { gte: minDate, lte: maxDate } } : {})
+        })
+      } else if (isWarehouse) {
+        // Internal stock PO to Titan Warehouse - only query if explicit PO reference exists
+        const poNum = String(po.poNumber || "").trim()
+        if (poNum && poNum.length >= 3) {
+          invOr.push({ referenceNumber: { contains: poNum, mode: "insensitive" as const } })
+          soOr.push({ referenceNumber: { contains: poNum, mode: "insensitive" as const } })
         }
       }
 

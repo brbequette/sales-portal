@@ -17,16 +17,59 @@ export function isTitanWarehouse(str?: string | null): boolean {
   return (s.includes('8321') && s.includes('evans')) || s.includes('titan diamond')
 }
 
+export const INDUSTRY_STOP_WORDS = new Set([
+  'llc', 'inc', 'corp', 'corporation', 'co', 'company', 'ltd', 'limited',
+  'services', 'service', 'tool', 'tools', 'general', 'and', '&', 'the', 'usa',
+  'road', 'street', 'drive', 'blvd', 'suite', 'unit', 'ave', 'avenue', 'north', 'south', 'east', 'west',
+  'construction', 'construct', 'contracting', 'contractor', 'contractors',
+  'concrete', 'cement', 'masonry', 'paving', 'pavers', 'asphalt',
+  'building', 'builders', 'build', 'custom', 'design',
+  'roofing', 'roof', 'landscaping', 'landscape', 'excavating', 'excavation', 'grading',
+  'drilling', 'sawing', 'cutting', 'coring', 'demolition',
+  'flooring', 'drywall', 'plumbing', 'electric', 'electrical', 'mechanical',
+  'supply', 'supplies', 'materials', 'equipment', 'enterprises', 'solutions', 'group', 'products', 'rentals', 'rental'
+])
+
 export function tokenizeClean(str?: string | null): string[] {
-  const stopWords = new Set([
-    'llc', 'inc', 'corp', 'corporation', 'co', 'company', 'ltd', 'limited',
-    'services', 'tool', 'general', 'and', '&', 'the', 'usa', 'road', 'street',
-    'drive', 'blvd', 'suite', 'unit', 'ave', 'avenue', 'north', 'south', 'east', 'west'
-  ])
   return String(str || '')
     .toLowerCase()
-    .split(/[\s,.-]+/)
-    .filter(t => t.length > 2 && !stopWords.has(t))
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(t => t.length > 1 && !INDUSTRY_STOP_WORDS.has(t))
+}
+
+export function isCustomerMatch(
+  poCustomer?: string | null,
+  docCustomer?: string | null,
+  poAddress?: string | null,
+  docAddress?: string | null
+): boolean {
+  const poCust = String(poCustomer || '').trim().toLowerCase()
+  const docCust = String(docCustomer || '').trim().toLowerCase()
+  
+  if (!poCust || !docCust) return false
+  if (poCust === docCust) return true
+  if (poCust.includes(docCust) || docCust.includes(poCust)) return true
+
+  const poTokens = tokenizeClean(poCust)
+  const docTokens = tokenizeClean(docCust)
+
+  if (poTokens.length > 0 && docTokens.length > 0) {
+    const docTokenSet = new Set(docTokens)
+    const overlap = poTokens.filter(t => docTokenSet.has(t))
+    if (overlap.length >= 1) return true
+  }
+
+  // Address check
+  const poAddrClean = String(poAddress || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ')
+  const docAddrClean = String(docAddress || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ')
+  if (poAddrClean.length > 5 && docAddrClean.length > 5) {
+    const poAddrTokens = poAddrClean.split(/\s+/).filter(t => t.length > 3 && !INDUSTRY_STOP_WORDS.has(t))
+    const matchedAddrTokens = poAddrTokens.filter(t => docAddrClean.includes(t))
+    if (matchedAddrTokens.length >= 2) return true
+  }
+
+  return false
 }
 
 export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
@@ -41,15 +84,104 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
   const docTotal = Number(doc.amount || docItems.total || 0)
 
   // -------------------------------------------------------------
-  // 1. Sales Order / Estimate / Reference Number Match (Up to 80 points)
+  // LEVEL 0: STRICT CUSTOMER GATE & ISOLATION
+  // If the PO has an identified destination customer, ONLY invoices
+  // belonging to that customer may EVER be considered.
+  // Invoices for any other company are strictly DISQUALIFIED (Score = 0).
   // -------------------------------------------------------------
-  const poRef = String(
+  const shipTo = String(
+    po.shipToName ||
+    poItems.delivery_customer_name ||
+    poItems.customer_name ||
+    poItems.ship_via ||
+    poItems.recipient_name ||
+    poItems.attention ||
+    poItems.delivery_address?.attention ||
+    ""
+  ).trim()
+
+  const poAddress = String(
+    po.shippingAddress ||
+    poItems.delivery_address?.address ||
+    poItems.delivery_address ||
+    poItems.shipping_address ||
+    poItems.recipient_address ||
+    poItems.address ||
+    poItems.city ||
+    ""
+  ).trim()
+
+  const isPoToWarehouse = isTitanWarehouse(shipTo) || isTitanWarehouse(poAddress)
+
+  const docCustomer = String(
+    doc.account?.name ||
+    docItems.customer_name ||
+    ""
+  ).trim()
+
+  const docShipObj = docItems.shipping_address || docItems.delivery_address || {}
+  const docShipStr = typeof docShipObj === 'string' ? docShipObj : JSON.stringify(docShipObj)
+  const accountShipAddr = `${doc.account?.shippingStreet || ''} ${doc.account?.shippingCity || ''} ${doc.account?.shippingState || ''} ${doc.account?.shippingZip || ''}`
+  const accountBillAddr = `${doc.account?.billingStreet || ''} ${doc.account?.billingCity || ''} ${doc.account?.billingState || ''} ${doc.account?.billingZip || ''}`
+  const docAddressCombined = `${docShipStr} ${docCustomer} ${accountShipAddr} ${accountBillAddr}`
+
+  const hasVerifiedCustomer = !isPoToWarehouse && shipTo.length > 1
+
+  if (hasVerifiedCustomer) {
+    const custMatches = isCustomerMatch(shipTo, docCustomer, poAddress, docAddressCombined)
+    if (!custMatches) {
+      return {
+        score: 0,
+        reasons: [`Disqualified: PO is for '${shipTo}', but document belongs to '${docCustomer || 'Unknown'}'`],
+        matchDetails: {}
+      }
+    }
+  } else if (isPoToWarehouse) {
+    // Internal warehouse order - cannot match external customer invoice unless explicitly referenced
+    const docRef = String(docItems.reference_number || doc.referenceNumber || "").toLowerCase()
+    const poNum = String(po.poNumber || "").toLowerCase()
+    if (!poNum || !docRef.includes(poNum)) {
+      return {
+        score: 0,
+        reasons: ["Internal Titan Warehouse PO - not linked to customer orders without explicit reference"],
+        matchDetails: {}
+      }
+    }
+  }
+
+  // Record customer match
+  if (hasVerifiedCustomer && docCustomer) {
+    score += 40
+    reasons.push(`Customer Verified: '${docCustomer}'`)
+    matchDetails.addressMatch = `Customer Verified: '${docCustomer}'`
+  }
+
+  // Dropship address match (+20 pts)
+  if (poAddress && poAddress.length > 5 && docAddressCombined.length > 5) {
+    const poAddTokens = tokenizeClean(poAddress)
+    const matchedTokens = poAddTokens.filter((t: string) => docAddressCombined.toLowerCase().includes(t))
+    if (matchedTokens.length >= 2) {
+      score += 20
+      reasons.push(`Dropship Address Match: ${matchedTokens.slice(0, 3).join(", ")}`)
+      matchDetails.addressMatch = (matchDetails.addressMatch ? `${matchDetails.addressMatch} + ` : "") + `Address (${matchedTokens.slice(0, 3).join(", ")})`
+    }
+  }
+
+  // -------------------------------------------------------------
+  // LEVEL 1: DIRECT IDENTIFIER MATCH (Within the Verified Customer)
+  // Check exact Invoice #, Sales Order #, or Estimate #
+  // -------------------------------------------------------------
+  const poSalesOrder = String(
     po.salesOrderNumber || 
-    po.referenceNumber || 
     poItems.salesorder_number || 
-    poItems.reference_number || 
     (poItems.salesorders && poItems.salesorders[0]?.salesorder_number) ||
-    po.poNumber || ""
+    ""
+  ).trim().toLowerCase()
+
+  const poRef = String(
+    po.referenceNumber || 
+    poItems.reference_number || 
+    ""
   ).trim().toLowerCase()
   
   const docNumber = String(
@@ -60,7 +192,6 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
     docItems.salesorder_number || 
     docItems.quote_number || 
     docItems.estimate_number || 
-    docItems.reference_number || 
     doc.zohoId || ""
   ).trim().toLowerCase()
   
@@ -72,101 +203,45 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
     docItems.salesorder_number || ""
   ).trim().toLowerCase()
 
-  const poDigits = poRef.replace(/\D/g, "")
+  const poSoDigits = poSalesOrder.replace(/\D/g, "")
   const docDigits = docNumber.replace(/\D/g, "")
   const docRefDigits = docRefNum.replace(/\D/g, "")
+  const poNum = String(po.poNumber || "").trim().toLowerCase()
 
-  if (poRef && poRef.length >= 2) {
-    if (poRef === docNumber || poRef === docRefNum) {
-      score += 80
-      reasons.push(`SO / Est / Ref #${poRef.toUpperCase()} Exact Match`)
-      matchDetails.referenceMatch = `Exact SO / Est / Ref #${poRef.toUpperCase()}`
-    } else if (docNumber.includes(poRef) || poRef.includes(docNumber) || docRefNum.includes(poRef) || (poRef.length >= 3 && docRefNum.includes(poRef))) {
-      score += 60
-      reasons.push(`SO / Est / Ref #${poRef.toUpperCase()} Match`)
-      matchDetails.referenceMatch = `SO / Est / Ref #${poRef.toUpperCase()}`
-    } else if (poDigits.length >= 4 && (docDigits === poDigits || docRefDigits === poDigits)) {
-      score += 60
-      reasons.push(`SO / Est Digits #${poDigits} Match`)
-      matchDetails.referenceMatch = `SO / Est Digits #${poDigits}`
+  // Match Sales Order
+  if (poSalesOrder && poSalesOrder.length >= 3) {
+    if (poSalesOrder === docNumber || poSalesOrder === docRefNum) {
+      score += 55
+      reasons.push(`SO #${poSalesOrder.toUpperCase()} Exact Match`)
+      matchDetails.referenceMatch = `Exact SO #${poSalesOrder.toUpperCase()}`
+    } else if (docNumber.includes(poSalesOrder) || docRefNum.includes(poSalesOrder)) {
+      score += 45
+      reasons.push(`SO #${poSalesOrder.toUpperCase()} Match`)
+      matchDetails.referenceMatch = `SO #${poSalesOrder.toUpperCase()}`
+    } else if (poSoDigits.length >= 4 && (docDigits === poSoDigits || docRefDigits === poSoDigits)) {
+      score += 45
+      reasons.push(`SO Digits #${poSoDigits} Match`)
+      matchDetails.referenceMatch = `SO Digits #${poSoDigits}`
     }
   }
 
-  // -------------------------------------------------------------
-  // 2. Customer Identification via Dropship Shipping Address & Account Address (Up to 60 points)
-  // Excludes Titan Diamond's own warehouse from matching against internal accounts!
-  // -------------------------------------------------------------
-  const shipTo = String(
-    po.shipToName ||
-    poItems.delivery_customer_name ||
-    poItems.customer_name ||
-    poItems.ship_via ||
-    poItems.recipient_name ||
-    poItems.attention ||
-    poItems.delivery_address?.attention ||
-    ""
-  ).toLowerCase().trim()
+  // Match Customer PO on the Invoice to the PO Number
+  if (poNum && (docRefNum.includes(poNum) || (docRefDigits.length >= 4 && docRefDigits === poNum.replace(/\D/g, "")))) {
+    score += 55
+    reasons.push(`Customer PO #${poNum.toUpperCase()} Referenced on Document`)
+    matchDetails.referenceMatch = (matchDetails.referenceMatch ? `${matchDetails.referenceMatch} + ` : "") + `Customer PO #${poNum.toUpperCase()}`
+  }
 
-  const poAddress = String(
-    po.shippingAddress ||
-    poItems.delivery_address?.address ||
-    poItems.delivery_address ||
-    poItems.shipping_address ||
-    poItems.recipient_address ||
-    poItems.address ||
-    poItems.city ||
-    ""
-  ).toLowerCase().trim()
-
-  const isPoToWarehouse = isTitanWarehouse(shipTo) || isTitanWarehouse(poAddress)
-
-  const docCustomer = String(
-    doc.account?.name ||
-    docItems.customer_name ||
-    ""
-  ).toLowerCase().trim()
-
-  const docShipObj = docItems.shipping_address || docItems.delivery_address || {}
-  const docShipStr = (typeof docShipObj === 'string' ? docShipObj : JSON.stringify(docShipObj)).toLowerCase()
-  
-  const accountShipAddr = `${doc.account?.shippingStreet || ''} ${doc.account?.shippingCity || ''} ${doc.account?.shippingState || ''} ${doc.account?.shippingZip || ''}`.toLowerCase().trim()
-  const accountBillAddr = `${doc.account?.billingStreet || ''} ${doc.account?.billingCity || ''} ${doc.account?.billingState || ''} ${doc.account?.billingZip || ''}`.toLowerCase().trim()
-  const docAccountAddr = `${doc.account?.name || ''} ${accountShipAddr} ${accountBillAddr}`.toLowerCase()
-  const docAddressCombined = `${docShipStr} ${docAccountAddr}`
-
-  let addressMatched = false
-
-  if (!isPoToWarehouse) {
-    // Check dropship address
-    if (poAddress && poAddress.length > 3) {
-      const poAddTokens = tokenizeClean(poAddress)
-      const matchedTokens = poAddTokens.filter((t: string) => docAddressCombined.includes(t))
-      
-      if (matchedTokens.length >= 2 || (poAddTokens.length >= 1 && (docAddressCombined.includes(poAddress) || poAddress.includes(docAddressCombined)))) {
-        addressMatched = true
-        score += 40
-        const label = doc.account?.name ? `Customer Account '${doc.account.name}' Address Match` : `Dropship Address Match`
-        reasons.push(`${label}: ${matchedTokens.slice(0, 3).join(", ")}`)
-        matchDetails.addressMatch = `${label} (${matchedTokens.slice(0, 3).join(", ")})`
-      }
-    }
-
-    // Check customer name tokens
-    if (shipTo && docCustomer) {
-      const poTokens = tokenizeClean(shipTo)
-      const docTokens = tokenizeClean(docCustomer)
-      const tokenOverlap = poTokens.filter(t => docTokens.includes(t) || docCustomer.includes(t))
-
-      if (shipTo === docCustomer || docCustomer.includes(shipTo) || shipTo.includes(docCustomer) || tokenOverlap.length >= 2) {
-        score += 50
-        const custDisplay = doc.account?.name || docItems.customer_name
-        reasons.push(`Customer '${custDisplay}' Matched (${tokenOverlap.slice(0, 3).join(", ") || shipTo})`)
-        matchDetails.addressMatch = (matchDetails.addressMatch ? `${matchDetails.addressMatch} + ` : "") + `Customer '${custDisplay}'`
-      } else if (tokenOverlap.length === 1) {
-        score += 30
-        reasons.push(`Customer Token Matched (${tokenOverlap[0]})`)
-        matchDetails.addressMatch = (matchDetails.addressMatch ? `${matchDetails.addressMatch} + ` : "") + `Customer Token (${tokenOverlap[0]})`
-      }
+  // Match PO Reference
+  if (poRef && poRef.length >= 3) {
+    if (poRef === docNumber || poRef === docRefNum) {
+      score += 50
+      reasons.push(`Ref #${poRef.toUpperCase()} Exact Match`)
+      matchDetails.referenceMatch = (matchDetails.referenceMatch ? `${matchDetails.referenceMatch} + ` : "") + `Exact Ref #${poRef.toUpperCase()}`
+    } else if (docNumber.includes(poRef) || docRefNum.includes(poRef)) {
+      score += 35
+      reasons.push(`Ref #${poRef.toUpperCase()} Match`)
+      matchDetails.referenceMatch = (matchDetails.referenceMatch ? `${matchDetails.referenceMatch} + ` : "") + `Ref #${poRef.toUpperCase()}`
     }
   }
 
