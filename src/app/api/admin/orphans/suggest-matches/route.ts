@@ -26,7 +26,13 @@ export async function GET(req: Request) {
       billingStreet: true,
       billingCity: true,
       billingState: true,
-      billingZip: true
+      billingZip: true,
+      contacts: {
+        select: {
+          firstName: true,
+          lastName: true
+        }
+      }
     }
 
     const suggestions: Record<string, any> = {}

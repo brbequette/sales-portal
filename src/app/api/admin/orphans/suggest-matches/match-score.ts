@@ -14,7 +14,7 @@ export interface MatchScoreResult {
 
 export function isTitanWarehouse(str?: string | null): boolean {
   const s = String(str || '').toLowerCase()
-  return (s.includes('8321') && s.includes('evans')) || s.includes('titan diamond')
+  return (s.includes('8321') && s.includes('evans')) || s.includes('titan diamond') || s.includes('rowley')
 }
 
 export const INDUSTRY_STOP_WORDS = new Set([
@@ -42,29 +42,43 @@ export function isCustomerMatch(
   poCustomer?: string | null,
   docCustomer?: string | null,
   poAddress?: string | null,
-  docAddress?: string | null
+  docAddress?: string | null,
+  contacts?: Array<{ firstName?: string | null; lastName?: string | null }> | null
 ): boolean {
   const poCust = String(poCustomer || '').trim().toLowerCase()
   const docCust = String(docCustomer || '').trim().toLowerCase()
   
-  if (!poCust || !docCust) return false
-  if (poCust === docCust) return true
-  if (poCust.includes(docCust) || docCust.includes(poCust)) return true
+  if (!poCust && !poAddress) return false
 
-  const poTokens = tokenizeClean(poCust)
-  const docTokens = tokenizeClean(docCust)
-
-  if (poTokens.length > 0 && docTokens.length > 0) {
-    const docTokenSet = new Set(docTokens)
-    const overlap = poTokens.filter(t => docTokenSet.has(t))
-    if (overlap.length >= 1) return true
+  // Check against registered account contacts (e.g. Jason Everard, Bob Clark, Aaron Rodarte)
+  if (contacts && Array.isArray(contacts)) {
+    for (const c of contacts) {
+      const full = `${c.firstName || ''} ${c.lastName || ''}`.toLowerCase().trim()
+      const last = String(c.lastName || '').toLowerCase().trim()
+      if (full.length > 2 && (poCust === full || poCust.includes(full) || full.includes(poCust))) return true
+      if (last.length > 3 && (poCust === last || poCust.includes(last))) return true
+    }
   }
 
-  // Contact/Recipient attention check (e.g. PO shipToName is contact person on customer's account/invoice)
-  if (poTokens.length > 0 && docAddress) {
-    const docAddrLower = String(docAddress).toLowerCase()
-    const matchedCustTokens = poTokens.filter(t => docAddrLower.includes(t))
-    if (matchedCustTokens.length >= (poTokens.length > 1 ? 2 : 1)) return true
+  if (poCust && docCust) {
+    if (poCust === docCust) return true
+    if (poCust.includes(docCust) || docCust.includes(poCust)) return true
+
+    const poTokens = tokenizeClean(poCust)
+    const docTokens = tokenizeClean(docCust)
+
+    if (poTokens.length > 0 && docTokens.length > 0) {
+      const docTokenSet = new Set(docTokens)
+      const overlap = poTokens.filter(t => docTokenSet.has(t))
+      if (overlap.length >= 1) return true
+    }
+
+    // Contact/Recipient attention check (e.g. PO shipToName is contact person on customer's account/invoice)
+    if (poTokens.length > 0 && docAddress) {
+      const docAddrLower = String(docAddress).toLowerCase()
+      const matchedCustTokens = poTokens.filter(t => docAddrLower.includes(t))
+      if (matchedCustTokens.length >= (poTokens.length > 1 ? 2 : 1)) return true
+    }
   }
 
   // Address check
@@ -135,7 +149,7 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
   const hasVerifiedCustomer = !isPoToWarehouse && shipTo.length > 1
 
   if (hasVerifiedCustomer) {
-    const custMatches = isCustomerMatch(shipTo, docCustomer, poAddress, docAddressCombined)
+    const custMatches = isCustomerMatch(shipTo, docCustomer, poAddress, docAddressCombined, doc.account?.contacts)
     if (!custMatches) {
       return {
         score: 0,

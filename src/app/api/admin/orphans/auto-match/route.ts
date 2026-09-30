@@ -21,7 +21,13 @@ export async function POST(req: Request) {
       billingStreet: true,
       billingCity: true,
       billingState: true,
-      billingZip: true
+      billingZip: true,
+      contacts: {
+        select: {
+          firstName: true,
+          lastName: true
+        }
+      }
     }
 
     if (type === "payments") {
@@ -108,14 +114,14 @@ export async function POST(req: Request) {
     }
 
     // -------------------------------------------------------------
-    // AUTO-MATCH UNASSOCIATED PURCHASE ORDERS
+    // AUTO-MATCH UNASSOCIATED PURCHASE ORDERS ACROSS ENTIRE DATASET
     // -------------------------------------------------------------
     const unassociatedPOs = await prisma.purchaseOrder.findMany({
       where: {
         invoiceId: null,
         isInventoryOrder: false
       },
-      take: 250,
+      take: 1500,
       orderBy: { date: "desc" }
     })
 
@@ -125,6 +131,39 @@ export async function POST(req: Request) {
         linkedCount: 0,
         linkedSummary: [],
         message: "No unassociated Purchase Orders found."
+      })
+    }
+
+    // 1. Identify and archive internal warehouse stock orders (not customer dropshipments)
+    const warehousePoIds: string[] = []
+    const dropshipCandidates: typeof unassociatedPOs = []
+
+    for (const po of unassociatedPOs) {
+      const pItems: any = po.items || {}
+      const shipTo = String(po.shipToName || pItems.delivery_customer_name || pItems.customer_name || "").trim()
+      const shipAddr = String(po.shippingAddress || pItems.delivery_address?.address || "").trim()
+
+      if (isTitanWarehouse(shipTo) || isTitanWarehouse(shipAddr) || shipTo.toLowerCase().includes('rowley')) {
+        warehousePoIds.push(po.id)
+      } else {
+        dropshipCandidates.push(po)
+      }
+    }
+
+    if (warehousePoIds.length > 0) {
+      await prisma.purchaseOrder.updateMany({
+        where: { id: { in: warehousePoIds } },
+        data: { isInventoryOrder: true }
+      })
+    }
+
+    if (dropshipCandidates.length === 0) {
+      return NextResponse.json({
+        success: true,
+        linkedCount: 0,
+        warehouseCount: warehousePoIds.length,
+        linkedSummary: [],
+        message: `Identified and archived ${warehousePoIds.length} internal warehouse stock orders as Inventory Orders.`
       })
     }
 
@@ -143,191 +182,156 @@ export async function POST(req: Request) {
         }
       }
 
+      const docs = items.documents || []
+      if (Array.isArray(docs)) {
+        for (const doc of docs) {
+          const fn = doc.file_name || ''
+          const m = fn.match(/(?:inv|invoice|packingslip|slip|#)[_\s-]*(\d{4,6})/i) || fn.match(/(\d{4,6})/)
+          if (m && m[1] && m[1] !== po.poNumber) return m[1]
+        }
+      }
+
       const att = items.attachment_name || ''
-      const match = att.match(/(\d{4,6})/)
-      if (match) return match[1]
+      const match = att.match(/(?:inv|invoice|packingslip|slip|#)[_\s-]*(\d{4,6})/i) || att.match(/(\d{4,6})/)
+      if (match && match[1] && match[1] !== po.poNumber) return match[1]
 
       const ref = po.referenceNumber || items.reference_number || ''
       const refMatch = ref.match(/(?:inv|invoice|#)?\s*(\d{4,6})/i)
-      if (refMatch) return refMatch[1]
+      if (refMatch && refMatch[1] && refMatch[1] !== po.poNumber) return refMatch[1]
 
       return null
     }
 
-    // Collect direct identifiers and clustered date windows across the batch of POs
-    const directInvs: string[] = []
-    const soNums: string[] = []
-    const dateWindows: { start: Date; end: Date }[] = []
-
-    for (const po of unassociatedPOs) {
-      const pItems: any = po.items || {}
-      const directInv = extractDirectInvoiceNumber(po)
-      if (directInv) directInvs.push(directInv)
-      const soNum = String(po.salesOrderNumber || (pItems.salesorders && pItems.salesorders[0]?.salesorder_number) || "").trim()
-      if (soNum && soNum.length >= 3) soNums.push(soNum)
-
-      const poDate = po.date ? new Date(po.date) : null
-      if (poDate && !isNaN(poDate.getTime())) {
-        const start = new Date(poDate.getTime() - 45 * 24 * 3600 * 1000)
-        const end = new Date(poDate.getTime() + 45 * 24 * 3600 * 1000)
-        const existing = dateWindows.find(w => !(end < w.start || start > w.end))
-        if (existing) {
-          if (start < existing.start) existing.start = start
-          if (end > existing.end) existing.end = end
-        } else {
-          dateWindows.push({ start, end })
-        }
+    // 2. Load contacts lookup map
+    const contacts = await prisma.contact.findMany({
+      select: { firstName: true, lastName: true, accountId: true }
+    })
+    const contactToAccounts = new Map<string, Set<string>>()
+    for (const c of contacts) {
+      const fn = (c.firstName || '').trim().toLowerCase()
+      const ln = (c.lastName || '').trim().toLowerCase()
+      const full = `${fn} ${ln}`.trim()
+      if (full.length > 2) {
+        if (!contactToAccounts.has(full)) contactToAccounts.set(full, new Set())
+        contactToAccounts.get(full)!.add(c.accountId)
+      }
+      if (ln.length > 2) {
+        if (!contactToAccounts.has(ln)) contactToAccounts.set(ln, new Set())
+        contactToAccounts.get(ln)!.add(c.accountId)
       }
     }
 
-    if (dateWindows.length === 0) {
-      dateWindows.push({
-        start: new Date(Date.now() - 180 * 24 * 3600 * 1000),
-        end: new Date(Date.now() + 30 * 24 * 3600 * 1000)
-      })
+    // 3. Load all candidate invoices across the active date range or all invoices
+    const allInvoices = await prisma.invoice.findMany({
+      take: 10000,
+      orderBy: { issueDate: "desc" },
+      include: { account: { select: accountSelect }, lineItems: true }
+    })
+
+    const invByNumber = new Map<string, any>()
+    const invBySoNumber = new Map<string, any>()
+    const invByAccountId = new Map<string, any[]>()
+
+    for (const inv of allInvoices) {
+      const invData: any = inv.items || {}
+      const num = String(inv.computedInvoiceNumber || invData.invoice_number || inv.invoiceNumber || '').trim()
+      if (num) invByNumber.set(num, inv)
+
+      const soNum = String(invData.salesorder_number || inv.salesorderNumber || '').trim()
+      if (soNum) invBySoNumber.set(soNum, inv)
+
+      if (inv.accountId) {
+        if (!invByAccountId.has(inv.accountId)) invByAccountId.set(inv.accountId, [])
+        invByAccountId.get(inv.accountId)!.push(inv)
+      }
     }
-
-    // Parallel fetch across all relevant windows
-    const invoiceQueries = dateWindows.map(w =>
-      prisma.invoice.findMany({
-        where: { issueDate: { gte: w.start, lte: w.end } },
-        take: 500,
-        orderBy: { issueDate: "desc" },
-        include: { account: { select: accountSelect }, lineItems: true }
-      })
-    )
-
-    if (directInvs.length > 0 || soNums.length > 0) {
-      const directOr: any[] = []
-      if (directInvs.length > 0) directOr.push({ invoiceNumber: { in: directInvs } })
-      if (soNums.length > 0) directOr.push({ salesorderNumber: { in: soNums } })
-      invoiceQueries.push(
-        prisma.invoice.findMany({
-          where: { OR: directOr },
-          take: 200,
-          include: { account: { select: accountSelect }, lineItems: true }
-        })
-      )
-    }
-
-    const soQueries = dateWindows.map(w =>
-      prisma.salesOrder.findMany({
-        where: { orderDate: { gte: w.start, lte: w.end } },
-        take: 300,
-        orderBy: { orderDate: "desc" },
-        include: { account: { select: accountSelect }, lineItems: true }
-      })
-    )
-
-    const quoteQueries = dateWindows.map(w =>
-      prisma.quote.findMany({
-        where: { createdAt: { gte: w.start, lte: w.end } },
-        take: 300,
-        orderBy: { createdAt: "desc" },
-        include: { account: { select: accountSelect }, lineItems: true }
-      })
-    )
-
-    const [invBatches, soBatches, qteBatches] = await Promise.all([
-      Promise.all(invoiceQueries),
-      Promise.all(soQueries),
-      Promise.all(quoteQueries)
-    ])
-
-    const invMap = new Map<string, any>()
-    for (const batch of invBatches) {
-      for (const inv of batch) invMap.set(inv.id, inv)
-    }
-    const candidateInvoices = Array.from(invMap.values())
-
-    const soMap = new Map<string, any>()
-    for (const batch of soBatches) {
-      for (const so of batch) soMap.set(so.id, so)
-    }
-    const candidateSalesOrders = Array.from(soMap.values())
-
-    const qteMap = new Map<string, any>()
-    for (const batch of qteBatches) {
-      for (const q of batch) qteMap.set(q.id, q)
-    }
-    const candidateQuotes = Array.from(qteMap.values())
 
     let linkedCount = 0
     const linkedSummary: any[] = []
     const updatePromises: Promise<any>[] = []
 
-    for (const po of unassociatedPOs) {
-      let bestMatch: any = null
+    for (const po of dropshipCandidates) {
+      const pItems: any = po.items || {}
+      const shipTo = String(po.shipToName || pItems.delivery_customer_name || pItems.customer_name || "").trim()
+
+      let matchedInv: any = null
       let maxScore = 0
       let matchReasons: string[] = []
-      let matchType: "Invoice" | "SalesOrder" | "Estimate" = "Invoice"
 
-      // 1. Score candidate Invoices
-      for (const inv of candidateInvoices) {
-        const { score, reasons } = computePOMatchScore(po, inv)
-        if (score > maxScore) {
-          maxScore = score
-          bestMatch = inv
-          matchReasons = reasons
-          matchType = "Invoice"
+      // A. Direct Invoice Number
+      const directInvNum = extractDirectInvoiceNumber(po)
+      if (directInvNum && invByNumber.has(directInvNum)) {
+        matchedInv = invByNumber.get(directInvNum)
+        maxScore = 100
+        matchReasons = [`Direct Invoice Number (#${directInvNum})`]
+      }
+
+      // B. Direct Sales Order Number
+      if (!matchedInv) {
+        const soNum = String(po.salesOrderNumber || (pItems.salesorders && pItems.salesorders[0]?.salesorder_number) || "").trim()
+        if (soNum && invBySoNumber.has(soNum)) {
+          matchedInv = invBySoNumber.get(soNum)
+          maxScore = 100
+          matchReasons = [`Direct Sales Order Number (#${soNum})`]
         }
       }
 
-      // 2. Score candidate Sales Orders
-      for (const so of candidateSalesOrders) {
-        const { score, reasons } = computePOMatchScore(po, so)
-        if (score > maxScore) {
-          maxScore = score
-          bestMatch = so
-          matchReasons = reasons
-          matchType = "SalesOrder"
+      // C. Reference Number match
+      if (!matchedInv) {
+        const ref = String(po.referenceNumber || pItems.reference_number || "").trim()
+        if (ref && invByNumber.has(ref)) {
+          matchedInv = invByNumber.get(ref)
+          maxScore = 95
+          matchReasons = [`Reference matches Invoice #${ref}`]
+        } else if (ref && invBySoNumber.has(ref)) {
+          matchedInv = invBySoNumber.get(ref)
+          maxScore = 95
+          matchReasons = [`Reference matches SO #${ref}`]
         }
       }
 
-      // 3. Score candidate Estimates
-      for (const qte of candidateQuotes) {
-        const { score, reasons } = computePOMatchScore(po, qte)
-        if (score > maxScore) {
-          maxScore = score
-          bestMatch = qte
-          matchReasons = reasons
-          matchType = "Estimate"
-        }
-      }
+      // D. Contact / Customer + Date Scoring
+      if (!matchedInv && po.date) {
+        const poDate = new Date(po.date)
+        const shipToLower = shipTo.toLowerCase()
 
-      // Direct SO/Ref match or 85%+ score threshold
-      const poSO = (po.salesOrderNumber || po.referenceNumber || "").trim()
-      const isDirectMatch = bestMatch && poSO && (
-        (bestMatch.salesorderNumber && bestMatch.salesorderNumber === poSO) ||
-        (bestMatch.items?.salesorder_number && bestMatch.items.salesorder_number === poSO) ||
-        (bestMatch.items?.reference_number && bestMatch.items.reference_number === poSO) ||
-        (bestMatch.items?.estimate_number && bestMatch.items.estimate_number === poSO) ||
-        (bestMatch.items?.quote_number && bestMatch.items.quote_number === poSO)
-      )
-
-      if (bestMatch && (maxScore >= 85 || isDirectMatch)) {
-        const docData = bestMatch.items as any || {}
-        const finalDocNum = docData.invoiceNumber || docData.salesorder_number || docData.estimate_number || docData.quote_number || bestMatch.zohoId
-
-        // Resolve invoice link
-        let invoiceIdToSet = bestMatch.zohoId
-        if (matchType === "SalesOrder") {
-          const linkedInvoice = candidateInvoices.find(inv =>
-            inv.salesOrderZohoId === bestMatch.zohoId || inv.salesorderNumber === String(finalDocNum)
-          )
-          if (linkedInvoice) {
-            invoiceIdToSet = linkedInvoice.zohoId
+        // Find candidate accounts
+        const candidateAccounts = new Set<string>()
+        if (contactToAccounts.has(shipToLower)) {
+          for (const aid of contactToAccounts.get(shipToLower)!) candidateAccounts.add(aid)
+        } else {
+          const tokens = shipToLower.split(/\s+/).filter(t => t.length > 3)
+          for (const t of tokens) {
+            if (contactToAccounts.has(t)) {
+              for (const aid of contactToAccounts.get(t)!) candidateAccounts.add(aid)
+            }
           }
         }
+
+        // Score invoices belonging to candidate accounts
+        for (const aid of candidateAccounts) {
+          const invs = invByAccountId.get(aid) || []
+          for (const inv of invs) {
+            const { score, reasons } = computePOMatchScore(po, inv)
+            if (score > maxScore) {
+              maxScore = score
+              matchedInv = inv
+              matchReasons = reasons
+            }
+          }
+        }
+      }
+
+      if (matchedInv && maxScore >= 85) {
+        const invData = (matchedInv.items as any) || {}
+        const finalDocNum = matchedInv.computedInvoiceNumber || invData.invoice_number || matchedInv.invoiceNumber || matchedInv.zohoId
 
         updatePromises.push(
           prisma.purchaseOrder.update({
             where: { id: po.id },
             data: {
-              invoiceId: invoiceIdToSet,
-              invoiceNumber: String(finalDocNum),
-              salesOrderId: matchType === "SalesOrder" ? bestMatch.zohoId : po.salesOrderId,
-              salesOrderNumber: matchType === "SalesOrder" ? String(finalDocNum) : po.salesOrderNumber
+              invoiceId: matchedInv.zohoId,
+              invoiceNumber: String(finalDocNum)
             }
           })
         )
@@ -336,9 +340,9 @@ export async function POST(req: Request) {
         linkedSummary.push({
           poZohoId: po.zohoId,
           poTotal: po.total,
-          docType: matchType,
+          docType: "Invoice",
           docNumber: finalDocNum,
-          customer: bestMatch.account?.name || docData.customer_name,
+          customer: matchedInv.account?.name || invData.customer_name,
           score: maxScore,
           reasons: matchReasons
         })
@@ -349,11 +353,13 @@ export async function POST(req: Request) {
       await Promise.all(updatePromises)
     }
 
+    const warehouseMsg = warehousePoIds.length > 0 ? ` Archived ${warehousePoIds.length} internal warehouse stock orders.` : ''
     return NextResponse.json({
       success: true,
       linkedCount,
+      warehouseCount: warehousePoIds.length,
       linkedSummary,
-      message: `Successfully auto-matched and linked ${linkedCount} Purchase Orders (85%+ score across Invoices, Sales Orders & Estimates).`
+      message: `Successfully auto-matched and linked ${linkedCount} Purchase Orders to Invoices (85%+ score across customer contacts & dates).${warehouseMsg}`
     })
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })

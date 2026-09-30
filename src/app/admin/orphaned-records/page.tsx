@@ -447,6 +447,80 @@ export default function OrphanedRecordsPage() {
     }
   }
 
+  const confidentPageMatchesCount = useMemo(() => {
+    if (activeTab === "pos") {
+      return pos.filter(po => {
+        const s = suggestions[po.zohoId] || suggestions[po.id] || (po.poNumber ? suggestions[po.poNumber] : null)
+        const top = s?.bestMatch || (s?.score ? s : null)
+        return top && top.score >= 85
+      }).length
+    } else {
+      return payments.filter(p => {
+        const s = suggestions[p.zohoId] || suggestions[p.id]
+        const top = s?.bestMatch || (s?.score ? s : null)
+        return top && top.score >= 85
+      }).length
+    }
+  }, [pos, payments, suggestions, activeTab])
+
+  const handleLinkAllPageConfident = async () => {
+    setIsLinking(true)
+    setSyncMessage("Linking all high-probability matches on this page...")
+    try {
+      const confidentItems: Array<{ id: string; invNum: string }> = []
+      if (activeTab === "pos") {
+        for (const po of pos) {
+          const s = suggestions[po.zohoId] || suggestions[po.id] || (po.poNumber ? suggestions[po.poNumber] : null)
+          const top = s?.bestMatch || (s?.score ? s : null)
+          if (top && top.score >= 85) {
+            const invNum = top.docNumber || top.invoiceNumber
+            if (invNum) confidentItems.push({ id: po.zohoId, invNum: String(invNum) })
+          }
+        }
+      } else {
+        for (const p of payments) {
+          const s = suggestions[p.zohoId] || suggestions[p.id]
+          const top = s?.bestMatch || (s?.score ? s : null)
+          if (top && top.score >= 85) {
+            const invNum = top.docNumber || top.invoiceNumber
+            if (invNum) confidentItems.push({ id: p.zohoId, invNum: String(invNum) })
+          }
+        }
+      }
+
+      if (confidentItems.length === 0) {
+        setSyncMessage("No 85%+ confident matches found on this page.")
+        setTimeout(() => setSyncMessage(""), 3000)
+        return
+      }
+
+      let successCount = 0
+      for (const item of confidentItems) {
+        try {
+          const res = await fetch("/api/admin/orphans/link", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: activeTab === "pos" ? "po" : "payment",
+              id: item.id,
+              invoiceNumber: item.invNum
+            })
+          })
+          const data = await res.json()
+          if (data.success) successCount++
+        } catch (e) {
+          console.error("Link error:", e)
+        }
+      }
+
+      setSyncMessage(`Successfully linked and cleared ${successCount} high-probability matches from this page!`)
+      fetchData()
+      setTimeout(() => setSyncMessage(""), 5000)
+    } finally {
+      setIsLinking(false)
+    }
+  }
+
   const handleSync = async () => {
     setSyncing(true)
     setSyncMessage("Syncing POs and payments from Zoho...")
@@ -744,7 +818,18 @@ export default function OrphanedRecordsPage() {
               </div>
 
               {/* Per Page Selector & Record Count Counter */}
-              <div className="flex items-center justify-between sm:justify-end gap-4 text-xs">
+              <div className="flex items-center justify-between sm:justify-end gap-3 text-xs flex-wrap">
+                {confidentPageMatchesCount > 0 && (
+                  <button
+                    onClick={handleLinkAllPageConfident}
+                    disabled={isLinking}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs px-3 py-1.5 rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer animate-pulse"
+                    title="Clear off all high-confidence (85%+) matches currently visible on this page"
+                  >
+                    <FiCheckCircle size={14} />
+                    <span>Link & Clear {confidentPageMatchesCount} Page Matches</span>
+                  </button>
+                )}
                 <div className="flex items-center gap-2 text-slate-400 font-medium">
                   <span>Per page:</span>
                   <select
