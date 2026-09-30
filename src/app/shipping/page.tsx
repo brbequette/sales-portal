@@ -8,6 +8,7 @@ import { CreateDropshipmentModal } from "@/components/CreateDropshipmentModal"
 import { toast } from 'react-hot-toast';
 import { PeriodSelector, isInPeriod, type PeriodValue } from "@/components/PeriodSelector"
 import { financialZohoLineItems } from "@/lib/zoho-line-items"
+import { getZohoBooksUrl } from "@/lib/zoho-urls"
 
 type ShipStatus = "all" | "needs_packaging" | "packaged" | "shipped" | "delivered"
 
@@ -48,12 +49,17 @@ interface PackageInfo {
 interface DropshipInfo {
   id: string
   zohoId: string
+  poNumber?: string
+  salesOrderId?: string
+  salesOrderNumber?: string
   vendorName: string
   shipToName?: string
+  shippingAddress?: string
   referenceNumber?: string
   date: string
   total: number
   status: string
+  carrier?: string
   trackingNumber: string
   shippingCharge?: number
   lineItems?: Array<{ name: string; sku: string; quantity: number; rate: number }>
@@ -319,7 +325,15 @@ export default function ShippingPage() {
                   ...o,
                   dropshipments: o.dropshipments.map(d =>
                     d.zohoId === ds.zohoId
-                      ? { ...d, lineItems: data.lineItems, trackingNumber: data.trackingNumber || d.trackingNumber, shippingCharge: data.shippingCharge || d.shippingCharge }
+                      ? {
+                          ...d,
+                          lineItems: data.lineItems,
+                          poNumber: data.poNumber || d.poNumber,
+                          salesOrderNumber: data.salesOrderNumber || d.salesOrderNumber,
+                          shipToName: data.shipToName || d.shipToName,
+                          trackingNumber: data.trackingNumber || d.trackingNumber,
+                          shippingCharge: data.shippingCharge || d.shippingCharge
+                        }
                       : d
                   )
                 }
@@ -1435,10 +1449,17 @@ export default function ShippingPage() {
                     </span>
                   )}
 
-                  {/* Dropshipments count */}
+                  {/* Dropshipments count & PO indicators */}
                   {order.dropshipments?.length > 0 && (
-                    <span className="flex items-center gap-1 text-xs text-orange-400 bg-orange-950/30 px-2 py-1 rounded-lg">
-                      <FiTruck className="text-[10px]" /> {order.dropshipments.length} DS
+                    <span
+                      className="flex items-center gap-1.5 text-xs text-orange-400 bg-orange-950/40 px-2 py-1 rounded-lg border border-orange-800/40 font-bold"
+                      title={order.dropshipments.map(d => `PO #${d.poNumber || d.zohoId} (${d.vendorName})`).join(', ')}
+                    >
+                      <FiTruck className="text-[11px]" />
+                      <span>{order.dropshipments.length} DS</span>
+                      <span className="text-[10px] text-orange-300 font-mono font-medium">
+                        ({order.dropshipments.map(d => d.poNumber ? (d.poNumber.startsWith('PO') ? d.poNumber : `PO #${d.poNumber}`) : `PO ${d.zohoId.slice(-4)}`).join(', ')})
+                      </span>
                     </span>
                   )}
 
@@ -1804,56 +1825,185 @@ export default function ShippingPage() {
                     {/* Dropshipments List */}
                     {order.dropshipments?.length > 0 && (
                       <div>
-                        <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-2">Dropshipments</div>
-                        <div className="space-y-2">
-                          {order.dropshipments.map(ds => (
-                            <div key={ds.id} className="bg-orange-950/20 border border-orange-800/30 rounded-xl p-3">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <FiTruck className="text-orange-400 text-xs" />
-                                  <span className="text-sm font-bold text-white">{ds.vendorName || "Vendor"}</span>
-                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
-                                    ds.status === "received" || ds.status === "billed" ? "text-emerald-400 bg-emerald-950/50" :
-                                    ds.status === "issued" ? "text-purple-400 bg-purple-950/50" :
-                                    "text-orange-400 bg-orange-950/50"
-                                  }`}>
-                                    {ds.status || "draft"}
-                                  </span>
-                                  <span className="text-[10px] text-neutral-500 font-mono">${ds.total?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                  {ds.shippingCharge ? <span className="text-[10px] text-neutral-500">Ship: ${ds.shippingCharge.toFixed(2)}</span> : null}
-                                </div>
-                                <button
-                                  onClick={() => {
-                                    setEditingDropship(editingDropship === ds.id ? null : ds.id)
-                                    setDropshipEdit({ tracking: ds.trackingNumber || '', shippingCharge: String(ds.shippingCharge || '') })
-                                  }}
-                                  className="text-[10px] text-neutral-500 hover:text-orange-400 transition-colors"
-                                >
-                                  <FiEdit2 size={12} />
-                                </button>
-                              </div>
+                        <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                          <FiTruck className="text-orange-400" /> Dropshipments ({order.dropshipments.length})
+                        </div>
+                        <div className="space-y-2.5">
+                          {order.dropshipments.map(ds => {
+                            const poDisplay = ds.poNumber ? (ds.poNumber.startsWith('PO') ? ds.poNumber : `PO #${ds.poNumber}`) : `PO (${ds.zohoId.slice(-4)})`
+                            const soDisplay = ds.salesOrderNumber || ds.referenceNumber || order.soNumber
+                            const zohoPoUrl = getZohoBooksUrl('purchaseorders', ds.zohoId)
+                            const zohoSoUrl = getZohoBooksUrl('salesorders', order.zohoId)
 
-                              {/* Line Items */}
-                              {ds.lineItems && ds.lineItems.length > 0 && (
-                                <div className="mt-2 pl-5 space-y-0.5">
-                                  {ds.lineItems.map((li, liIdx) => (
-                                    <div key={liIdx} className="flex items-center gap-2 text-xs text-neutral-400">
-                                      <span className="text-neutral-600">•</span>
-                                      <span className="text-neutral-300">{li.quantity}x</span>
-                                      <span className="truncate">{li.name}</span>
-                                      {li.rate > 0 && <span className="text-neutral-600 ml-auto shrink-0">${li.rate.toFixed(2)}</span>}
+                            return (
+                              <div key={ds.id} className="bg-orange-950/20 border border-orange-800/40 rounded-xl p-3.5 space-y-2.5">
+                                {/* Top Row: PO Badge, SO Badge, Vendor, Status, Date, Ship To, Total, Review Actions */}
+                                <div className="flex items-center justify-between flex-wrap gap-2">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <FiTruck className="text-orange-400 text-sm shrink-0" />
+
+                                    {/* PO Number link badge */}
+                                    <a
+                                      href={zohoPoUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-orange-300 font-mono bg-orange-950/80 px-2.5 py-0.5 rounded border border-orange-700/60 font-black hover:text-white hover:bg-orange-800/80 transition-colors flex items-center gap-1 shadow-sm"
+                                      title={`Review ${poDisplay} in Zoho Books`}
+                                      onClick={e => e.stopPropagation()}
+                                    >
+                                      <FiFileText size={11} className="text-orange-400" />
+                                      <span>{poDisplay}</span>
+                                      <FiExternalLink size={10} className="text-orange-400/80" />
+                                    </a>
+
+                                    {/* Sales Order link badge */}
+                                    <a
+                                      href={zohoSoUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-indigo-400 font-mono bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-800/50 font-bold hover:text-orange-400 hover:underline transition-colors flex items-center gap-1 cursor-pointer"
+                                      title={`Review Sales Order #${soDisplay} in Zoho Books`}
+                                      onClick={e => e.stopPropagation()}
+                                    >
+                                      SO #{soDisplay}
+                                    </a>
+
+                                    {/* Vendor Name */}
+                                    <span className="text-sm font-bold text-white tracking-wide">{ds.vendorName || "Vendor"}</span>
+
+                                    {/* Status Badge */}
+                                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
+                                      ds.status === "received" || ds.status === "delivered" || ds.status === "billed" ? "text-emerald-400 bg-emerald-950/50 border border-emerald-800/40" :
+                                      ds.status === "issued" || ds.status === "shipped" ? "text-purple-400 bg-purple-950/50 border border-purple-800/40" :
+                                      "text-orange-400 bg-orange-950/50 border border-orange-800/40"
+                                    }`}>
+                                      {ds.status || "open"}
+                                    </span>
+
+                                    {/* PO Date */}
+                                    {ds.date && (
+                                      <span className="text-[10px] text-neutral-400 font-mono">
+                                        {new Date(ds.date).toLocaleDateString()}
+                                      </span>
+                                    )}
+
+                                    {/* Ship To Customer */}
+                                    {ds.shipToName && (
+                                      <span className="text-[10px] text-neutral-400 flex items-center gap-1" title={ds.shipToName}>
+                                        <span className="text-neutral-600">Ship To:</span>
+                                        <span className="text-neutral-300 font-medium truncate max-w-[180px]">{ds.shipToName}</span>
+                                      </span>
+                                    )}
+
+                                    {/* Total Cost */}
+                                    <span className="text-xs text-emerald-400 font-bold font-mono">
+                                      ${ds.total?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    </span>
+                                    {ds.shippingCharge ? (
+                                      <span className="text-[10px] text-emerald-400 bg-emerald-950/40 px-1.5 py-0.5 rounded font-mono">
+                                        Ship: ${ds.shippingCharge.toFixed(2)}
+                                      </span>
+                                    ) : null}
+                                  </div>
+
+                                  {/* Actions: Review PO, Edit Tracking */}
+                                  <div className="flex items-center gap-2">
+                                    <a
+                                      href={zohoPoUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="px-2.5 py-1 rounded-lg bg-orange-600/20 text-orange-300 border border-orange-700/50 text-[10px] font-bold uppercase hover:bg-orange-600/30 transition-all flex items-center gap-1 shadow-sm"
+                                      title="Open and review PO in Zoho Books"
+                                      onClick={e => e.stopPropagation()}
+                                    >
+                                      <FiExternalLink size={11} /> Review PO
+                                    </a>
+                                    <button
+                                      onClick={() => {
+                                        setEditingDropship(editingDropship === ds.id ? null : ds.id)
+                                        setDropshipEdit({ tracking: ds.trackingNumber || '', shippingCharge: String(ds.shippingCharge || '') })
+                                      }}
+                                      className="p-1.5 rounded-lg text-neutral-400 hover:text-orange-400 hover:bg-white/5 transition-colors"
+                                      title="Edit tracking & shipping cost"
+                                    >
+                                      <FiEdit2 size={13} />
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Line Items in PO */}
+                                {ds.lineItems && ds.lineItems.length > 0 ? (
+                                  <div className="bg-neutral-900/60 rounded-lg p-2.5 border border-white/5 space-y-1">
+                                    <div className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider flex items-center justify-between">
+                                      <span className="flex items-center gap-1">
+                                        <FiBox className="text-xs text-orange-400" /> Items in Purchase Order ({poDisplay})
+                                      </span>
+                                      {ds.referenceNumber && ds.referenceNumber !== soDisplay && (
+                                        <span className="text-[9px] text-neutral-500 font-mono">Ref: {ds.referenceNumber}</span>
+                                      )}
                                     </div>
-                                  ))}
-                                </div>
-                              )}
+                                    <div className="space-y-0.5">
+                                      {ds.lineItems.map((li, liIdx) => (
+                                        <div key={liIdx} className="flex items-center gap-2 text-xs text-neutral-300 font-medium">
+                                          <span className="text-neutral-500">•</span>
+                                          <span className="text-orange-400 font-mono font-bold">{li.quantity}x</span>
+                                          <span className="truncate">{li.name}</span>
+                                          {li.sku && <span className="text-[10px] text-neutral-500 font-mono">[{li.sku}]</span>}
+                                          {li.rate > 0 && <span className="text-neutral-400 ml-auto shrink-0 font-mono">${li.rate.toFixed(2)}</span>}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="pl-6">
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation()
+                                        try {
+                                          const res = await fetch(`/api/shipping/po-details?poZohoId=${ds.zohoId}`)
+                                          const data = await res.json()
+                                          if (data.success && data.lineItems) {
+                                            setOrders(prev => prev.map(o => ({
+                                              ...o,
+                                              dropshipments: o.dropshipments.map(d => d.id === ds.id ? {
+                                                ...d,
+                                                lineItems: data.lineItems,
+                                                poNumber: data.poNumber || d.poNumber,
+                                                salesOrderNumber: data.salesOrderNumber || d.salesOrderNumber,
+                                                shipToName: data.shipToName || d.shipToName,
+                                                trackingNumber: data.trackingNumber || d.trackingNumber
+                                              } : d)
+                                            })))
+                                            toast.success('PO line items loaded from Zoho')
+                                          } else {
+                                            toast.error('Could not load PO line items')
+                                          }
+                                        } catch (err: any) {
+                                          toast.error(err.message)
+                                        }
+                                      }}
+                                      className="text-[10px] text-orange-400 hover:text-orange-300 underline flex items-center gap-1"
+                                    >
+                                      <FiRefreshCw size={10} /> Load PO Items from Zoho
+                                    </button>
+                                  </div>
+                                )}
 
-                              {/* Tracking display */}
-                              {ds.trackingNumber && editingDropship !== ds.id && (
-                                <div className="flex items-center gap-2 mt-2 pl-5">
-                                  <span className="text-[10px] text-neutral-500">Tracking:</span>
-                                  <span className="text-xs text-neutral-300 font-mono">{ds.trackingNumber}</span>
-                                </div>
-                              )}
+                                {/* Tracking display */}
+                                {ds.trackingNumber && editingDropship !== ds.id && (
+                                  <div className="flex items-center gap-2 pl-2">
+                                    <span className="text-[10px] text-neutral-500">{ds.carrier || "Tracking"}:</span>
+                                    <span className="text-xs text-neutral-300 font-mono">{ds.trackingNumber}</span>
+                                    {(() => {
+                                      const url = getTrackingUrl(ds.carrier || "", ds.trackingNumber)
+                                      return url ? (
+                                        <a href={url} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 text-xs flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
+                                          <FiExternalLink size={10} /> Track
+                                        </a>
+                                      ) : null
+                                    })()}
+                                  </div>
+                                )}
 
                               {/* Edit form */}
                               {editingDropship === ds.id && (
@@ -1893,10 +2043,11 @@ export default function ShippingPage() {
                                 </div>
                               )}
                             </div>
-                          ))}
-                        </div>
+                          )
+                        })}
                       </div>
-                    )}
+                    </div>
+                  )}
 
                     {/* Action Buttons */}
                     <div className="flex gap-2 flex-wrap pt-2 border-t border-white/10/30">
