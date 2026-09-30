@@ -87,26 +87,6 @@ export async function GET(req: Request) {
         if (candidates.length > 0) {
           const topMatch = candidates[0]
 
-          if (topMatch.score >= 85) {
-            const finalDocNum = topMatch.docNumber || topMatch.invoiceNumber
-            await prisma.payment.update({
-              where: { id: p.id },
-              data: {
-                invoiceId: topMatch.docId,
-                invoiceNumber: String(finalDocNum)
-              }
-            })
-
-            autoApprovedCount++
-            autoApprovedSummary.push({
-              paymentZohoId: p.zohoId,
-              docNumber: finalDocNum,
-              customerName: topMatch.customerName,
-              score: topMatch.score
-            })
-            continue
-          }
-
           suggestions[p.zohoId] = {
             bestMatch: topMatch,
             candidates,
@@ -354,45 +334,6 @@ export async function GET(req: Request) {
 
       if (candidates.length > 0) {
         const topMatch = candidates[0]
-
-        // 85%+ Match Auto Approve & Instant Link!
-        if (topMatch.score >= 85) {
-          const finalDocNum = topMatch.docNumber || topMatch.invoiceNumber
-          let invoiceIdToSet = topMatch.docId || topMatch.invoiceId
-          if (topMatch.docType === "SalesOrder") {
-            const linkedInvoice = await prisma.invoice.findFirst({
-              where: {
-                OR: [
-                  { salesOrderZohoId: topMatch.docId },
-                  { salesorderNumber: String(finalDocNum) }
-                ]
-              }
-            })
-            if (linkedInvoice) {
-              invoiceIdToSet = linkedInvoice.zohoId
-            }
-          }
-
-          await prisma.purchaseOrder.update({
-            where: { id: po.id },
-            data: {
-              invoiceId: invoiceIdToSet,
-              invoiceNumber: String(finalDocNum),
-              salesOrderId: topMatch.docType === "SalesOrder" ? topMatch.docId : po.salesOrderId,
-              salesOrderNumber: topMatch.docType === "SalesOrder" ? String(finalDocNum) : po.salesOrderNumber
-            }
-          })
-
-          autoApprovedCount++
-          autoApprovedSummary.push({
-            poZohoId: po.zohoId,
-            docType: topMatch.docType,
-            docNumber: finalDocNum,
-            customerName: topMatch.customerName,
-            score: topMatch.score
-          })
-          continue // Auto-approved! Remove from unlinked suggestions list.
-        }
 
         suggestions[po.zohoId] = {
           bestMatch: topMatch,
