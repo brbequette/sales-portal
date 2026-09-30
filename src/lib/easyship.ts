@@ -509,6 +509,13 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
     // Extract shipping documents (label URL)
     labelUrl = labelShipment.shipping_documents?.find((d: any) => d.category === 'label')?.url
       || labelShipment.shipping_documents?.[0]?.url || '';
+    if (labelUrl && labelUrl.includes('easyship.com')) {
+      if (labelUrl.includes('page_size=')) {
+        labelUrl = labelUrl.replace(/page_size=[^&]+/, 'page_size=4x6');
+      } else {
+        labelUrl += (labelUrl.includes('?') ? '&' : '?') + 'page_size=4x6';
+      }
+    }
     
     // Extract tracking info
     trackingNumber = labelShipment.trackings?.[0]?.tracking_number 

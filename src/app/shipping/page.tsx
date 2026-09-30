@@ -1634,17 +1634,23 @@ export default function ShippingPage() {
                                         </button>
                                       )}
 
-                                      {/* Print Label — when label exists */}
+                                      {/* Print 4x6 Label (Zebra Thermal) — when label exists */}
                                       {hasLabel && (
                                         <a
-                                          href={pkgItems.labelUrl}
+                                          href={(() => {
+                                            let u = pkgItems.labelUrl || ''
+                                            if (u.includes('easyship.com')) {
+                                              u = u.includes('page_size=') ? u.replace(/page_size=[^&]+/, 'page_size=4x6') : u + (u.includes('?') ? '&' : '?') + 'page_size=4x6'
+                                            }
+                                            return u
+                                          })()}
                                           target="_blank"
                                           rel="noopener noreferrer"
                                           onClick={e => e.stopPropagation()}
                                           className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-500/50 text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-md shadow-emerald-950/50 hover:scale-[1.02] active:scale-[0.98]"
-                                          title="Open and print EasyShip shipping label"
+                                          title="Open and print 4x6 label (Zebra thermal printer format)"
                                         >
-                                          <FiPrinter size={13} /> Print Label
+                                          <FiPrinter size={13} /> Print 4x6 Label
                                         </a>
                                       )}
 
@@ -2059,8 +2065,20 @@ export default function ShippingPage() {
                   </div>
                   <div className="flex gap-2 pt-2">
                     {shipNowResult.labelUrl && (
-                      <a href={shipNowResult.labelUrl} target="_blank" rel="noopener noreferrer" className="td-btn td-btn-sm bg-emerald-600 hover:bg-emerald-500 text-white border-none flex items-center gap-1.5">
-                        <FiPrinter size={14} /> Print Label
+                      <a
+                        href={(() => {
+                          let u = shipNowResult.labelUrl || ''
+                          if (u.includes('easyship.com')) {
+                            u = u.includes('page_size=') ? u.replace(/page_size=[^&]+/, 'page_size=4x6') : u + (u.includes('?') ? '&' : '?') + 'page_size=4x6'
+                          }
+                          return u
+                        })()}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="td-btn td-btn-sm bg-emerald-600 hover:bg-emerald-500 text-white border-none flex items-center gap-1.5"
+                        title="Print 4x6 thermal label (Zebra printer)"
+                      >
+                        <FiPrinter size={14} /> Print 4x6 Label
                       </a>
                     )}
                     {shipNowResult.trackingPageUrl && (

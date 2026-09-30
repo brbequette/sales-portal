@@ -135,7 +135,14 @@ export async function POST(req: Request) {
     const shippingDocuments = shipment.shipping_documents || [];
 
     const labelDoc = shippingDocuments.find((d: any) => d.category === 'label');
-    const labelUrl = labelDoc?.url || shipment.label_url || '';
+    let labelUrl = labelDoc?.url || shipment.label_url || '';
+    if (labelUrl && labelUrl.includes('easyship.com')) {
+      if (labelUrl.includes('page_size=')) {
+        labelUrl = labelUrl.replace(/page_size=[^&]+/, 'page_size=4x6');
+      } else {
+        labelUrl += (labelUrl.includes('?') ? '&' : '?') + 'page_size=4x6';
+      }
+    }
     const packingSlipDoc = shippingDocuments.find((d: any) => d.category === 'packing_slip');
     const packingSlipUrl = packingSlipDoc?.url || '';
 
