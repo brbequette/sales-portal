@@ -480,27 +480,37 @@ export function computePaymentMatchScore(payment: any, doc: any): MatchScoreResu
   }
 
   // -------------------------------------------------------------
-  // 2. Exact or Proximity Amount Matcher
+  // 2. Exact or Proximity Amount Matcher (Grand Total vs Subtotal)
+  // Customer payments pay the Grand Total (with shipping, adjustments, tax), not just subtotal
   // -------------------------------------------------------------
   const payAmount = Number(payment.amount || payItems.amount || 0)
-  const docTotal = Number(doc.amount || docItems.total || 0)
+  // Grand total takes precedence from items.total, items.bcy_total, or doc.amount
+  const docGrandTotal = Number(docItems.total || docItems.bcy_total || doc.amount || 0)
+  const docSubTotal = Number(docItems.sub_total || doc.amount || 0)
+  const docEffectiveTotal = docGrandTotal > 0 ? docGrandTotal : docSubTotal
 
-  if (payAmount > 0 && docTotal > 0) {
-    const diff = Math.abs(payAmount - docTotal)
-    if (diff < 0.01) {
-      score += 45 // Exact amount match!
-      reasons.push(`Exact Amount $${payAmount.toFixed(2)}`)
-      matchDetails.amountMatch = `Exact Amount $${payAmount.toFixed(2)}`
-    } else if (payAmount <= docTotal) {
-      const payPercent = Math.round((payAmount / docTotal) * 100)
+  if (payAmount > 0 && docEffectiveTotal > 0) {
+    const grandDiff = Math.abs(payAmount - docGrandTotal)
+    const subDiff = Math.abs(payAmount - docSubTotal)
+
+    if (grandDiff < 0.01) {
+      score += 45 // Exact Grand Total match!
+      reasons.push(`Exact Grand Total $${payAmount.toFixed(2)}`)
+      matchDetails.amountMatch = `Exact Grand Total $${payAmount.toFixed(2)}`
+    } else if (subDiff < 0.01) {
+      score += 40 // Exact Subtotal match
+      reasons.push(`Exact Subtotal $${payAmount.toFixed(2)}`)
+      matchDetails.amountMatch = `Exact Subtotal $${payAmount.toFixed(2)}`
+    } else if (payAmount <= docEffectiveTotal) {
+      const payPercent = Math.round((payAmount / docEffectiveTotal) * 100)
       if (payPercent >= 20) {
         score += 20
-        reasons.push(`Partial Payment (${payPercent}% of invoice total $${docTotal.toFixed(2)})`)
+        reasons.push(`Partial Payment (${payPercent}% of invoice total $${docEffectiveTotal.toFixed(2)})`)
         matchDetails.amountMatch = `Partial Payment (${payPercent}%)`
       }
-    } else if (diff / payAmount < 0.05) {
+    } else if (grandDiff / payAmount < 0.05) {
       score += 20
-      reasons.push(`Near Amount ($${payAmount.toFixed(2)} vs $${docTotal.toFixed(2)})`)
+      reasons.push(`Near Amount ($${payAmount.toFixed(2)} vs $${docEffectiveTotal.toFixed(2)})`)
       matchDetails.amountMatch = `Near Amount`
     }
   }

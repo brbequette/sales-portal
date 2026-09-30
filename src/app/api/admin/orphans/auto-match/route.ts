@@ -1,31 +1,15 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { computePOMatchScore, isTitanWarehouse, tokenizeClean } from "../suggest-matches/match-score"
+import { computePOMatchScore, computePaymentMatchScore, isTitanWarehouse } from "../suggest-matches/match-score"
 import { requireAdministrator } from "@/lib/auth-helpers"
 
-export async function POST() {
+export async function POST(req: Request) {
   try {
     const auth = await requireAdministrator()
     if (auth.errorResponse) return auth.errorResponse
-    
-    // Take up to 300 unassociated POs per batch for ultra-fast performance under serverless timeouts
-    const unassociatedPOs = await prisma.purchaseOrder.findMany({
-      where: {
-        invoiceId: null,
-        isInventoryOrder: false
-      },
-      take: 300,
-      orderBy: { date: "desc" }
-    })
 
-    if (unassociatedPOs.length === 0) {
-      return NextResponse.json({
-        success: true,
-        linkedCount: 0,
-        linkedSummary: [],
-        message: "No unassociated Purchase Orders found."
-      })
-    }
+    const { searchParams } = new URL(req.url)
+    const type = searchParams.get("type") || "pos"
 
     const accountSelect = {
       id: true,
@@ -38,6 +22,110 @@ export async function POST() {
       billingCity: true,
       billingState: true,
       billingZip: true
+    }
+
+    if (type === "payments") {
+      // -------------------------------------------------------------
+      // AUTO-MATCH UNASSOCIATED PAYMENTS
+      // -------------------------------------------------------------
+      const unassociatedPayments = await prisma.payment.findMany({
+        where: { invoiceId: null },
+        take: 200,
+        orderBy: { date: "desc" }
+      })
+
+      if (unassociatedPayments.length === 0) {
+        return NextResponse.json({
+          success: true,
+          linkedCount: 0,
+          linkedSummary: [],
+          message: "No unassociated Payments found."
+        })
+      }
+
+      // Fetch candidate invoices (prioritizing grand total matching)
+      const candidateInvoices = await prisma.invoice.findMany({
+        take: 1200,
+        orderBy: { issueDate: "desc" },
+        include: { account: { select: accountSelect }, lineItems: true }
+      })
+
+      let linkedCount = 0
+      const linkedSummary: any[] = []
+      const updatePromises: Promise<any>[] = []
+
+      for (const p of unassociatedPayments) {
+        let bestMatch: any = null
+        let maxScore = 0
+        let matchReasons: string[] = []
+
+        for (const inv of candidateInvoices) {
+          const { score, reasons } = computePaymentMatchScore(p, inv)
+          if (score > maxScore) {
+            maxScore = score
+            bestMatch = inv
+            matchReasons = reasons
+          }
+        }
+
+        if (bestMatch && maxScore >= 85) {
+          const invData: any = bestMatch.items || {}
+          const invNum = bestMatch.invoiceNumber || invData.invoiceNumber || bestMatch.zohoId
+
+          updatePromises.push(
+            prisma.payment.update({
+              where: { id: p.id },
+              data: {
+                invoiceId: bestMatch.zohoId,
+                invoiceDbId: bestMatch.id,
+                invoiceNumber: String(invNum)
+              }
+            })
+          )
+
+          linkedCount++
+          linkedSummary.push({
+            paymentZohoId: p.zohoId,
+            amount: p.amount,
+            invoiceNumber: invNum,
+            customer: bestMatch.account?.name || invData.customer_name,
+            score: maxScore,
+            reasons: matchReasons
+          })
+        }
+      }
+
+      if (updatePromises.length > 0) {
+        await Promise.all(updatePromises)
+      }
+
+      return NextResponse.json({
+        success: true,
+        linkedCount,
+        linkedSummary,
+        message: `Successfully auto-matched and linked ${linkedCount} Payments to Invoices (85%+ score on Grand Total & Customer).`
+      })
+    }
+
+    // -------------------------------------------------------------
+    // AUTO-MATCH UNASSOCIATED PURCHASE ORDERS
+    // -------------------------------------------------------------
+    const unassociatedPOs = await prisma.purchaseOrder.findMany({
+      where: {
+        invoiceId: null,
+        isInventoryOrder: false
+      },
+      take: 250,
+      orderBy: { date: "desc" }
+    })
+
+    if (unassociatedPOs.length === 0) {
+      return NextResponse.json({
+        success: true,
+        linkedCount: 0,
+        linkedSummary: [],
+        message: "No unassociated Purchase Orders found."
+      })
     }
 
     function extractDirectInvoiceNumber(po: any): string | null {
@@ -66,112 +154,66 @@ export async function POST() {
       return null
     }
 
+    // Collect direct identifiers and date bounds across the batch of POs
+    let minDate: Date | null = null
+    let maxDate: Date | null = null
+    const directInvs: string[] = []
+    const soNums: string[] = []
+
+    for (const po of unassociatedPOs) {
+      const pItems: any = po.items || {}
+      const directInv = extractDirectInvoiceNumber(po)
+      if (directInv) directInvs.push(directInv)
+      const soNum = String(po.salesOrderNumber || (pItems.salesorders && pItems.salesorders[0]?.salesorder_number) || "").trim()
+      if (soNum && soNum.length >= 3) soNums.push(soNum)
+
+      const poDate = po.date ? new Date(po.date) : null
+      if (poDate && !isNaN(poDate.getTime())) {
+        if (!minDate || poDate < minDate) minDate = poDate
+        if (!maxDate || poDate > maxDate) maxDate = poDate
+      }
+    }
+
+    const queryMin = minDate ? new Date(minDate.getTime() - 60 * 24 * 3600 * 1000) : new Date(Date.now() - 180 * 24 * 3600 * 1000)
+    const queryMax = maxDate ? new Date(maxDate.getTime() + 60 * 24 * 3600 * 1000) : new Date(Date.now() + 30 * 24 * 3600 * 1000)
+
+    const invOr: any[] = [
+      { issueDate: { gte: queryMin, lte: queryMax } }
+    ]
+    if (directInvs.length > 0) {
+      invOr.push({ invoiceNumber: { in: directInvs } })
+    }
+    if (soNums.length > 0) {
+      invOr.push({ salesorderNumber: { in: soNums } })
+    }
+
+    // Fast parallel fetch of candidate documents across the target range
+    const [candidateInvoices, candidateSalesOrders, candidateQuotes] = await Promise.all([
+      prisma.invoice.findMany({
+        where: { OR: invOr },
+        take: 1000,
+        orderBy: { issueDate: "desc" },
+        include: { account: { select: accountSelect }, lineItems: true }
+      }),
+      prisma.salesOrder.findMany({
+        where: { orderDate: { gte: queryMin, lte: queryMax } },
+        take: 400,
+        orderBy: { orderDate: "desc" },
+        include: { account: { select: accountSelect }, lineItems: true }
+      }),
+      prisma.quote.findMany({
+        where: { createdAt: { gte: queryMin, lte: queryMax } },
+        take: 400,
+        orderBy: { createdAt: "desc" },
+        include: { account: { select: accountSelect }, lineItems: true }
+      })
+    ])
+
     let linkedCount = 0
     const linkedSummary: any[] = []
     const updatePromises: Promise<any>[] = []
 
     for (const po of unassociatedPOs) {
-      const pItems: any = po.items || {}
-      const directInv = extractDirectInvoiceNumber(po)
-      const cust = String(po.shipToName || pItems.delivery_customer_name || pItems.customer_name || pItems.attention || "").trim()
-      const isWarehouse = isTitanWarehouse(cust) || isTitanWarehouse(po.shippingAddress)
-      const tokens = !isWarehouse ? tokenizeClean(cust) : []
-      const soNum = String(po.salesOrderNumber || (pItems.salesorders && pItems.salesorders[0]?.salesorder_number) || "").trim().replace(/[^a-zA-Z0-9]/g, "")
-
-      const poDate = po.date ? new Date(po.date) : null
-      let minDate: Date | null = null
-      let maxDate: Date | null = null
-      if (poDate && !isNaN(poDate.getTime())) {
-        minDate = new Date(poDate.getTime() - 45 * 24 * 3600 * 1000)
-        maxDate = new Date(poDate.getTime() + 60 * 24 * 3600 * 1000)
-      }
-
-      const invOr: any[] = []
-      const soOr: any[] = []
-      const qteOr: any[] = []
-
-      if (!isWarehouse && tokens.length > 0) {
-        // Strict Customer Account Scope: Only fetch candidate documents for this verified customer!
-        const customerClause = {
-          account: {
-            OR: tokens.slice(0, 3).map(token => ({
-              name: { contains: token, mode: "insensitive" as const }
-            }))
-          }
-        }
-
-        // 1. Direct Invoice Number (if found on PO)
-        if (directInv) {
-          invOr.push({
-            invoiceNumber: directInv,
-            ...customerClause
-          })
-          // Also fetch exact invoice number alone in case account name spelling differs slightly in CRM
-          invOr.push({ invoiceNumber: directInv })
-        }
-
-        // 2. Sales Order within this verified customer
-        if (soNum && soNum.length >= 3) {
-          invOr.push({
-            OR: [
-              { salesorderNumber: { contains: soNum, mode: "insensitive" as const } },
-              { invoiceNumber: { contains: soNum, mode: "insensitive" as const } }
-            ],
-            ...customerClause
-          })
-          soOr.push({
-            salesorderNumber: { contains: soNum, mode: "insensitive" as const },
-            ...customerClause
-          })
-        }
-
-        // 3. Customer documents within date window (±45 days)
-        invOr.push({
-          ...customerClause,
-          ...(minDate && maxDate ? { issueDate: { gte: minDate, lte: maxDate } } : {})
-        })
-        soOr.push({
-          ...customerClause,
-          ...(minDate && maxDate ? { orderDate: { gte: minDate, lte: maxDate } } : {})
-        })
-        qteOr.push({
-          ...customerClause,
-          ...(minDate && maxDate ? { createdAt: { gte: minDate, lte: maxDate } } : {})
-        })
-      } else if (isWarehouse) {
-        // Internal stock PO to Titan Warehouse - only query if explicit PO reference exists
-        const poNum = String(po.poNumber || "").trim()
-        if (poNum && poNum.length >= 3) {
-          invOr.push({ referenceNumber: { contains: poNum, mode: "insensitive" as const } })
-          soOr.push({ referenceNumber: { contains: poNum, mode: "insensitive" as const } })
-        }
-      }
-
-      if (invOr.length === 0 && soOr.length === 0 && qteOr.length === 0) {
-        continue
-      }
-
-      const [candidateInvoices, candidateSalesOrders, candidateQuotes] = await Promise.all([
-        invOr.length > 0 ? prisma.invoice.findMany({
-          where: { OR: invOr },
-          take: 15,
-          orderBy: { issueDate: "desc" },
-          include: { account: { select: accountSelect }, lineItems: true }
-        }) : Promise.resolve([]),
-        soOr.length > 0 ? prisma.salesOrder.findMany({
-          where: { OR: soOr },
-          take: 10,
-          orderBy: { orderDate: "desc" },
-          include: { account: { select: accountSelect }, lineItems: true }
-        }) : Promise.resolve([]),
-        qteOr.length > 0 ? prisma.quote.findMany({
-          where: { OR: qteOr },
-          take: 10,
-          orderBy: { createdAt: "desc" },
-          include: { account: { select: accountSelect }, lineItems: true }
-        }) : Promise.resolve([])
-      ])
-
       let bestMatch: any = null
       let maxScore = 0
       let matchReasons: string[] = []
@@ -274,4 +316,3 @@ export async function POST() {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 }
-

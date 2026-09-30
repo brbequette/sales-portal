@@ -395,9 +395,9 @@ export default function OrphanedRecordsPage() {
 
   const handleAutoMatch = async () => {
     setAutoMatching(true)
-    setSyncMessage("Scanning unassociated POs against Invoices, Sales Orders & Estimates for matches...")
+    setSyncMessage(activeTab === "pos" ? "Scanning unassociated POs against Invoices, Sales Orders & Estimates for matches..." : "Scanning unassociated Payments against Invoices (Grand Total & Customer matching)...")
     try {
-      const res = await fetch("/api/admin/orphans/auto-match", { method: "POST" })
+      const res = await fetch(`/api/admin/orphans/auto-match?type=${activeTab}`, { method: "POST" })
       const data = await res.json()
       if (data.success) {
         setSyncMessage(`Auto-match complete! ${data.message}`)
@@ -572,7 +572,7 @@ export default function OrphanedRecordsPage() {
             className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl shadow-lg shadow-emerald-600/20 transition flex items-center gap-2 disabled:opacity-50 cursor-pointer"
           >
             <FiZap size={14} className={autoMatching ? "animate-spin" : ""} />
-            {autoMatching ? "Matching..." : "Auto-Link Confident Matches"}
+            {autoMatching ? "Matching..." : activeTab === "pos" ? "Auto-Link Confident Matches" : "Auto-Link Confident Payments"}
           </button>
           <button
             onClick={handleSync}
