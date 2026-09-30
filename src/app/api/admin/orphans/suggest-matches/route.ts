@@ -162,11 +162,10 @@ export async function GET(req: Request) {
       return null
     }
 
-    // 1. Gather all direct identifiers and overall date window across the POs
-    let minDate: Date | null = null
-    let maxDate: Date | null = null
+    // 1. Gather all direct identifiers and clustered date windows across the POs
     const directInvs: string[] = []
     const soNums: string[] = []
+    const dateWindows: { start: Date; end: Date }[] = []
 
     for (const po of pos) {
       const pItems: any = po.items || {}
@@ -177,45 +176,89 @@ export async function GET(req: Request) {
 
       const poDate = po.date ? new Date(po.date) : null
       if (poDate && !isNaN(poDate.getTime())) {
-        if (!minDate || poDate < minDate) minDate = poDate
-        if (!maxDate || poDate > maxDate) maxDate = poDate
+        const start = new Date(poDate.getTime() - 45 * 24 * 3600 * 1000)
+        const end = new Date(poDate.getTime() + 45 * 24 * 3600 * 1000)
+        const existing = dateWindows.find(w => !(end < w.start || start > w.end))
+        if (existing) {
+          if (start < existing.start) existing.start = start
+          if (end > existing.end) existing.end = end
+        } else {
+          dateWindows.push({ start, end })
+        }
       }
     }
 
-    const queryMin = minDate ? new Date(minDate.getTime() - 60 * 24 * 3600 * 1000) : new Date(Date.now() - 180 * 24 * 3600 * 1000)
-    const queryMax = maxDate ? new Date(maxDate.getTime() + 60 * 24 * 3600 * 1000) : new Date(Date.now() + 30 * 24 * 3600 * 1000)
-
-    const invOr: any[] = [
-      { issueDate: { gte: queryMin, lte: queryMax } }
-    ]
-    if (directInvs.length > 0) {
-      invOr.push({ invoiceNumber: { in: directInvs } })
-    }
-    if (soNums.length > 0) {
-      invOr.push({ salesorderNumber: { in: soNums } })
+    if (dateWindows.length === 0) {
+      dateWindows.push({
+        start: new Date(Date.now() - 180 * 24 * 3600 * 1000),
+        end: new Date(Date.now() + 30 * 24 * 3600 * 1000)
+      })
     }
 
-    // 2. Fetch all candidate documents across the target window in ONE fast parallel query
-    const [candidateInvoices, candidateSalesOrders, candidateQuotes] = await Promise.all([
+    // 2. Fetch candidate documents across all relevant windows in parallel
+    const invoiceQueries = dateWindows.map(w =>
       prisma.invoice.findMany({
-        where: { OR: invOr },
-        take: 800,
+        where: { issueDate: { gte: w.start, lte: w.end } },
+        take: 500,
         orderBy: { issueDate: "desc" },
         include: { account: { select: accountSelect }, lineItems: true }
-      }),
+      })
+    )
+
+    if (directInvs.length > 0 || soNums.length > 0) {
+      const directOr: any[] = []
+      if (directInvs.length > 0) directOr.push({ invoiceNumber: { in: directInvs } })
+      if (soNums.length > 0) directOr.push({ salesorderNumber: { in: soNums } })
+      invoiceQueries.push(
+        prisma.invoice.findMany({
+          where: { OR: directOr },
+          take: 200,
+          include: { account: { select: accountSelect }, lineItems: true }
+        })
+      )
+    }
+
+    const soQueries = dateWindows.map(w =>
       prisma.salesOrder.findMany({
-        where: { orderDate: { gte: queryMin, lte: queryMax } },
+        where: { orderDate: { gte: w.start, lte: w.end } },
         take: 300,
         orderBy: { orderDate: "desc" },
         include: { account: { select: accountSelect }, lineItems: true }
-      }),
+      })
+    )
+
+    const quoteQueries = dateWindows.map(w =>
       prisma.quote.findMany({
-        where: { createdAt: { gte: queryMin, lte: queryMax } },
+        where: { createdAt: { gte: w.start, lte: w.end } },
         take: 300,
         orderBy: { createdAt: "desc" },
         include: { account: { select: accountSelect }, lineItems: true }
       })
+    )
+
+    const [invBatches, soBatches, qteBatches] = await Promise.all([
+      Promise.all(invoiceQueries),
+      Promise.all(soQueries),
+      Promise.all(quoteQueries)
     ])
+
+    const invMap = new Map<string, any>()
+    for (const batch of invBatches) {
+      for (const inv of batch) invMap.set(inv.id, inv)
+    }
+    const candidateInvoices = Array.from(invMap.values())
+
+    const soMap = new Map<string, any>()
+    for (const batch of soBatches) {
+      for (const so of batch) soMap.set(so.id, so)
+    }
+    const candidateSalesOrders = Array.from(soMap.values())
+
+    const qteMap = new Map<string, any>()
+    for (const batch of qteBatches) {
+      for (const q of batch) qteMap.set(q.id, q)
+    }
+    const candidateQuotes = Array.from(qteMap.values())
 
     // 3. Process each PO with strict customer isolation and scoring
     for (const po of pos) {

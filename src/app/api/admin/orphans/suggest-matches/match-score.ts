@@ -60,6 +60,13 @@ export function isCustomerMatch(
     if (overlap.length >= 1) return true
   }
 
+  // Contact/Recipient attention check (e.g. PO shipToName is contact person on customer's account/invoice)
+  if (poTokens.length > 0 && docAddress) {
+    const docAddrLower = String(docAddress).toLowerCase()
+    const matchedCustTokens = poTokens.filter(t => docAddrLower.includes(t))
+    if (matchedCustTokens.length >= (poTokens.length > 1 ? 2 : 1)) return true
+  }
+
   // Address check
   const poAddrClean = String(poAddress || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ')
   const docAddrClean = String(docAddress || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ')
