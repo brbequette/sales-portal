@@ -34,17 +34,17 @@ export async function GET(req: Request) {
       prisma.invoice.findMany({
         take: 1500,
         orderBy: { issueDate: "desc" },
-        include: { account: { select: accountSelect } }
+        include: { account: { select: accountSelect }, lineItems: true }
       }),
       prisma.salesOrder.findMany({
         take: 800,
         orderBy: { orderDate: "desc" },
-        include: { account: { select: accountSelect } }
+        include: { account: { select: accountSelect }, lineItems: true }
       }),
       prisma.quote.findMany({
         take: 800,
         orderBy: { createdAt: "desc" },
-        include: { account: { select: accountSelect } }
+        include: { account: { select: accountSelect }, lineItems: true }
       })
     ])
 

@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
         const shipToName = po.delivery_customer_name || po.customer_name || null
         const shippingAddress = po.delivery_address || po.shipping_address || po.recipient_address || po.address || null
 
-        const poData: Prisma.PurchaseOrderCreateInput = {
+        const poCreateData: Prisma.PurchaseOrderCreateInput = {
           zohoId,
           poNumber:         po.purchaseorder_number || null,
           vendorName:       po.vendor_name             || null,
@@ -169,10 +169,26 @@ export async function POST(req: NextRequest) {
           items:            po.line_items ? { lineItems: po.line_items } : Prisma.JsonNull,
         }
 
+        const poUpdateData: Prisma.PurchaseOrderUpdateInput = {
+          poNumber:         po.purchaseorder_number || undefined,
+          vendorName:       po.vendor_name             || undefined,
+          date:             po.date ? new Date(po.date) : undefined,
+          total:            po.total           || undefined,
+          status:           po.status          || undefined,
+          isDropshipment:   isDropshipment     || undefined,
+          trackingNumber:   po.tracking_number || undefined,
+        }
+        if (shipToName) poUpdateData.shipToName = shipToName
+        if (shippingAddress) poUpdateData.shippingAddress = shippingAddress
+        if (po.reference_number || po.salesorder_number) poUpdateData.referenceNumber = po.reference_number || po.salesorder_number
+        if (po.salesorder_id) poUpdateData.salesOrderId = po.salesorder_id
+        if (po.salesorder_number || po.reference_number) poUpdateData.salesOrderNumber = po.salesorder_number || po.reference_number
+        if (po.line_items && po.line_items.length > 0) poUpdateData.items = { lineItems: po.line_items }
+
         const result = await prisma.purchaseOrder.upsert({
           where:  { zohoId },
-          update: poData as Prisma.PurchaseOrderUpdateInput,
-          create: poData,
+          update: poUpdateData,
+          create: poCreateData,
         })
 
         const isNew = Math.abs(result.createdAt.getTime() - result.updatedAt.getTime()) < 1000

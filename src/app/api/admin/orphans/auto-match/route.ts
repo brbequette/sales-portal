@@ -44,30 +44,19 @@ export async function POST() {
       prisma.invoice.findMany({
         take: 1200,
         orderBy: { issueDate: "desc" },
-        include: { account: { select: accountSelect } }
+        include: { account: { select: accountSelect }, lineItems: true }
       }),
       prisma.salesOrder.findMany({
         take: 600,
         orderBy: { orderDate: "desc" },
-        include: { account: { select: accountSelect } }
+        include: { account: { select: accountSelect }, lineItems: true }
       }),
       prisma.quote.findMany({
         take: 600,
         orderBy: { createdAt: "desc" },
-        include: { account: { select: accountSelect } }
+        include: { account: { select: accountSelect }, lineItems: true }
       })
     ])
-
-    // Build claimed set of candidate document IDs already linked in the DB
-    const existingLinks = await prisma.purchaseOrder.findMany({
-      where: { invoiceId: { not: null } },
-      select: { invoiceId: true, salesOrderId: true }
-    })
-    const claimedDocIds = new Set<string>()
-    for (const po of existingLinks) {
-      if (po.invoiceId) claimedDocIds.add(po.invoiceId)
-      if (po.salesOrderId) claimedDocIds.add(po.salesOrderId)
-    }
 
     let linkedCount = 0
     const linkedSummary: any[] = []
@@ -81,7 +70,6 @@ export async function POST() {
 
       // 1. Score candidate Invoices
       for (const inv of candidateInvoices) {
-        if (inv.zohoId && claimedDocIds.has(inv.zohoId)) continue
         const { score, reasons } = computePOMatchScore(po, inv)
         if (score > maxScore) {
           maxScore = score
@@ -93,7 +81,6 @@ export async function POST() {
 
       // 2. Score candidate Sales Orders
       for (const so of candidateSalesOrders) {
-        if (so.zohoId && claimedDocIds.has(so.zohoId)) continue
         const { score, reasons } = computePOMatchScore(po, so)
         if (score > maxScore) {
           maxScore = score
@@ -105,7 +92,6 @@ export async function POST() {
 
       // 3. Score candidate Estimates
       for (const qte of candidateQuotes) {
-        if (qte.zohoId && claimedDocIds.has(qte.zohoId)) continue
         const { score, reasons } = computePOMatchScore(po, qte)
         if (score > maxScore) {
           maxScore = score
@@ -139,10 +125,6 @@ export async function POST() {
             invoiceIdToSet = linkedInvoice.zohoId
           }
         }
-
-        // Lock matched candidate document
-        claimedDocIds.add(bestMatch.zohoId)
-        if (invoiceIdToSet) claimedDocIds.add(invoiceIdToSet)
 
         updatePromises.push(
           prisma.purchaseOrder.update({

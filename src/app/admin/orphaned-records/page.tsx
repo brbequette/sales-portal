@@ -999,13 +999,13 @@ export default function OrphanedRecordsPage() {
                                       </div>
 
                                       {/* Line Items */}
-                                      {po.items && (po.items.lineItems || po.items.line_items) && (
+                                      {po.items && (Array.isArray(po.items) || po.items.lineItems || po.items.line_items) && (
                                         <div className="space-y-2">
                                           <div className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                                             <FiList size={13} className="text-blue-400" /> PO Line Items
                                           </div>
                                           <div className="max-h-36 overflow-y-auto bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 space-y-1.5 text-xs custom-scrollbar">
-                                            {((po.items.lineItems || po.items.line_items) as any[]).map((item, idx) => (
+                                            {(((Array.isArray(po.items) ? po.items : (po.items.lineItems || po.items.line_items)) || []) as any[]).map((item, idx) => (
                                               <div key={idx} className="flex items-center justify-between border-b border-slate-800/60 last:border-0 pb-1.5 pt-0.5">
                                                 <span className="text-slate-200 font-semibold truncate max-w-[210px]">{item.name || item.sku || "Item"}</span>
                                                 <span className="text-slate-400 font-mono text-[11px]">Qty: {item.quantity || 1}</span>
