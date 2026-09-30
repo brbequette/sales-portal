@@ -74,6 +74,30 @@ interface InvoiceSearchResult {
   shipTo?: string | null
 }
 
+function formatAddressString(addr: any): string | null {
+  if (!addr) return null
+  if (typeof addr === "string") return addr.trim() || null
+  if (typeof addr === "object") {
+    const parts = [
+      addr.address || addr.street || addr.address1 || addr.street1 || "",
+      addr.street2 || addr.address2 || "",
+      addr.city || "",
+      addr.state || "",
+      addr.zip || addr.zipcode || addr.zip_code || ""
+    ].map(p => String(p).trim()).filter(Boolean)
+    return parts.join(", ") || null
+  }
+  return String(addr)
+}
+
+function safeText(val: any, fallback = ""): string {
+  if (val === null || val === undefined) return fallback
+  if (typeof val === "string") return val
+  if (typeof val === "number") return String(val)
+  if (typeof val === "object") return formatAddressString(val) || fallback
+  return String(val)
+}
+
 // Sub-component for interactive invoice search within an expanded PO row
 function ExpandedRowSearch({
   recordZohoId,
@@ -157,6 +181,8 @@ function ExpandedRowSearch({
               ? "bg-purple-500/20 text-purple-300 border-purple-500/40"
               : "bg-blue-500/20 text-blue-300 border-blue-500/40"
 
+            const shipToText = formatAddressString(inv.shipTo)
+
             return (
               <div
                 key={inv.id}
@@ -168,22 +194,22 @@ function ExpandedRowSearch({
                       {typeLabel} #{dNum}
                     </span>
                     <span className="text-xs font-bold text-white truncate max-w-[220px]">
-                      {inv.customerName}
+                      {safeText(inv.customerName, "Unknown Customer")}
                     </span>
                     <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
                       ${inv.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                     {inv.status && (
                       <span className="text-[10px] uppercase font-bold text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded">
-                        {inv.status}
+                        {safeText(inv.status)}
                       </span>
                     )}
                   </div>
-                  {(inv.referenceNumber || inv.issueDate || inv.shipTo) && (
+                  {(inv.referenceNumber || inv.issueDate || shipToText) && (
                     <div className="text-[11px] text-slate-400 flex items-center gap-3 mt-1 flex-wrap">
                       {inv.issueDate && <span>Date: {new Date(inv.issueDate).toLocaleDateString()}</span>}
-                      {inv.referenceNumber && <span>Ref: {inv.referenceNumber}</span>}
-                      {inv.shipTo && <span className="truncate max-w-[200px]">Ship: {inv.shipTo}</span>}
+                      {inv.referenceNumber && <span>Ref: {safeText(inv.referenceNumber)}</span>}
+                      {shipToText && <span className="truncate max-w-[200px]">Ship: {shipToText}</span>}
                     </div>
                   )}
                 </div>

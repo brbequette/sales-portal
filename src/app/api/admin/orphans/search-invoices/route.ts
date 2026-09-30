@@ -2,6 +2,29 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAdministrator } from "@/lib/auth-helpers"
 
+function formatAddr(addr: any): string | null {
+  if (!addr) return null
+  if (typeof addr === "string") return addr.trim() || null
+  if (typeof addr === "object") {
+    const parts = [
+      addr.address || addr.street || addr.address1 || addr.street1 || "",
+      addr.street2 || addr.address2 || "",
+      addr.city || "",
+      addr.state || "",
+      addr.zip || addr.zipcode || addr.zip_code || ""
+    ].map(p => String(p).trim()).filter(Boolean)
+    return parts.join(", ") || null
+  }
+  return String(addr)
+}
+
+function safeString(val: any): string | null {
+  if (!val) return null
+  if (typeof val === "string") return val.trim() || null
+  if (typeof val === "object") return formatAddr(val)
+  return String(val)
+}
+
 export async function GET(req: Request) {
   try {
     const auth = await requireAdministrator()
@@ -36,14 +59,14 @@ export async function GET(req: Request) {
           id: inv.id,
           zohoId: inv.zohoId,
           docType: "Invoice" as const,
-          docNumber: num,
-          invoiceNumber: num,
-          customerName: inv.account?.name || itemsData.customer_name || "Unknown Customer",
-          issueDate: inv.issueDate,
-          totalAmount: inv.amount || itemsData.total || 0,
-          status: inv.status || itemsData.status || null,
-          referenceNumber: inv.salesorderNumber || itemsData.reference_number || itemsData.salesorder_number || null,
-          shipTo: itemsData.shipping_address || itemsData.customer_name || null
+          docNumber: String(num),
+          invoiceNumber: String(num),
+          customerName: inv.account?.name || safeString(itemsData.customer_name) || "Unknown Customer",
+          issueDate: inv.issueDate ? new Date(inv.issueDate).toISOString() : null,
+          totalAmount: Number(inv.amount || itemsData.total || 0),
+          status: safeString(inv.status || itemsData.status),
+          referenceNumber: safeString(inv.salesorderNumber || itemsData.reference_number || itemsData.salesorder_number),
+          shipTo: formatAddr(itemsData.shipping_address || itemsData.delivery_address || itemsData.customer_name)
         }
       })
 
@@ -56,12 +79,12 @@ export async function GET(req: Request) {
           docType: "SalesOrder" as const,
           docNumber: `SO #${soNum}`,
           invoiceNumber: String(soNum),
-          customerName: so.account?.name || itemsData.customer_name || "Unknown Customer",
-          issueDate: so.orderDate,
-          totalAmount: so.amount || itemsData.total || 0,
-          status: so.status || itemsData.status || null,
-          referenceNumber: itemsData.reference_number || null,
-          shipTo: itemsData.shipping_address || itemsData.delivery_address || itemsData.customer_name || null
+          customerName: so.account?.name || safeString(itemsData.customer_name) || "Unknown Customer",
+          issueDate: so.orderDate ? new Date(so.orderDate).toISOString() : null,
+          totalAmount: Number(so.amount || itemsData.total || 0),
+          status: safeString(so.status || itemsData.status),
+          referenceNumber: safeString(itemsData.reference_number),
+          shipTo: formatAddr(itemsData.shipping_address || itemsData.delivery_address || itemsData.customer_name)
         }
       })
 
@@ -74,12 +97,12 @@ export async function GET(req: Request) {
           docType: "Estimate" as const,
           docNumber: `Est #${qNum}`,
           invoiceNumber: String(qNum),
-          customerName: qte.account?.name || itemsData.customer_name || "Unknown Customer",
-          issueDate: qte.createdAt,
-          totalAmount: qte.amount || itemsData.total || 0,
-          status: qte.status || itemsData.status || null,
-          referenceNumber: itemsData.reference_number || null,
-          shipTo: itemsData.shipping_address || itemsData.customer_name || null
+          customerName: qte.account?.name || safeString(itemsData.customer_name) || "Unknown Customer",
+          issueDate: qte.createdAt ? new Date(qte.createdAt).toISOString() : null,
+          totalAmount: Number(qte.amount || itemsData.total || 0),
+          status: safeString(qte.status || itemsData.status),
+          referenceNumber: safeString(itemsData.reference_number),
+          shipTo: formatAddr(itemsData.shipping_address || itemsData.delivery_address || itemsData.customer_name)
         }
       })
 
@@ -205,14 +228,14 @@ export async function GET(req: Request) {
         id: inv.id,
         zohoId: inv.zohoId,
         docType: "Invoice" as const,
-        docNumber: num,
-        invoiceNumber: num,
-        customerName: inv.account?.name || itemsData.customer_name || "Unknown Customer",
-        issueDate: inv.issueDate,
-        totalAmount: inv.amount || itemsData.total || 0,
-        status: inv.status || itemsData.status || null,
-        referenceNumber: inv.salesorderNumber || itemsData.reference_number || itemsData.salesorder_number || null,
-        shipTo: itemsData.shipping_address || itemsData.customer_name || null
+        docNumber: String(num),
+        invoiceNumber: String(num),
+        customerName: inv.account?.name || safeString(itemsData.customer_name) || "Unknown Customer",
+        issueDate: inv.issueDate ? new Date(inv.issueDate).toISOString() : null,
+        totalAmount: Number(inv.amount || itemsData.total || 0),
+        status: safeString(inv.status || itemsData.status),
+        referenceNumber: safeString(inv.salesorderNumber || itemsData.reference_number || itemsData.salesorder_number),
+        shipTo: formatAddr(itemsData.shipping_address || itemsData.delivery_address || itemsData.customer_name)
       }
     })
 
@@ -225,12 +248,12 @@ export async function GET(req: Request) {
         docType: "SalesOrder" as const,
         docNumber: `SO #${soNum}`,
         invoiceNumber: String(soNum),
-        customerName: so.account?.name || itemsData.customer_name || "Unknown Customer",
-        issueDate: so.orderDate,
-        totalAmount: so.amount || itemsData.total || 0,
-        status: so.status || itemsData.status || null,
-        referenceNumber: itemsData.reference_number || null,
-        shipTo: itemsData.shipping_address || itemsData.delivery_address || itemsData.customer_name || null
+        customerName: so.account?.name || safeString(itemsData.customer_name) || "Unknown Customer",
+        issueDate: so.orderDate ? new Date(so.orderDate).toISOString() : null,
+        totalAmount: Number(so.amount || itemsData.total || 0),
+        status: safeString(so.status || itemsData.status),
+        referenceNumber: safeString(itemsData.reference_number),
+        shipTo: formatAddr(itemsData.shipping_address || itemsData.delivery_address || itemsData.customer_name)
       }
     })
 
@@ -243,12 +266,12 @@ export async function GET(req: Request) {
         docType: "Estimate" as const,
         docNumber: `Est #${qNum}`,
         invoiceNumber: String(qNum),
-        customerName: qte.account?.name || itemsData.customer_name || "Unknown Customer",
-        issueDate: qte.createdAt,
-        totalAmount: qte.amount || itemsData.total || 0,
-        status: qte.status || itemsData.status || null,
-        referenceNumber: itemsData.reference_number || null,
-        shipTo: itemsData.shipping_address || itemsData.customer_name || null
+        customerName: qte.account?.name || safeString(itemsData.customer_name) || "Unknown Customer",
+        issueDate: qte.createdAt ? new Date(qte.createdAt).toISOString() : null,
+        totalAmount: Number(qte.amount || itemsData.total || 0),
+        status: safeString(qte.status || itemsData.status),
+        referenceNumber: safeString(itemsData.reference_number),
+        shipTo: formatAddr(itemsData.shipping_address || itemsData.delivery_address || itemsData.customer_name)
       }
     })
 
@@ -260,4 +283,3 @@ export async function GET(req: Request) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 }
-
