@@ -279,6 +279,7 @@ export default function OrphanedRecordsPage() {
 
   // Smart Matching & Filter States
   const [suggestions, setSuggestions] = useState<Record<string, any>>({})
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false)
   const [autoMatching, setAutoMatching] = useState(false)
   const [tableSearch, setTableSearch] = useState("")
   const [dateFilter, setDateFilter] = useState<"all" | "dated" | "missing">("all")
@@ -323,6 +324,7 @@ export default function OrphanedRecordsPage() {
   }
 
   const fetchSuggestions = async (recordIds?: string, type: "po" | "payment" = "po") => {
+    setSuggestionsLoading(true)
     try {
       const paramName = type === "po" ? "poIds" : "paymentIds"
       const url = recordIds ? `/api/admin/orphans/suggest-matches?type=${type}&${paramName}=${encodeURIComponent(recordIds)}` : `/api/admin/orphans/suggest-matches?type=${type}`
@@ -340,6 +342,8 @@ export default function OrphanedRecordsPage() {
       }
     } catch (e) {
       console.error("Error fetching match suggestions:", e)
+    } finally {
+      setSuggestionsLoading(false)
     }
   }
 
@@ -876,6 +880,11 @@ export default function OrphanedRecordsPage() {
                                     </button>
                                   </div>
                                 </div>
+                              ) : suggestionsLoading ? (
+                                <div className="flex items-center gap-1.5 text-xs text-blue-400 font-medium animate-pulse">
+                                  <FiRefreshCw className="animate-spin text-xs" />
+                                  <span>Analyzing matches...</span>
+                                </div>
                               ) : (
                                 <span className="text-xs text-slate-500 italic">No match suggested</span>
                               )}
@@ -1233,6 +1242,11 @@ export default function OrphanedRecordsPage() {
                                       <FiLink size={11} /> Link Now
                                     </button>
                                   </div>
+                                </div>
+                              ) : suggestionsLoading ? (
+                                <div className="flex items-center gap-1.5 text-xs text-blue-400 font-medium animate-pulse">
+                                  <FiRefreshCw className="animate-spin text-xs" />
+                                  <span>Analyzing matches...</span>
                                 </div>
                               ) : (
                                 <span className="text-xs text-slate-500 italic">No match suggested</span>

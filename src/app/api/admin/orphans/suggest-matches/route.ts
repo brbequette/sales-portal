@@ -162,105 +162,63 @@ export async function GET(req: Request) {
       return null
     }
 
-    // Process each PO with its own targeted candidates strictly scoped to verified customer
+    // 1. Gather all direct identifiers and overall date window across the POs
+    let minDate: Date | null = null
+    let maxDate: Date | null = null
+    const directInvs: string[] = []
+    const soNums: string[] = []
+
     for (const po of pos) {
       const pItems: any = po.items || {}
       const directInv = extractDirectInvoiceNumber(po)
-      const cust = String(po.shipToName || pItems.delivery_customer_name || pItems.customer_name || pItems.attention || "").trim()
-      const isWarehouse = isTitanWarehouse(cust) || isTitanWarehouse(po.shippingAddress)
-      const tokens = !isWarehouse ? tokenizeClean(cust) : []
-      const soNum = String(po.salesOrderNumber || (pItems.salesorders && pItems.salesorders[0]?.salesorder_number) || "").trim().replace(/[^a-zA-Z0-9]/g, "")
+      if (directInv) directInvs.push(directInv)
+      const soNum = String(po.salesOrderNumber || (pItems.salesorders && pItems.salesorders[0]?.salesorder_number) || "").trim()
+      if (soNum && soNum.length >= 3) soNums.push(soNum)
 
       const poDate = po.date ? new Date(po.date) : null
-      let minDate: Date | null = null
-      let maxDate: Date | null = null
       if (poDate && !isNaN(poDate.getTime())) {
-        minDate = new Date(poDate.getTime() - 45 * 24 * 3600 * 1000)
-        maxDate = new Date(poDate.getTime() + 60 * 24 * 3600 * 1000)
+        if (!minDate || poDate < minDate) minDate = poDate
+        if (!maxDate || poDate > maxDate) maxDate = poDate
       }
+    }
 
-      const invOr: any[] = []
-      const soOr: any[] = []
-      const qteOr: any[] = []
+    const queryMin = minDate ? new Date(minDate.getTime() - 60 * 24 * 3600 * 1000) : new Date(Date.now() - 180 * 24 * 3600 * 1000)
+    const queryMax = maxDate ? new Date(maxDate.getTime() + 60 * 24 * 3600 * 1000) : new Date(Date.now() + 30 * 24 * 3600 * 1000)
 
-      if (!isWarehouse && tokens.length > 0) {
-        // Strict Customer Account Scope: Only fetch candidate documents for this verified customer!
-        const customerClause = {
-          account: {
-            OR: tokens.slice(0, 3).map(token => ({
-              name: { contains: token, mode: "insensitive" as const }
-            }))
-          }
-        }
+    const invOr: any[] = [
+      { issueDate: { gte: queryMin, lte: queryMax } }
+    ]
+    if (directInvs.length > 0) {
+      invOr.push({ invoiceNumber: { in: directInvs } })
+    }
+    if (soNums.length > 0) {
+      invOr.push({ salesorderNumber: { in: soNums } })
+    }
 
-        // 1. Direct Invoice Number (if found on PO)
-        if (directInv) {
-          invOr.push({
-            invoiceNumber: directInv,
-            ...customerClause
-          })
-          // Also fetch exact invoice number alone in case account name spelling differs slightly in CRM
-          invOr.push({ invoiceNumber: directInv })
-        }
+    // 2. Fetch all candidate documents across the target window in ONE fast parallel query
+    const [candidateInvoices, candidateSalesOrders, candidateQuotes] = await Promise.all([
+      prisma.invoice.findMany({
+        where: { OR: invOr },
+        take: 800,
+        orderBy: { issueDate: "desc" },
+        include: { account: { select: accountSelect }, lineItems: true }
+      }),
+      prisma.salesOrder.findMany({
+        where: { orderDate: { gte: queryMin, lte: queryMax } },
+        take: 300,
+        orderBy: { orderDate: "desc" },
+        include: { account: { select: accountSelect }, lineItems: true }
+      }),
+      prisma.quote.findMany({
+        where: { createdAt: { gte: queryMin, lte: queryMax } },
+        take: 300,
+        orderBy: { createdAt: "desc" },
+        include: { account: { select: accountSelect }, lineItems: true }
+      })
+    ])
 
-        // 2. Sales Order within this verified customer
-        if (soNum && soNum.length >= 3) {
-          invOr.push({
-            OR: [
-              { salesorderNumber: { contains: soNum, mode: "insensitive" as const } },
-              { invoiceNumber: { contains: soNum, mode: "insensitive" as const } }
-            ],
-            ...customerClause
-          })
-          soOr.push({
-            salesorderNumber: { contains: soNum, mode: "insensitive" as const },
-            ...customerClause
-          })
-        }
-
-        // 3. Customer documents within date window (±45 days)
-        invOr.push({
-          ...customerClause,
-          ...(minDate && maxDate ? { issueDate: { gte: minDate, lte: maxDate } } : {})
-        })
-        soOr.push({
-          ...customerClause,
-          ...(minDate && maxDate ? { orderDate: { gte: minDate, lte: maxDate } } : {})
-        })
-        qteOr.push({
-          ...customerClause,
-          ...(minDate && maxDate ? { createdAt: { gte: minDate, lte: maxDate } } : {})
-        })
-      } else if (isWarehouse) {
-        // Internal stock PO to Titan Warehouse - only query if explicit PO reference exists
-        const poNum = String(po.poNumber || "").trim()
-        if (poNum && poNum.length >= 3) {
-          invOr.push({ referenceNumber: { contains: poNum, mode: "insensitive" as const } })
-          soOr.push({ referenceNumber: { contains: poNum, mode: "insensitive" as const } })
-        }
-      }
-
-      const [candidateInvoices, candidateSalesOrders, candidateQuotes] = await Promise.all([
-        invOr.length > 0 ? prisma.invoice.findMany({
-          where: { OR: invOr },
-          take: 20,
-          orderBy: { issueDate: "desc" },
-          include: { account: { select: accountSelect }, lineItems: true }
-        }) : Promise.resolve([]),
-        soOr.length > 0 ? prisma.salesOrder.findMany({
-          where: { OR: soOr },
-          take: 15,
-          orderBy: { orderDate: "desc" },
-          include: { account: { select: accountSelect }, lineItems: true }
-        }) : Promise.resolve([]),
-        qteOr.length > 0 ? prisma.quote.findMany({
-          where: { OR: qteOr },
-          take: 10,
-          orderBy: { createdAt: "desc" },
-          include: { account: { select: accountSelect }, lineItems: true }
-        }) : Promise.resolve([])
-      ])
-
+    // 3. Process each PO with strict customer isolation and scoring
+    for (const po of pos) {
       const candidates: any[] = []
 
       // 1. Score against candidate Invoices
