@@ -85,16 +85,71 @@ export const handler: Handler = async (event) => {
     const so = soData.salesorder
 
     if (action === "GetSalesOrder") {
-      // Return the SO line items and shipping address for the Shipping Center
+      // Enrich line items with product vendor and cost details for vendor-separated dropshipping
+      const lineItems = await Promise.all(
+        financialZohoLineItems(so.line_items).map(async (li: any) => {
+          const booksItemId = String(li.item_id || "").trim()
+          const sku = String(li.sku || li.name || "").trim()
+          const dbProd = booksItemId
+            ? await prisma.product.findUnique({
+                where: { booksItemId },
+                select: { vendor: true, canDropship: true, unitCost: true, sku: true, costQuality: true },
+              })
+            : sku
+            ? await prisma.product.findFirst({
+                where: { sku },
+                select: { vendor: true, canDropship: true, unitCost: true, sku: true, costQuality: true },
+              })
+            : null
+
+          let suggestedVendor: any = null
+          if (dbProd?.vendor) {
+            const v = await prisma.vendor.findFirst({
+              where: {
+                OR: [
+                  { zohoId: dbProd.vendor },
+                  { id: dbProd.vendor },
+                  { companyName: dbProd.vendor },
+                  { contactName: dbProd.vendor },
+                ],
+              },
+              select: { zohoId: true, companyName: true, contactName: true },
+            })
+            if (v) {
+              suggestedVendor = {
+                vendorId: v.zohoId,
+                vendorName: v.contactName || v.companyName || "Unnamed Vendor",
+                companyName: v.companyName,
+              }
+            } else {
+              suggestedVendor = {
+                vendorId: dbProd.vendor,
+                vendorName: dbProd.vendor,
+              }
+            }
+          }
+
+          return {
+            ...li,
+            suggestedVendorId: suggestedVendor?.vendorId || null,
+            suggestedVendorName: suggestedVendor?.vendorName || null,
+            canDropship: dbProd?.canDropship ?? null,
+            unitCost: dbProd?.unitCost ?? null,
+            costQuality: dbProd?.costQuality ?? null,
+          }
+        })
+      )
+
       return {
         statusCode: 200,
         body: JSON.stringify({
           success: true,
-          lineItems: financialZohoLineItems(so.line_items),
+          lineItems,
           shippingAddress: so.shipping_address || null,
           customerName: so.customer_name,
           salesorderNumber: so.salesorder_number,
           packages: so.packages || [],
+          status: so.status || "draft",
         })
       }
     }
@@ -391,6 +446,18 @@ export const handler: Handler = async (event) => {
       const claimed = await prisma.providerWriteOperation.updateMany({ where: { operationKey, state: "PENDING" }, data: { state: "SYNCING", attemptCount: { increment: 1 }, lastAttemptAt: new Date() } })
       if (claimed.count !== 1) return { statusCode: 202, body: JSON.stringify({ success: false, providerState: "SYNCING", message: "Dropshipment creation is already in progress." }) }
 
+      // Ensure Sales Order is confirmed in Zoho Books before dropship PO creation
+      if (so.status === "draft") {
+        try {
+          await fetch(`${baseUrl}/salesorders/${salesOrderId}/status/confirmed?organization_id=${ORG_ID}`, {
+            method: "POST",
+            headers: { Authorization: `Zoho-oauthtoken ${token}` }
+          })
+        } catch (e: any) {
+          console.warn("Auto-confirm draft SO warning:", e?.message)
+        }
+      }
+
       let poRes: Response
       let poData: any
       try {
@@ -404,6 +471,24 @@ export const handler: Handler = async (event) => {
         const message = providerError instanceof Error ? providerError.message : "Unknown Books submission error"
         await prisma.providerWriteOperation.update({ where: { operationKey }, data: { state: "AMBIGUOUS", lastError: message, providerMessage: "Submission outcome is unknown; exact reconciliation is required before retry." } })
         return { statusCode: 202, body: JSON.stringify({ success: false, providerState: "AMBIGUOUS", message: "Books submission outcome is unknown and was not retried." }) }
+      }
+      if (!poRes.ok || poData?.code !== 0) {
+        if (String(poData?.message || "").toLowerCase().includes("confirmed sales order")) {
+          try {
+            await fetch(`${baseUrl}/salesorders/${salesOrderId}/status/confirmed?organization_id=${ORG_ID}`, {
+              method: "POST",
+              headers: { Authorization: `Zoho-oauthtoken ${token}` }
+            })
+            poRes = await fetch(`${baseUrl}/purchaseorders?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
+              method: "POST",
+              headers: { Authorization: `Zoho-oauthtoken ${token}`, "Content-Type": "application/json" },
+              body: JSON.stringify(payload)
+            })
+            poData = await poRes.json().catch(() => null)
+          } catch (retryErr: any) {
+            console.error("Retry dropship after confirmation failed:", retryErr?.message)
+          }
+        }
       }
       if (!poRes.ok || poData?.code !== 0) {
         const code = String(poData?.code ?? `HTTP_${poRes.status}`)
