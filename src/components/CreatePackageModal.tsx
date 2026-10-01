@@ -12,13 +12,35 @@ interface CreatePackageModalProps {
 
 export function CreatePackageModal({ salesOrderId, lineItems, onClose, onSuccess }: CreatePackageModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [selectedItems, setSelectedItems] = useState<Record<string, number>>({})
+  const [selectedItems, setSelectedItems] = useState<Record<string, number>>(() => {
+    const initial: Record<string, number> = {}
+    lineItems.forEach(item => {
+      initial[item.line_item_id] = Number(item.quantity || 1)
+    })
+    return initial
+  })
 
   const handleQuantityChange = (lineItemId: string, qty: number) => {
     setSelectedItems(prev => ({
       ...prev,
-      [lineItemId]: qty
+      [lineItemId]: Math.max(0, qty)
     }))
+  }
+
+  const handleSetAll = () => {
+    const all: Record<string, number> = {}
+    lineItems.forEach(item => {
+      all[item.line_item_id] = Number(item.quantity || 1)
+    })
+    setSelectedItems(all)
+  }
+
+  const handleClearAll = () => {
+    const none: Record<string, number> = {}
+    lineItems.forEach(item => {
+      none[item.line_item_id] = 0
+    })
+    setSelectedItems(none)
   }
 
   const handleSubmit = async () => {
@@ -56,30 +78,60 @@ export function CreatePackageModal({ salesOrderId, lineItems, onClose, onSuccess
     <div className="fixed inset-0 z-[11000] flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
       <div className="relative glass-panel border border-white/10 w-full max-w-lg rounded-2xl p-6 shadow-2xl">
-        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-          <FiBox className="text-blue-400" /> Create Package
-        </h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <FiBox className="text-blue-400" /> Create Package
+          </h3>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleSetAll}
+              className="text-[11px] font-bold text-blue-400 hover:text-blue-300 bg-blue-950/60 hover:bg-blue-900/60 border border-blue-800/60 px-2.5 py-1 rounded-lg transition"
+            >
+              Add All Qty
+            </button>
+            <button
+              type="button"
+              onClick={handleClearAll}
+              className="text-[11px] font-bold text-neutral-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 px-2 py-1 rounded-lg transition"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
         <p className="text-xs text-neutral-400 mb-4">Select the items and quantities you want to include in this package.</p>
         
         <div className="space-y-3 max-h-[60vh] overflow-y-auto mb-6 pr-2">
-          {lineItems.map(item => (
-            <div key={item.line_item_id} className="glass-panel p-3 rounded-xl border border-white/10 flex justify-between items-center">
-              <div>
-                <div className="text-sm font-bold text-white">{item.name}</div>
-                <div className="text-[10px] text-neutral-500 font-mono mt-1">Available Qty: {item.quantity}</div>
+          {lineItems.map(item => {
+            const availQty = Number(item.quantity || 1)
+            const currentQty = selectedItems[item.line_item_id] ?? availQty
+            return (
+              <div key={item.line_item_id} className="glass-panel p-3 rounded-xl border border-white/10 flex justify-between items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-bold text-white truncate">{item.name}</div>
+                  <div className="text-[10px] text-neutral-500 font-mono mt-0.5">Available Qty: {availQty}</div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleQuantityChange(item.line_item_id, availQty)}
+                    className="text-[11px] font-bold text-blue-400 hover:text-white bg-blue-600/20 hover:bg-blue-600 border border-blue-500/40 px-2.5 py-1 rounded-md transition cursor-pointer"
+                    title={`Set to all ${availQty}`}
+                  >
+                    All ({availQty})
+                  </button>
+                  <input 
+                    type="number" 
+                    min="0" 
+                    max={availQty} 
+                    value={currentQty}
+                    onChange={e => handleQuantityChange(item.line_item_id, parseInt(e.target.value) || 0)}
+                    className="w-16 bg-black/40 border border-white/20 rounded-lg px-2 py-1 text-white text-center text-sm font-mono font-bold focus:outline-none focus:border-blue-500"
+                  />
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <input 
-                  type="number" 
-                  min="0" 
-                  max={item.quantity} 
-                  value={selectedItems[item.line_item_id] || 0}
-                  onChange={e => handleQuantityChange(item.line_item_id, parseInt(e.target.value) || 0)}
-                  className="w-16 bg-black/20 border border-white/10 rounded px-2 py-1 text-white text-center text-sm font-bold"
-                />
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         <div className="flex justify-end gap-3 pt-4 border-t border-white/10">

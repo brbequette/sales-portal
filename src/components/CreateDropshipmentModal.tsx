@@ -245,13 +245,29 @@ export function CreateDropshipmentModal({ salesOrderId, lineItems, onClose, onSu
                     </div>
                   </div>
 
-                  {/* Vendor selector dropdown (in case user wants to change destination vendor) */}
-                  <div className="flex items-center gap-2 min-w-[220px]">
+                  {/* Vendor selector dropdown and group actions */}
+                  <div className="flex items-center gap-2 min-w-[260px] flex-wrap justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedQuantities(prev => {
+                          const next = { ...prev }
+                          group.items.forEach(it => {
+                            next[it.line_item_id] = Number(it.quantity || 1)
+                          })
+                          return next
+                        })
+                      }}
+                      disabled={Boolean(completed) || isSubmitting}
+                      className="text-[10px] font-bold text-orange-300 hover:text-white bg-orange-950/80 hover:bg-orange-900 border border-orange-700/60 px-2 py-1 rounded-lg transition disabled:opacity-40"
+                    >
+                      All Qty
+                    </button>
                     <select
                       value={activeVendorId}
                       onChange={e => handleGroupVendorChange(group.key, e.target.value)}
                       disabled={isLoadingVendors || Boolean(completed) || isSubmitting}
-                      className="w-full bg-black/60 border border-white/15 rounded-xl px-2.5 py-1.5 text-xs text-white font-medium focus:outline-none focus:border-orange-500/60 disabled:opacity-50"
+                      className="bg-black/60 border border-white/15 rounded-xl px-2.5 py-1.5 text-xs text-white font-medium focus:outline-none focus:border-orange-500/60 disabled:opacity-50"
                     >
                       <option value="">Select Vendor...</option>
                       {vendors.map(v => (
@@ -293,8 +309,16 @@ export function CreateDropshipmentModal({ salesOrderId, lineItems, onClose, onSu
                         </div>
 
                         {/* Quantity to dropship */}
-                        <div className="flex items-center gap-2 shrink-0">
-                          <label className="text-[10px] uppercase font-bold text-neutral-500">Ship Qty:</label>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleQuantityChange(item.line_item_id, orderedQty)}
+                            disabled={Boolean(completed) || isSubmitting}
+                            className="text-[11px] font-bold text-orange-400 hover:text-white bg-orange-600/20 hover:bg-orange-600 border border-orange-500/40 px-2 py-0.5 rounded-md transition cursor-pointer disabled:opacity-40"
+                            title={`Set to all ${orderedQty}`}
+                          >
+                            All ({orderedQty})
+                          </button>
                           <input
                             type="number"
                             min="0"
