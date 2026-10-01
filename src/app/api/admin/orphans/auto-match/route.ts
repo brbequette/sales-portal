@@ -130,7 +130,7 @@ export async function POST(req: Request) {
     // AUTO-MATCH UNASSOCIATED PURCHASE ORDERS ACROSS ENTIRE DATASET
     // -------------------------------------------------------------
     const limitParam = searchParams.get("limit")
-    const limit = limitParam ? Math.min(parseInt(limitParam, 10), 1000) : 250
+    const limit = limitParam ? Math.min(parseInt(limitParam, 10), 60) : 35
 
     const unassociatedPOs = await prisma.purchaseOrder.findMany({
       where: {
@@ -218,28 +218,42 @@ export async function POST(req: Request) {
       return null
     }
 
-    // 2. Load contacts lookup map
-    const contacts = await prisma.contact.findMany({
-      select: { firstName: true, lastName: true, accountId: true }
-    })
-    const contactToAccounts = new Map<string, Set<string>>()
-    for (const c of contacts) {
-      const fn = (c.firstName || '').trim().toLowerCase()
-      const ln = (c.lastName || '').trim().toLowerCase()
-      const full = `${fn} ${ln}`.trim()
-      if (full.length > 2) {
-        if (!contactToAccounts.has(full)) contactToAccounts.set(full, new Set())
-        contactToAccounts.get(full)!.add(c.accountId)
+    // 2. Fetch candidate Sales Orders
+    const candidateSOs = await prisma.salesOrder.findMany({
+      take: 300,
+      orderBy: { orderDate: "desc" },
+      select: {
+        id: true,
+        zohoId: true,
+        accountId: true,
+        amount: true,
+        orderDate: true,
+        items: true,
+        account: {
+          select: { id: true, name: true }
+        }
       }
-      if (ln.length > 2) {
-        if (!contactToAccounts.has(ln)) contactToAccounts.set(ln, new Set())
-        contactToAccounts.get(ln)!.add(c.accountId)
+    })
+
+    const soByNumber = new Map<string, any>()
+    for (const so of candidateSOs) {
+      if (so.zohoId) soByNumber.set(so.zohoId, so)
+      const sData = (so.items as any) || {}
+      const soNum = String(sData.salesorder_number || '').trim()
+      if (soNum) {
+        soByNumber.set(soNum, so)
+        const digits = soNum.replace(/\D/g, '')
+        if (digits) {
+          soByNumber.set(digits, so)
+          soByNumber.set(`SO #${digits}`, so)
+          soByNumber.set(`SO#${digits}`, so)
+        }
       }
     }
 
-    // 3. Load all candidate invoices across the active date range or all invoices (lean select, no lineItems join)
-    const allInvoices = await prisma.invoice.findMany({
-      take: 8000,
+    // 3. Load candidate invoices (lean select, no heavy JSON items, active window)
+    const candidateInvoices = await prisma.invoice.findMany({
+      take: 800,
       orderBy: { issueDate: "desc" },
       select: {
         id: true,
@@ -250,9 +264,16 @@ export async function POST(req: Request) {
         computedInvoiceNumber: true,
         invoiceNumber: true,
         salesorderNumber: true,
-        items: true,
+        salesOrderZohoId: true,
         account: {
-          select: accountSelect
+          select: {
+            id: true,
+            name: true,
+            shippingStreet: true,
+            shippingCity: true,
+            shippingState: true,
+            shippingZip: true
+          }
         }
       }
     })
@@ -261,13 +282,23 @@ export async function POST(req: Request) {
     const invBySoNumber = new Map<string, any>()
     const invByAccountId = new Map<string, any[]>()
 
-    for (const inv of allInvoices) {
-      const invData: any = inv.items || {}
-      const num = String(inv.computedInvoiceNumber || invData.invoice_number || inv.invoiceNumber || '').trim()
-      if (num) invByNumber.set(num, inv)
+    for (const inv of candidateInvoices) {
+      const num = String(inv.computedInvoiceNumber || inv.invoiceNumber || '').trim()
+      if (num) {
+        invByNumber.set(num, inv)
+        const digits = num.replace(/\D/g, '')
+        if (digits) invByNumber.set(digits, inv)
+      }
 
-      const soNum = String(invData.salesorder_number || inv.salesorderNumber || '').trim()
-      if (soNum) invBySoNumber.set(soNum, inv)
+      const soNum = String(inv.salesorderNumber || '').trim()
+      if (soNum) {
+        invBySoNumber.set(soNum, inv)
+        const digits = soNum.replace(/\D/g, '')
+        if (digits) {
+          invBySoNumber.set(digits, inv)
+          invBySoNumber.set(`SO #${digits}`, inv)
+        }
+      }
 
       if (inv.accountId) {
         if (!invByAccountId.has(inv.accountId)) invByAccountId.set(inv.accountId, [])
@@ -284,6 +315,7 @@ export async function POST(req: Request) {
       const shipTo = String(po.shipToName || pItems.delivery_customer_name || pItems.customer_name || "").trim()
 
       let matchedInv: any = null
+      let matchedSO: any = null
       let maxScore = 0
       let matchReasons: string[] = []
 
@@ -295,52 +327,73 @@ export async function POST(req: Request) {
         matchReasons = [`Direct Invoice Number (#${directInvNum})`]
       }
 
-      // B. Direct Sales Order Number
+      // B. Direct Sales Order on Invoice
       if (!matchedInv) {
         const soNum = String(po.salesOrderNumber || (pItems.salesorders && pItems.salesorders[0]?.salesorder_number) || "").trim()
         if (soNum && invBySoNumber.has(soNum)) {
           matchedInv = invBySoNumber.get(soNum)
           maxScore = 100
-          matchReasons = [`Direct Sales Order Number (#${soNum})`]
+          matchReasons = [`Direct Sales Order Number on Invoice (#${soNum})`]
+        } else if (soNum) {
+          const digits = soNum.replace(/\D/g, '')
+          if (digits && invBySoNumber.has(digits)) {
+            matchedInv = invBySoNumber.get(digits)
+            maxScore = 100
+            matchReasons = [`Direct Sales Order Number on Invoice (#${digits})`]
+          }
         }
       }
 
-      // C. Reference Number match
-      if (!matchedInv) {
+      // C. Direct Sales Order on SalesOrder table (even if not yet invoiced)
+      if (!matchedInv && !matchedSO) {
+        const soNum = String(po.salesOrderNumber || (pItems.salesorders && pItems.salesorders[0]?.salesorder_number) || "").trim()
+        if (soNum && soByNumber.has(soNum)) {
+          matchedSO = soByNumber.get(soNum)
+          maxScore = 100
+          matchReasons = [`Direct Sales Order Record (#${soNum})`]
+        } else if (soNum) {
+          const digits = soNum.replace(/\D/g, '')
+          if (digits && soByNumber.has(digits)) {
+            matchedSO = soByNumber.get(digits)
+            maxScore = 100
+            matchReasons = [`Direct Sales Order Record (#${digits})`]
+          }
+        }
+      }
+
+      // D. Reference Number match
+      if (!matchedInv && !matchedSO) {
         const ref = String(po.referenceNumber || pItems.reference_number || "").trim()
+        const refDigits = ref.replace(/\D/g, '')
         if (ref && invByNumber.has(ref)) {
           matchedInv = invByNumber.get(ref)
           maxScore = 95
           matchReasons = [`Reference matches Invoice #${ref}`]
+        } else if (refDigits && invByNumber.has(refDigits)) {
+          matchedInv = invByNumber.get(refDigits)
+          maxScore = 95
+          matchReasons = [`Reference matches Invoice #${refDigits}`]
         } else if (ref && invBySoNumber.has(ref)) {
           matchedInv = invBySoNumber.get(ref)
           maxScore = 95
           matchReasons = [`Reference matches SO #${ref}`]
+        } else if (ref && soByNumber.has(ref)) {
+          matchedSO = soByNumber.get(ref)
+          maxScore = 95
+          matchReasons = [`Reference matches SO #${ref}`]
+        } else if (refDigits && soByNumber.has(refDigits)) {
+          matchedSO = soByNumber.get(refDigits)
+          maxScore = 95
+          matchReasons = [`Reference matches SO #${refDigits}`]
         }
       }
 
-      // D. Contact / Customer + Date Scoring
-      if (!matchedInv && po.date) {
-        const poDate = new Date(po.date)
+      // E. Account + Date Scoring
+      if (!matchedInv && !matchedSO && po.date && shipTo.length > 2) {
         const shipToLower = shipTo.toLowerCase()
-
-        // Find candidate accounts
-        const candidateAccounts = new Set<string>()
-        if (contactToAccounts.has(shipToLower)) {
-          for (const aid of contactToAccounts.get(shipToLower)!) candidateAccounts.add(aid)
-        } else {
-          const tokens = shipToLower.split(/\s+/).filter(t => t.length > 3)
-          for (const t of tokens) {
-            if (contactToAccounts.has(t)) {
-              for (const aid of contactToAccounts.get(t)!) candidateAccounts.add(aid)
-            }
-          }
-        }
-
-        // Score invoices belonging to candidate accounts
-        for (const aid of candidateAccounts) {
-          const invs = invByAccountId.get(aid) || []
-          for (const inv of invs) {
+        for (const inv of candidateInvoices) {
+          const accName = (inv.account?.name || '').toLowerCase()
+          if (accName && (accName === shipToLower || accName.includes(shipToLower) || shipToLower.includes(accName))) {
             const { score, reasons } = computePOMatchScore(po, inv)
             if (score > maxScore) {
               maxScore = score
@@ -352,15 +405,16 @@ export async function POST(req: Request) {
       }
 
       if (matchedInv && maxScore >= 85) {
-        const invData = (matchedInv.items as any) || {}
-        const finalDocNum = matchedInv.computedInvoiceNumber || invData.invoice_number || matchedInv.invoiceNumber || matchedInv.zohoId
+        const finalDocNum = matchedInv.computedInvoiceNumber || matchedInv.invoiceNumber || matchedInv.zohoId
 
         updatePromises.push(
           prisma.purchaseOrder.update({
             where: { id: po.id },
             data: {
               invoiceId: matchedInv.zohoId,
-              invoiceNumber: String(finalDocNum)
+              invoiceNumber: String(finalDocNum),
+              salesOrderId: matchedInv.salesOrderZohoId || undefined,
+              salesOrderNumber: matchedInv.salesorderNumber || undefined
             }
           })
         )
@@ -371,7 +425,33 @@ export async function POST(req: Request) {
           poTotal: po.total,
           docType: "Invoice",
           docNumber: finalDocNum,
-          customer: matchedInv.account?.name || invData.customer_name,
+          customer: matchedInv.account?.name,
+          score: maxScore,
+          reasons: matchReasons
+        })
+      } else if (matchedSO && maxScore >= 85) {
+        const sData = (matchedSO.items as any) || {}
+        const finalDocNum = sData.salesorder_number || matchedSO.zohoId
+
+        updatePromises.push(
+          prisma.purchaseOrder.update({
+            where: { id: po.id },
+            data: {
+              invoiceId: matchedSO.zohoId,
+              invoiceNumber: String(finalDocNum),
+              salesOrderId: matchedSO.zohoId,
+              salesOrderNumber: String(finalDocNum)
+            }
+          })
+        )
+
+        linkedCount++
+        linkedSummary.push({
+          poZohoId: po.zohoId,
+          poTotal: po.total,
+          docType: "SalesOrder",
+          docNumber: finalDocNum,
+          customer: matchedSO.account?.name,
           score: maxScore,
           reasons: matchReasons
         })

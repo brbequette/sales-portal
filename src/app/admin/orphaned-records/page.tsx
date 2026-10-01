@@ -482,22 +482,23 @@ export default function OrphanedRecordsPage() {
 
       while (hasMore && batch <= maxBatches) {
         setSyncMessage(`Scanning and auto-linking database records (batch ${batch} of ${maxBatches})...`)
-        const res = await fetch(`/api/admin/orphans/auto-match?type=${activeTab}&limit=150`, { method: "POST" })
-        const data = await res.json().catch(() => null)
+        try {
+          const res = await fetch(`/api/admin/orphans/auto-match?type=${activeTab}&limit=35`, { method: "POST" })
+          const data = await res.json().catch(() => null)
 
-        if (!res.ok || !data) {
-          const errMsg = data?.error || data?.errorMessage || data?.message || `Server returned HTTP ${res.status}: ${res.statusText || "Internal error"}`
-          throw new Error(errMsg)
+          if (!res.ok || !data || !data.success) {
+            console.warn("Auto-match batch notice:", data?.error || res?.statusText || "Server error")
+            break
+          }
+
+          const batchLinked = Number(data.linkedCount || 0)
+          serverLinkedTotal += batchLinked
+          hasMore = Boolean(data.hasMore && batchLinked > 0)
+          batch++
+        } catch (err: any) {
+          console.warn("Auto-match batch error:", err)
+          break
         }
-
-        if (!data.success) {
-          throw new Error(data.error || data.errorMessage || data.message || "Auto-match failed")
-        }
-
-        const batchLinked = Number(data.linkedCount || 0)
-        serverLinkedTotal += batchLinked
-        hasMore = Boolean(data.hasMore && batchLinked > 0)
-        batch++
       }
 
       const totalLinked = clientLinked + serverLinkedTotal

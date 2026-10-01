@@ -14,18 +14,31 @@ export async function POST(req: Request) {
 
     const cleanInput = String(invoiceNumber).trim()
     const cleanDigits = cleanInput.replace(/\D/g, "")
+    const searchKeys = Array.from(new Set([
+      cleanInput,
+      cleanDigits,
+      `SO #${cleanDigits}`,
+      `SO#${cleanDigits}`,
+      `SO-${cleanDigits}`,
+      `INV-${cleanDigits}`,
+      `INV #${cleanDigits}`,
+      cleanInput.replace(/^#/, ""),
+      cleanInput.replace(/^SO\s*#?/i, "").trim()
+    ])).filter(k => k && k.length >= 2)
 
     // 1. Try finding Invoice
     let invoice = await prisma.invoice.findFirst({
       where: {
-        OR: [
-          { zohoId: cleanInput },
-          { invoiceNumber: cleanInput },
-          { salesorderNumber: cleanInput },
-          { items: { path: ['invoiceNumber'], equals: cleanInput } },
-          { items: { path: ['salesorder_number'], equals: cleanInput } },
-          { items: { path: ['reference_number'], equals: cleanInput } }
-        ]
+        OR: searchKeys.flatMap(k => [
+          { zohoId: k },
+          { invoiceNumber: k },
+          { computedInvoiceNumber: k },
+          { salesorderNumber: k },
+          { items: { path: ['invoiceNumber'], equals: k } },
+          { items: { path: ['invoice_number'], equals: k } },
+          { items: { path: ['salesorder_number'], equals: k } },
+          { items: { path: ['reference_number'], equals: k } }
+        ])
       }
     })
 
@@ -34,11 +47,11 @@ export async function POST(req: Request) {
     if (!invoice) {
       salesOrder = await prisma.salesOrder.findFirst({
         where: {
-          OR: [
-            { zohoId: cleanInput },
-            { items: { path: ['salesorder_number'], equals: cleanInput } },
-            { items: { path: ['reference_number'], equals: cleanInput } }
-          ]
+          OR: searchKeys.flatMap(k => [
+            { zohoId: k },
+            { items: { path: ['salesorder_number'], equals: k } },
+            { items: { path: ['reference_number'], equals: k } }
+          ])
         }
       })
       if (salesOrder) {
@@ -47,7 +60,7 @@ export async function POST(req: Request) {
           where: {
             OR: [
               { salesOrderZohoId: salesOrder.zohoId },
-              { salesorderNumber: String(cleanInput) }
+              ...searchKeys.map(k => ({ salesorderNumber: k }))
             ]
           }
         })
@@ -59,11 +72,12 @@ export async function POST(req: Request) {
     if (!invoice && !salesOrder) {
       quote = await prisma.quote.findFirst({
         where: {
-          OR: [
-            { zohoId: cleanInput },
-            { items: { path: ['quote_number'], equals: cleanInput } },
-            { items: { path: ['estimate_number'], equals: cleanInput } }
-          ]
+          OR: searchKeys.flatMap(k => [
+            { zohoId: k },
+            { items: { path: ['quote_number'], equals: k } },
+            { items: { path: ['estimate_number'], equals: k } },
+            { items: { path: ['reference_number'], equals: k } }
+          ])
         }
       })
       if (quote) {
@@ -79,21 +93,25 @@ export async function POST(req: Request) {
 
     const resolvedInvoiceId = invoice ? invoice.zohoId : (salesOrder ? salesOrder.zohoId : quote!.zohoId)
     const itemsData: any = (invoice?.items || salesOrder?.items || quote?.items) || {}
-    const finalDocNumber = invoice?.invoiceNumber || itemsData.invoiceNumber || itemsData.salesorder_number || itemsData.estimate_number || cleanInput
+    const finalDocNumber = invoice?.invoiceNumber || invoice?.computedInvoiceNumber || itemsData.invoiceNumber || itemsData.salesorder_number || itemsData.estimate_number || cleanDigits || cleanInput
 
     if (type === 'po') {
-      await prisma.purchaseOrder.update({
-        where: { zohoId: id },
+      await prisma.purchaseOrder.updateMany({
+        where: {
+          OR: [{ zohoId: id }, { id }]
+        },
         data: {
           invoiceId: resolvedInvoiceId,
           invoiceNumber: String(finalDocNumber),
-          salesOrderId: salesOrder ? salesOrder.zohoId : undefined,
-          salesOrderNumber: salesOrder ? String(finalDocNumber) : undefined
+          salesOrderId: salesOrder ? salesOrder.zohoId : (invoice?.salesOrderZohoId || undefined),
+          salesOrderNumber: salesOrder ? String(finalDocNumber) : (invoice?.salesorderNumber || undefined)
         }
       })
     } else if (type === 'payment') {
-      await prisma.payment.update({
-        where: { zohoId: id },
+      await prisma.payment.updateMany({
+        where: {
+          OR: [{ zohoId: id }, { id }]
+        },
         data: {
           invoiceId: resolvedInvoiceId,
           invoiceNumber: String(finalDocNumber)
