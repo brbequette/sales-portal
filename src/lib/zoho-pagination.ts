@@ -1,3 +1,4 @@
+import { crmBudgetFetch } from './crm-request-budget'
 const DEFAULT_TIMEOUT_MS = 55000
 const DEFAULT_MAX_PAGES = 10
 const DEFAULT_FETCH_TIMEOUT_MS = 15000
@@ -19,7 +20,7 @@ export async function fetchZohoPages<T>({
   kind,
   selectRecords,
   startedAt,
-  fetchImpl = fetch,
+  fetchImpl = crmBudgetFetch,
   now = Date.now,
   timeoutMs = DEFAULT_TIMEOUT_MS,
   maxPages = DEFAULT_MAX_PAGES,

@@ -1,3 +1,4 @@
+import { crmBudgetFetch } from '../../../../../lib/crm-request-budget'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthenticatedDbUser } from '@/lib/session-user'
@@ -31,7 +32,7 @@ async function reconcileProviderProfile(accountId: string, timeZone: string, act
   const verify = async () => {
     const [booksVerifyResponse, crmVerifyResponse] = await Promise.all([
     fetch(`${booksBase}/contacts/${encodeURIComponent(booksCustomerId)}?organization_id=${encodeURIComponent(process.env.ZOHO_ORGANIZATION_ID || '')}`, { headers: { Authorization: `Zoho-oauthtoken ${token}` }, signal: AbortSignal.timeout(15000) }),
-    fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts/${encodeURIComponent(crmAccountId)}`, { headers: { Authorization: `Zoho-oauthtoken ${token}` }, signal: AbortSignal.timeout(15000) }),
+    crmBudgetFetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts/${encodeURIComponent(crmAccountId)}`, { headers: { Authorization: `Zoho-oauthtoken ${token}` }, signal: AbortSignal.timeout(15000) }),
     ])
     const booksVerify = await booksVerifyResponse.json().catch(() => null)
     const crmVerify = await crmVerifyResponse.json().catch(() => null)
@@ -63,7 +64,7 @@ async function reconcileProviderProfile(accountId: string, timeZone: string, act
         if (!response.ok || Number(body?.code) !== 0) throw new Error(`BOOKS_UPDATE: ${String(body?.message || `HTTP ${response.status}`)}`)
       }
       if (!evidence.crmMatches) {
-        const response = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts/${encodeURIComponent(crmAccountId)}`, { method: 'PUT', headers: { Authorization: `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ data: [crmPayload] }), signal: AbortSignal.timeout(15000) })
+        const response = await crmBudgetFetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts/${encodeURIComponent(crmAccountId)}`, { method: 'PUT', headers: { Authorization: `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ data: [crmPayload] }), signal: AbortSignal.timeout(15000) })
         const body = await response.json().catch(() => null)
         if (!response.ok || body?.data?.[0]?.code !== 'SUCCESS') throw new Error(`CRM_UPDATE: ${String(body?.data?.[0]?.message || `HTTP ${response.status}`)}`)
       }

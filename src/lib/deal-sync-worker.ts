@@ -1,11 +1,16 @@
 import { prisma } from './prisma'
 import { getDealSyncConfig, crmMetadata, validateDealSyncConfig, syncDealToCrm } from './deal-crm-sync'
 import { reconcileInvoiceDeal } from './deal-reconciliation'
+import { CrmBudgetBlocked } from './crm-request-budget'
 
 export async function runDealSyncBatch(limit = 5) {
   const config = await getDealSyncConfig()
   if (!config?.enabled) return { enabled: false, results: [] }
-  validateDealSyncConfig(config, await crmMetadata())
+  try { validateDealSyncConfig(config, await crmMetadata()) }
+  catch (error) {
+    if (error instanceof CrmBudgetBlocked) return { enabled: true, deferred: error.message, results: [] }
+    throw error
+  }
   await prisma.$executeRaw`INSERT INTO "DealSyncJob" ("invoiceId") SELECT id FROM "Invoice" ON CONFLICT DO NOTHING`
   const results: { invoiceId: string; dealId?: string; status: string; error?: string }[] = []
   const started = Date.now()
@@ -31,8 +36,14 @@ export async function runDealSyncBatch(limit = 5) {
       results.push({ invoiceId: job.invoiceId, dealId, status: 'SYNCED' })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'DEAL_SYNC_FAILED'
+      if (error instanceof CrmBudgetBlocked) {
+        await prisma.$executeRaw`UPDATE "DealSyncJob" SET "leaseUntil" = NULL, "nextAttemptAt" = clock_timestamp() + interval '1 minute' WHERE "invoiceId" = ${job.invoiceId} AND "leaseUntil" = ${job.lease}::timestamptz`
+        results.push({ invoiceId: job.invoiceId, status: 'DEFERRED', error: message })
+        break
+      }
       await prisma.$executeRaw`UPDATE "DealSyncJob" SET "leaseUntil" = NULL, "lastError" = ${message}, "nextAttemptAt" = clock_timestamp() + interval '1 hour' WHERE "invoiceId" = ${job.invoiceId} AND "leaseUntil" = ${job.lease}::timestamptz`
       results.push({ invoiceId: job.invoiceId, status: 'REVIEW_REQUIRED', error: message })
+      if (/^CRM_(401|403|429)_/.test(message) || message.startsWith('CRM_BUDGET_')) break
     }
   }
   return { enabled: true, results }

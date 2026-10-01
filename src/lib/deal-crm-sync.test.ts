@@ -3,14 +3,26 @@ const state = vi.hoisted(() => ({ operation: null as any, updates: [] as any[], 
 vi.mock('./prisma', () => ({ prisma: { deal: { findUniqueOrThrow: async () => state.deal }, providerWriteOperation: {
   findUnique: vi.fn(async () => state.operation),
   upsert: vi.fn(async ({ create }: any) => state.operation ||= { id: 'op1', state: 'PENDING', ...create }),
-  updateMany: vi.fn(async () => { if (state.operation.state !== 'PENDING') return { count: 0 }; state.operation.state = 'SYNCING'; return { count: 1 } }),
+  updateMany: vi.fn(async ({ where, data }: { where: { state: string }; data: Record<string, unknown> }) => { if (state.operation.state !== where.state) return { count: 0 }; Object.assign(state.operation, data); return { count: 1 } }),
   update: vi.fn(async ({ data }: any) => { state.updates.push(data); Object.assign(state.operation, data) }),
 } } }))
 vi.mock('./zoho-auth', () => ({ getZohoAccessToken: vi.fn(), ZOHO_DC: 'com' }))
 vi.mock('./deal-package', () => ({ getDealPackage: async () => state.pkg, object: (value: any) => value && typeof value === 'object' && !Array.isArray(value) ? value : {} }))
 import { crmRequest, guardedWrite, mergePackageDescription, validateDealSyncConfig, invoiceItemIndex, syncDealToCrm } from './deal-crm-sync'
+import { CrmBudgetBlocked } from './crm-request-budget'
 beforeEach(() => { state.operation = null; state.updates = []; vi.unstubAllGlobals() })
 describe('durable provider writes', () => {
+  it('returns an unsent budget-blocked write to pending', async () => {
+    const verify = vi.fn()
+    await expect(guardedWrite('key', 'deal', {}, async () => { throw new CrmBudgetBlocked('LIMIT') }, verify)).rejects.toThrow('LIMIT')
+    expect(state.operation.state).toBe('PENDING')
+    expect(verify).not.toHaveBeenCalled()
+  })
+  it('preserves accepted ID and ambiguity when readback is budget-blocked', async () => {
+    await expect(guardedWrite('key', 'deal', {}, async () => '6821836000027811001', async () => { throw new CrmBudgetBlocked('LIMIT') })).rejects.toThrow('LIMIT')
+    expect(state.operation.state).toBe('AMBIGUOUS')
+    expect(state.operation.providerRecordIds).toEqual({ id: '6821836000027811001' })
+  })
   it('persists an accepted ID and uses it to recover failed readback without another write', async () => {
     const id = '6821836000027811001'
     const write = vi.fn(async () => id)

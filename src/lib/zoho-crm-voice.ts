@@ -1,3 +1,4 @@
+import { crmBudgetFetch } from './crm-request-budget'
 import { createHash } from "node:crypto"
 import { prisma } from "@/lib/prisma"
 import { getZohoAccessToken, ZOHO_DC } from "@/lib/zoho-auth"
@@ -63,7 +64,7 @@ export async function syncCrmVoiceCall(callId: string) {
   const base = `https://www.zohoapis.${ZOHO_DC}/crm/v8/Calls`
   const headers = { Authorization: `Zoho-oauthtoken ${token}`, "Content-Type": "application/json" }
   const get = async (url: string) => {
-    const response = await fetch(url, { headers, signal: AbortSignal.timeout(15000), redirect: "error", cache: "no-store" })
+    const response = await crmBudgetFetch(url, { headers, signal: AbortSignal.timeout(15000), redirect: "error", cache: "no-store" })
     if (response.status === 204) return { data: [] } as Row
     if (!response.ok) throw new Error("CRM verification read failed")
     return record(await response.json())
@@ -87,7 +88,7 @@ export async function syncCrmVoiceCall(callId: string) {
   if (claimed.count !== 1) return { state: "SYNCING", nativeCrmCallSynced: false, message: "Another request owns this operation" }
   let id: string | null = null
   try {
-    const response = await fetch(base, { method: "POST", headers, signal: AbortSignal.timeout(15000), redirect: "error", cache: "no-store", body: JSON.stringify({ data: [payload], trigger: [] }) })
+    const response = await crmBudgetFetch(base, { method: "POST", headers, signal: AbortSignal.timeout(15000), redirect: "error", cache: "no-store", body: JSON.stringify({ data: [payload], trigger: [] }) })
     const result = record(await response.json())
     const row = Array.isArray(result.data) && result.data.length === 1 ? record(result.data[0]) : {}
     const details = record(row.details)

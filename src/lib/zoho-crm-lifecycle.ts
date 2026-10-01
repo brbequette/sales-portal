@@ -1,3 +1,4 @@
+import { crmBudgetFetch } from './crm-request-budget'
 import { createHash } from 'node:crypto'
 import { prisma } from '@/lib/prisma'
 import { getZohoAccessToken } from '@/lib/zoho-auth'
@@ -42,7 +43,7 @@ function fingerprint(value: unknown): string {
 export async function lookupAcceptedLead(email: string | null, company: string, token: string): Promise<string | null> {
   if (!email) return null
   const criteria = encodeURIComponent(`(Email:equals:${email})`)
-  const response = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Leads/search?criteria=${criteria}&fields=id,Company,Email`, {
+  const response = await crmBudgetFetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Leads/search?criteria=${criteria}&fields=id,Company,Email`, {
     headers: { Authorization: `Zoho-oauthtoken ${token}` },
     signal: AbortSignal.timeout(CRM_TIMEOUT_MS),
   })
@@ -108,7 +109,7 @@ export async function persistPortalLeadToCrm(leadId: string): Promise<ProviderRe
   await prisma.lead.update({ where: { id: lead.id }, data: { providerSyncState: 'SYNCING', providerSyncError: null } })
 
   try {
-    const response = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Leads`, {
+    const response = await crmBudgetFetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Leads`, {
       method: 'POST',
       headers: { Authorization: `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ data: [payload], trigger: [] }),
@@ -168,7 +169,7 @@ export async function convertPersistedCrmLead(leadId: string, accountId: string)
   if (claimed.count !== 1) return { state: 'SYNCING', message: 'CRM conversion is already in progress.' }
   const token = await getZohoAccessToken()
   try {
-    const response = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Leads/${lead.crmLeadId}/actions/convert`, {
+    const response = await crmBudgetFetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Leads/${lead.crmLeadId}/actions/convert`, {
       method: 'POST',
       headers: { Authorization: `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ data: [payload] }),
@@ -196,7 +197,7 @@ export async function convertPersistedCrmLead(leadId: string, accountId: string)
 async function lookupConvertedEntities(email: string | null, company: string, token: string) {
   if (!email) return null
   const criteria = encodeURIComponent(`(Email:equals:${email})`)
-  const response = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Contacts/search?criteria=${criteria}&fields=id,Email,Account_Name`, {
+  const response = await crmBudgetFetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Contacts/search?criteria=${criteria}&fields=id,Email,Account_Name`, {
     headers: { Authorization: `Zoho-oauthtoken ${token}` }, signal: AbortSignal.timeout(CRM_TIMEOUT_MS),
   })
   if (response.status === 204 || !response.ok) return null

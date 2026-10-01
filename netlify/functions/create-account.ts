@@ -1,3 +1,4 @@
+import { crmBudgetFetch } from '../../src/lib/crm-request-budget'
 import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken } from "./lib/zoho-auth"
@@ -72,7 +73,7 @@ const authenticatedHandler: Handler = async (event) => {
       accountPayload.Tag = tags.split(',').map((t: string) => ({ name: t.trim() })).filter((t: any) => t.name)
     }
 
-    const crmRes = await fetch(`${baseUrl}/Accounts`, { signal: AbortSignal.timeout(15000),
+    const crmRes = await crmBudgetFetch(`${baseUrl}/Accounts`, { signal: AbortSignal.timeout(15000),
       method: 'POST',
       headers: {
         'Authorization': `Zoho-oauthtoken ${token}`,
@@ -102,7 +103,7 @@ const authenticatedHandler: Handler = async (event) => {
         Account_Name: { id: newAccountId }
       }
       
-      const contactRes = await fetch(`${baseUrl}/Contacts`, { signal: AbortSignal.timeout(15000),
+      const contactRes = await crmBudgetFetch(`${baseUrl}/Contacts`, { signal: AbortSignal.timeout(15000),
         method: 'POST',
         headers: {
           'Authorization': `Zoho-oauthtoken ${token}`,
@@ -118,7 +119,7 @@ const authenticatedHandler: Handler = async (event) => {
 
     // Fetch the newly created account from Zoho CRM to find out who the CRM assigned it to
     let ownerId = null
-    const fetchRes = await fetch(`${baseUrl}/Accounts/${newAccountId}`, { signal: AbortSignal.timeout(15000),
+    const fetchRes = await crmBudgetFetch(`${baseUrl}/Accounts/${newAccountId}`, { signal: AbortSignal.timeout(15000),
       headers: { 'Authorization': `Zoho-oauthtoken ${token}` }
     })
     
