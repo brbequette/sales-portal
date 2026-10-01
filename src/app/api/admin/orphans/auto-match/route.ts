@@ -49,11 +49,24 @@ export async function POST(req: Request) {
         })
       }
 
-      // Fetch candidate invoices (prioritizing grand total matching)
+      // Fetch candidate invoices (prioritizing grand total matching, lean select)
       const candidateInvoices = await prisma.invoice.findMany({
         take: 1200,
         orderBy: { issueDate: "desc" },
-        include: { account: { select: accountSelect }, lineItems: true }
+        select: {
+          id: true,
+          zohoId: true,
+          accountId: true,
+          amount: true,
+          issueDate: true,
+          computedInvoiceNumber: true,
+          invoiceNumber: true,
+          salesorderNumber: true,
+          items: true,
+          account: {
+            select: accountSelect
+          }
+        }
       })
 
       let linkedCount = 0
@@ -116,12 +129,15 @@ export async function POST(req: Request) {
     // -------------------------------------------------------------
     // AUTO-MATCH UNASSOCIATED PURCHASE ORDERS ACROSS ENTIRE DATASET
     // -------------------------------------------------------------
+    const limitParam = searchParams.get("limit")
+    const limit = limitParam ? Math.min(parseInt(limitParam, 10), 1000) : 250
+
     const unassociatedPOs = await prisma.purchaseOrder.findMany({
       where: {
         invoiceId: null,
         isInventoryOrder: false
       },
-      take: 1500,
+      take: limit,
       orderBy: { date: "desc" }
     })
 
@@ -221,11 +237,24 @@ export async function POST(req: Request) {
       }
     }
 
-    // 3. Load all candidate invoices across the active date range or all invoices
+    // 3. Load all candidate invoices across the active date range or all invoices (lean select, no lineItems join)
     const allInvoices = await prisma.invoice.findMany({
-      take: 10000,
+      take: 8000,
       orderBy: { issueDate: "desc" },
-      include: { account: { select: accountSelect }, lineItems: true }
+      select: {
+        id: true,
+        zohoId: true,
+        accountId: true,
+        amount: true,
+        issueDate: true,
+        computedInvoiceNumber: true,
+        invoiceNumber: true,
+        salesorderNumber: true,
+        items: true,
+        account: {
+          select: accountSelect
+        }
+      }
     })
 
     const invByNumber = new Map<string, any>()
@@ -350,16 +379,27 @@ export async function POST(req: Request) {
     }
 
     if (updatePromises.length > 0) {
-      await Promise.all(updatePromises)
+      for (let i = 0; i < updatePromises.length; i += 25) {
+        await Promise.all(updatePromises.slice(i, i + 25))
+      }
     }
+
+    const remainingCount = await prisma.purchaseOrder.count({
+      where: {
+        invoiceId: null,
+        isInventoryOrder: false
+      }
+    })
 
     const warehouseMsg = warehousePoIds.length > 0 ? ` Archived ${warehousePoIds.length} internal warehouse stock orders.` : ''
     return NextResponse.json({
       success: true,
       linkedCount,
       warehouseCount: warehousePoIds.length,
+      remainingCount,
+      hasMore: remainingCount > 0 && linkedCount > 0,
       linkedSummary,
-      message: `Successfully auto-matched and linked ${linkedCount} Purchase Orders to Invoices (85%+ score across customer contacts & dates).${warehouseMsg}`
+      message: `Successfully auto-matched and linked ${linkedCount} Purchase Orders to Invoices.${warehouseMsg}`
     })
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })

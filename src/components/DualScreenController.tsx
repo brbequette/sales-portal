@@ -88,13 +88,13 @@ export function DualScreenController() {
     const liveUrl = new URL(window.location.href)
     const accountId = liveUrl.pathname === "/account" ? liveUrl.searchParams.get("id") : ""
     const displayUrl = accountId
-      ? `/account?id=${encodeURIComponent(accountId)}&display=1`
+      ? `/display?accountId=${encodeURIComponent(accountId)}&controller=${encodeURIComponent(sourceId.current)}`
       : `/display?controller=${encodeURIComponent(sourceId.current)}`
     setDirectLink(displayUrl)
     const opened = window.open(displayUrl, "titan-diamond-second-display", "popup=yes,width=1600,height=900,resizable=yes,scrollbars=no")
     if (!opened) { setPopupBlocked(true); setPanelOpen(true); toast.error("The second display was blocked. Allow pop-ups, then use the direct display link."); return }
     displayWindow.current = opened; setPopupBlocked(false); setPanelOpen(!accountId); opened.focus()
-    if (accountId) toast.success("Standalone communicator opened for this account")
+    toast.success(accountId ? "Standalone communicator opened for this account" : "Sales Communicator launched")
     if (!accountId) window.setTimeout(() => sendState(), 350)
   }
 

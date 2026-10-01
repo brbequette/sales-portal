@@ -1401,7 +1401,7 @@ export default function ShippingPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <a
-                        href={`/api/get-invoice-pdf?id=${order.zohoId}&type=SalesOrder`}
+                        href={getZohoBooksUrl('salesorders', order.zohoId)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-white hover:text-orange-400 hover:underline font-bold text-sm cursor-pointer z-10"
@@ -1538,7 +1538,7 @@ export default function ShippingPage() {
                                   <FiPackage className="text-blue-400 text-xs" />
                                   <span className="text-sm font-bold text-white">{pkg.packageNumber || pkg.zohoId}</span>
                                   <a
-                                    href={`/api/get-invoice-pdf?id=${order.zohoId}&type=SalesOrder`}
+                                    href={getZohoBooksUrl('salesorders', order.zohoId)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-xs text-indigo-400 font-mono bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-800/50 font-bold hover:text-orange-400 hover:underline transition-colors cursor-pointer"

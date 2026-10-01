@@ -26,7 +26,8 @@ import {
   FiEye,
   FiChevronLeft,
   FiChevronRight,
-  FiZap
+  FiZap,
+  FiShoppingBag
 } from "react-icons/fi"
 import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 
@@ -397,17 +398,89 @@ export default function OrphanedRecordsPage() {
     setAutoMatching(true)
     setSyncMessage(activeTab === "pos" ? "Scanning unassociated POs against Invoices, Sales Orders & Estimates for matches..." : "Scanning unassociated Payments against Invoices (Grand Total & Customer matching)...")
     try {
-      const res = await fetch(`/api/admin/orphans/auto-match?type=${activeTab}`, { method: "POST" })
-      const data = await res.json()
-      if (data.success) {
-        setSyncMessage(`Auto-match complete! ${data.message}`)
-        fetchData()
-        setTimeout(() => setSyncMessage(""), 6000)
+      // Step 1: Immediately link all confident (85%+) matches already verified on the active page
+      const pageConfidentItems: Array<{ id: string; invNum: string }> = []
+      if (activeTab === "pos") {
+        for (const po of pos) {
+          const s = suggestions[po.zohoId] || suggestions[po.id] || (po.poNumber ? suggestions[po.poNumber] : null)
+          const top = s?.bestMatch || (s?.score ? s : null)
+          if (top && top.score >= 85) {
+            const invNum = top.docNumber || top.invoiceNumber
+            if (invNum) pageConfidentItems.push({ id: po.zohoId, invNum: String(invNum) })
+          }
+        }
       } else {
-        setSyncMessage(`Auto-match failed: ${data.error || "Unknown error"}`)
+        for (const p of payments) {
+          const s = suggestions[p.zohoId] || suggestions[p.id]
+          const top = s?.bestMatch || (s?.score ? s : null)
+          if (top && top.score >= 85) {
+            const invNum = top.docNumber || top.invoiceNumber
+            if (invNum) pageConfidentItems.push({ id: p.zohoId, invNum: String(invNum) })
+          }
+        }
       }
+
+      let clientLinked = 0
+      if (pageConfidentItems.length > 0) {
+        setSyncMessage(`Linking ${pageConfidentItems.length} verified confident matches on this page...`)
+        for (const item of pageConfidentItems) {
+          try {
+            const lRes = await fetch("/api/admin/orphans/link", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ type: activeTab === "pos" ? "po" : "payment", id: item.id, invoiceNumber: item.invNum })
+            })
+            const lData = await lRes.json().catch(() => null)
+            if (lData?.success) {
+              clientLinked++
+              if (activeTab === "pos") {
+                setPOs(prev => prev.filter(p => p.zohoId !== item.id && p.id !== item.id))
+              } else {
+                setPayments(prev => prev.filter(p => p.zohoId !== item.id && p.id !== item.id))
+              }
+            }
+          } catch (e) {
+            console.error("Quick link error:", e)
+          }
+        }
+      }
+
+      // Step 2: Auto-match remaining records across the database in bounded batches
+      let serverLinkedTotal = 0
+      let hasMore = true
+      let batch = 1
+      const maxBatches = 5
+
+      while (hasMore && batch <= maxBatches) {
+        setSyncMessage(`Scanning and auto-linking database records (batch ${batch} of ${maxBatches})...`)
+        const res = await fetch(`/api/admin/orphans/auto-match?type=${activeTab}&limit=150`, { method: "POST" })
+        const data = await res.json().catch(() => null)
+
+        if (!res.ok || !data) {
+          const errMsg = data?.error || data?.errorMessage || data?.message || `Server returned HTTP ${res.status}: ${res.statusText || "Internal error"}`
+          throw new Error(errMsg)
+        }
+
+        if (!data.success) {
+          throw new Error(data.error || data.errorMessage || data.message || "Auto-match failed")
+        }
+
+        const batchLinked = Number(data.linkedCount || 0)
+        serverLinkedTotal += batchLinked
+        hasMore = Boolean(data.hasMore && batchLinked > 0)
+        batch++
+      }
+
+      const totalLinked = clientLinked + serverLinkedTotal
+      if (totalLinked > 0) {
+        setSyncMessage(`Auto-match complete! Successfully linked and cleared ${totalLinked} records.`)
+      } else {
+        setSyncMessage("Auto-match scan complete. No new high-probability matches met the 85%+ threshold.")
+      }
+      fetchData()
+      setTimeout(() => setSyncMessage(""), 6000)
     } catch (e: any) {
-      setSyncMessage(`Auto-match error: ${e.message}`)
+      setSyncMessage(`Auto-match notice: ${e.message || "Unknown error"}`)
     } finally {
       setAutoMatching(false)
     }
@@ -987,6 +1060,27 @@ export default function OrphanedRecordsPage() {
                                   </span>
                                 </div>
                               )}
+                              {(() => {
+                                const rowItems = (Array.isArray(po.items) ? po.items : (po.items?.lineItems || po.items?.line_items)) || []
+                                if (rowItems.length === 0) return null
+                                return (
+                                  <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                    <span className="text-[10px] uppercase font-black text-amber-400 flex items-center gap-1">
+                                      <FiShoppingBag size={10} /> PO Items:
+                                    </span>
+                                    {rowItems.slice(0, 3).map((it: any, iIdx: number) => (
+                                      <span key={iIdx} className="text-[10px] font-mono font-bold bg-slate-900 text-amber-300 px-1.5 py-0.5 rounded border border-slate-800">
+                                        {it.quantity}x {it.sku || it.name}
+                                      </span>
+                                    ))}
+                                    {rowItems.length > 3 && (
+                                      <span className="text-[10px] font-mono text-slate-500">
+                                        +{rowItems.length - 3} more
+                                      </span>
+                                    )}
+                                  </div>
+                                )
+                              })()}
                             </td>
 
                             <td className="px-4 py-4 text-slate-400 whitespace-nowrap">
@@ -1108,25 +1202,104 @@ export default function OrphanedRecordsPage() {
                                         </div>
                                       </div>
 
-                                      {/* Line Items */}
-                                      {po.items && (Array.isArray(po.items) || po.items.lineItems || po.items.line_items) && (
-                                        <div className="space-y-2">
-                                          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                                            <FiList size={13} className="text-blue-400" /> PO Line Items
-                                          </div>
-                                          <div className="max-h-36 overflow-y-auto bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 space-y-1.5 text-xs custom-scrollbar">
-                                            {(((Array.isArray(po.items) ? po.items : (po.items.lineItems || po.items.line_items)) || []) as any[]).map((item, idx) => (
-                                              <div key={idx} className="flex items-center justify-between border-b border-slate-800/60 last:border-0 pb-1.5 pt-0.5">
-                                                <span className="text-slate-200 font-semibold truncate max-w-[210px]">{item.name || item.sku || "Item"}</span>
-                                                <span className="text-slate-400 font-mono text-[11px]">Qty: {item.quantity || 1}</span>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
+                                      {/* Items Ordered on PO */}
+                                       {(() => {
+                                         const poItemsRaw = (Array.isArray(po.items) ? po.items : (po.items?.lineItems || po.items?.line_items)) || []
+                                         const candidateSkus = new Set(
+                                           candidatesList.flatMap(c => (c.lineItems || []).map((li: any) => String(li.sku || li.name || '').trim().toUpperCase()))
+                                         )
 
-                                    {/* Right Pane: Candidate Matches & Live Search Workspace */}
+                                         return (
+                                           <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+                                             <div className="flex items-center justify-between">
+                                               <div className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                                                 <FiShoppingBag className="text-amber-400" /> Items Ordered on PO ({poItemsRaw.length})
+                                               </div>
+                                               {poItemsRaw.length > 0 && (
+                                                 <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">
+                                                   {poItemsRaw.reduce((sum: number, it: any) => sum + (Number(it.quantity) || 1), 0)} Total Units
+                                                 </span>
+                                               )}
+                                             </div>
+
+                                             {poItemsRaw.length === 0 ? (
+                                               <div className="text-[11px] text-slate-500 italic py-2 text-center bg-slate-950/60 rounded-lg border border-slate-800/80">
+                                                 No line items recorded on this Purchase Order.
+                                               </div>
+                                             ) : (
+                                               <div className="space-y-2">
+                                                 {/* Quick-compare SKU Pills */}
+                                                 <div className="flex flex-wrap gap-1.5 pb-1">
+                                                   {poItemsRaw.map((item: any, idx: number) => {
+                                                     const itemSku = String(item.sku || item.name || '').trim().toUpperCase()
+                                                     const isMatched = candidateSkus.has(itemSku)
+                                                     return (
+                                                       <span
+                                                         key={idx}
+                                                         className={`text-[11px] font-mono font-bold px-2 py-1 rounded-lg border flex items-center gap-1.5 transition ${
+                                                           isMatched
+                                                             ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50 ring-1 ring-emerald-500/30 shadow-md shadow-emerald-950/40"
+                                                             : "bg-slate-950 text-amber-300 border-amber-500/30"
+                                                         }`}
+                                                         title={item.name ? `${item.name} (${item.description || ''})` : item.sku}
+                                                       >
+                                                         <span className="text-white font-extrabold">{item.quantity || 1}x</span>
+                                                         <span>{item.sku || item.name}</span>
+                                                         {item.rate ? <span className="text-slate-400 font-normal">(${Number(item.rate).toFixed(2)})</span> : null}
+                                                         {isMatched && <span className="text-emerald-400 font-sans text-[10px] font-black">✓ Match</span>}
+                                                       </span>
+                                                     )
+                                                   })}
+                                                 </div>
+
+                                                 {/* Detailed item list */}
+                                                 <div className="max-h-48 overflow-y-auto space-y-1.5 custom-scrollbar pr-1">
+                                                   {poItemsRaw.map((item: any, idx: number) => {
+                                                     const itemSku = String(item.sku || item.name || '').trim().toUpperCase()
+                                                     const isMatched = candidateSkus.has(itemSku)
+                                                     return (
+                                                       <div
+                                                         key={idx}
+                                                         className={`p-2 rounded-lg border flex items-center justify-between gap-3 text-xs transition ${
+                                                           isMatched
+                                                             ? "bg-emerald-950/30 border-emerald-500/40"
+                                                             : "bg-slate-950/70 border-slate-800/80"
+                                                         }`}
+                                                       >
+                                                         <div className="min-w-0 flex-1">
+                                                           <div className="font-bold text-white flex items-center gap-1.5 truncate">
+                                                             <span className="text-amber-400 font-mono font-black">{item.quantity || 1}x</span>
+                                                             <span className="truncate">{item.sku || item.name}</span>
+                                                             {isMatched && (
+                                                               <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.2 rounded text-[10px] font-black uppercase">
+                                                                 Candidate Match
+                                                               </span>
+                                                             )}
+                                                           </div>
+                                                           {item.name && item.name !== item.sku && (
+                                                             <div className="text-[11px] text-slate-400 truncate">{item.name}</div>
+                                                           )}
+                                                         </div>
+                                                         <div className="text-right flex-shrink-0 font-mono">
+                                                           <div className="text-emerald-400 font-extrabold">
+                                                             ${(Number(item.item_total || (Number(item.quantity) * Number(item.rate)) || 0)).toFixed(2)}
+                                                           </div>
+                                                           {item.rate ? (
+                                                             <div className="text-[10px] text-slate-500">${Number(item.rate).toFixed(2)}/ea</div>
+                                                           ) : null}
+                                                         </div>
+                                                       </div>
+                                                     )
+                                                   })}
+                                                 </div>
+                                               </div>
+                                             )}
+                                           </div>
+                                         )
+                                       })()}
+                                     </div>
+
+                                     {/* Right Pane: Candidate Matches & Live Search Workspace */}
                                     <div className="lg:col-span-7 space-y-5">
                                       {candidatesList.length > 0 && (
                                         <div className="space-y-3">

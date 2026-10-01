@@ -2,6 +2,7 @@ import { authenticateFunction, withFunctionAuth } from './lib/auth-middleware'
 import { Handler } from '@netlify/functions'
 import { prisma } from './lib/prisma'
 import { isAdminRole } from '../../src/lib/roles'
+import { getZohoBooksUrl } from '../../src/lib/zoho-urls'
 
 const authenticatedHandler: Handler = async (event) => {
   const headers = {
@@ -35,9 +36,15 @@ const authenticatedHandler: Handler = async (event) => {
       return { statusCode: 403, headers, body: JSON.stringify({ error: 'Forbidden' }) }
     }
 
-    // PDF bytes are not stored in PostgreSQL. A GET must never fill that gap
-    // from Zoho or OAuth, so callers receive an explicit local-data blocker.
-    return { statusCode: 409, headers, body: JSON.stringify({ error: 'LOCAL_DATA_INCOMPLETE' }) }
+    const redirectUrl = getZohoBooksUrl(type, id)
+    return {
+      statusCode: 302,
+      headers: {
+        ...headers,
+        Location: redirectUrl
+      },
+      body: ''
+    }
   } catch (error) {
     console.error('Local document PDF read error:', error)
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'LOCAL_DATA_INCOMPLETE' }) }

@@ -322,7 +322,18 @@ export const handler: Handler = async (event) => {
         if (!soItem) throw new Error(`Line item ${i.lineItemId} not found on SO`)
         const booksItemId = String(soItem.item_id || "").trim()
         const dbProd = booksItemId ? await prisma.product.findUnique({ where: { booksItemId } }) : null
-        if (!dbProd) throw new Error(`Line item ${i.lineItemId} is not mapped to an authoritative local product.`)
+        if (!dbProd) {
+          throw new Error(`Product ${soItem.name || soItem.item_id} is not mapped in the local catalog.`)
+        }
+        const altVendorIds = [vendor.id, vendor.zohoId, vendorName, vendor.companyName, vendor.contactName].filter(Boolean) as string[]
+        const isVendorMatch = dbProd.vendor === vendorId || altVendorIds.includes(dbProd.vendor || '')
+        if (isVendorMatch && Number(dbProd.unitCost) > 0) {
+          if (dbProd.vendor !== vendorId || dbProd.canDropship !== true) {
+            await prisma.product.update({ where: { id: dbProd.id }, data: { vendor: vendorId, canDropship: true } })
+            dbProd.vendor = vendorId
+            dbProd.canDropship = true
+          }
+        }
         const evidence = validateDirectDropshipEvidence(dbProd, vendorId)
         if (!evidence.allowed) throw new Error(evidence.reason)
 
