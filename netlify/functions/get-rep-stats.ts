@@ -3,7 +3,7 @@ import { Handler } from "@netlify/functions"
 import { prisma, Prisma } from "./lib/prisma"
 import { financialNumber, headerCommission } from "../../src/lib/global-header-metrics"
 import { isAdminRole } from "../../src/lib/roles"
-import { aggregateCompanyTarget, calculateTargetProgress, combineRepStatsDocuments, countCompanyWorkdays, eligibleRepIdsForYear, resolveRepStatsVigRate, type RepStatsTarget } from "../../src/lib/rep-stats-period"
+import { aggregateCompanyTarget, calculateTargetProgress, combineRepStatsDocuments, countCompanyWorkdays, eligibleRepIdsForYear, resolveRepStatsDateRange, resolveRepStatsVigRate, type RepStatsTarget } from "../../src/lib/rep-stats-period"
 import { invoiceReportingDate, reportingInvoiceQueryStart } from "../../src/lib/reporting-date"
 
 function hasStoredCommission(items: Record<string, unknown>): boolean {
@@ -58,51 +58,14 @@ const authenticatedHandler: Handler = async (event) => {
       }
     }
 
-    let now = new Date()
-    let rangeStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0)
-    let rangeEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
-
-    if (periodParam === "all_time" || periodParam === "all") {
-      rangeStart = new Date(2000, 0, 1, 0, 0, 0)
-      rangeEnd = new Date(2099, 11, 31, 23, 59, 59, 999)
-    } else if (customStartDate && customEndDate) {
-      rangeStart = new Date(customStartDate + "T00:00:00.000Z")
-      rangeEnd = new Date(customEndDate + "T23:59:59.999Z")
-    } else if (periodParam === "today") {
-      rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
-      rangeEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
-    } else if (periodParam === "this_week") {
-      const mon = new Date(now)
-      const day = mon.getDay()
-      const diff = mon.getDate() - day + (day === 0 ? -6 : 1)
-      mon.setDate(diff)
-      mon.setHours(0,0,0,0)
-      const sun = new Date(mon)
-      sun.setDate(mon.getDate() + 6)
-      sun.setHours(23,59,59,999)
-      rangeStart = mon
-      rangeEnd = sun
-    } else if (periodParam === "this_month") {
-      rangeStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0)
-      rangeEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
-    } else if (periodParam === "last_month") {
-      rangeStart = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0)
-      rangeEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
-    } else if (periodParam === "this_year") {
-      rangeStart = new Date(now.getFullYear(), 0, 1, 0, 0, 0)
-      rangeEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999)
-    } else if (periodParam === "last_year") {
-      rangeStart = new Date(now.getFullYear() - 1, 0, 1, 0, 0, 0)
-      rangeEnd = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999)
-    } else if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
-      const [yyyy, mm] = monthParam.split("-")
-      rangeStart = new Date(parseInt(yyyy), parseInt(mm) - 1, 1, 0, 0, 0)
-      rangeEnd = new Date(parseInt(yyyy), parseInt(mm), 0, 23, 59, 59, 999)
-    } else if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
-      const [yyyy, mm, dd] = dateParam.split("-")
-      rangeStart = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd), 0, 0, 0)
-      rangeEnd = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd), 23, 59, 59, 999)
-    }
+    const now = new Date()
+    const { rangeStart, rangeEnd, weekStart, weekEnd } = resolveRepStatsDateRange(periodParam, {
+      customStartDate,
+      customEndDate,
+      monthParam,
+      dateParam,
+      now,
+    })
 
     // BUG-003 fix: fetch vig_settings alongside other data so we can replicate
     // the full VIG resolution chain (constantVigEnabled → monthlyVigGoal → doc field → 1.3)
@@ -393,15 +356,9 @@ const authenticatedHandler: Handler = async (event) => {
       yearSalesOrderCount: rosterCounts.get(user.id)?.yearSalesOrderCount || 0,
     })))
 
-    // Compute current week boundaries (Mon-Sun)
-    const weekNow = new Date()
-    const weekDay = weekNow.getDay()
-    const weekMonday = new Date(weekNow)
-    weekMonday.setDate(weekNow.getDate() - (weekDay === 0 ? 6 : weekDay - 1))
-    weekMonday.setHours(0, 0, 0, 0)
-    const weekSunday = new Date(weekMonday)
-    weekSunday.setDate(weekMonday.getDate() + 6)
-    weekSunday.setHours(23, 59, 59, 999)
+    // Current week boundaries (Mon-Sun in Arizona time)
+    const weekMonday = weekStart
+    const weekSunday = weekEnd
 
     // Initialize repStatsMap
     const repStatsMap: Record<string, any> = {}

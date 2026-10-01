@@ -97,3 +97,82 @@ export function countCompanyWorkdays(start: Date, end: Date, holidays: Set<strin
   }
   return count
 }
+
+export interface RepStatsDateRangeOptions {
+  customStartDate?: string | null
+  customEndDate?: string | null
+  monthParam?: string | null
+  dateParam?: string | null
+  now?: Date
+}
+
+export interface RepStatsResolvedDateRange {
+  rangeStart: Date
+  rangeEnd: Date
+  weekStart: Date
+  weekEnd: Date
+  year: number
+  month: number
+}
+
+export function resolveRepStatsDateRange(
+  periodParam: string = 'this_month',
+  options: RepStatsDateRangeOptions = {},
+): RepStatsResolvedDateRange {
+  const now = options.now || new Date()
+  const offsetMs = 7 * 60 * 60 * 1000 // Arizona UTC-7 (no daylight saving time)
+  const arizonaNow = new Date(now.getTime() - offsetMs)
+  const year = arizonaNow.getUTCFullYear()
+  const month = arizonaNow.getUTCMonth()
+  const date = arizonaNow.getUTCDate()
+  const day = arizonaNow.getUTCDay()
+
+  let rangeStart: Date
+  let rangeEnd: Date
+
+  if (periodParam === 'all_time' || periodParam === 'all') {
+    rangeStart = new Date(Date.UTC(2000, 0, 1, 0, 0, 0, 0))
+    rangeEnd = new Date(Date.UTC(2099, 11, 31, 23, 59, 59, 999))
+  } else if (options.customStartDate && options.customEndDate) {
+    rangeStart = new Date(options.customStartDate + 'T00:00:00.000Z')
+    rangeEnd = new Date(options.customEndDate + 'T23:59:59.999Z')
+  } else if (periodParam === 'today') {
+    rangeStart = new Date(Date.UTC(year, month, date, 0, 0, 0, 0))
+    rangeEnd = new Date(Date.UTC(year, month, date, 23, 59, 59, 999))
+  } else if (periodParam === 'this_week') {
+    const mondayDate = date + (day === 0 ? -6 : 1 - day)
+    rangeStart = new Date(Date.UTC(year, month, mondayDate, 0, 0, 0, 0))
+    rangeEnd = new Date(Date.UTC(year, month, mondayDate + 6, 23, 59, 59, 999))
+  } else if (periodParam === 'this_month') {
+    rangeStart = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0))
+    rangeEnd = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999))
+  } else if (periodParam === 'last_month') {
+    rangeStart = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0))
+    rangeEnd = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999))
+  } else if (periodParam === 'this_year') {
+    rangeStart = new Date(Date.UTC(year, 0, 1, 0, 0, 0, 0))
+    rangeEnd = new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999))
+  } else if (periodParam === 'last_year') {
+    rangeStart = new Date(Date.UTC(year - 1, 0, 1, 0, 0, 0, 0))
+    rangeEnd = new Date(Date.UTC(year - 1, 11, 31, 23, 59, 59, 999))
+  } else if (options.monthParam && /^\d{4}-\d{2}$/.test(options.monthParam)) {
+    const [yyyy, mm] = options.monthParam.split('-')
+    rangeStart = new Date(Date.UTC(parseInt(yyyy), parseInt(mm) - 1, 1, 0, 0, 0, 0))
+    rangeEnd = new Date(Date.UTC(parseInt(yyyy), parseInt(mm), 0, 23, 59, 59, 999))
+  } else if (options.dateParam && /^\d{4}-\d{2}-\d{2}$/.test(options.dateParam)) {
+    const [yyyy, mm, dd] = options.dateParam.split('-')
+    rangeStart = new Date(Date.UTC(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd), 0, 0, 0, 0))
+    rangeEnd = new Date(Date.UTC(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd), 23, 59, 59, 999))
+  } else {
+    // Default to this_month
+    rangeStart = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0))
+    rangeEnd = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999))
+  }
+
+  // Week boundaries for weekly revenue calculation (Mon-Sun in Arizona time)
+  const mondayDate = date + (day === 0 ? -6 : 1 - day)
+  const weekStart = new Date(Date.UTC(year, month, mondayDate, 0, 0, 0, 0))
+  const weekEnd = new Date(Date.UTC(year, month, mondayDate + 6, 23, 59, 59, 999))
+
+  return { rangeStart, rangeEnd, weekStart, weekEnd, year, month: month + 1 }
+}

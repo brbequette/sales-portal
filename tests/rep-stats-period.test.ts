@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aggregateCompanyTarget, calculateTargetProgress, combineRepStatsDocuments, countCompanyWorkdays, eligibleRepIdsForYear, resolveRepStatsVigRate } from '../src/lib/rep-stats-period'
+import { aggregateCompanyTarget, calculateTargetProgress, combineRepStatsDocuments, countCompanyWorkdays, eligibleRepIdsForYear, resolveRepStatsDateRange, resolveRepStatsVigRate } from '../src/lib/rep-stats-period'
 
 describe('Rep Stats canonical period contract', () => {
   it('combines 15 invoices and 2 eligible uninvoiced orders without losing cents', () => {
@@ -61,5 +61,27 @@ describe('Rep Stats canonical period contract', () => {
     expect(resolveRepStatsVigRate('MONTGOMERY MORGAN', false, null, 1.5)).toBe(1.0)
     expect(resolveRepStatsVigRate('ROSS HAISLER', false, null, 1.3)).toBe(1.3)
     expect(resolveRepStatsVigRate('ROSS HAISLER', true, 1.4, 1.3)).toBe(1.4)
+  })
+
+  it('resolves date ranges in Arizona time to avoid UTC day/month crossover bugs', () => {
+    // 2026-10-01 01:30:00 UTC is 2026-09-30 18:30:00 in Arizona (Wednesday evening)
+    const utcNow = new Date('2026-10-01T01:30:00Z')
+    const range = resolveRepStatsDateRange('this_month', { now: utcNow })
+    expect(range.rangeStart.toISOString()).toBe('2026-09-01T00:00:00.000Z')
+    expect(range.rangeEnd.toISOString()).toBe('2026-09-30T23:59:59.999Z')
+    expect(range.year).toBe(2026)
+    expect(range.month).toBe(9)
+
+    const todayRange = resolveRepStatsDateRange('today', { now: utcNow })
+    expect(todayRange.rangeStart.toISOString()).toBe('2026-09-30T00:00:00.000Z')
+    expect(todayRange.rangeEnd.toISOString()).toBe('2026-09-30T23:59:59.999Z')
+
+    const weekRange = resolveRepStatsDateRange('this_week', { now: utcNow })
+    expect(weekRange.rangeStart.toISOString()).toBe('2026-09-28T00:00:00.000Z')
+    expect(weekRange.rangeEnd.toISOString()).toBe('2026-10-04T23:59:59.999Z')
+
+    const lastMonthRange = resolveRepStatsDateRange('last_month', { now: utcNow })
+    expect(lastMonthRange.rangeStart.toISOString()).toBe('2026-08-01T00:00:00.000Z')
+    expect(lastMonthRange.rangeEnd.toISOString()).toBe('2026-08-31T23:59:59.999Z')
   })
 })

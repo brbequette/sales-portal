@@ -178,7 +178,10 @@ export function getStatusBadgeClass(statusStr?: string): string {
 
 export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize }: DashboardViewProps) {
   const { zohoContext: currentUser } = useZoho()
-  const [showCompanyWide, setShowCompanyWide] = useState<boolean>(false)
+  const [showCompanyWide, setShowCompanyWide] = useState<boolean>(repName === 'all' || isAdmin === true)
+  useEffect(() => {
+    setShowCompanyWide(repName === 'all' || isAdmin === true)
+  }, [repName, isAdmin])
   const [timeEntry, setTimeEntry] = useState<any | null>(null)
   const [clockLoading, setClockLoading] = useState(false)
   const [selectedMetricInfo, setSelectedMetricInfo] = useState<MetricDerivationInfo | null>(null)
@@ -262,7 +265,13 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
         const data = await response.json()
         if (!response.ok || !data.success) throw new Error(data.error || "Failed to load representative statistics")
         setRepStatsReps(data.reps || [])
-        if (data.totals) setRepStatsTotals(data.totals)
+        if (data.totals) {
+          setRepStatsTotals(data.totals)
+          if (repStatsSelectedRepId === 'all') {
+            setCompanyTotals(data.totals)
+            setCompanyReps(data.reps || [])
+          }
+        }
       }
       setUpdateAvailable(false)
     } catch (e) {
@@ -304,7 +313,13 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
     if (!rawData?.success) return
     if (repStatsSelectedRepId !== repName) return
     setRepStatsReps(rawData.reps || [])
-    if (rawData.totals) setRepStatsTotals(rawData.totals)
+    if (rawData.totals) {
+      setRepStatsTotals(rawData.totals)
+      if (repStatsSelectedRepId === 'all' || repName === 'all') {
+        setCompanyTotals(rawData.totals)
+        setCompanyReps(rawData.reps || [])
+      }
+    }
   }, [rawData, repName, repStatsSelectedRepId])
 
   useEffect(() => {
@@ -314,8 +329,10 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
   // Company-wide detail is intentionally lazy. The personal dashboard must not
   // execute a second company aggregation during every ordinary page load.
   useEffect(() => {
-    if (showCompanyWide) void fetchCompanyStats()
-  }, [showCompanyWide, fetchCompanyStats, refreshTrigger])
+    if (showCompanyWide && (repStatsSelectedRepId !== 'all' || !companyTotals.invoiceSubtotal)) {
+      void fetchCompanyStats()
+    }
+  }, [showCompanyWide, repStatsSelectedRepId, companyTotals.invoiceSubtotal, fetchCompanyStats, refreshTrigger])
 
   const repStatsAllInvoices = useMemo(() => {
     let list: any[] = []
