@@ -79,15 +79,33 @@ interface InvoiceSearchResult {
 
 function formatAddressString(addr: any): string | null {
   if (!addr) return null
-  if (typeof addr === "string") return addr.trim() || null
+  if (typeof addr === "string") {
+    const trimmed = addr.trim()
+    if (!trimmed) return null
+    if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        if (parsed && typeof parsed === "object") {
+          return formatAddressString(parsed)
+        }
+      } catch {
+        // Fall back to trimmed string
+      }
+    }
+    return trimmed
+  }
   if (typeof addr === "object") {
     const parts = [
+      addr.attention || "",
       addr.address || addr.street || addr.address1 || addr.street1 || "",
       addr.street2 || addr.address2 || "",
       addr.city || "",
       addr.state || "",
-      addr.zip || addr.zipcode || addr.zip_code || ""
-    ].map(p => String(p).trim()).filter(Boolean)
+      addr.zip || addr.zipcode || addr.zip_code || "",
+      addr.country || ""
+    ]
+      .map(p => (typeof p === "string" || typeof p === "number" ? String(p).trim() : ""))
+      .filter(Boolean)
     return parts.join(", ") || null
   }
   return String(addr)
@@ -95,7 +113,18 @@ function formatAddressString(addr: any): string | null {
 
 function safeText(val: any, fallback = ""): string {
   if (val === null || val === undefined) return fallback
-  if (typeof val === "string") return val
+  if (typeof val === "string") {
+    const trimmed = val.trim()
+    if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        if (parsed && typeof parsed === "object") {
+          return formatAddressString(parsed) || fallback
+        }
+      } catch {}
+    }
+    return val
+  }
   if (typeof val === "number") return String(val)
   if (typeof val === "object") return formatAddressString(val) || fallback
   return String(val)
@@ -963,8 +992,19 @@ export default function OrphanedRecordsPage() {
                       const topMatch = poSuggestions?.bestMatch || (poSuggestions?.score ? poSuggestions : null)
                       const candidatesList: any[] = poSuggestions?.candidates || (topMatch ? [topMatch] : [])
 
-                      const displayShipName = po.shipToName || po.items?.delivery_customer_name || po.items?.customer_name
-                      const displayShipAddr = po.shippingAddress || po.items?.delivery_address || po.items?.shipping_address || po.items?.recipient_address
+                      const displayShipName = safeText(
+                        po.shipToName ||
+                        po.items?.delivery_customer_name ||
+                        po.items?.customer_name ||
+                        po.items?.delivery_address?.attention ||
+                        po.items?.shipping_address?.attention
+                      )
+                      const displayShipAddr = formatAddressString(
+                        po.shippingAddress ||
+                        po.items?.delivery_address ||
+                        po.items?.shipping_address ||
+                        po.items?.recipient_address
+                      )
 
                       return (
                         <Fragment key={po.id}>
@@ -1010,8 +1050,8 @@ export default function OrphanedRecordsPage() {
                                       🎯 {topMatch.score}% Match
                                     </span>
                                   </div>
-                                  <div className="text-xs text-white font-bold truncate max-w-[210px]" title={topMatch.customerName}>
-                                    {topMatch.customerName}
+                                  <div className="text-xs text-white font-bold truncate max-w-[210px]" title={safeText(topMatch.customerName)}>
+                                    {safeText(topMatch.customerName, "Unknown Customer")}
                                   </div>
                                   {topMatch.lineItems && topMatch.lineItems.length > 0 && (
                                     <div className="text-[10px] text-emerald-300 font-mono truncate max-w-[210px] mt-0.5" title={topMatch.lineItems.map((i: any) => `${i.quantity}x ${i.sku || i.name}`).join(', ')}>
@@ -1049,9 +1089,9 @@ export default function OrphanedRecordsPage() {
                             </td>
 
                             <td className="px-4 py-4 max-w-xs">
-                              <div className="font-bold text-slate-200 truncate">{po.vendorName || "Unknown Vendor"}</div>
+                              <div className="font-bold text-slate-200 truncate">{safeText(po.vendorName, "Unknown Vendor")}</div>
                               {(displayShipName || displayShipAddr) && (
-                                <div className="text-[11px] text-blue-300 font-medium truncate mt-0.5 flex items-center gap-1.5" title={`${displayShipName || ''} ${displayShipAddr || ''}`}>
+                                <div className="text-[11px] text-blue-300 font-medium truncate mt-0.5 flex items-center gap-1.5" title={`${displayShipName || ''} ${displayShipAddr || ''}`.trim()}>
                                   <FiMapPin size={12} className="text-blue-400 flex-shrink-0" />
                                   <span className="truncate">
                                     {displayShipName ? `To: ${displayShipName}` : ''}
@@ -1070,7 +1110,7 @@ export default function OrphanedRecordsPage() {
                                     </span>
                                     {rowItems.slice(0, 3).map((it: any, iIdx: number) => (
                                       <span key={iIdx} className="text-[10px] font-mono font-bold bg-slate-900 text-amber-300 px-1.5 py-0.5 rounded border border-slate-800">
-                                        {it.quantity}x {it.sku || it.name}
+                                        {it.quantity}x {safeText(it.sku || it.name)}
                                       </span>
                                     ))}
                                     {rowItems.length > 3 && (
@@ -1175,7 +1215,7 @@ export default function OrphanedRecordsPage() {
                                       <div className="grid grid-cols-2 gap-3 text-xs">
                                         <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
                                           <div className="text-slate-400 font-medium">Vendor Name</div>
-                                          <div className="text-white font-bold mt-0.5 truncate">{po.vendorName || "Unknown Vendor"}</div>
+                                          <div className="text-white font-bold mt-0.5 truncate">{safeText(po.vendorName, "Unknown Vendor")}</div>
                                         </div>
                                         <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
                                           <div className="text-slate-400 font-medium">PO Total</div>
@@ -1330,7 +1370,7 @@ export default function OrphanedRecordsPage() {
                                                       <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md border ${badgeStyle}`}>
                                                         {dType} #{dNum}
                                                       </span>
-                                                      <span className="text-xs font-bold text-white truncate">{cand.customerName}</span>
+                                                      <span className="text-xs font-bold text-white truncate">{safeText(cand.customerName, "Unknown Customer")}</span>
                                                       <span className="text-[11px] font-black bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-md border border-emerald-500/30">
                                                         🎯 {cand.score}% Match
                                                       </span>
@@ -1605,7 +1645,7 @@ export default function OrphanedRecordsPage() {
                                                       <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md border bg-blue-500/20 text-blue-300 border-blue-500/40">
                                                         {dType} #{dNum}
                                                       </span>
-                                                      <span className="text-xs font-bold text-white truncate">{cand.customerName}</span>
+                                                      <span className="text-xs font-bold text-white truncate">{safeText(cand.customerName, "Unknown Customer")}</span>
                                                       <span className="text-[11px] font-black bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-md border border-emerald-500/30">
                                                         🎯 {cand.score}% Match
                                                       </span>
