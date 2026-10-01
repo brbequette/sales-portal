@@ -28,9 +28,11 @@ describe('dropship purchase-order safety contract', () => {
     expect(source).toContain('was not resubmitted')
   })
 
-  it('does not submit a sales-order display name to a purchase-order dropdown', () => {
-    expect(source).not.toContain('api_name: "cf_sales_person"')
-    expect(source).toContain('payload.zcrm_owner_id = so.salesperson_id')
+  it('validates sales rep against configured purchase-order cf_sales_person options and populates vendor contact', () => {
+    expect(source).toContain('api_name: "cf_sales_person"')
+    expect(source).toContain('1254360000020368537')
+    expect(source).toContain('payload.contact_persons = vendorContactPersons')
+    expect(source).toContain('payload.zcrm_owner_id = crmOwnerId')
   })
 
   it('guards purchase-order email by administrator, exact account contact, and durable idempotency', () => {

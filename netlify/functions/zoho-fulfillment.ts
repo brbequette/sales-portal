@@ -10,6 +10,34 @@ import { isPioneerCalifornia, validateDirectDropshipEvidence } from "../../src/l
 import { isAdministratorRole } from "../../src/lib/roles"
 import { prisma } from "./lib/prisma"
 
+export const VALID_PO_SALES_PERSONS = [
+  "MONTGOMERY MORGAN",
+  "ASHLEY ROWLEY",
+  "ROSS HAISLER",
+  "RICHARD GRIFFIN",
+  "BEN BEQUETTE",
+  " PAUL GENCUSKI",
+  "PAUL GENCUSKI",
+  "BRIAN BASILIERE",
+  "ROBERT REDMAN",
+  "DANIEL CHARLES",
+  "FRANKIE WERHOFNIK",
+  "MIKE EDWARDS",
+  "BOBBY SALYERS",
+]
+
+export function getAuthoritativePoSalesperson(name: string | null | undefined): string | null {
+  if (!name) return null
+  const cleaned = name.trim().toUpperCase()
+  const exact = VALID_PO_SALES_PERSONS.find(opt => opt.trim().toUpperCase() === cleaned)
+  if (exact) return exact
+  const partial = VALID_PO_SALES_PERSONS.find(opt => {
+    const o = opt.trim().toUpperCase()
+    return o.includes(cleaned) || cleaned.includes(o)
+  })
+  return partial || null
+}
+
 export const handler: Handler = async (event) => {
   const headers = { "Content-Type": "application/json" }
   if (event.httpMethod !== "POST") {
@@ -402,6 +430,59 @@ export const handler: Handler = async (event) => {
         }
       }))
 
+      // Fetch vendor contact persons so recipient email is pre-selected in Zoho Books
+      let vendorContactPersons: string[] = []
+      try {
+        const vendorContactRes = await fetch(`${baseUrl}/contacts/${vendorId}?organization_id=${ORG_ID}`, {
+          signal: AbortSignal.timeout(10000),
+          headers: { Authorization: `Zoho-oauthtoken ${token}` },
+        })
+        const vendorContactData = await vendorContactRes.json().catch(() => null)
+        if (vendorContactData?.contact?.contact_persons?.length) {
+          const primary = vendorContactData.contact.contact_persons.find((cp: any) => cp.is_primary_contact) || vendorContactData.contact.contact_persons[0]
+          if (primary?.contact_person_id) {
+            vendorContactPersons.push(String(primary.contact_person_id))
+          }
+        }
+      } catch (vcErr: any) {
+        console.warn("Failed to fetch vendor contact persons for dropship PO:", vcErr?.message)
+      }
+
+      // Match sales rep from Sales Order to authoritative Books PO cf_sales_person dropdown
+      const matchedSalesPerson = getAuthoritativePoSalesperson(so.salesperson_name)
+      const poCustomFields: Array<{ customfield_id: string; api_name: string; value: string }> = []
+      if (matchedSalesPerson) {
+        poCustomFields.push({
+          customfield_id: "1254360000020368537",
+          api_name: "cf_sales_person",
+          value: matchedSalesPerson,
+        })
+      }
+
+      // Resolve CRM Owner ID from local User record or fallback to salesperson ID
+      let crmOwnerId: string | null = null
+      if (so.salesperson_name) {
+        try {
+          const repUser = await prisma.user.findFirst({
+            where: {
+              OR: [
+                { name: { equals: so.salesperson_name, mode: "insensitive" } },
+                { email: { startsWith: so.salesperson_name.split(' ')[0], mode: "insensitive" } },
+              ],
+            },
+            select: { zohoId: true },
+          })
+          if (repUser?.zohoId) {
+            crmOwnerId = repUser.zohoId
+          }
+        } catch (uErr: any) {
+          console.warn("Failed to lookup CRM owner user:", uErr?.message)
+        }
+      }
+      if (!crmOwnerId && so.salesperson_id) {
+        crmOwnerId = so.salesperson_id
+      }
+
       // Create a Purchase Order linked to the Sales Order
       const payload: Record<string, any> = {
         vendor_id: vendorId,
@@ -413,16 +494,18 @@ export const handler: Handler = async (event) => {
         reference_number: so.salesorder_number || ""
       }
 
-      if (so.salesperson_id) {
-        payload.zcrm_owner_id = so.salesperson_id
+      if (crmOwnerId) {
+        payload.zcrm_owner_id = crmOwnerId
       }
-
-      // Do not copy the sales-order display name into the purchase-order
-      // `cf_sales_person` dropdown. Books validates dropdowns against their
-      // configured option values, and a valid sales-order salesperson name is
-      // not necessarily a valid purchase-order dropdown option. Ownership is
-      // carried by the provider identifier above; an invalid descriptive
-      // custom field must never block an otherwise valid dropship PO.
+      if (so.salesperson_id) {
+        payload.salesperson_id = so.salesperson_id
+      }
+      if (vendorContactPersons.length > 0) {
+        payload.contact_persons = vendorContactPersons
+      }
+      if (poCustomFields.length > 0) {
+        payload.custom_fields = poCustomFields
+      }
 
       const operationKey = `books:purchaseorders:dropship:create:${requestId}`
       const requestFingerprint = createHash("sha256").update(JSON.stringify({ salesOrderId, vendorId, line_items: poLineItems })).digest("hex")
