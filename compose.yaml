@@ -37,9 +37,8 @@ services:
       target: builder
     env_file:
       - path: .env
-        format: raw
     environment:
-      DATABASE_URL: postgresql://${SELFHOST_DB_USER:-tdgpt}:${SELFHOST_DB_PASSWORD:-change-this-before-production}@postgres:5432/${SELFHOST_DB_NAME:-tdgpt}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${SELFHOST_DB_USER:-tdgpt}:${SELFHOST_DB_PASSWORD:-change-this-before-production}@postgres:5432/${SELFHOST_DB_NAME:-tdgpt}}
     command: ["npx", "prisma", "migrate", "deploy"]
     depends_on:
       postgres:
@@ -55,8 +54,8 @@ services:
       - path: .env
         format: raw
     environment:
-      DATABASE_URL: postgresql://${SELFHOST_DB_USER:-tdgpt}:${SELFHOST_DB_PASSWORD:-change-this-before-production}@postgres:5432/${SELFHOST_DB_NAME:-tdgpt}
-      DIRECT_URL: postgresql://${SELFHOST_DB_USER:-tdgpt}:${SELFHOST_DB_PASSWORD:-change-this-before-production}@postgres:5432/${SELFHOST_DB_NAME:-tdgpt}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${SELFHOST_DB_USER:-tdgpt}:${SELFHOST_DB_PASSWORD:-change-this-before-production}@postgres:5432/${SELFHOST_DB_NAME:-tdgpt}}
+      DIRECT_URL: ${DIRECT_URL:-${DATABASE_URL:-postgresql://${SELFHOST_DB_USER:-tdgpt}:${SELFHOST_DB_PASSWORD:-change-this-before-production}@postgres:5432/${SELFHOST_DB_NAME:-tdgpt}}}
       NEXTAUTH_URL: ${SELFHOST_APP_URL:-http://localhost:3000}
       NEXTAUTH_ZOHO_CLIENT_ID: ${NEXTAUTH_ZOHO_CLIENT_ID:-}
       NEXTAUTH_ZOHO_CLIENT_SECRET: ${NEXTAUTH_ZOHO_CLIENT_SECRET:-}
