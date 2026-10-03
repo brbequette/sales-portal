@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { getZohoAccessToken, ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
 import { requireAdministrator } from "@/lib/auth-helpers"
 import { financialZohoLineItems } from "@/lib/zoho-line-items"
+import { calculateDocumentCosts } from "@/lib/cost-calculations"
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 
@@ -80,13 +81,52 @@ export async function POST(req: NextRequest) {
         lastSyncedAt: new Date().toISOString(),
       }
 
+      let calculatedItems = { ...updatedItems }
+      let calculatedDate: Date | undefined = undefined
+      let calculatedActualShip: number | undefined = undefined
+
+      if (Array.isArray(calculatedItems.line_items) && calculatedItems.line_items.length > 0) {
+        try {
+          const calc = await calculateDocumentCosts({
+            ...doc,
+            ...calculatedItems,
+          })
+          calculatedItems = {
+            ...calculatedItems,
+            sub_total: calc.subTotal,
+            deadCostTotal: calc.deadCostTotal,
+            deadCostSubjectToVig: calc.deadCostSubjectToVig,
+            deadCostNoVig: calc.deadCostNoVig,
+            deadCostPlusVig: calc.deadCostPlusVig,
+            deadProfitActual: calc.deadProfitActual,
+            profit: calc.profit,
+            marginPercent: calc.marginPercent,
+            commission: calc.salesCommission,
+            commissionPercent: calc.commissionPct,
+            vigRate: calc.vigRate,
+            lineItemDetails: calc.lineItemDetails,
+            itemsDcBreakdown: calc.lineItemBreakdownStrings,
+            actualShippingCost: calc.actualShippingCost ?? (dbDoc?.actualShippingCost ?? 0),
+            shippingCostBreakdown: calc.shippingCostBreakdown,
+            shippingRollup: calc.shippingRollup,
+            costsCalculatedAt: new Date().toISOString(),
+          }
+          calculatedDate = new Date()
+          calculatedActualShip = calc.actualShippingCost
+        } catch (calcErr: any) {
+          console.warn(`[syncSalesOrder] Failed to calculate costs for SO ${salesOrderId}:`, calcErr.message)
+        }
+      }
+
       if (dbDoc) {
         await prisma.salesOrder.update({
           where: { id: dbDoc.id },
           data: {
             amount: parseFloat(doc.sub_total || doc.total || 0),
             status: doc.status || dbDoc.status,
-            items: updatedItems
+            items: calculatedItems,
+            costsCalculatedAt: calculatedDate || dbDoc.costsCalculatedAt,
+            actualShippingCost: calculatedActualShip !== undefined ? calculatedActualShip : dbDoc.actualShippingCost,
           }
         })
 
@@ -139,12 +179,16 @@ export async function POST(req: NextRequest) {
                       carrier: detail.delivery_method || p.delivery_method || null,
                       trackingNumber: detail.tracking_number || p.tracking_number || null,
                       shippingCharge: detail.shipping_charge || 0,
-                      items: detail.line_items ? { lineItems: financialZohoLineItems(detail.line_items).map(li => ({
-                        line_item_id: li.line_item_id,
-                        name: li.name,
-                        sku: li.sku || '',
-                        quantity: li.quantity
-                      })) } : Prisma.JsonNull
+                      items: detail.line_items ? {
+                        salesperson: doc.salesperson_name ? doc.salesperson_name.toUpperCase().trim() : currentItems.salesperson || null,
+                        lineItems: financialZohoLineItems(detail.line_items).map(li => ({
+                          line_item_id: li.line_item_id,
+                          name: li.name,
+                          sku: li.sku || '',
+                          quantity: li.quantity,
+                          salesperson: doc.salesperson_name ? doc.salesperson_name.toUpperCase().trim() : currentItems.salesperson || null,
+                        }))
+                      } : Prisma.JsonNull
                     },
                     create: {
                       zohoId: zohoPkgId,
@@ -156,12 +200,16 @@ export async function POST(req: NextRequest) {
                       carrier: detail.delivery_method || p.delivery_method || null,
                       trackingNumber: detail.tracking_number || p.tracking_number || null,
                       shippingCharge: detail.shipping_charge || 0,
-                      items: detail.line_items ? { lineItems: financialZohoLineItems(detail.line_items).map(li => ({
-                        line_item_id: li.line_item_id,
-                        name: li.name,
-                        sku: li.sku || '',
-                        quantity: li.quantity
-                      })) } : Prisma.JsonNull
+                      items: detail.line_items ? {
+                        salesperson: doc.salesperson_name ? doc.salesperson_name.toUpperCase().trim() : currentItems.salesperson || null,
+                        lineItems: financialZohoLineItems(detail.line_items).map(li => ({
+                          line_item_id: li.line_item_id,
+                          name: li.name,
+                          sku: li.sku || '',
+                          quantity: li.quantity,
+                          salesperson: doc.salesperson_name ? doc.salesperson_name.toUpperCase().trim() : currentItems.salesperson || null,
+                        }))
+                      } : Prisma.JsonNull
                     }
                   })
                 }

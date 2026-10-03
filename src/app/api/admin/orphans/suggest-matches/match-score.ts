@@ -1,7 +1,11 @@
-import { financialZohoLineItems } from '@/lib/zoho-line-items'
+import { evaluatePOReference } from '../../../../../lib/po-document-reference'
+import { financialZohoLineItems } from '../../../../../lib/zoho-line-items'
 
 export interface MatchScoreResult {
   score: number
+  referenceStatus?: 'exact' | 'fuzzy' | 'conflict'
+  requiresReview?: boolean
+  autoWriteEligible?: boolean
   reasons: string[]
   matchDetails: {
     referenceMatch?: string | null
@@ -55,7 +59,7 @@ export function isCustomerMatch(
     for (const c of contacts) {
       const full = `${c.firstName || ''} ${c.lastName || ''}`.toLowerCase().trim()
       const last = String(c.lastName || '').toLowerCase().trim()
-      if (full.length > 2 && (poCust === full || poCust.includes(full) || full.includes(poCust))) return true
+      if (poCust && full.length > 2 && (poCust === full || poCust.includes(full) || full.includes(poCust))) return true
       if (last.length > 3 && (poCust === last || poCust.includes(last))) return true
     }
   }
@@ -93,7 +97,7 @@ export function isCustomerMatch(
   return false
 }
 
-export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
+function computeSupportingScore(po: any, doc: any): MatchScoreResult {
   let score = 0
   const reasons: string[] = []
   const matchDetails: MatchScoreResult['matchDetails'] = {}
@@ -159,14 +163,8 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
     }
   } else if (isPoToWarehouse) {
     // Internal warehouse order - cannot match external customer invoice unless explicitly referenced
-    const docRef = String(docItems.reference_number || doc.referenceNumber || "").toLowerCase()
-    const poNum = String(po.poNumber || "").toLowerCase()
-    if (!poNum || !docRef.includes(poNum)) {
-      return {
-        score: 0,
-        reasons: ["Internal Titan Warehouse PO - not linked to customer orders without explicit reference"],
-        matchDetails: {}
-      }
+    if (!evaluatePOReference(po, doc).exact) {
+      return { score: 0, reasons: ['Warehouse PO requires an exact document reference'], matchDetails: {} }
     }
   }
 
@@ -192,78 +190,11 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
   // LEVEL 1: DIRECT IDENTIFIER MATCH (Within the Verified Customer)
   // Check exact Invoice #, Sales Order #, or Estimate #
   // -------------------------------------------------------------
-  const poSalesOrder = String(
-    po.salesOrderNumber || 
-    poItems.salesorder_number || 
-    (poItems.salesorders && poItems.salesorders[0]?.salesorder_number) ||
-    ""
-  ).trim().toLowerCase()
-
-  const poRef = String(
-    po.referenceNumber || 
-    poItems.reference_number || 
-    ""
-  ).trim().toLowerCase()
-  
-  const docNumber = String(
-    doc.invoiceNumber || 
-    doc.salesorderNumber || 
-    docItems.invoiceNumber || 
-    docItems.salesOrderNumber || 
-    docItems.salesorder_number || 
-    docItems.quote_number || 
-    docItems.estimate_number || 
-    doc.zohoId || ""
-  ).trim().toLowerCase()
-  
-  const docRefNum = String(
-    docItems.reference_number || 
-    docItems.customer_po || 
-    docItems.estimate_number || 
-    docItems.estimateNumber || 
-    docItems.salesorder_number || ""
-  ).trim().toLowerCase()
-
-  const poSoDigits = poSalesOrder.replace(/\D/g, "")
-  const docDigits = docNumber.replace(/\D/g, "")
-  const docRefDigits = docRefNum.replace(/\D/g, "")
-  const poNum = String(po.poNumber || "").trim().toLowerCase()
-
-  // Match Sales Order
-  if (poSalesOrder && poSalesOrder.length >= 3) {
-    if (poSalesOrder === docNumber || poSalesOrder === docRefNum) {
-      score += 55
-      reasons.push(`SO #${poSalesOrder.toUpperCase()} Exact Match`)
-      matchDetails.referenceMatch = `Exact SO #${poSalesOrder.toUpperCase()}`
-    } else if (docNumber.includes(poSalesOrder) || docRefNum.includes(poSalesOrder)) {
-      score += 45
-      reasons.push(`SO #${poSalesOrder.toUpperCase()} Match`)
-      matchDetails.referenceMatch = `SO #${poSalesOrder.toUpperCase()}`
-    } else if (poSoDigits.length >= 4 && (docDigits === poSoDigits || docRefDigits === poSoDigits)) {
-      score += 45
-      reasons.push(`SO Digits #${poSoDigits} Match`)
-      matchDetails.referenceMatch = `SO Digits #${poSoDigits}`
-    }
-  }
-
-  // Match Customer PO on the Invoice to the PO Number
-  if (poNum && (docRefNum.includes(poNum) || (docRefDigits.length >= 4 && docRefDigits === poNum.replace(/\D/g, "")))) {
+  const reference = evaluatePOReference(po, doc)
+  if (reference.exact) {
     score += 55
-    reasons.push(`Customer PO #${poNum.toUpperCase()} Referenced on Document`)
-    matchDetails.referenceMatch = (matchDetails.referenceMatch ? `${matchDetails.referenceMatch} + ` : "") + `Customer PO #${poNum.toUpperCase()}`
-  }
-
-  // Match PO Reference
-  if (poRef && poRef.length >= 3) {
-    if (poRef === docNumber || poRef === docRefNum) {
-      score += 50
-      reasons.push(`Ref #${poRef.toUpperCase()} Exact Match`)
-      matchDetails.referenceMatch = (matchDetails.referenceMatch ? `${matchDetails.referenceMatch} + ` : "") + `Exact Ref #${poRef.toUpperCase()}`
-    } else if (docNumber.includes(poRef) || docRefNum.includes(poRef)) {
-      score += 35
-      reasons.push(`Ref #${poRef.toUpperCase()} Match`)
-      matchDetails.referenceMatch = (matchDetails.referenceMatch ? `${matchDetails.referenceMatch} + ` : "") + `Ref #${poRef.toUpperCase()}`
-    }
+    reasons.push('Exact normalized document reference')
+    matchDetails.referenceMatch = 'Exact normalized document reference'
   }
 
   // -------------------------------------------------------------
@@ -283,6 +214,25 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
 
   const poLineItems = extractItems(po, poItems)
   const docLineItems = extractItems(doc, docItems)
+
+  // Consume quantities once: repeated PO lines must not reuse the same invoice capacity.
+  if (poLineItems.length && docLineItems.length) {
+    const key = (item: any) => String(item.sku || item.name || item.item_name || item.productName || item.description || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+    const remaining = docLineItems.map((item: any) => Number(item.quantity ?? item.qty ?? 0))
+    for (const item of poLineItems) {
+      let demand = Number(item.quantity ?? item.quantity_ordered ?? item.qty ?? 0)
+      if (!Number.isFinite(demand) || demand <= 0) return { score: 0, reasons: ['Review required: missing or invalid PO quantity'], matchDetails: {} }
+      for (let i = 0; i < docLineItems.length && demand > 0; i++) {
+        const target = docLineItems[i]
+        if ((item.item_id && target.item_id && String(item.item_id) === String(target.item_id)) || (key(item) && key(item) === key(target))) {
+          const used = Math.min(demand, Number.isFinite(remaining[i]) ? Math.max(0, remaining[i]) : 0)
+          demand -= used
+          remaining[i] -= used
+        }
+      }
+      if (demand > 0.000001) return { score: 0, reasons: ['Review required: PO item quantities exceed document capacity'], matchDetails: {} }
+    }
+  }
 
   let matchedRetailTotal = 0
   if (poLineItems.length > 0 && docLineItems.length > 0) {
@@ -308,11 +258,10 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
         const invSkuClean = invSku.replace(/[^a-z0-9]/g, "")
         const invQty = Number(invItem.quantity || invItem.qty || 0)
 
-        const isSkuMatch = poSkuClean && invSkuClean && (
-          poSkuClean === invSkuClean ||
-          (poSkuClean.length >= 5 && invSkuClean.includes(poSkuClean)) ||
-          (invSkuClean.length >= 5 && poSkuClean.includes(invSkuClean))
-        )
+        const poItemId = poItem.item_id ? String(poItem.item_id) : ""
+        const invItemId = invItem.item_id ? String(invItem.item_id) : ""
+        const isSkuMatch = (poSkuClean && invSkuClean && poSkuClean === invSkuClean) ||
+          (poItemId && invItemId && poItemId === invItemId)
 
         if (isSkuMatch) {
           if (poQty > 0 && invQty === poQty) {
@@ -346,7 +295,16 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
       }
     }
 
-    if (validPoItemCount > 0 && matchedSummaries.length > 0) {
+    if (validPoItemCount > 0) {
+      if (matchedSummaries.length < validPoItemCount) {
+        // Disqualified! If it's on the PO it must be on the order 100%!
+        return {
+          score: 0,
+          reasons: [`Disqualified: PO has ${validPoItemCount - matchedSummaries.length} item(s) not found on document`],
+          matchDetails: {}
+        }
+      }
+
       const isAllExact = exactQtyCount === validPoItemCount
       const isAllCompat = (exactQtyCount + compatibleQtyCount) === validPoItemCount
 
@@ -358,11 +316,6 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
       } else if (isAllCompat) {
         score += 45 // All items matched with compatible quantities (multi-PO order)
         const label = `${matchedSummaries.length} Items & Qty Matched (Multi-PO Fulfillment): ${matchedSummaries.slice(0, 3).join(", ")}`
-        reasons.push(label)
-        matchDetails.itemMatch = label
-      } else {
-        score += 35 // Partial line items matched
-        const label = `${matchedSummaries.length} of ${validPoItemCount} Line Items Matched: ${matchedSummaries.slice(0, 3).join(", ")}`
         reasons.push(label)
         matchDetails.itemMatch = label
       }
@@ -380,6 +333,14 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
     const diffDaysFloat = (poDate.getTime() - docDate.getTime()) / (1000 * 60 * 60 * 24)
     const absDiffDays = Math.abs(diffDaysFloat)
     const roundedDays = Math.round(absDiffDays)
+
+    if (absDiffDays > 60) {
+      return {
+        score: 0,
+        reasons: [`Disqualified: Date difference of ${roundedDays} days is too large (> 60 days)`],
+        matchDetails: {}
+      }
+    }
 
     if (roundedDays === 0) {
       score += 25
@@ -444,6 +405,24 @@ export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
 
   const finalScore = Math.min(100, score)
   return { score: finalScore, reasons, matchDetails }
+}
+
+/** Scores support review only. Inferred writes require the separate audited provider-evidence workflow. */
+export function computePOMatchScore(po: any, doc: any): MatchScoreResult {
+  const reference = evaluatePOReference(po, doc)
+  const blocked = (reason: string): MatchScoreResult => ({ score: 0, reasons: [reason], matchDetails: {}, referenceStatus: 'conflict', requiresReview: true, autoWriteEligible: false })
+  if (reference.conflict) return blocked('Review required: explicit PO reference is unresolved, ambiguous, or conflicts with this document')
+  const poCustomerId = po.items?.delivery_customer_id
+  const docCustomerId = doc.items?.customer_id
+  if (poCustomerId && docCustomerId && String(poCustomerId) !== String(docCustomerId)) return blocked('Review required: customer IDs conflict')
+  const result = computeSupportingScore(po, doc)
+  return { ...result, referenceStatus: reference.exact ? (result.score > 0 ? 'exact' : 'conflict') : 'fuzzy', requiresReview: true, autoWriteEligible: false }
+}
+
+export function rankPOMatches(po: any, documents: any[]) {
+  return documents.map(doc => ({ doc, ...computePOMatchScore(po, doc) }))
+    .filter(result => result.score > 0)
+    .sort((a, b) => Number(b.referenceStatus === 'exact') - Number(a.referenceStatus === 'exact') || b.score - a.score || String(a.doc.id).localeCompare(String(b.doc.id)))
 }
 
 export function computePaymentMatchScore(payment: any, doc: any): MatchScoreResult {

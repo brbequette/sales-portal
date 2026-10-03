@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAdministrator } from "@/lib/auth-helpers"
-import { computePOMatchScore, computePaymentMatchScore, isTitanWarehouse, tokenizeClean } from "./match-score"
+import { computePOMatchScore, computePaymentMatchScore } from "./match-score"
 
 export async function GET(req: Request) {
   const auth = await requireAdministrator()
@@ -142,129 +142,12 @@ export async function GET(req: Request) {
       })
     }
 
-    function extractDirectInvoiceNumber(po: any): string | null {
-      const items = po.items || {}
-      const cfHash = items.custom_field_hash || {}
-      if (cfHash.cf_invoice_number_formatted) return String(cfHash.cf_invoice_number_formatted).trim()
-      if (cfHash.cf_invoice_number && String(cfHash.cf_invoice_number).length < 10) return String(cfHash.cf_invoice_number).trim()
-
-      const cfs = items.custom_fields || []
-      if (Array.isArray(cfs)) {
-        const invField = cfs.find((f: any) => f.api_name === 'cf_invoice_number' || f.label?.toLowerCase().includes('invoice'))
-        if (invField) {
-          const val = invField.value_formatted || invField.value
-          if (val && String(val).length < 10) return String(val).trim()
-        }
-      }
-
-      const att = items.attachment_name || ''
-      const match = att.match(/(\d{4,6})/)
-      if (match) return match[1]
-
-      const ref = po.referenceNumber || items.reference_number || ''
-      const refMatch = ref.match(/(?:inv|invoice|#)?\s*(\d{4,6})/i)
-      if (refMatch) return refMatch[1]
-
-      return null
-    }
-
-    // 1. Gather all direct identifiers and clustered date windows across the POs
-    const directInvs: string[] = []
-    const soNums: string[] = []
-    const dateWindows: { start: Date; end: Date }[] = []
-
-    for (const po of pos) {
-      const pItems: any = po.items || {}
-      const directInv = extractDirectInvoiceNumber(po)
-      if (directInv) directInvs.push(directInv)
-      const soNum = String(po.salesOrderNumber || (pItems.salesorders && pItems.salesorders[0]?.salesorder_number) || "").trim()
-      if (soNum && soNum.length >= 3) soNums.push(soNum)
-
-      const poDate = po.date ? new Date(po.date) : null
-      if (poDate && !isNaN(poDate.getTime())) {
-        const start = new Date(poDate.getTime() - 45 * 24 * 3600 * 1000)
-        const end = new Date(poDate.getTime() + 45 * 24 * 3600 * 1000)
-        const existing = dateWindows.find(w => !(end < w.start || start > w.end))
-        if (existing) {
-          if (start < existing.start) existing.start = start
-          if (end > existing.end) existing.end = end
-        } else {
-          dateWindows.push({ start, end })
-        }
-      }
-    }
-
-    if (dateWindows.length === 0) {
-      dateWindows.push({
-        start: new Date(Date.now() - 180 * 24 * 3600 * 1000),
-        end: new Date(Date.now() + 30 * 24 * 3600 * 1000)
-      })
-    }
-
-    // 2. Fetch candidate documents across all relevant windows in parallel
-    const invoiceQueries = dateWindows.map(w =>
-      prisma.invoice.findMany({
-        where: { issueDate: { gte: w.start, lte: w.end } },
-        take: 500,
-        orderBy: { issueDate: "desc" },
-        include: { account: { select: accountSelect }, lineItems: true }
-      })
-    )
-
-    if (directInvs.length > 0 || soNums.length > 0) {
-      const directOr: any[] = []
-      if (directInvs.length > 0) directOr.push({ invoiceNumber: { in: directInvs } })
-      if (soNums.length > 0) directOr.push({ salesorderNumber: { in: soNums } })
-      invoiceQueries.push(
-        prisma.invoice.findMany({
-          where: { OR: directOr },
-          take: 200,
-          include: { account: { select: accountSelect }, lineItems: true }
-        })
-      )
-    }
-
-    const soQueries = dateWindows.map(w =>
-      prisma.salesOrder.findMany({
-        where: { orderDate: { gte: w.start, lte: w.end } },
-        take: 300,
-        orderBy: { orderDate: "desc" },
-        include: { account: { select: accountSelect }, lineItems: true }
-      })
-    )
-
-    const quoteQueries = dateWindows.map(w =>
-      prisma.quote.findMany({
-        where: { createdAt: { gte: w.start, lte: w.end } },
-        take: 300,
-        orderBy: { createdAt: "desc" },
-        include: { account: { select: accountSelect }, lineItems: true }
-      })
-    )
-
-    const [invBatches, soBatches, qteBatches] = await Promise.all([
-      Promise.all(invoiceQueries),
-      Promise.all(soQueries),
-      Promise.all(quoteQueries)
+    // Full pools include old/prefixed references and preserve duplicate candidates for review.
+    const [candidateInvoices, candidateSalesOrders, candidateQuotes] = await Promise.all([
+      prisma.invoice.findMany({ include: { account: { select: accountSelect }, lineItems: true } }),
+      prisma.salesOrder.findMany({ include: { account: { select: accountSelect }, lineItems: true } }),
+      prisma.quote.findMany({ include: { account: { select: accountSelect }, lineItems: true } }),
     ])
-
-    const invMap = new Map<string, any>()
-    for (const batch of invBatches) {
-      for (const inv of batch) invMap.set(inv.id, inv)
-    }
-    const candidateInvoices = Array.from(invMap.values())
-
-    const soMap = new Map<string, any>()
-    for (const batch of soBatches) {
-      for (const so of batch) soMap.set(so.id, so)
-    }
-    const candidateSalesOrders = Array.from(soMap.values())
-
-    const qteMap = new Map<string, any>()
-    for (const batch of qteBatches) {
-      for (const q of batch) qteMap.set(q.id, q)
-    }
-    const candidateQuotes = Array.from(qteMap.values())
 
     // 3. Process each PO with strict customer isolation and scoring
     for (const po of pos) {
@@ -272,7 +155,7 @@ export async function GET(req: Request) {
 
       // 1. Score against candidate Invoices
       for (const inv of candidateInvoices) {
-        const { score, reasons, matchDetails } = computePOMatchScore(po, inv)
+        const { score, reasons, matchDetails, referenceStatus } = computePOMatchScore(po, inv)
         if (score >= 30) {
           const invData: any = inv.items || {}
           const invNum = inv.invoiceNumber || invData.invoiceNumber || inv.zohoId
@@ -287,6 +170,7 @@ export async function GET(req: Request) {
           candidates.push({
             docId: inv.zohoId,
             docType: "Invoice",
+            referenceStatus,
             docNumber: invNum,
             invoiceId: inv.zohoId,
             invoiceNumber: invNum,
@@ -303,7 +187,7 @@ export async function GET(req: Request) {
 
       // 2. Score against candidate Sales Orders
       for (const so of candidateSalesOrders) {
-        const { score, reasons, matchDetails } = computePOMatchScore(po, so)
+        const { score, reasons, matchDetails, referenceStatus } = computePOMatchScore(po, so)
         if (score >= 30) {
           const soData: any = so.items || {}
           const soNum = soData.salesorder_number || soData.so_number || so.zohoId
@@ -318,6 +202,7 @@ export async function GET(req: Request) {
           candidates.push({
             docId: so.zohoId,
             docType: "SalesOrder",
+            referenceStatus,
             docNumber: `SO #${soNum}`,
             invoiceId: so.zohoId,
             invoiceNumber: String(soNum),
@@ -334,7 +219,7 @@ export async function GET(req: Request) {
 
       // 3. Score against candidate Estimates (Quotes)
       for (const qte of candidateQuotes) {
-        const { score, reasons, matchDetails } = computePOMatchScore(po, qte)
+        const { score, reasons, matchDetails, referenceStatus } = computePOMatchScore(po, qte)
         if (score >= 30) {
           const qData: any = qte.items || {}
           const qNum = qData.quote_number || qData.estimate_number || qData.number || qte.zohoId
@@ -349,6 +234,7 @@ export async function GET(req: Request) {
           candidates.push({
             docId: qte.zohoId,
             docType: "Estimate",
+            referenceStatus,
             docNumber: `Est #${qNum}`,
             invoiceId: qte.zohoId,
             invoiceNumber: String(qNum),
@@ -363,13 +249,15 @@ export async function GET(req: Request) {
         }
       }
 
-      // Sort all candidate matches by score descending
-      candidates.sort((a, b) => b.score - a.score)
+      candidates.sort((a, b) => Number(b.referenceStatus === 'exact') - Number(a.referenceStatus === 'exact') || b.score - a.score)
 
       if (candidates.length > 0) {
         const topMatch = candidates[0]
         const suggestionPayload = {
           bestMatch: topMatch,
+          requiresReview: true,
+          autoWriteEligible: false,
+          ambiguous: candidates.filter(c => c.referenceStatus === 'exact').length > 1,
           candidates: candidates, // Return ALL candidate matches for review!
           invoiceId: topMatch.invoiceId,
           invoiceNumber: topMatch.invoiceNumber,
@@ -383,6 +271,10 @@ export async function GET(req: Request) {
         if (po.zohoId) suggestions[po.zohoId] = suggestionPayload
         if (po.id) suggestions[po.id] = suggestionPayload
         if (po.poNumber) suggestions[po.poNumber] = suggestionPayload
+      } else {
+        const review = { bestMatch: null, candidates: [], requiresReview: true, autoWriteEligible: false,
+          score: 0, reasons: ['No compatible document; explicit references must be resolved without fuzzy substitution'] }
+        for (const key of [po.id, po.zohoId, po.poNumber]) if (key) suggestions[key] = review
       }
     }
 

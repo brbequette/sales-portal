@@ -66,8 +66,8 @@ function buildSuggestedReplies(toolNames: string[], answer: string, hasPendingAc
   if (tools.has('query_account_intelligence')) {
     return ['What should happen next on this account?', 'Show only unresolved activity', 'Prepare the next follow-up'];
   }
-  if (tools.has('query_sales_orders')) {
-    return ['Which order should I handle first?', 'Show only orders needing action', 'Offer the next processing action'];
+  if (tools.has('query_sales_orders') || tools.has('query_shipping_packages')) {
+    return ['Show me packages ready to ship', 'Track the latest shipment', 'Which orders need fulfillment?'];
   }
   if (tools.has('query_invoices') || tools.has('query_collections')) {
     return ['Show me the highest-priority invoice', 'Explain the financial calculation', 'What action should I take next?'];
@@ -541,7 +541,7 @@ async function executeTool(name: string, args: any, context: { userId: string, u
       }
 
       case 'query_sales_orders': {
-        const { status, dateFrom, dateTo, limit = 20 } = args;
+        const { status, dateFrom, dateTo, salesOrderNumber, limit = 20 } = args;
         const ownerFilter = buildOwnerFilter(userRole, userId);
         
         const where: any = {};
@@ -549,6 +549,13 @@ async function executeTool(name: string, args: any, context: { userId: string, u
           where.account = ownerFilter;
         }
         if (status) where.status = { equals: status, mode: 'insensitive' };
+        if (salesOrderNumber) {
+          const cleanSo = String(salesOrderNumber).replace(/^SO[-_ ]?/i, '').trim();
+          where.OR = [
+            { salesOrderNumber: { contains: cleanSo, mode: 'insensitive' } },
+            { zohoId: salesOrderNumber }
+          ];
+        }
 
         const dateFilter: any = {};
         if (dateFrom) dateFilter.gte = new Date(dateFrom);
@@ -570,8 +577,62 @@ async function executeTool(name: string, args: any, context: { userId: string, u
           status: o.status,
           orderDate: o.orderDate,
           accountName: o.account?.name || 'Unknown',
-          internalUrl: `/account?id=${encodeURIComponent(o.account.zohoId)}&tab=overview`
+          internalUrl: `/account?id=${encodeURIComponent(o.account?.zohoId || '')}&tab=overview`
         }));
+      }
+
+      case 'query_shipping_packages': {
+        const { packageNumber, salesOrderNumber, trackingNumber, status, carrier, limit = 15 } = args;
+        const where: any = {};
+        if (packageNumber) {
+          where.OR = [
+            { packageNumber: { contains: String(packageNumber).trim(), mode: 'insensitive' } },
+            { zohoId: String(packageNumber).trim() }
+          ];
+        }
+        if (salesOrderNumber) {
+          const cleanSo = String(salesOrderNumber).replace(/^SO[-_ ]?/i, '').trim();
+          where.OR = [
+            ...(where.OR || []),
+            { salesOrderNumber: { contains: cleanSo, mode: 'insensitive' } },
+            { salesOrderId: salesOrderNumber }
+          ];
+        }
+        if (trackingNumber) {
+          where.trackingNumber = { contains: String(trackingNumber).trim(), mode: 'insensitive' };
+        }
+        if (status && status !== 'all') {
+          where.status = { equals: status, mode: 'insensitive' };
+        }
+        if (carrier) {
+          where.carrier = { contains: carrier, mode: 'insensitive' };
+        }
+
+        const pkgs = await prisma.package.findMany({
+          where,
+          take: Math.min(limit, 50),
+          orderBy: { date: 'desc' }
+        });
+
+        return pkgs.map((p: any) => {
+          const items = (p.items && typeof p.items === 'object' && !Array.isArray(p.items))
+            ? (p.items as any)
+            : {};
+          return {
+            packageNumber: p.packageNumber || p.zohoId,
+            salesOrderNumber: p.salesOrderNumber || p.salesOrderId,
+            status: p.status || 'created',
+            carrier: p.carrier || 'Pending',
+            trackingNumber: p.trackingNumber || null,
+            shippingCharge: p.shippingCharge || 0,
+            date: p.date ? p.date.toISOString().split('T')[0] : null,
+            boxDimensions: items.dimensions ? `${items.dimensions.length}"×${items.dimensions.width}"×${items.dimensions.height}"` : null,
+            weight: items.weight ? `${items.weight} lbs` : null,
+            boxPreset: items.boxPreset || null,
+            labelUrl: items.labelUrl || null,
+            internalUrl: p.salesOrderNumber ? `/shipping?so=${encodeURIComponent(p.salesOrderNumber)}` : `/shipping`
+          };
+        });
       }
 
       case 'query_collections': {
@@ -1478,14 +1539,33 @@ const TOOLS = [
     type: 'function',
     function: {
       name: 'query_sales_orders',
-      description: 'Search sales orders',
+      description: 'Search sales orders by number, status, or date range',
       parameters: {
         type: 'object',
         properties: {
+          salesOrderNumber: { type: 'string', description: 'Search by specific sales order number (e.g. SO-46571 or 46571)' },
           status: { type: 'string' },
           dateFrom: { type: 'string' },
           dateTo: { type: 'string' },
           limit: { type: 'number' }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'query_shipping_packages',
+      description: 'Search and inspect shipping packages, carrier tracking numbers, box dimensions/weights, delivery status, and associated sales orders.',
+      parameters: {
+        type: 'object',
+        properties: {
+          packageNumber: { type: 'string', description: 'Package number (e.g. PKG-25385)' },
+          salesOrderNumber: { type: 'string', description: 'Sales order number (e.g. SO-46571 or 46571)' },
+          trackingNumber: { type: 'string', description: 'Carrier tracking number' },
+          status: { type: 'string', enum: ['created', 'shipped', 'delivered', 'all'], description: 'Package status' },
+          carrier: { type: 'string', description: 'Carrier name (e.g. USPS, FedEx, UPS)' },
+          limit: { type: 'number', description: 'Max packages to return (default 15)' }
         }
       }
     }
@@ -1914,12 +1994,61 @@ Current user: ${dbUser.name || 'Unknown'} (Role: ${actualRole})
 Current application context: ${JSON.stringify({ page: context.page, query: context.query, activeTab: context.activeTab, selectedRecord: context.selectedRecord }).slice(0, 1500)}
 ${roleNote}
 
-IMPORTANT RULES:
+COMPLETE CATALOG OF ACTIONS YOU CAN TAKE:
+You have access to live system tools to query data and perform authorized operational actions. When chatting with users, recognize their intent and proactively select the appropriate tool:
+
+1. TIMECLOCK & WORKFORCE ACTIONS:
+   - Clock In / Clock Out (\`toggle_timeclock\`): Mutating action that clocks the signed-in user into or out of their shift (Requires confirmation).
+   - View Shift History (\`query_time_entries\`): Reviews shift logs, start/end timestamps, and hours worked.
+
+2. TASKS & OPERATIONAL ENGAGEMENTS:
+   - Daily Command Center (\`query_daily_command_center\`): Prioritized live daily command center across overdue tasks, pending orders, and financial exceptions.
+   - Upcoming Engagements (\`query_upcoming_engagements\`): Reviews upcoming/overdue tasks, deal engagement steps, and follow-ups over a 1 to 30 day horizon.
+   - Create Task (\`create_task\`): Creates a new task, callback reminder, or check-in request with priority, due date, description, and account link (Requires confirmation).
+   - Update Task / Complete (\`update_task_outcome\`): Records progress, closes a task (COMPLETED, NO_ANSWER, FOLLOW_UP, BLOCKED, CANCELLED), or schedules next steps (Requires confirmation).
+   - View Tasks (\`query_tasks\`): Filters assigned tasks by status (Not Started, In Progress, Completed, all).
+   - Draft Customer Outreach (\`draft_message\`): Drafts professional follow-up emails, SMS messages, or proposals based on account context.
+
+3. CUSTOMER CRM & SALES ACTIONS:
+   - Account 360° Intelligence (\`query_account_intelligence\`): Full linked timeline across invoices, sales orders, deals, tasks, calls, SMS messages, and notes.
+   - Search Accounts (\`query_accounts\`): Searches customer accounts by name, status, or quality tier.
+   - Log Sales Call (\`log_sales_call\`): Records a customer sales call with outcome (pitch, order_placed, left_voicemail, check_in, callback_requested, etc.), duration, and notes (Requires confirmation).
+   - Update Account Tier & Status (\`update_account_status_and_quality\`): Updates account status (VIP, Open, Hot Lead, Personal, DNR) and quality tier (HOT, WARM, COLD, ON_HOLD) (Requires confirmation).
+   - View Touchpoint History (\`query_communication_history\`): Fetches past SMS messages, call logs, and customer notes.
+   - Search Leads & Deals (\`query_leads\`, \`query_deals\`): Searches sales leads and deal pipeline stages.
+
+4. SHIPPING, PACKAGES & FULFILLMENT ACTIONS:
+   - Shipping Packages & Tracking (\`query_shipping_packages\`): Searches shipping packages by package number (e.g. PKG-25385), sales order number, carrier, tracking number, or status (created, shipped, delivered). Returns carrier, box dimensions, weight, and tracking links.
+   - Search Sales Orders (\`query_sales_orders\`): Finds sales orders by order number, status, customer, or date range.
+
+5. INVOICING, COLLECTIONS & FINANCIAL AUDITING:
+   - Query Invoices (\`query_invoices\`): Filters invoices by number, payment status (paid, unpaid, overdue, written_off), customer, or date range.
+   - Overdue Collections (\`query_collections\`): Retrieves overdue invoices filtered by minimum days overdue for debt collection follow-up.
+   - Financial Exceptions Audit (\`query_financial_exceptions\`): Continuously audits accessible invoices for missing cost calculations, pending cost sync, negative profit, or missing commissions.
+   - Recalculate Invoice Financials (\`process_invoice_financials\`): Authoritatively synchronizes and recalculates product costs, VIG, profit, and commissions with Zoho Books (Requires confirmation).
+
+6. PRODUCTS & CATALOG ACTIONS:
+   - Product Search (\`search_products\`): Searches diamond blades, core bits, cup wheels, and accessories by keyword or category.
+   - Top-Selling Products (\`query_top_products\`): Ranks top-selling products by quantity or revenue over a specified time window.
+
+7. COMMISSIONS & EXECUTIVE MANAGEMENT:
+   - Commissions Summary (\`query_commissions_summary\`): Detailed breakdown of computed profit, upfront commission, final commission, and payout periods.
+   - Payout History (\`query_payouts\`): Historical payout distributions and disbursement dates.
+   - VIG Goal Tracking (\`query_vig_goals\`): Volume Incentive Goal targets and bonus performance.
+   - Advances & Repayment (\`query_advances\`): Tracks salary advances, outstanding balances, and repayment schedules.
+   - Company Sales Summary (\`query_company_summary\`): Top-line revenue and performance metrics across the entire company.
+   - Team Roster & Stats (\`query_users\` - Manager/Admin Only): Lists all sales representatives with current month sales, volume, and performance rankings.
+   - Management Forecast (\`query_management_forecast\`): Calculates deterministic month-end sales and profit projections, open pipeline, and overdue cash exposure.
+
+8. TITAN KNOWLEDGE BASE:
+   - Search Titan Knowledge (\`search_titan_knowledge\`): Authoritative procedures for sales workflows, pricing policies, contractor discounts, shipping rules, return policies, blade specs, and company guidelines.
+
+IMPORTANT OPERATIONAL RULES:
 - Be concise, professional, and data-driven
 - Format currency with $ and 2 decimal places
 - Format dates in readable format (e.g. "Aug 13, 2026")
 - When showing lists, use clean formatting with line breaks
-- Tool results can include internalUrl. Every named system record you mention (invoice, sales order, estimate, account, contact, task, payout, or other record) MUST be a Markdown link to its internalUrl, for example [Invoice 10489](/account?id=...&invoice=...). Never display a bare record number when its internalUrl is available.
+- Tool results can include internalUrl. Every named system record you mention (invoice, sales order, package, estimate, account, contact, task, payout, or other record) MUST be a Markdown link to its internalUrl, for example [Invoice 10489](/account?id=...&invoice=...) or [Package PKG-25385](/shipping?so=...). Never display a bare record number when its internalUrl is available.
 - Use only relative tdusales.com paths supplied by tools for system-record links. Do not invent record URLs or link records to Zoho.
 - If no data is found, say so clearly — do NOT make up or guess data
 - If a query fails, explain what went wrong

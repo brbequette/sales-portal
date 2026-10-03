@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { FiBriefcase, FiClock, FiDollarSign, FiEdit3, FiFileText, FiImage, FiMail, FiMapPin, FiPrinter, FiSearch, FiSend, FiTarget, FiUsers } from "react-icons/fi"
+import { FiArrowLeft, FiBriefcase, FiClock, FiDollarSign, FiEdit3, FiFileText, FiImage, FiMail, FiMapPin, FiPrinter, FiSearch, FiSend, FiTarget, FiUsers } from "react-icons/fi"
 import { CommunicationCenter } from "@/components/CommunicationCenter"
 import { CommunicatorCommandBar } from "@/components/CommunicatorCommandBar"
 
@@ -133,7 +133,7 @@ function Account360({ account, onCommunicate }: { account: any; onCommunicate: (
   </div></div>
 }
 
-export function AccountSecondScreenWorkspace({ accountId, account }: { accountId: string; account: any }) {
+export function AccountSecondScreenWorkspace({ accountId, account, onBack }: { accountId: string; account: any; onBack?: () => void }) {
   const searchParams = useSearchParams()
   const devBypass = process.env.NODE_ENV === "development" && searchParams.get("bypass") === "true" ? "&bypass=true" : ""
   const [tab, setTab] = useState<WorkspaceTab>("communications")
@@ -177,11 +177,22 @@ export function AccountSecondScreenWorkspace({ accountId, account }: { accountId
   return <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#07090d] text-white">
     <header className="flex-none border-b border-white/10 bg-black/70 px-5 py-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-[10px] font-black uppercase tracking-[.22em] text-cyan-400">Titan standalone communicator</div>
-          <h1 className="truncate text-xl font-black uppercase">{account?.name}</h1>
-          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-400">
-            <span>{recipient}</span><span>{selectedContact?.phone || selectedContact?.mobilePhone || account?.booksContact?.phone || "No phone"}</span><span>{selectedContact?.email || account?.booksContact?.email || "No email"}</span>
+        <div className="flex items-center gap-3 min-w-0">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 hover:text-white border border-cyan-500/30 text-xs font-bold transition shrink-0 cursor-pointer shadow-sm"
+              title="Return to Communicator Queue"
+            >
+              <FiArrowLeft size={14} /> Back to Queue
+            </button>
+          )}
+          <div className="min-w-0">
+            <div className="text-[10px] font-black uppercase tracking-[.22em] text-cyan-400">Titan standalone communicator</div>
+            <h1 className="truncate text-xl font-black uppercase">{account?.name}</h1>
+            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-400">
+              <span>{recipient}</span><span>{selectedContact?.phone || selectedContact?.mobilePhone || account?.booksContact?.phone || "No phone"}</span><span>{selectedContact?.email || account?.booksContact?.email || "No email"}</span>
+            </div>
           </div>
         </div>
         <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">Paired to screen 1 · calls, SMS, email, AI, orders, and history</div>

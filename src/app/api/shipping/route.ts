@@ -282,11 +282,24 @@ export async function GET(req: NextRequest) {
         shippingAddress,
         lineItemCount,
         lineItemNames,
-        lineItems: mappedLineItems,
-        salesperson,
+        lineItems: mappedLineItems.map((li: any) => ({
+          ...li,
+          salesperson: salesperson || "Unknown",
+        })),
+        salesperson: salesperson || "Unknown",
         shippingCost: so.actualShippingCost || 0,
         packages: soPkgs.map((p: any) => {
           const pkgItems = (p.items as any) || {}
+          const rawLines = pkgItems.lineItems || pkgItems.line_items || (Array.isArray(pkgItems) ? pkgItems : [])
+          const enrichedPkgItems = typeof pkgItems === 'object' && !Array.isArray(pkgItems) ? {
+            ...pkgItems,
+            salesperson: salesperson || pkgItems.salesperson || "Unknown",
+            line_items: financialZohoLineItems(rawLines).map((li: any) => ({
+              ...li,
+              salesperson: salesperson || li.salesperson || "Unknown",
+            })),
+          } : pkgItems
+
           return {
             id: p.id,
             zohoId: p.zohoId,
@@ -296,14 +309,16 @@ export async function GET(req: NextRequest) {
             carrier: p.carrier,
             trackingNumber: p.trackingNumber,
             shippingCharge: p.shippingCharge || pkgItems.easyshipCost || 0,
-            items: p.items,
+            items: enrichedPkgItems,
             salesOrderNumber: soNumber,
             easyshipShipmentId: pkgItems.easyshipShipmentId || null,
+            salesperson: salesperson || pkgItems.salesperson || "Unknown",
           }
         }),
         dropshipments: soDrops.map((po: any) => {
           const poItems = (po.items as any) || {}
           const lineItems = poItems.line_items || poItems.lineItems || []
+          const poSalesperson = poItems.salesperson || poItems.salesperson_name || salesperson || "Unknown"
           return {
             id: po.id,
             zohoId: po.zohoId,
@@ -311,6 +326,7 @@ export async function GET(req: NextRequest) {
             salesOrderId: po.salesOrderId || null,
             salesOrderNumber: po.salesOrderNumber || po.referenceNumber || soNumber,
             vendorName: po.vendorName,
+            salesperson: poSalesperson,
             shipToName: po.shipToName || poItems.delivery_customer_name || poItems.delivery_address?.attention || null,
             shippingAddress: po.shippingAddress || (poItems.delivery_address ? `${poItems.delivery_address.address || ''}, ${poItems.delivery_address.city || ''}`.trim() : null),
             referenceNumber: po.referenceNumber,
@@ -325,6 +341,7 @@ export async function GET(req: NextRequest) {
               sku: li.sku || '',
               quantity: li.quantity || 1,
               rate: li.rate || 0,
+              salesperson: poSalesperson,
             })),
           }
         }),
@@ -373,11 +390,16 @@ export async function GET(req: NextRequest) {
       packaged: results.filter(r => r.shipStatus === "packaged").length,
       shipped: results.filter(r => r.shipStatus === "shipped").length,
       delivered: results.filter(r => r.shipStatus === "delivered").length,
+      dropship: results.filter(r => r.dropshipments && r.dropshipments.length > 0).length,
     }
 
     // Apply active tab status filter
     if (status !== "all") {
-      results = results.filter(r => r.shipStatus === status)
+      if (status === "dropship") {
+        results = results.filter(r => r.dropshipments && r.dropshipments.length > 0)
+      } else {
+        results = results.filter(r => r.shipStatus === status)
+      }
     }
 
     // Apply Sorting

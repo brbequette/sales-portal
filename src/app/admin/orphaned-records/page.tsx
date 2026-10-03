@@ -265,11 +265,11 @@ function ExpandedRowSearch({
                   </button>
                   <button
                     onClick={() => handleExecuteLink(dNum)}
-                    disabled={linkingInv === dNum}
+                    disabled={type === "po" || linkingInv === dNum}
                     className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3.5 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5 disabled:opacity-50 shadow-md"
                   >
                     <FiLink size={13} />
-                    {linkingInv === dNum ? "Linking..." : "Link"}
+                    {type === "po" ? "Review required" : linkingInv === dNum ? "Linking..." : "Link"}
                   </button>
                 </div>
               </div>
@@ -424,21 +424,19 @@ export default function OrphanedRecordsPage() {
   }, [fetchData])
 
   const handleAutoMatch = async () => {
+    if (String(activeTab) === "pos") {
+      setAutoMatching(true)
+      try {
+        await fetchSuggestions(pos.map(po => po.zohoId).join(','), 'po')
+        setSyncMessage('PO suggestions refreshed for review. Exact references take priority; links require verified evidence.')
+      } finally { setAutoMatching(false) }
+      return
+    }
     setAutoMatching(true)
     setSyncMessage(activeTab === "pos" ? "Scanning unassociated POs against Invoices, Sales Orders & Estimates for matches..." : "Scanning unassociated Payments against Invoices (Grand Total & Customer matching)...")
     try {
       // Step 1: Immediately link all confident (85%+) matches already verified on the active page
       const pageConfidentItems: Array<{ id: string; invNum: string }> = []
-      if (activeTab === "pos") {
-        for (const po of pos) {
-          const s = suggestions[po.zohoId] || suggestions[po.id] || (po.poNumber ? suggestions[po.poNumber] : null)
-          const top = s?.bestMatch || (s?.score ? s : null)
-          if (top && top.score >= 85) {
-            const invNum = top.docNumber || top.invoiceNumber
-            if (invNum) pageConfidentItems.push({ id: po.zohoId, invNum: String(invNum) })
-          }
-        }
-      } else {
         for (const p of payments) {
           const s = suggestions[p.zohoId] || suggestions[p.id]
           const top = s?.bestMatch || (s?.score ? s : null)
@@ -447,7 +445,6 @@ export default function OrphanedRecordsPage() {
             if (invNum) pageConfidentItems.push({ id: p.zohoId, invNum: String(invNum) })
           }
         }
-      }
 
       let clientLinked = 0
       if (pageConfidentItems.length > 0) {
@@ -517,6 +514,10 @@ export default function OrphanedRecordsPage() {
   }
 
   const handleQuickLink = async (recordZohoId: string, invoiceNumber: string) => {
+    if (String(activeTab) === 'pos') {
+      setSyncMessage('This PO proposal needs fresh provider evidence and audited reconciliation before linking.')
+      return
+    }
     setIsLinking(true)
     try {
       const res = await fetch("/api/admin/orphans/link", {
@@ -551,6 +552,7 @@ export default function OrphanedRecordsPage() {
   }
 
   const confidentPageMatchesCount = useMemo(() => {
+    if (String(activeTab) === 'pos') return 0
     if (activeTab === "pos") {
       return pos.filter(po => {
         const s = suggestions[po.zohoId] || suggestions[po.id] || (po.poNumber ? suggestions[po.poNumber] : null)
@@ -567,6 +569,10 @@ export default function OrphanedRecordsPage() {
   }, [pos, payments, suggestions, activeTab])
 
   const handleLinkAllPageConfident = async () => {
+    if (String(activeTab) === 'pos') {
+      setSyncMessage('PO proposals require individual evidence review; score-based bulk linking is unavailable.')
+      return
+    }
     setIsLinking(true)
     setSyncMessage("Linking all high-probability matches on this page...")
     try {
@@ -749,7 +755,7 @@ export default function OrphanedRecordsPage() {
             className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl shadow-lg shadow-emerald-600/20 transition flex items-center gap-2 disabled:opacity-50 cursor-pointer"
           >
             <FiZap size={14} className={autoMatching ? "animate-spin" : ""} />
-            {autoMatching ? "Matching..." : activeTab === "pos" ? "Auto-Link Confident Matches" : "Auto-Link Confident Payments"}
+            {autoMatching ? "Matching..." : activeTab === "pos" ? "Review PO Matches" : "Auto-Link Confident Payments"}
           </button>
           <button
             onClick={handleSync}
@@ -1071,12 +1077,7 @@ export default function OrphanedRecordsPage() {
                                     >
                                       <FiEye size={11} /> Review
                                     </button>
-                                    <button
-                                      onClick={() => handleQuickLink(po.zohoId, topMatch.docNumber || topMatch.invoiceNumber)}
-                                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-2.5 py-1 rounded-lg text-[10px] transition flex items-center gap-1 cursor-pointer shadow-md"
-                                    >
-                                      <FiLink size={11} /> Link Now
-                                    </button>
+                                    <span className="text-xs text-amber-300">Evidence review required</span>
                                   </div>
                                 </div>
                               ) : suggestionsLoading ? (
@@ -1085,7 +1086,7 @@ export default function OrphanedRecordsPage() {
                                   <span>Analyzing matches...</span>
                                 </div>
                               ) : (
-                                <span className="text-xs text-slate-500 italic">No match suggested</span>
+                                <span className="text-xs text-amber-300">{poSuggestions?.requiresReview ? 'Reference unresolved or conflicting — review required' : 'No match suggested'}</span>
                               )}
                             </td>
 
@@ -1414,13 +1415,7 @@ export default function OrphanedRecordsPage() {
                                                     >
                                                       <FiEye size={13} /> Review
                                                     </button>
-                                                    <button
-                                                      onClick={() => handleQuickLink(po.zohoId, dNum)}
-                                                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-4 py-2 rounded-lg text-xs transition flex items-center gap-1.5 whitespace-nowrap shadow-lg cursor-pointer"
-                                                    >
-                                                      <FiLink size={13} />
-                                                      Link to #{dNum}
-                                                    </button>
+                                                    <span className="text-xs text-amber-300">Evidence review required</span>
                                                   </div>
                                                 </div>
                                               )

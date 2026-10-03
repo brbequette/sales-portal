@@ -75,15 +75,9 @@ export function PhoneLink({
     }
 
     if (!isSms) {
-      try {
-        if (await makeZohoVoiceCall(cleanPhone)) {
-          toast.success(`Zoho Voice call started: ${cleanPhone}`, { icon: '📞' })
-          return
-        }
-      } catch (err) {
-        console.error('Zoho Voice call failed', err)
-        toast.error('Zoho Voice could not start the call. Number copied instead.')
-      }
+      // Trigger in-app Titan Voice Softphone
+      window.dispatchEvent(new CustomEvent("inAppDial", { detail: { phone: cleanPhone } }))
+      return
     }
 
     if (navigator.clipboard) {

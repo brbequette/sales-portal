@@ -8,6 +8,7 @@ import { isAdministratorRole } from '@/lib/roles'
 import { zohoBooksSinceParam, zohoCrmReadHeaders } from '@/lib/zoho-incremental-filter'
 import { fetchZohoPages } from '@/lib/zoho-pagination'
 import { booksPaymentStatusFields } from '@/lib/zoho-payment-status'
+import { calculateDocumentCosts } from '@/lib/cost-calculations'
 import {
   getSyncConfig,
   getSyncStatus,
@@ -278,7 +279,7 @@ export async function POST(req: NextRequest) {
             const accountByZohoId = new Map(allAccounts.filter(a => a.zohoId).map(a => [a.zohoId, a]))
             const accountByName = new Map(allAccounts.map(a => [a.name?.toLowerCase(), a]))
 
-            const existingSOs = await prisma.salesOrder.findMany({ select: { id: true, zohoId: true, accountId: true } })
+            const existingSOs = await prisma.salesOrder.findMany({ select: { id: true, zohoId: true, accountId: true, items: true } })
             const soByZohoId = new Map(existingSOs.filter(i => i.zohoId).map(i => [i.zohoId, i]))
 
             let batch: any[] = [];
@@ -304,13 +305,87 @@ export async function POST(req: NextRequest) {
               const dateStr = String(so.date || '');
               const orderDate = Date.parse(dateStr) ? new Date(dateStr) : new Date();
 
+              const existingItems = (existingSO?.items as any) || {};
+              let mergedItems = {
+                ...existingItems,
+                ...so,
+                line_items: (Array.isArray(existingItems.line_items) && existingItems.line_items.length > 0)
+                  ? existingItems.line_items
+                  : (Array.isArray(so.line_items) ? so.line_items : []),
+                shipping_address: existingItems.shipping_address || so.shipping_address || null,
+                billing_address: existingItems.billing_address || so.billing_address || null,
+              };
+
+              // If active order lacks line items, fetch individual order from Zoho Books
+              const isActive = !['void', 'draft', 'cancelled', 'closed'].includes(String(so.status || '').toLowerCase());
+              if (isActive && (!mergedItems.line_items || mergedItems.line_items.length === 0)) {
+                try {
+                  const detailRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/salesorders/${so.salesorder_id}?organization_id=${ZOHO_ORGANIZATION_ID}`, {
+                    headers: { Authorization: `Zoho-oauthtoken ${token}` },
+                    signal: AbortSignal.timeout(8000),
+                  });
+                  if (detailRes.ok) {
+                    const detailData = await detailRes.json();
+                    if (detailData.code === 0 && detailData.salesorder) {
+                      const doc = detailData.salesorder;
+                      mergedItems = {
+                        ...mergedItems,
+                        line_items: doc.line_items || [],
+                        shipping_address: doc.shipping_address || mergedItems.shipping_address,
+                        billing_address: doc.billing_address || mergedItems.billing_address,
+                        sub_total: parseFloat(doc.sub_total || 0),
+                        lastSyncedAt: new Date().toISOString(),
+                      };
+                    }
+                  }
+                } catch (fetchErr: any) {
+                  console.warn(`[sync-now] Failed to fetch SO ${so.salesorder_id} line items:`, fetchErr.message);
+                }
+              }
+
+              // Automatically calculate document costs if line items are present
+              if (Array.isArray(mergedItems.line_items) && mergedItems.line_items.length > 0) {
+                try {
+                  const calc = await calculateDocumentCosts({
+                    ...so,
+                    ...mergedItems,
+                  })
+                  mergedItems = {
+                    ...mergedItems,
+                    sub_total: calc.subTotal,
+                    deadCostTotal: calc.deadCostTotal,
+                    deadCostSubjectToVig: calc.deadCostSubjectToVig,
+                    deadCostNoVig: calc.deadCostNoVig,
+                    deadCostPlusVig: calc.deadCostPlusVig,
+                    deadProfitActual: calc.deadProfitActual,
+                    profit: calc.profit,
+                    marginPercent: calc.marginPercent,
+                    commission: calc.salesCommission,
+                    commissionPercent: calc.commissionPct,
+                    vigRate: calc.vigRate,
+                    lineItemDetails: calc.lineItemDetails,
+                    itemsDcBreakdown: calc.lineItemBreakdownStrings,
+                    actualShippingCost: calc.actualShippingCost ?? safeShipping,
+                    shippingCostBreakdown: calc.shippingCostBreakdown,
+                    shippingRollup: calc.shippingRollup,
+                    costsCalculatedAt: new Date().toISOString(),
+                  }
+                } catch (calcErr: any) {
+                  console.warn(`[sync-now] Failed to calculate costs for SO ${so.salesorder_id}:`, calcErr.message)
+                }
+              }
+
+              const calcDate = (mergedItems as any).costsCalculatedAt ? new Date((mergedItems as any).costsCalculatedAt) : undefined;
+              const actualShip = (mergedItems as any).actualShippingCost !== undefined ? (mergedItems as any).actualShippingCost : safeShipping;
+
               batch.push(prisma.salesOrder.upsert({
                 where: { zohoId: so.salesorder_id },
                 update: {
                   status: so.status,
                   amount: safeTotal,
-                  items: so as any,
-                  actualShippingCost: safeShipping,
+                  items: mergedItems as any,
+                  actualShippingCost: actualShip,
+                  costsCalculatedAt: calcDate,
                 },
                 create: {
                   zohoId: so.salesorder_id,
@@ -318,8 +393,9 @@ export async function POST(req: NextRequest) {
                   status: so.status,
                   amount: safeTotal,
                   orderDate: orderDate,
-                  items: so as any,
-                  actualShippingCost: safeShipping,
+                  items: mergedItems as any,
+                  actualShippingCost: actualShip,
+                  costsCalculatedAt: calcDate,
                 },
               }));
               if (batch.length >= BATCH_SIZE) { await prisma.$transaction(batch); syncedCount += batch.length; batch = []; }
@@ -456,7 +532,7 @@ export async function POST(req: NextRequest) {
               if (Date.now() - startTime > TIMEOUT_MS) { incompleteReason = 'timeout while persisting page results'; break; }
               if (!pkg.package_id) continue
 
-              const pkgData = {
+              const pkgBaseData = {
                 packageNumber: pkg.package_number,
                 salesOrderId: pkg.salesorder_id,
                 salesOrderNumber: pkg.salesorder_number,
@@ -465,13 +541,21 @@ export async function POST(req: NextRequest) {
                 carrier: pkg.delivery_method || pkg.shipping_carrier,
                 trackingNumber: pkg.tracking_number,
                 shippingCharge: pkg.shipping_charge || 0,
-                items: pkg.line_items ? { lineItems: pkg.line_items } : Prisma.JsonNull,
               }
+
+              const hasLines = Array.isArray(pkg.line_items) && pkg.line_items.length > 0
+              const updateData = hasLines
+                ? { ...pkgBaseData, items: { lineItems: pkg.line_items } }
+                : pkgBaseData
 
               batch.push(prisma.package.upsert({
                 where: { zohoId: pkg.package_id },
-                update: pkgData,
-                create: { zohoId: pkg.package_id, ...pkgData },
+                update: updateData,
+                create: {
+                  zohoId: pkg.package_id,
+                  ...pkgBaseData,
+                  items: hasLines ? { lineItems: pkg.line_items } : Prisma.JsonNull,
+                },
               }));
               if (batch.length >= BATCH_SIZE) { await prisma.$transaction(batch); syncedCount += batch.length; batch = []; }
             }

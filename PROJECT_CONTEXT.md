@@ -1624,3 +1624,14 @@ This supersedes earlier missing-key/unreleased notes. It does not establish auto
 ## Durable unassigned inbox follow-up (local, release pending)
 
 Acceptance review identified that acknowledging unmatched events without storing them would lose pre-association transfer evidence. The follow-up stores sanitized signed events in an immutable RETELL_UNASSIGNED_EVIDENCE inbox under a Retell-call advisory lock and unique fingerprint. No account/contact, task or CRM write is made. Later confirmed exact-ID reconciliation also reads this inbox, preserving transfer events regardless of association timing. Administrators can inspect the 25 latest unassigned-at-receipt audit entries through a database-only endpoint. Retryable database errors do not receive success acknowledgement. This supersedes the initial discard design when deployed.
+
+
+## PO document-reference repair (local, 2026-10-01)
+
+PO suggestions and the legacy auto-match endpoint now share typed exact-reference gating. Conflicting or malformed explicit references cannot fall back to fuzzy candidates. PO auto-match produces review proposals only and never marks inventory or writes links. Legacy batch matchers delegate to read-only reconciliation and reject apply flags. All inferred writes remain subject to the existing fresh-provider-evidence and audited-link contract; no database mutation or deployment is part of validation.
+
+## PO reference-matching validation completed (local, 2026-10-02)
+
+The repaired PO scorer, browser, suggestion API, auto-match API, and legacy matching entry points now enforce review-only proposals and exact typed references without fuzzy substitution. Repeated/split quantities are checked. The old PO quick-link bypass returns 409; reviewed provider evidence remains required for inferred writes. See docs/po-reference-matching.md for the write boundary, supported runner, and audited legacy tools.
+
+58 focused tests and 5 CLI safety tests passed, along with the financial-line contract and TypeScript. Final enforced read-only reconciliation scanned 1,845 currently unlinked POs: 7 exact proposals, 1,759 fuzzy review proposals, 79 unresolved. No database/provider writes or deployment occurred. Current PO 9089 is already linked to invoice 10870 (not changed by this task), but SKU SMX10VTR4508C has quantity 50 on the PO versus 30 on that invoice; the matcher holds this conflict and excludes invoice 10984. The initial and final scans observed different live states, not task-applied repairs. Unrelated concurrent cost/shipping edits were preserved.

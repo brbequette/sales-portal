@@ -12,6 +12,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 })
     }
 
+    if (type === 'po') {
+      return NextResponse.json({ success: false, requiresReview: true,
+        error: 'PO links require fresh corroborated provider evidence and the audited reconciliation workflow. A suggestion or document number alone cannot authorize a link.' }, { status: 409 })
+    }
+
     const cleanInput = String(invoiceNumber).trim()
     const cleanDigits = cleanInput.replace(/\D/g, "")
     const searchKeys = Array.from(new Set([
@@ -95,19 +100,7 @@ export async function POST(req: Request) {
     const itemsData: any = (invoice?.items || salesOrder?.items || quote?.items) || {}
     const finalDocNumber = invoice?.invoiceNumber || invoice?.computedInvoiceNumber || itemsData.invoiceNumber || itemsData.salesorder_number || itemsData.estimate_number || cleanDigits || cleanInput
 
-    if (type === 'po') {
-      await prisma.purchaseOrder.updateMany({
-        where: {
-          OR: [{ zohoId: id }, { id }]
-        },
-        data: {
-          invoiceId: resolvedInvoiceId,
-          invoiceNumber: String(finalDocNumber),
-          salesOrderId: salesOrder ? salesOrder.zohoId : (invoice?.salesOrderZohoId || undefined),
-          salesOrderNumber: salesOrder ? String(finalDocNumber) : (invoice?.salesorderNumber || undefined)
-        }
-      })
-    } else if (type === 'payment') {
+    if (type === 'payment') {
       await prisma.payment.updateMany({
         where: {
           OR: [{ zohoId: id }, { id }]

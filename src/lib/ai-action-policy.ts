@@ -22,6 +22,7 @@ const BUILTIN_POLICIES: Record<string, AiActionPolicy> = {
   log_sales_call: { minimumRole: "AGENT", mutating: true, requiresConfirmation: true },
   update_account_status_and_quality: { minimumRole: "AGENT", mutating: true, requiresConfirmation: true },
   process_invoice_financials: { minimumRole: "AGENT", mutating: true, requiresConfirmation: true },
+  query_shipping_packages: { minimumRole: "VIEWER", mutating: false, requiresConfirmation: false },
   query_users: { minimumRole: "MANAGER", mutating: false, requiresConfirmation: false },
 }
 

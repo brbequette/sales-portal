@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { createPortal } from "react-dom"
-import { FiTruck, FiBox, FiPackage, FiCheck, FiSearch, FiMapPin, FiExternalLink, FiChevronDown, FiChevronUp, FiRefreshCw, FiDownloadCloud, FiDollarSign, FiX, FiEdit2, FiPlus, FiTrash2, FiPrinter, FiShield, FiXCircle, FiFileText, FiLink } from "react-icons/fi"
+import { FiTruck, FiBox, FiPackage, FiCheck, FiSearch, FiMapPin, FiExternalLink, FiChevronDown, FiChevronUp, FiRefreshCw, FiDownloadCloud, FiDollarSign, FiX, FiEdit2, FiPlus, FiTrash2, FiPrinter, FiShield, FiXCircle, FiFileText, FiLink, FiCopy, FiScissors, FiAlertTriangle, FiUser, FiCalendar, FiClock, FiCheckSquare, FiSquare, FiSend, FiInfo, FiLayers } from "react-icons/fi"
 import { CreatePackageModal } from "@/components/CreatePackageModal"
 import { CreateDropshipmentModal } from "@/components/CreateDropshipmentModal"
 import { toast } from 'react-hot-toast';
@@ -10,22 +10,25 @@ import { PeriodSelector, isInPeriod, type PeriodValue } from "@/components/Perio
 import { financialZohoLineItems } from "@/lib/zoho-line-items"
 import { getZohoBooksUrl } from "@/lib/zoho-urls"
 
-type ShipStatus = "all" | "needs_packaging" | "packaged" | "shipped" | "delivered"
+type ShipStatus = "all" | "needs_packaging" | "packaged" | "shipped" | "delivered" | "dropship"
 
 interface ShippingOrder {
   id: string
   zohoId: string
   soNumber: string
   customerName: string
+  customerPhone?: string
+  customerEmail?: string
   accountId: string
   orderDate: string
   amount: number
   status: string
   shipStatus: ShipStatus
   shippingAddress: any
+  billingAddress?: any
   lineItemCount: number
   lineItemNames: string[]
-  lineItems?: { name: string; sku: string; quantity: number }[]
+  lineItems?: { name: string; sku: string; quantity: number; salesperson?: string }[]
   salesperson: string
   shippingCost: number
   packages: PackageInfo[]
@@ -44,6 +47,7 @@ interface PackageInfo {
   shippingCharge: number
   items: any
   easyshipShipmentId?: string | null
+  salesperson?: string
 }
 
 interface DropshipInfo {
@@ -53,6 +57,7 @@ interface DropshipInfo {
   salesOrderId?: string
   salesOrderNumber?: string
   vendorName: string
+  salesperson?: string
   shipToName?: string
   shippingAddress?: string
   referenceNumber?: string
@@ -62,7 +67,7 @@ interface DropshipInfo {
   carrier?: string
   trackingNumber: string
   shippingCharge?: number
-  lineItems?: Array<{ name: string; sku: string; quantity: number; rate: number }>
+  lineItems?: Array<{ name: string; sku: string; quantity: number; rate: number; salesperson?: string }>
 }
 
 const STATUS_TABS: { key: ShipStatus; label: string; icon: any; color: string; bg: string }[] = [
@@ -71,6 +76,7 @@ const STATUS_TABS: { key: ShipStatus; label: string; icon: any; color: string; b
   { key: "packaged", label: "Packaged", icon: FiPackage, color: "text-blue-400", bg: "bg-blue-950/50" },
   { key: "shipped", label: "Shipped", icon: FiTruck, color: "text-purple-400", bg: "bg-purple-950/50" },
   { key: "delivered", label: "Delivered", icon: FiCheck, color: "text-emerald-400", bg: "bg-emerald-950/50" },
+  { key: "dropship", label: "Vendor Dropships", icon: FiLayers, color: "text-cyan-400", bg: "bg-cyan-950/50" },
 ]
 
 
@@ -558,19 +564,44 @@ export default function ShippingPage() {
 
   // Compilation of items that are packaged but need shipped
   const getPackagedButNeedShippedItemsCompilation = () => {
-    const compilation: Record<string, { sku: string; name: string; quantity: number }> = {}
+    const compilation: Record<string, { sku: string; name: string; quantity: number; salespersons: string[] }> = {}
+    
+    const recordItem = (item: any, rep?: string) => {
+      const sku = item.sku || item.name || "Unknown SKU"
+      if (!compilation[sku]) {
+        compilation[sku] = {
+          sku,
+          name: item.name || item.sku || "Unknown Item",
+          quantity: 0,
+          salespersons: []
+        }
+      }
+      compilation[sku].quantity += Number(item.quantity || 0)
+      const salesRep = (rep || item.salesperson || "").trim()
+      if (salesRep && !compilation[sku].salespersons.includes(salesRep)) {
+        compilation[sku].salespersons.push(salesRep)
+      }
+    }
+
     filteredOrders.forEach(order => {
-      if (order.shipStatus === "packaged" && Array.isArray(order.lineItems)) {
-        order.lineItems.forEach(item => {
-          const sku = item.sku || item.name || "Unknown SKU"
-          if (!compilation[sku]) {
-            compilation[sku] = {
-              sku,
-              name: item.name || item.sku || "Unknown Item",
-              quantity: 0
-            }
+      const unshippedPkgs = (order.packages || []).filter(
+        p => p.status?.toLowerCase() !== "shipped" && p.status?.toLowerCase() !== "delivered"
+      )
+
+      if (unshippedPkgs.length > 0) {
+        unshippedPkgs.forEach(pkg => {
+          const pkgItems = financialZohoLineItems(
+            pkg.items?.lineItems || pkg.items?.line_items || (Array.isArray(pkg.items) ? pkg.items : [])
+          )
+          if (pkgItems.length > 0) {
+            pkgItems.forEach((item: any) => {
+              recordItem(item, pkg.salesperson || item.salesperson || order.salesperson)
+            })
           }
-          compilation[sku].quantity += item.quantity || 0
+        })
+      } else if (order.shipStatus === "packaged" && Array.isArray(order.lineItems)) {
+        order.lineItems.forEach(item => {
+          recordItem(item, item.salesperson || order.salesperson)
         })
       }
     })
@@ -589,6 +620,70 @@ export default function ShippingPage() {
   const [shipNowResult, setShipNowResult] = useState<any>(null)
   const [shipNowWeight, setShipNowWeight] = useState('5')
   const [shipNowDims, setShipNowDims] = useState({ length: '15', width: '15', height: '4' })
+  const [shipNowBoxPreset, setShipNowBoxPreset] = useState<string>('')
+  const [copiedLabelUrl, setCopiedLabelUrl] = useState(false)
+  const [splitRecommendation, setSplitRecommendation] = useState<any>(null)
+  const [splittingPackage, setSplittingPackage] = useState(false)
+  const [markedPrinted, setMarkedPrinted] = useState(false)
+
+  // ── Address Analysis & Surcharge State ─────────────────────────────────
+  const [addressAnalysis, setAddressAnalysis] = useState<any>(null)
+  const [editingAddressInline, setEditingAddressInline] = useState(false)
+  const [inlineAddressZip, setInlineAddressZip] = useState('')
+  const [inlineAddressStreet, setInlineAddressStreet] = useState('')
+
+  // ── Batch Fulfillment Mode State ────────────────────────────────────────
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set())
+  const [batchModalOpen, setBatchModalOpen] = useState(false)
+  const [batchProcessing, setBatchProcessing] = useState(false)
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; logs: string[] }>({ current: 0, total: 0, logs: [] })
+
+  // ── Carrier Pickup Scheduling State ─────────────────────────────────────
+  const [pickupModalOpen, setPickupModalOpen] = useState(false)
+  const [pickupCarrier, setPickupCarrier] = useState('FedEx')
+  const [pickupDate, setPickupDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [pickupTimeSlot, setPickupTimeSlot] = useState('14:00 - 17:00')
+  const [pickupNotes, setPickupNotes] = useState('Front Office / Dock Area')
+  const [schedulingPickup, setSchedulingPickup] = useState(false)
+  const [pickupResult, setPickupResult] = useState<any>(null)
+
+  const triggerAutoPrintLabel = (url: string) => {
+    if (!url) return
+    let printUrl = url
+    if (printUrl.includes('easyship.com')) {
+      printUrl = printUrl.includes('page_size=')
+        ? printUrl.replace(/page_size=[^&]+/, 'page_size=4x6')
+        : printUrl + (printUrl.includes('?') ? '&' : '?') + 'page_size=4x6'
+    }
+
+    try {
+      const iframeId = 'auto-print-label-frame'
+      let iframe = document.getElementById(iframeId) as HTMLIFrameElement
+      if (!iframe) {
+        iframe = document.createElement('iframe')
+        iframe.id = iframeId
+        iframe.style.position = 'fixed'
+        iframe.style.top = '-9999px'
+        iframe.style.left = '-9999px'
+        iframe.style.width = '1px'
+        iframe.style.height = '1px'
+        iframe.style.opacity = '0'
+        document.body.appendChild(iframe)
+      }
+      iframe.src = printUrl
+      iframe.onload = () => {
+        try {
+          iframe.contentWindow?.focus()
+          iframe.contentWindow?.print()
+        } catch {
+          window.open(printUrl, '_blank')
+        }
+      }
+    } catch (err) {
+      console.warn('Auto-print iframe failed, opening print window:', err)
+      window.open(printUrl, '_blank')
+    }
+  }
 
   useEffect(() => {
     fetch('/api/admin/business-defaults')
@@ -668,9 +763,18 @@ export default function ShippingPage() {
     }
   }
 
-  const fetchShipNowRates = async (order: any, weight: string, dims: { length: string; width: string; height: string }) => {
+  const fetchShipNowRates = async (
+    order: any, 
+    weight: string, 
+    dims: { length: string; width: string; height: string }, 
+    pkgOverride?: any,
+    forceRefresh: boolean = false,
+    presetOverride?: string
+  ) => {
     setShipNowLoading(true)
     setShipNowRates([])
+    setSplitRecommendation(null)
+    const activePkg = pkgOverride || shipNowPkg
     const parsedWeight = parseFloat(weight);
     const parsedLength = parseFloat(dims.length);
     const parsedWidth = parseFloat(dims.width);
@@ -682,6 +786,10 @@ export default function ShippingPage() {
       return;
     }
 
+    if (forceRefresh) {
+      toast.loading('Saving box info & calculating live rates...', { id: 'rate-refresh' })
+    }
+
     try {
       const destAddr = order.shippingAddress || {}
       const zip = destAddr.zip || destAddr.postal_code || ''
@@ -691,9 +799,16 @@ export default function ShippingPage() {
       if (!zip || !city || !state) {
         toast.error(`Missing shipping address fields — ${[!city && 'city', !state && 'state', !zip && 'zip'].filter(Boolean).join(', ')}. Sync from Zoho to update.`)
         setShipNowLoading(false)
+        if (forceRefresh) toast.dismiss('rate-refresh')
         return
       }
+
+      const pkgItemsList = financialZohoLineItems(
+        activePkg?.items?.lineItems || activePkg?.items?.line_items || (Array.isArray(activePkg?.items) ? activePkg?.items : [])
+      );
       
+      const effectivePreset = presetOverride !== undefined ? presetOverride : shipNowBoxPreset;
+
       const res = await fetch('/api/shipping/estimate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -707,12 +822,33 @@ export default function ShippingPage() {
           width: parsedWidth,
           height: parsedHeight,
           declaredValue: 0.10,
+          packageId: activePkg?.id,
+          packageNumber: activePkg?.packageNumber,
+          soNumber: order?.soNumber,
+          items: pkgItemsList.length > 0 ? pkgItemsList : undefined,
+          boxPreset: effectivePreset || undefined,
+          saveBox: forceRefresh,
+          forceRefresh: forceRefresh,
         })
       })
       const data = await res.json()
+      if (forceRefresh) {
+        toast.dismiss('rate-refresh')
+      }
       if (!res.ok || data.error) {
         toast.error(`Rate error: ${data.error || `HTTP ${res.status}`}`)
         return
+      }
+      if (forceRefresh && data.savedBox) {
+        toast.success(`Box (${parsedLength}"×${parsedWidth}"×${parsedHeight}", ${parsedWeight} lbs) saved & rates updated!`)
+      }
+      if (data.splitRecommendation) {
+        setSplitRecommendation(data.splitRecommendation)
+      }
+      if (data.addressAnalysis) {
+        setAddressAnalysis(data.addressAnalysis)
+      } else {
+        setAddressAnalysis(null)
       }
       if (data.rates && data.rates.length > 0) {
         const sorted = [...data.rates].sort((a: any, b: any) => (a.totalCharge || 999) - (b.totalCharge || 999))
@@ -720,7 +856,22 @@ export default function ShippingPage() {
       } else {
         toast.error('No rates returned — check shipping address fields')
       }
+
+      // If box was saved to package, update local package state and orders array
+      if (data.package && activePkg?.id) {
+        setShipNowPkg(data.package)
+        setOrders((prevOrders: any[]) => prevOrders.map(ord => {
+          if (ord.id !== order?.id && ord.soNumber !== order?.soNumber) return ord
+          return {
+            ...ord,
+            packages: (ord.packages || []).map((p: any) => 
+              p.id === activePkg.id ? { ...p, ...data.package } : p
+            )
+          }
+        }))
+      }
     } catch (e: any) {
+      if (forceRefresh) toast.dismiss('rate-refresh')
       console.error('Failed to get rates:', e)
       toast.error(`Rate fetch failed: ${e.message || 'Network error'}`)
     } finally {
@@ -728,15 +879,97 @@ export default function ShippingPage() {
     }
   }
 
-
   const openShipNow = async (pkg: any, order: any) => {
     setShipNowPkg(pkg)
     setShipNowOrder(order)
     setShipNowResult(null)
+    setSplitRecommendation(null)
+    setAddressAnalysis(null)
+    setEditingAddressInline(false)
+    setInlineAddressStreet(order.shippingAddress?.address || order.shippingAddress?.street || '')
+    setInlineAddressZip(order.shippingAddress?.zip || order.shippingAddress?.postal_code || '')
+    setMarkedPrinted(false)
     setShipNowOpen(true)
 
-    // Fetch rates with the current weight/dims state values
-    await fetchShipNowRates(order, shipNowWeight, shipNowDims)
+    // Load saved box information if previously customized/saved for this package
+    const savedDims = pkg?.items?.dimensions
+    const initialDims = {
+      length: String(savedDims?.length ?? shipNowDims.length ?? '15'),
+      width: String(savedDims?.width ?? shipNowDims.width ?? '15'),
+      height: String(savedDims?.height ?? shipNowDims.height ?? '4'),
+    }
+    const initialWeight = String(pkg?.items?.weight ?? (pkg?.weight ? String(pkg.weight) : shipNowWeight ?? '5'))
+    const initialPreset = pkg?.items?.boxPreset || ''
+
+    setShipNowDims(initialDims)
+    setShipNowWeight(initialWeight)
+    setShipNowBoxPreset(initialPreset)
+
+    // Fetch rates with the package's dimensions and weight
+    await fetchShipNowRates(order, initialWeight, initialDims, pkg, false, initialPreset)
+  }
+
+  const handleSplitPackage = async () => {
+    if (!shipNowPkg || !shipNowOrder) return
+    const pkgItems = financialZohoLineItems(
+      shipNowPkg.items?.lineItems || shipNowPkg.items?.line_items || (Array.isArray(shipNowPkg.items) ? shipNowPkg.items : [])
+    )
+
+    setSplittingPackage(true)
+    try {
+      let box1Items: any[] = []
+      let box2Items: any[] = []
+
+      if (pkgItems.length > 1) {
+        const half = Math.ceil(pkgItems.length / 2)
+        box1Items = pkgItems.slice(0, half)
+        box2Items = pkgItems.slice(half)
+      } else if (pkgItems.length === 1 && (pkgItems[0].quantity > 1)) {
+        const item = pkgItems[0]
+        const q1 = Math.ceil(item.quantity / 2)
+        const q2 = item.quantity - q1
+        box1Items = [{ ...item, quantity: q1 }]
+        box2Items = [{ ...item, quantity: q2 }]
+      } else {
+        box1Items = pkgItems
+        box2Items = [{ description: 'Split Package 2', quantity: 1, weight: parseFloat(shipNowWeight) / 2 }]
+      }
+
+      const res = await fetch('/api/shipping/split-package', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          packageId: shipNowPkg.id,
+          packageZohoId: shipNowPkg.zohoId,
+          salesOrderZohoId: shipNowOrder.zohoId,
+          salesOrderNumber: shipNowOrder.soNumber,
+          box1Items,
+          box2Items
+        })
+      })
+
+      const data = await res.json()
+      if (data.success) {
+        toast.success(data.message || 'Package split into 2 successfully!')
+        const newWeight = (Math.round((parseFloat(shipNowWeight) / 2) * 10) / 10).toString()
+        const newHeight = Math.max(2, Math.round(parseFloat(shipNowDims.height) / 2)).toString()
+        setShipNowWeight(newWeight)
+        setShipNowDims(d => ({ ...d, height: newHeight }))
+        setSplitRecommendation(null)
+        await fetchOrders()
+        await fetchCounts()
+        if (data.originalPackage) {
+          setShipNowPkg(data.originalPackage)
+          await fetchShipNowRates(shipNowOrder, newWeight, { ...shipNowDims, height: newHeight }, data.originalPackage)
+        }
+      } else {
+        toast.error('Failed to split: ' + (data.error || 'Unknown error'))
+      }
+    } catch (e: any) {
+      toast.error('Split error: ' + e.message)
+    } finally {
+      setSplittingPackage(false)
+    }
   }
 
   const handleBuyLabel = async (rate: any) => {
@@ -755,6 +988,27 @@ export default function ShippingPage() {
 
     try {
       const destAddr = shipNowOrder.shippingAddress || {}
+      const pkgItemsList = financialZohoLineItems(
+        shipNowPkg.items?.lineItems || shipNowPkg.items?.line_items || (Array.isArray(shipNowPkg.items) ? shipNowPkg.items : [])
+      )
+      const packedItems = (Array.isArray(pkgItemsList) && pkgItemsList.length > 0)
+        ? pkgItemsList.map((li: any) => ({
+            description: li.name || li.item_name || li.description || 'Item',
+            sku: li.sku || li.sku_code || '',
+            quantity: parseInt(li.quantity) || 1,
+            declaredValue: 0.10,
+            weight: parsedWeight / (pkgItemsList.length || 1),
+          }))
+        : (shipNowOrder.packages?.length === 1 && shipNowOrder.lineItems?.length > 0
+          ? shipNowOrder.lineItems.map((li: any) => ({
+              description: li.name || 'Order item',
+              sku: li.sku || '',
+              quantity: li.quantity || 1,
+              declaredValue: 0.10,
+              weight: parsedWeight / (shipNowOrder.lineItems.length || 1),
+            }))
+          : [{ description: 'Package contents', sku: '', quantity: 1, declaredValue: 0.10, weight: parsedWeight }])
+
       const res = await fetch('/api/shipping/ship-now', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -780,27 +1034,8 @@ export default function ShippingPage() {
             width: parsedWidth,
             height: parsedHeight,
           },
-          items: (() => {
-            // Build items matching EasyShip format
-            const pkgItemsList = financialZohoLineItems(shipNowPkg.items?.line_items || shipNowPkg.items?.items)
-            if (Array.isArray(pkgItemsList) && pkgItemsList.length > 0) {
-              return pkgItemsList.map((li: any) => ({
-                description: li.name || li.item_name || li.description || 'Item',
-                sku: li.sku || li.sku_code || '',
-                quantity: parseInt(li.quantity) || 1,
-                declaredValue: 0.10,  // Match EasyShip customs value
-                weight: parsedWeight / (pkgItemsList.length || 1),
-              }))
-            }
-            // Fallback: use order line items
-            return shipNowOrder.lineItems?.map((li: any) => ({
-              description: li.name || 'Order item',
-              sku: li.sku || '',
-              quantity: li.quantity || 1,
-              declaredValue: 0.10,
-              weight: parsedWeight / (shipNowOrder.lineItems?.length || 1),
-            })) || [{ description: 'Order item', quantity: 1, declaredValue: 0.10, weight: parsedWeight }]
-          })(),
+          boxPreset: shipNowBoxPreset || undefined,
+          items: packedItems,
           soNumber: shipNowOrder.soNumber,
           packageNumber: shipNowPkg.packageNumber || '',
           destinationContactPhone: shipNowOrder?.shippingAddress?.phone || '',
@@ -808,7 +1043,74 @@ export default function ShippingPage() {
       })
       const data = await res.json()
       if (data.success) {
-        setShipNowResult(data)
+        let labelUrl = data.labelUrl || ''
+        if (labelUrl.includes('easyship.com')) {
+          labelUrl = labelUrl.includes('page_size=')
+            ? labelUrl.replace(/page_size=[^&]+/, 'page_size=4x6')
+            : labelUrl + (labelUrl.includes('?') ? '&' : '?') + 'page_size=4x6'
+        }
+
+        const fullResult = {
+          ...data,
+          labelUrl,
+          orderNumber: shipNowOrder.soNumber || shipNowOrder.computedInvoiceNumber || 'Order',
+          soNumber: shipNowOrder.soNumber,
+          packageNumber: shipNowPkg.packageNumber || 'Package',
+          customerName: shipNowOrder.customerName || 'Customer',
+          customerPhone: shipNowOrder.shippingAddress?.phone || shipNowOrder.account?.phone || '',
+          customerEmail: shipNowOrder.account?.email || shipNowOrder.customerEmail || '',
+          salesperson: shipNowOrder.salesperson || 'Unassigned',
+          orderAmount: shipNowOrder.amount || 0,
+          destinationAddress: {
+            address: destAddr.address || destAddr.street || '',
+            city: destAddr.city || '',
+            state: destAddr.state || '',
+            zip: destAddr.zip || destAddr.postal_code || '',
+            country: destAddr.country_alpha2 || 'US',
+          },
+          weight: parsedWeight,
+          dimensions: {
+            length: parsedLength,
+            width: parsedWidth,
+            height: parsedHeight,
+          },
+          items: packedItems.map((it: any) => ({
+            ...it,
+            salesperson: it.salesperson || shipNowOrder.salesperson || 'Unassigned',
+          })),
+          courierName: data.courierName || rate.courierName,
+          trackingNumber: data.trackingNumber,
+          trackingPageUrl: data.trackingPageUrl,
+          childTrackingNumbers: data.childTrackingNumbers || [],
+          parcelCount: data.parcelCount || 1,
+          totalCharge: data.totalCharge ?? rate.totalCharge ?? 0,
+          fuelSurcharge: data.fuelSurcharge || rate.fuelSurcharge || 0,
+          residentialSurcharge: data.residentialSurcharge || rate.residentialSurcharge || 0,
+          insuranceFee: data.insuranceFee || rate.insuranceFee || 0,
+          discountAmount: data.discountAmount || rate.discountAmount || 0,
+          minDeliveryTime: data.minDeliveryTime || rate.minDeliveryTime,
+          maxDeliveryTime: data.maxDeliveryTime || rate.maxDeliveryTime,
+          labelState: data.labelState || 'created',
+          shippingDocuments: data.shippingDocuments || [],
+          easyshipShipmentId: data.easyshipShipmentId,
+          purchasedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        }
+        setShipNowResult(fullResult)
+        setMarkedPrinted(data.labelState === 'printed')
+
+        // Trigger automatic 4x6 label print to Zebra / default printer immediately
+        if (labelUrl) {
+          triggerAutoPrintLabel(labelUrl)
+        }
+        // If other documents exist (e.g. customs or packing slip), open them
+        if (Array.isArray(data.shippingDocuments) && data.shippingDocuments.length > 1) {
+          data.shippingDocuments.slice(1).forEach((doc: any, i: number) => {
+            if (doc.url && doc.category !== 'label') {
+              setTimeout(() => { window.open(doc.url, '_blank') }, (i + 1) * 800)
+            }
+          })
+        }
+
         if (data.warning) {
           toast.error(data.warning, { duration: 8000 })
         } else {
@@ -823,6 +1125,206 @@ export default function ShippingPage() {
       toast.error('Error: ' + e.message)
     } finally {
       setShipNowBuying(false)
+    }
+  }
+
+  const handleCopyShipmentSummary = (result: any) => {
+    if (!result) return
+    const itemsLines = Array.isArray(result.items)
+      ? result.items.map((it: any) => `  • ${it.quantity || 1}x ${it.sku || it.name || it.description || 'Item'} (Rep: ${it.salesperson || result.salesperson || 'Unassigned'})`).join('\n')
+      : '  • Packed Items'
+
+    const textLines = [
+      `📦 SHIPMENT CONFIRMED — ${result.soNumber || result.orderNumber || 'Order'}`,
+      `========================================`,
+      `Sales Order: ${result.soNumber || '--'}`,
+      `Package #: ${result.packageNumber || '--'}`,
+      `Sales Rep: ${result.salesperson || 'Unassigned'}`,
+      `Customer: ${result.customerName || '--'}`,
+      `Phone / Email: ${result.customerPhone || 'On File'} / ${result.customerEmail || 'On File'}`,
+      `Destination: ${[result.destinationAddress?.address, result.destinationAddress?.city, result.destinationAddress?.state, result.destinationAddress?.zip].filter(Boolean).join(', ')}`,
+      `Carrier & Service: ${result.courierName || '--'}`,
+      `Master Tracking #: ${result.trackingNumber || '--'}`,
+      ...(Array.isArray(result.childTrackingNumbers) && result.childTrackingNumbers.length > 0 ? [`Child Tracking #s: ${result.childTrackingNumbers.join(', ')}`] : []),
+      `Parcels: ${result.parcelCount || 1} Box (${result.weight} lbs)`,
+      `Total Cost: $${result.totalCharge?.toFixed(2) || '0.00'}${result.residentialSurcharge > 0 ? ` (Includes +$${result.residentialSurcharge.toFixed(2)} Residential Surcharge)` : ''}`,
+      `Delivery ETA: ${result.minDeliveryTime ? `${result.minDeliveryTime}-${result.maxDeliveryTime} business days` : 'Standard Delivery'}`,
+      `----------------------------------------`,
+      `Shipped Items:`,
+      itemsLines,
+      `----------------------------------------`,
+      `Label URL: ${result.labelUrl || 'Available in Shipping Center'}`,
+      `EasyShip ID: ${result.easyshipShipmentId || '--'}`
+    ].join('\n')
+
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText(textLines)
+      toast.success('Complete shipment summary copied to clipboard!')
+    }
+  }
+
+  // ── Batch Fulfillment Functions ──────────────────────────────────────────
+  const toggleSelectOrder = (orderId: string, e: React.MouseEvent | React.ChangeEvent) => {
+    e.stopPropagation()
+    setSelectedOrderIds(prev => {
+      const next = new Set(prev)
+      if (next.has(orderId)) next.delete(orderId)
+      else next.add(orderId)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedOrderIds.size === filteredOrders.length && filteredOrders.length > 0) {
+      setSelectedOrderIds(new Set())
+    } else {
+      setSelectedOrderIds(new Set(filteredOrders.map(o => o.id)))
+    }
+  }
+
+  const runBatchFulfillment = async () => {
+    const ordersToProcess = orders.filter(o => selectedOrderIds.has(o.id))
+    if (ordersToProcess.length === 0) return
+    setBatchProcessing(true)
+    setBatchProgress({ current: 0, total: ordersToProcess.length, logs: [] })
+
+    for (let i = 0; i < ordersToProcess.length; i++) {
+      const ord = ordersToProcess[i]
+      const pkg = ord.packages[0]
+      setBatchProgress(p => ({
+        ...p,
+        current: i + 1,
+        logs: [...p.logs, `Processing ${ord.soNumber} (${ord.customerName} • Rep: ${ord.salesperson})...`]
+      }))
+
+      if (!pkg) {
+        setBatchProgress(p => ({
+          ...p,
+          logs: [...p.logs, `⚠️ ${ord.soNumber}: No package found, skipped.`]
+        }))
+        continue
+      }
+
+      try {
+        const destAddr = ord.shippingAddress || {}
+        const pkgWeight = parseFloat((pkg as any).shippingWeight || '5') || 5
+        // 1. Get rates
+        const rateRes = await fetch('/api/shipping/estimate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            zip: destAddr.zip || destAddr.postal_code || '',
+            city: destAddr.city || '',
+            state: destAddr.state || '',
+            country: destAddr.country || 'US',
+            weight: pkgWeight,
+            length: 15,
+            width: 15,
+            height: 4,
+            packageNumber: pkg.packageNumber,
+            soNumber: ord.soNumber,
+          })
+        })
+        const rateData = await rateRes.json()
+        const bestRate = (rateData.rates || []).sort((a: any, b: any) => (a.totalCharge || 999) - (b.totalCharge || 999))[0]
+
+        if (!bestRate) {
+          setBatchProgress(p => ({
+            ...p,
+            logs: [...p.logs, `❌ ${ord.soNumber}: No carrier rates available.`]
+          }))
+          continue
+        }
+
+        // 2. Buy label
+        const buyRes = await fetch('/api/shipping/ship-now', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            packageId: pkg.id,
+            packageZohoId: pkg.zohoId,
+            salesOrderZohoId: ord.zohoId,
+            courierServiceId: bestRate.courierServiceId,
+            selectedRateCost: bestRate.totalCharge,
+            destinationAddress: {
+              address: destAddr.address || destAddr.street || '',
+              city: destAddr.city || '',
+              state: destAddr.state || '',
+              zip: destAddr.zip || destAddr.postal_code || '',
+              country: destAddr.country || 'US',
+            },
+            destinationContactName: ord.customerName,
+            weight: pkgWeight,
+            dimensions: { length: 15, width: 15, height: 4 },
+            items: [{ description: 'Order Items', quantity: 1, declaredValue: 100, weight: pkgWeight }],
+            soNumber: ord.soNumber,
+            packageNumber: pkg.packageNumber,
+          })
+        })
+        const buyData = await buyRes.json()
+        if (buyData.success && buyData.labelUrl) {
+          triggerAutoPrintLabel(buyData.labelUrl)
+          setBatchProgress(p => ({
+            ...p,
+            logs: [...p.logs, `✅ ${ord.soNumber}: Label purchased (${buyData.courierName} $${buyData.totalCharge}) • Tracking: ${buyData.trackingNumber} • Sent to thermal printer`]
+          }))
+        } else {
+          setBatchProgress(p => ({
+            ...p,
+            logs: [...p.logs, `❌ ${ord.soNumber}: Failed (${buyData.error || 'Unknown error'})`]
+          }))
+        }
+      } catch (err: any) {
+        setBatchProgress(p => ({
+          ...p,
+          logs: [...p.logs, `❌ ${ord.soNumber}: ${err.message}`]
+        }))
+      }
+    }
+
+    setBatchProcessing(false)
+    toast.success('Batch processing completed!')
+    setSelectedOrderIds(new Set())
+    await fetchOrders()
+    await fetchCounts()
+  }
+
+  // ── Carrier Pickup Scheduling Function ──────────────────────────────────
+  const handleScheduleCarrierPickup = async () => {
+    const shippedTodayPkgs = orders
+      .flatMap(o => o.packages || [])
+      .filter(p => p.status === 'shipped' || p.trackingNumber)
+      .map(p => p.easyshipShipmentId || (p.items as any)?.easyshipShipmentId)
+      .filter((id): id is string => Boolean(id))
+
+    if (shippedTodayPkgs.length === 0) {
+      toast.error('No EasyShip shipments found ready for pickup.')
+      return
+    }
+
+    setSchedulingPickup(true)
+    setPickupResult(null)
+    try {
+      const res = await fetch('/api/shipping/schedule-pickup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          easyshipShipmentIds: shippedTodayPkgs.slice(0, 25),
+          preferredDate: pickupDate,
+          preferredTimeSlot: pickupTimeSlot,
+        })
+      })
+      const data = await res.json()
+      if (res.ok && !data.error) {
+        setPickupResult(data)
+        toast.success(`Pickup scheduled with ${pickupCarrier}! Confirmation reference created.`)
+      } else {
+        toast.error(`Pickup scheduling failed: ${data.error || 'Check carrier hours'}`)
+      }
+    } catch (err: any) {
+      toast.error(`Error: ${err.message}`)
+    } finally {
+      setSchedulingPickup(false)
     }
   }
 
@@ -1284,10 +1786,61 @@ export default function ShippingPage() {
             className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-neutral-900 border border-white/10 text-neutral-300 text-sm font-bold hover:bg-neutral-800 transition-colors"
             title="Toggle sort direction"
           >
-            {sortDir === "asc" ? " up  Asc" : " down  Desc"}
+            {sortDir === "asc" ? "↑ Asc" : "↓ Desc"}
           </button>
+
+          {/* Select All Orders for Batch Shipping */}
+          {filteredOrders.length > 0 && (
+            <button
+              onClick={toggleSelectAll}
+              className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                selectedOrderIds.size > 0
+                  ? 'bg-orange-500/20 border-orange-500/40 text-orange-300'
+                  : 'bg-neutral-900 border-white/10 text-neutral-400 hover:text-white hover:bg-neutral-800'
+              }`}
+              title="Select or deselect visible orders for batch fulfillment"
+            >
+              {selectedOrderIds.size === filteredOrders.length && filteredOrders.length > 0 ? (
+                <FiCheckSquare size={14} className="text-orange-400" />
+              ) : (
+                <FiSquare size={14} />
+              )}
+              <span>{selectedOrderIds.size === filteredOrders.length ? "Deselect All" : `Select All (${filteredOrders.length})`}</span>
+            </button>
+          )}
         </div>
       </div>
+
+      {/* End-of-Day Dispatch & Carrier Pickup Banner (Shipped Tab) */}
+      {activeTab === 'shipped' && (
+        <div className="mb-6 bg-gradient-to-r from-purple-950/60 via-neutral-900 to-indigo-950/40 border border-purple-500/30 rounded-2xl p-4 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-300 shrink-0">
+              <FiTruck size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-white font-bold text-sm">End-of-Day Dispatch &amp; Carrier Pickup</h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                  {orders.filter(o => o.shipStatus === 'shipped' || o.shipStatus === 'delivered').reduce((sum, o) => sum + (o.packages?.length || 1), 0)} Outbound Packages
+                </span>
+              </div>
+              <p className="text-xs text-neutral-400 mt-0.5">
+                Generate carrier end-of-day manifest and schedule daily carrier pickup for outbound packages.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setPickupModalOpen(true)}
+              className="td-btn td-btn-sm bg-purple-600 hover:bg-purple-500 text-white font-bold flex items-center gap-2 shadow-lg shadow-purple-950/40 cursor-pointer"
+            >
+              <FiCalendar size={14} />
+              Schedule Carrier Pickup
+            </button>
+          </div>
+        </div>
+      )}
       
       {/* Packaged Items Compilation Summary */}
       {!loading && compilationList.length > 0 && (
@@ -1338,6 +1891,14 @@ export default function ShippingPage() {
                 <div className="min-w-0 pr-2">
                   <p className="text-xs font-black text-white font-mono truncate" title={item.sku}>{item.sku}</p>
                   <p className="text-[10px] text-neutral-500 truncate" title={item.name}>{item.name}</p>
+                  {item.salespersons && item.salespersons.length > 0 && (
+                    <div className="flex items-center gap-1 mt-1">
+                      <FiUser size={10} className="text-amber-400 shrink-0" />
+                      <span className="text-[9px] text-amber-300 font-bold truncate" title={`Sales Rep: ${item.salespersons.join(', ')}`}>
+                        {item.salespersons.join(', ')}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <span className={`flex-shrink-0 min-w-[28px] h-7 rounded-lg font-black text-xs flex items-center justify-center border px-2 ${
                   compilationSkuFilter === item.sku
@@ -1392,6 +1953,17 @@ export default function ShippingPage() {
                   className="flex items-center gap-3 px-4 py-3 cursor-pointer"
                   onClick={() => handleExpandOrder(order.id)}
                 >
+                  {/* Batch Selection Checkbox */}
+                  <div className="flex items-center" onClick={e => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selectedOrderIds.has(order.id)}
+                      onChange={(e) => toggleSelectOrder(order.id, e)}
+                      className="rounded bg-neutral-900 border-white/20 text-orange-500 focus:ring-0 cursor-pointer h-4 w-4 shrink-0"
+                      title="Select for batch shipping"
+                    />
+                  </div>
+
                   {/* Status Badge */}
                   <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${currentColor}`}>
                     {statusLabel}
@@ -1414,15 +1986,18 @@ export default function ShippingPage() {
                       <span className="text-neutral-600 text-xs">-</span>
                       <span className="text-neutral-400 text-sm truncate">{order.customerName}</span>
                     </div>
-                    <div className="flex items-center gap-3 mt-0.5">
-                      <span className="text-[10px] text-neutral-600">
+                    <div className="flex items-center gap-2.5 mt-1 flex-wrap">
+                      <span className="text-[10px] text-neutral-500 font-mono">
                         {order.orderDate ? new Date(order.orderDate).toLocaleDateString() : "--"}
                       </span>
-                      <span className="text-[10px] text-neutral-600">
+                      <span className="text-[10px] text-neutral-500 font-medium">
                         {order.lineItemCount} item{order.lineItemCount !== 1 ? "s" : ""}
                       </span>
-                      {order.salesperson && (
-                        <span className="text-[10px] text-neutral-600">{order.salesperson}</span>
+                      {order.salesperson && order.salesperson !== "Unknown" && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 shadow-sm" title={`Sales Rep: ${order.salesperson}`}>
+                          <FiUser size={10} className="text-indigo-400" />
+                          <span>Rep: {order.salesperson}</span>
+                        </span>
                       )}
                     </div>
                   </div>
@@ -1499,11 +2074,16 @@ export default function ShippingPage() {
                         ) : order.lineItems && order.lineItems.length > 0 ? (
                           <div className="space-y-1.5 max-h-[180px] overflow-y-auto pr-1">
                             {order.lineItems.map((li, i) => (
-                              <div key={i} className="flex items-center justify-between text-sm hover:bg-white/5 p-1 rounded transition-colors">
-                                <span className="text-neutral-300 font-medium truncate pr-2" title={li.name}>
+                              <div key={i} className="flex items-center justify-between text-sm hover:bg-white/5 p-1 rounded transition-colors gap-2">
+                                <span className="text-neutral-300 font-medium truncate flex-1 min-w-0" title={li.name}>
                                   {li.sku ? `[${li.sku}] ` : ""}{li.name}
                                 </span>
-                                <span className="flex-shrink-0 bg-neutral-800 text-neutral-300 font-bold px-2 py-0.5 rounded text-xs min-w-[20px] text-center">
+                                {(li.salesperson || order.salesperson) && (li.salesperson || order.salesperson) !== 'Unknown' && (
+                                  <span className="text-[9px] text-indigo-300/90 bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-800/40 font-mono shrink-0 flex items-center gap-1" title={`Sales Rep: ${li.salesperson || order.salesperson}`}>
+                                    <FiUser size={8} /> {li.salesperson || order.salesperson}
+                                  </span>
+                                )}
+                                <span className="flex-shrink-0 bg-neutral-800 text-neutral-300 font-bold px-2 py-0.5 rounded text-xs min-w-[20px] text-center font-mono">
                                   {li.quantity}
                                 </span>
                               </div>
@@ -1546,6 +2126,11 @@ export default function ShippingPage() {
                                   >
                                     SO #{pkg.salesOrderNumber || order.soNumber}
                                   </a>
+                                  {(pkg.salesperson || order.salesperson) && (pkg.salesperson || order.salesperson) !== 'Unknown' && (
+                                    <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/25 flex items-center gap-1">
+                                      <FiUser size={9} /> Rep: {pkg.salesperson || order.salesperson}
+                                    </span>
+                                  )}
                                   <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
                                     pkg.status === "delivered" ? "text-emerald-400 bg-emerald-950/50" :
                                     pkg.status === "shipped" ? "text-purple-400 bg-purple-950/50" :
@@ -1577,37 +2162,48 @@ export default function ShippingPage() {
                                     const pkgItems = financialZohoLineItems(pkg.items?.lineItems || pkg.items?.line_items || (Array.isArray(pkg.items) ? pkg.items : []))
                                     if (pkgItems && pkgItems.length > 0) {
                                       return (
-                                        <div className="space-y-0.5">
+                                        <div className="space-y-1">
                                           {pkgItems.map((li: any, idx: number) => {
                                             const name = li.name || li.itemName || li.item_name || ""
                                             const qty = li.quantity || li.quantity_packed || ""
+                                            const rep = li.salesperson || pkg.salesperson || order.salesperson
                                             return (
-                                              <p key={idx} className="text-xs text-neutral-300 font-medium truncate">
-                                                • {qty ? `${qty}x ` : ""}{name}
-                                              </p>
+                                              <div key={idx} className="flex items-center justify-between text-xs text-neutral-300 font-medium py-0.5">
+                                                <span className="truncate pr-2">• {qty ? `${qty}x ` : ""}{name}</span>
+                                                {rep && rep !== "Unknown" && (
+                                                  <span className="text-[9px] text-indigo-300/80 font-mono shrink-0 ml-auto bg-indigo-950/50 px-1.5 py-0.2 rounded border border-indigo-800/30 flex items-center gap-1">
+                                                    <FiUser size={8} /> {rep}
+                                                  </span>
+                                                )}
+                                              </div>
                                             )
                                           })}
                                         </div>
                                       )
                                     }
                                     
-                                    if (order.lineItems && order.lineItems.length > 0) {
-                                      return (
-                                        <div className="space-y-0.5">
-                                          {order.lineItems.map((li: any, idx: number) => (
-                                            <p key={idx} className="text-xs text-neutral-300 font-medium truncate">
-                                              • {li.quantity}x {li.name}
-                                            </p>
-                                          ))}
-                                        </div>
-                                      )
-                                    }
-
                                     return (
-                                      <p className="text-xs text-neutral-500 italic">Order items pending sync</p>
+                                      <p className="text-xs text-neutral-500 italic">Package contents pending sync</p>
                                     )
                                   })()}
                                 </div>
+
+                                {(() => {
+                                  const pItems = (pkg.items as any) || {}
+                                  if (pItems.dimensions) {
+                                    return (
+                                      <div className="flex items-center gap-1.5 mt-2">
+                                        <span className="text-[10px] bg-neutral-900 border border-white/10 text-neutral-300 px-2 py-0.5 rounded font-mono flex items-center gap-1">
+                                          <FiBox className="text-orange-400" size={10} />
+                                          {pItems.boxPreset ? `${pItems.boxPreset}: ` : 'Box: '}
+                                          {pItems.dimensions.length}"×{pItems.dimensions.width}"×{pItems.dimensions.height}"
+                                          {pItems.weight ? ` (${pItems.weight} lbs)` : ''}
+                                        </span>
+                                      </div>
+                                    )
+                                  }
+                                  return null
+                                })()}
 
                                 {pkg.trackingNumber && (
                                   <div className="flex items-center gap-2 mt-2">
@@ -1868,6 +2464,13 @@ export default function ShippingPage() {
                                       SO #{soDisplay}
                                     </a>
 
+                                    {/* Sales Rep Badge */}
+                                    {(ds.salesperson || order.salesperson) && (ds.salesperson || order.salesperson) !== 'Unknown' && (
+                                      <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 flex items-center gap-1 shadow-sm">
+                                        <FiUser size={9} /> Rep: {ds.salesperson || order.salesperson}
+                                      </span>
+                                    )}
+
                                     {/* Vendor Name */}
                                     <span className="text-sm font-bold text-white tracking-wide">{ds.vendorName || "Vendor"}</span>
 
@@ -1942,16 +2545,24 @@ export default function ShippingPage() {
                                         <span className="text-[9px] text-neutral-500 font-mono">Ref: {ds.referenceNumber}</span>
                                       )}
                                     </div>
-                                    <div className="space-y-0.5">
-                                      {ds.lineItems.map((li, liIdx) => (
-                                        <div key={liIdx} className="flex items-center gap-2 text-xs text-neutral-300 font-medium">
-                                          <span className="text-neutral-500">•</span>
-                                          <span className="text-orange-400 font-mono font-bold">{li.quantity}x</span>
-                                          <span className="truncate">{li.name}</span>
-                                          {li.sku && <span className="text-[10px] text-neutral-500 font-mono">[{li.sku}]</span>}
-                                          {li.rate > 0 && <span className="text-neutral-400 ml-auto shrink-0 font-mono">${li.rate.toFixed(2)}</span>}
-                                        </div>
-                                      ))}
+                                    <div className="space-y-1">
+                                      {ds.lineItems.map((li, liIdx) => {
+                                        const rep = li.salesperson || ds.salesperson || order.salesperson
+                                        return (
+                                          <div key={liIdx} className="flex items-center gap-2 text-xs text-neutral-300 font-medium py-0.5">
+                                            <span className="text-neutral-500">•</span>
+                                            <span className="text-orange-400 font-mono font-bold">{li.quantity}x</span>
+                                            <span className="truncate">{li.name}</span>
+                                            {li.sku && <span className="text-[10px] text-neutral-500 font-mono">[{li.sku}]</span>}
+                                            {rep && rep !== "Unknown" && (
+                                              <span className="text-[9px] text-indigo-300/80 font-mono bg-indigo-950/50 px-1.5 py-0.2 rounded border border-indigo-800/30 flex items-center gap-1">
+                                                <FiUser size={8} /> {rep}
+                                              </span>
+                                            )}
+                                            {li.rate > 0 && <span className="text-neutral-400 ml-auto shrink-0 font-mono">${li.rate.toFixed(2)}</span>}
+                                          </div>
+                                        )
+                                      })}
                                     </div>
                                   </div>
                                 ) : (
@@ -2145,6 +2756,286 @@ export default function ShippingPage() {
           onSuccess={(_poId: string) => { setDropshipModal(null); fetchOrders() }}
         />
       )}
+
+      {/* ── Floating Batch Action Bar ── */}
+      {selectedOrderIds.size > 0 && typeof document !== 'undefined' && createPortal(
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[400] bg-neutral-950/95 border border-orange-500/50 rounded-2xl px-5 py-3 shadow-2xl backdrop-blur-xl flex items-center gap-4 animate-in slide-in-from-bottom duration-200">
+          <div className="flex items-center gap-2.5">
+            <span className="w-7 h-7 rounded-full bg-orange-500/20 border border-orange-500/40 text-orange-400 flex items-center justify-center text-xs font-black">
+              {selectedOrderIds.size}
+            </span>
+            <span className="text-sm font-bold text-white whitespace-nowrap">
+              {selectedOrderIds.size} {selectedOrderIds.size === 1 ? 'Order' : 'Orders'} Selected
+            </span>
+          </div>
+          <div className="h-5 w-[1px] bg-white/10 hidden sm:block" />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setBatchModalOpen(true)}
+              className="td-btn td-btn-sm bg-orange-500 hover:bg-orange-400 text-black font-black flex items-center gap-1.5 shadow-lg shadow-orange-950/50 cursor-pointer"
+            >
+              <FiPrinter size={14} />
+              Batch Purchase &amp; Print 4×6
+            </button>
+            <button
+              onClick={() => setSelectedOrderIds(new Set())}
+              className="td-btn td-btn-sm bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border border-white/10 text-xs cursor-pointer"
+            >
+              Clear
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Batch Fulfillment Modal ── */}
+      {batchModalOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[550] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#0e0f12] border border-orange-500/30 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-black/40">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center text-orange-400">
+                  <FiLayers size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Batch Fulfillment &amp; Auto-Print Queue</h3>
+                  <p className="text-xs text-neutral-400">
+                    Purchase shipping labels and dispatch 4×6 thermal print jobs in sequence
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => !batchProcessing && setBatchModalOpen(false)}
+                disabled={batchProcessing}
+                className="text-neutral-400 hover:text-white disabled:opacity-30 cursor-pointer p-1"
+              >
+                <FiX size={18} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto space-y-4 flex-1">
+              {/* Summary Stats */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-black/30 border border-white/5 rounded-xl p-3">
+                  <div className="text-[10px] text-neutral-500 font-bold uppercase">Queued Orders</div>
+                  <div className="text-lg font-black text-white mt-0.5">{selectedOrderIds.size} Orders</div>
+                </div>
+                <div className="bg-black/30 border border-white/5 rounded-xl p-3">
+                  <div className="text-[10px] text-neutral-500 font-bold uppercase">Print Output</div>
+                  <div className="text-lg font-black text-orange-400 mt-0.5">4×6 Thermal</div>
+                </div>
+                <div className="bg-black/30 border border-white/5 rounded-xl p-3">
+                  <div className="text-[10px] text-neutral-500 font-bold uppercase">Zoho Sync</div>
+                  <div className="text-lg font-black text-emerald-400 mt-0.5">Auto-Update</div>
+                </div>
+              </div>
+
+              {/* Progress Bar (when active) */}
+              {batchProcessing && (
+                <div className="bg-black/40 border border-orange-500/30 rounded-xl p-4 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-orange-400 font-bold flex items-center gap-2">
+                      <FiRefreshCw className="animate-spin" size={12} />
+                      Processing shipment {batchProgress.current} of {batchProgress.total}...
+                    </span>
+                    <span className="text-neutral-400 font-mono">
+                      {Math.round((batchProgress.current / Math.max(batchProgress.total, 1)) * 100)}%
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-neutral-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-orange-500 to-amber-400 transition-all duration-300"
+                      style={{ width: `${(batchProgress.current / Math.max(batchProgress.total, 1)) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Live Activity Logs */}
+              {batchProgress.logs.length > 0 && (
+                <div className="bg-black/60 border border-white/10 rounded-xl p-3 font-mono text-xs max-h-40 overflow-y-auto space-y-1 text-neutral-300">
+                  {batchProgress.logs.map((log, idx) => (
+                    <div key={idx} className="leading-relaxed">{log}</div>
+                  ))}
+                </div>
+              )}
+
+              {/* Selected Orders List */}
+              <div className="space-y-2">
+                <div className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Orders in Queue</div>
+                <div className="divide-y divide-white/5 max-h-56 overflow-y-auto bg-black/20 rounded-xl border border-white/5 p-2">
+                  {orders.filter(o => selectedOrderIds.has(o.id)).map(ord => (
+                    <div key={ord.id} className="py-2 px-2 flex items-center justify-between text-xs">
+                      <div className="min-w-0 pr-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-white font-bold">{ord.soNumber}</span>
+                          <span className="text-neutral-400 truncate max-w-[200px]">{ord.customerName}</span>
+                        </div>
+                        <div className="text-[10px] text-neutral-500 flex items-center gap-2 mt-0.5">
+                          <span>{ord.shippingAddress?.city}, {ord.shippingAddress?.state} {ord.shippingAddress?.zip}</span>
+                          {ord.salesperson && (
+                            <span className="text-amber-400 font-semibold">• Rep: {ord.salesperson}</span>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-white/5 text-neutral-300 shrink-0">
+                        {ord.packages?.length || 1} pkg
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-white/10 flex items-center justify-between bg-black/40">
+              <button
+                onClick={() => setBatchModalOpen(false)}
+                disabled={batchProcessing}
+                className="td-btn td-btn-sm bg-neutral-800 hover:bg-neutral-700 text-white border-white/10 disabled:opacity-40 cursor-pointer"
+              >
+                {batchProgress.current === batchProgress.total && batchProgress.total > 0 ? "Done & Close" : "Cancel"}
+              </button>
+              <button
+                onClick={runBatchFulfillment}
+                disabled={batchProcessing || selectedOrderIds.size === 0}
+                className="td-btn td-btn-sm bg-orange-500 hover:bg-orange-400 text-black font-black flex items-center gap-2 disabled:opacity-40 cursor-pointer shadow-lg shadow-orange-950/50"
+              >
+                {batchProcessing ? (
+                  <>
+                    <FiRefreshCw className="animate-spin" size={14} />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <FiPrinter size={14} />
+                    Purchase &amp; Print All ({selectedOrderIds.size} Labels)
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Carrier Pickup Scheduling Modal ── */}
+      {pickupModalOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[550] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#0e0f12] border border-purple-500/30 rounded-2xl w-full max-w-lg flex flex-col shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-black/40">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                  <FiCalendar size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Schedule Carrier Pickup</h3>
+                  <p className="text-xs text-neutral-400">Request daily driver dispatch for packaged shipments</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setPickupModalOpen(false)}
+                className="text-neutral-400 hover:text-white cursor-pointer p-1"
+              >
+                <FiX size={18} />
+              </button>
+            </div>
+
+            {/* Form */}
+            <div className="p-6 space-y-4">
+              {pickupResult ? (
+                <div className="bg-emerald-950/40 border border-emerald-500/40 rounded-xl p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+                    <FiCheck size={18} /> Pickup Request Confirmed!
+                  </div>
+                  <p className="text-xs text-neutral-300">
+                    Carrier pickup reference: <span className="font-mono font-bold text-white">{pickupResult.pickup_reference || pickupResult.id || 'CONFIRMED'}</span>
+                  </p>
+                  <p className="text-xs text-neutral-400">
+                    Driver is scheduled for <span className="text-white font-semibold">{pickupDate}</span> during slot <span className="text-white font-semibold">{pickupTimeSlot}</span>.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">Select Carrier</label>
+                    <select
+                      value={pickupCarrier}
+                      onChange={e => setPickupCarrier(e.target.value)}
+                      className="w-full bg-neutral-900 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500"
+                    >
+                      <option value="FedEx">FedEx Express &amp; Ground</option>
+                      <option value="UPS">UPS Parcel</option>
+                      <option value="USPS">USPS Priority / Ground Advantage</option>
+                      <option value="DHL Express">DHL Express Worldwide</option>
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">Pickup Date</label>
+                      <input
+                        type="date"
+                        value={pickupDate}
+                        onChange={e => setPickupDate(e.target.value)}
+                        className="w-full bg-neutral-900 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">Ready Time Window</label>
+                      <select
+                        value={pickupTimeSlot}
+                        onChange={e => setPickupTimeSlot(e.target.value)}
+                        className="w-full bg-neutral-900 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500"
+                      >
+                        <option value="12:00 - 15:00">12:00 PM – 3:00 PM</option>
+                        <option value="14:00 - 17:00">2:00 PM – 5:00 PM (Standard)</option>
+                        <option value="15:00 - 18:00">3:00 PM – 6:00 PM (Late Dispatch)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">Package Location / Driver Instructions</label>
+                    <input
+                      type="text"
+                      value={pickupNotes}
+                      onChange={e => setPickupNotes(e.target.value)}
+                      placeholder="e.g. Front reception dock / Bay door 2"
+                      className="w-full bg-neutral-900 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-white/10 flex items-center justify-between bg-black/40">
+              <button
+                onClick={() => { setPickupModalOpen(false); setPickupResult(null); }}
+                className="td-btn td-btn-sm bg-neutral-800 hover:bg-neutral-700 text-white border-white/10 cursor-pointer"
+              >
+                Close
+              </button>
+              {!pickupResult && (
+                <button
+                  onClick={handleScheduleCarrierPickup}
+                  disabled={schedulingPickup}
+                  className="td-btn td-btn-sm bg-purple-600 hover:bg-purple-500 text-white font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-purple-950/40 disabled:opacity-40"
+                >
+                  {schedulingPickup ? <FiRefreshCw className="animate-spin" size={13} /> : <FiSend size={13} />}
+                  Schedule Pickup
+                </button>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* ── Ship Now Slide-Out ────────────────────────────────────────── */}
       {shipNowOpen && createPortal(
         <div className="fixed inset-0 z-[500] overflow-hidden" onKeyDown={e => e.key === 'Escape' && !shipNowBuying && setShipNowOpen(false)}>
@@ -2192,51 +3083,389 @@ export default function ShippingPage() {
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
               {/* Shipment Result */}
               {shipNowResult && (
-                <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-xl p-4 space-y-3">
-                  <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
-                    <FiCheck /> Label Purchased Successfully!
+                <div className="space-y-4">
+                  {/* Top Confirmation Banner with Prominent Sales Rep */}
+                  <div className="bg-gradient-to-r from-emerald-950/70 via-neutral-900 to-amber-950/40 border border-emerald-500/40 rounded-2xl p-4 sm:p-5 space-y-3 shadow-xl">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
+                          <FiCheck size={20} />
+                        </div>
+                        <div>
+                          <div className="text-white font-bold text-base leading-tight">
+                            Label Purchased &amp; Billed Successfully!
+                          </div>
+                          <div className="text-xs text-emerald-400/90 mt-0.5">
+                            Zoho Books updated with carrier, tracking &amp; shipping charges
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 self-start sm:self-center flex-wrap">
+                        {/* Prominent Sales Rep Badge */}
+                        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 font-bold text-xs shadow-sm">
+                          <FiUser size={13} className="text-amber-400" />
+                          <span>Rep: {shipNowResult.salesperson || 'Unassigned'}</span>
+                        </div>
+                        <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          {shipNowResult.purchasedAt || 'Confirmed'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <div className="text-[10px] text-neutral-500 uppercase font-bold">Carrier</div>
-                      <div className="text-white font-medium">{shipNowResult.courierName}</div>
+
+                  {/* ─── Dedicated Print Status & Action Box (Easyship Status Handled) ─── */}
+                  <div className={`rounded-2xl p-4 border transition-all ${
+                    (shipNowResult.labelState === 'printed' || markedPrinted)
+                      ? 'bg-emerald-950/30 border-emerald-500/30'
+                      : 'bg-amber-950/40 border-amber-500/40 shadow-lg shadow-amber-950/30'
+                  }`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                          (shipNowResult.labelState === 'printed' || markedPrinted)
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            : 'bg-amber-500/20 text-amber-400 border border-amber-500/40 animate-pulse'
+                        }`}>
+                          <FiPrinter size={20} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-white font-bold text-sm">
+                              {(shipNowResult.labelState === 'printed' || markedPrinted)
+                                ? 'Label Dispatched to Printer'
+                                : 'Label Ready — Print Required'}
+                            </span>
+                            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                              (shipNowResult.labelState === 'printed' || markedPrinted)
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                            }`}>
+                              Status: {(shipNowResult.labelState === 'printed' || markedPrinted) ? 'Printed' : 'Not Printed'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-neutral-300 mt-1">
+                            {(shipNowResult.labelState === 'printed' || markedPrinted)
+                              ? '4×6 thermal print job dispatched. Use the reprint action below if you need another copy.'
+                              : 'Label has not been printed yet. Click below to print immediately to your 4×6 thermal printer (Zebra / default).'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                        <button
+                          onClick={() => {
+                            triggerAutoPrintLabel(shipNowResult.labelUrl)
+                            setMarkedPrinted(true)
+                            toast.success('Print dispatched to thermal printer!')
+                          }}
+                          className={`td-btn td-btn-sm font-bold cursor-pointer flex items-center gap-1.5 shadow-md ${
+                            (shipNowResult.labelState === 'printed' || markedPrinted)
+                              ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-white/10'
+                              : 'bg-amber-500 hover:bg-amber-400 text-black border-none shadow-amber-950/40'
+                          }`}
+                        >
+                          <FiPrinter size={14} />
+                          {(shipNowResult.labelState === 'printed' || markedPrinted) ? 'Reprint 4×6 Label' : 'Print 4×6 Label Now'}
+                        </button>
+                      </div>
                     </div>
-                    <div>
-                      <div className="text-[10px] text-neutral-500 uppercase font-bold">Tracking #</div>
-                      <div className="text-white font-medium font-mono">{shipNowResult.trackingNumber}</div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-neutral-500 uppercase font-bold">Cost</div>
-                      <div className="text-white font-medium">${shipNowResult.totalCharge?.toFixed(2)}</div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-neutral-500 uppercase font-bold">Status</div>
-                      <div className="text-emerald-400 font-medium">Shipped ✓ (Zoho Updated)</div>
+                    {/* Mark as printed toggle */}
+                    <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between text-xs text-neutral-400">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={markedPrinted || shipNowResult.labelState === 'printed'}
+                          onChange={e => setMarkedPrinted(e.target.checked)}
+                          className="rounded bg-black/40 border-white/20 text-emerald-500 focus:ring-0 cursor-pointer"
+                        />
+                        <span>Mark shipment as printed in system</span>
+                      </label>
+                      <span className="text-[11px] text-neutral-500 font-mono">Format: 4×6 Thermal Label</span>
                     </div>
                   </div>
-                  <div className="flex gap-2 pt-2">
+
+                  {/* Direct Label Link, Tracking & 1-Click Slack/Email Summary Box */}
+                  <div className="bg-black/30 border border-white/10 rounded-2xl p-4 space-y-3">
+                    <div className="text-xs font-bold text-neutral-300 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-neutral-200">
+                        <FiFileText className="text-orange-400" /> Direct 4×6 Shipping Label URL
+                      </span>
+                      {shipNowResult.easyshipShipmentId && (
+                        <span className="text-[10px] text-neutral-400 font-mono">
+                          EasyShip ID: <span className="text-neutral-200">{shipNowResult.easyshipShipmentId}</span>
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* URL Box with 1-Click Copy */}
                     {shipNowResult.labelUrl && (
-                      <a
-                        href={(() => {
-                          let u = shipNowResult.labelUrl || ''
-                          if (u.includes('easyship.com')) {
-                            u = u.includes('page_size=') ? u.replace(/page_size=[^&]+/, 'page_size=4x6') : u + (u.includes('?') ? '&' : '?') + 'page_size=4x6'
-                          }
-                          return u
-                        })()}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="td-btn td-btn-sm bg-emerald-600 hover:bg-emerald-500 text-white border-none flex items-center gap-1.5"
-                        title="Print 4x6 thermal label (Zebra printer)"
+                      <div className="flex items-center gap-2 bg-black/60 border border-white/10 rounded-xl px-3 py-2">
+                        <a
+                          href={shipNowResult.labelUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 text-xs text-orange-400 hover:text-orange-300 font-mono truncate underline decoration-orange-500/40 hover:decoration-orange-400"
+                          title={shipNowResult.labelUrl}
+                        >
+                          {shipNowResult.labelUrl}
+                        </a>
+                        <button
+                          onClick={() => {
+                            if (navigator?.clipboard) {
+                              navigator.clipboard.writeText(shipNowResult.labelUrl)
+                              setCopiedLabelUrl(true)
+                              toast.success('Label link copied to clipboard!')
+                              setTimeout(() => setCopiedLabelUrl(false), 2500)
+                            }
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white text-xs flex items-center gap-1.5 transition-colors border border-white/10 shrink-0 font-medium cursor-pointer"
+                          title="Copy direct link"
+                        >
+                          {copiedLabelUrl ? <FiCheck size={12} className="text-emerald-400" /> : <FiCopy size={12} />}
+                          <span>{copiedLabelUrl ? 'Copied' : 'Copy'}</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Action buttons including Full Slack/Email Summary */}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {shipNowResult.labelUrl && (
+                        <a
+                          href={shipNowResult.labelUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="td-btn td-btn-sm bg-neutral-800 hover:bg-neutral-700 text-white border border-white/10 flex items-center gap-1.5"
+                        >
+                          <FiExternalLink size={13} /> Open Label (PDF)
+                        </a>
+                      )}
+                      {shipNowResult.trackingPageUrl && (
+                        <a
+                          href={shipNowResult.trackingPageUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="td-btn td-btn-sm bg-neutral-800 hover:bg-neutral-700 text-white border border-white/10 flex items-center gap-1.5"
+                        >
+                          <FiTruck size={13} /> Live Tracking Page
+                        </a>
+                      )}
+                      <button
+                        onClick={() => handleCopyShipmentSummary(shipNowResult)}
+                        className="td-btn td-btn-sm bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 cursor-pointer font-bold ml-auto"
+                        title="Copy full shipment details formatted for team chat or email"
                       >
-                        <FiPrinter size={14} /> Print 4x6 Label
-                      </a>
-                    )}
-                    {shipNowResult.trackingPageUrl && (
-                      <a href={shipNowResult.trackingPageUrl} target="_blank" rel="noopener noreferrer" className="td-btn td-btn-sm bg-neutral-700 hover:bg-neutral-600 text-white border-none">
-                        <FiExternalLink size={14} /> Track Package
-                      </a>
-                    )}
+                        <FiCopy size={13} /> Copy Summary for Slack / Email
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Comprehensive 6-Card Shipment Information Grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                    {/* 1. Carrier & Service */}
+                    <div className="bg-black/20 border border-white/5 rounded-xl p-3 space-y-1">
+                      <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Carrier &amp; Service</div>
+                      <div className="text-white font-bold">{shipNowResult.courierName || 'Carrier'}</div>
+                      <div className="text-xs text-neutral-400">
+                        Total Cost: <span className="text-emerald-400 font-bold">${shipNowResult.totalCharge?.toFixed(2)}</span>
+                      </div>
+                    </div>
+
+                    {/* 2. Tracking Numbers (Master & Child) */}
+                    <div className="bg-black/20 border border-white/5 rounded-xl p-3 space-y-1">
+                      <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Master Tracking #</div>
+                      <div className="text-white font-mono font-bold text-xs truncate select-all">{shipNowResult.trackingNumber}</div>
+                      {Array.isArray(shipNowResult.childTrackingNumbers) && shipNowResult.childTrackingNumbers.length > 0 ? (
+                        <div className="text-[10px] text-orange-400 font-mono">
+                          +{shipNowResult.childTrackingNumbers.length} Child Parcels Linked
+                        </div>
+                      ) : (
+                        <div className="text-[11px] text-neutral-400">Single tracking number</div>
+                      )}
+                    </div>
+
+                    {/* 3. Sales Order & Package */}
+                    <div className="bg-black/20 border border-white/5 rounded-xl p-3 space-y-1">
+                      <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Sales Order &amp; Package</div>
+                      <div className="text-white font-semibold">SO: {shipNowResult.soNumber || shipNowResult.orderNumber}</div>
+                      <div className="text-xs text-neutral-400 font-mono">{shipNowResult.packageNumber}</div>
+                    </div>
+
+                    {/* 4. Sales Rep Attribution */}
+                    <div className="bg-black/20 border border-white/5 rounded-xl p-3 space-y-1">
+                      <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider flex items-center gap-1">
+                        <FiUser size={10} className="text-amber-400" /> Sales Representative
+                      </div>
+                      <div className="text-amber-300 font-bold">{shipNowResult.salesperson || 'Unassigned'}</div>
+                      <div className="text-[11px] text-neutral-400">Account Sales Rep</div>
+                    </div>
+
+                    {/* 5. Transit Window & Parcel Specs */}
+                    <div className="bg-black/20 border border-white/5 rounded-xl p-3 space-y-1">
+                      <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Transit &amp; Parcels</div>
+                      <div className="text-white font-semibold">
+                        {shipNowResult.minDeliveryTime && shipNowResult.maxDeliveryTime
+                          ? `${shipNowResult.minDeliveryTime}–${shipNowResult.maxDeliveryTime} business days`
+                          : 'Standard Delivery'}
+                      </div>
+                      <div className="text-xs text-neutral-400 font-mono">
+                        {shipNowResult.parcelCount || 1} Box • {shipNowResult.weight} lbs • {shipNowResult.dimensions?.length}×{shipNowResult.dimensions?.width}×{shipNowResult.dimensions?.height} in
+                      </div>
+                    </div>
+
+                    {/* 6. Customer Contact Details */}
+                    <div className="bg-black/20 border border-white/5 rounded-xl p-3 space-y-1">
+                      <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Customer Contact</div>
+                      <div className="text-white font-semibold truncate">{shipNowResult.customerName || 'Customer'}</div>
+                      <div className="text-xs text-neutral-400 truncate">
+                        {shipNowResult.customerPhone || shipNowResult.customerEmail || 'Contact on file'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Multi-Parcel Child Tracking List (if applicable) */}
+                  {Array.isArray(shipNowResult.childTrackingNumbers) && shipNowResult.childTrackingNumbers.length > 0 && (
+                    <div className="bg-neutral-900/50 border border-orange-500/20 rounded-xl p-3.5 space-y-2">
+                      <div className="text-[10px] text-orange-400 uppercase font-bold tracking-wider flex items-center gap-1">
+                        <FiLayers size={11} /> Multi-Parcel Master Shipment Tracking Numbers ({shipNowResult.childTrackingNumbers.length + 1} Boxes)
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
+                        <div className="bg-black/40 p-2 rounded-lg border border-white/5 flex items-center justify-between">
+                          <span className="text-neutral-400">Master Box 1:</span>
+                          <span className="text-white font-bold select-all">{shipNowResult.trackingNumber}</span>
+                        </div>
+                        {shipNowResult.childTrackingNumbers.map((trk: string, tIdx: number) => (
+                          <div key={tIdx} className="bg-black/40 p-2 rounded-lg border border-white/5 flex items-center justify-between">
+                            <span className="text-neutral-400">Child Box {tIdx + 2}:</span>
+                            <span className="text-white font-bold select-all">{trk}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Financial & Surcharge Breakdown Card */}
+                  <div className="bg-black/20 border border-white/5 rounded-xl p-3.5 space-y-2">
+                    <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <FiDollarSign size={11} className="text-emerald-400" /> Financial &amp; Fee Breakdown
+                      </span>
+                      <span className="text-emerald-400 font-bold">Billed to Zoho Package</span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                      <div className="bg-black/40 rounded-lg p-2 border border-white/5">
+                        <div className="text-[10px] text-neutral-500 uppercase">Total Shipping</div>
+                        <div className="text-white font-black text-sm mt-0.5">${shipNowResult.totalCharge?.toFixed(2)}</div>
+                      </div>
+                      <div className="bg-black/40 rounded-lg p-2 border border-white/5">
+                        <div className="text-[10px] text-neutral-500 uppercase">Residential Surcharge</div>
+                        <div className={`font-bold text-sm mt-0.5 ${shipNowResult.residentialSurcharge > 0 ? 'text-amber-400' : 'text-neutral-400'}`}>
+                          {shipNowResult.residentialSurcharge > 0 ? `+$${shipNowResult.residentialSurcharge.toFixed(2)}` : '$0.00 (Dock)'}
+                        </div>
+                      </div>
+                      <div className="bg-black/40 rounded-lg p-2 border border-white/5">
+                        <div className="text-[10px] text-neutral-500 uppercase">Fuel Surcharge</div>
+                        <div className="text-neutral-300 font-semibold text-sm mt-0.5">
+                          {shipNowResult.fuelSurcharge > 0 ? `+$${shipNowResult.fuelSurcharge.toFixed(2)}` : 'Included'}
+                        </div>
+                      </div>
+                      <div className="bg-black/40 rounded-lg p-2 border border-white/5">
+                        <div className="text-[10px] text-neutral-500 uppercase">Insurance / Protection</div>
+                        <div className="text-neutral-300 font-semibold text-sm mt-0.5">
+                          {shipNowResult.insuranceFee > 0 ? `+$${shipNowResult.insuranceFee.toFixed(2)}` : 'Carrier Base'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Recipient & Destination Address */}
+                  {shipNowResult.destinationAddress && (
+                    <div className="bg-black/20 border border-white/5 rounded-xl p-3.5 space-y-1">
+                      <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider flex items-center justify-between">
+                        <span className="flex items-center gap-1">
+                          <FiMapPin size={11} className="text-orange-400" /> Destination Address
+                        </span>
+                        {shipNowResult.residentialSurcharge > 0 ? (
+                          <span className="text-[10px] text-amber-300 font-bold bg-amber-950/40 px-2 py-0.5 rounded border border-amber-500/30">
+                            🏠 Residential Delivery Address
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-blue-300 font-bold bg-blue-950/40 px-2 py-0.5 rounded border border-blue-500/30">
+                            🏢 Commercial Facility / Dock
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-white font-bold text-sm">{shipNowResult.customerName || 'Customer'}</div>
+                      <div className="text-xs text-neutral-300">
+                        {shipNowResult.destinationAddress.address && <div>{shipNowResult.destinationAddress.address}</div>}
+                        <div>
+                          {[shipNowResult.destinationAddress.city, shipNowResult.destinationAddress.state, shipNowResult.destinationAddress.zip].filter(Boolean).join(', ')}
+                          {shipNowResult.destinationAddress.country && ` • ${shipNowResult.destinationAddress.country}`}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Package Contents / Items Shipped (with Sales Rep for Every Item) */}
+                  {Array.isArray(shipNowResult.items) && shipNowResult.items.length > 0 && (
+                    <div className="bg-black/20 border border-white/5 rounded-xl p-3.5 space-y-2">
+                      <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider flex items-center justify-between">
+                        <span className="flex items-center gap-1">
+                          <FiPackage size={11} className="text-orange-400" /> Package Contents ({shipNowResult.items.length} {shipNowResult.items.length === 1 ? 'item' : 'items'})
+                        </span>
+                        <span>Item Sales Rep &amp; Quantity</span>
+                      </div>
+                      <div className="space-y-2 divide-y divide-white/5">
+                        {shipNowResult.items.map((it: any, idx: number) => {
+                          const itemRep = it.salesperson || shipNowResult.salesperson || 'Unassigned'
+                          return (
+                            <div key={idx} className="flex items-center justify-between pt-2 text-xs">
+                              <div className="min-w-0 pr-3">
+                                <div className="text-white font-medium truncate">{it.description || it.name || 'Item'}</div>
+                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                  {it.sku && <span className="text-[10px] text-neutral-500 font-mono">SKU: {it.sku}</span>}
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-amber-500/10 border border-amber-500/30 text-[9px] font-bold text-amber-300">
+                                    <FiUser size={9} /> Rep: {itemRep}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="px-2.5 py-1 rounded bg-white/5 border border-white/10 font-bold text-neutral-200 shrink-0 text-xs">
+                                {it.quantity}×
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Bottom Modal Actions */}
+                  <div className="pt-3 flex items-center justify-between border-t border-white/10">
+                    <button
+                      onClick={() => setShipNowOpen(false)}
+                      className="td-btn td-btn-sm bg-neutral-800 hover:bg-neutral-700 text-white border-none px-4 cursor-pointer"
+                    >
+                      Done &amp; Close
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setShipNowOpen(false)
+                          setPickupModalOpen(true)
+                        }}
+                        className="td-btn td-btn-sm bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 border border-purple-500/40 flex items-center gap-1.5 font-bold cursor-pointer"
+                      >
+                        <FiCalendar size={13} /> Schedule Pickup
+                      </button>
+                      <button
+                        onClick={() => {
+                          triggerAutoPrintLabel(shipNowResult.labelUrl)
+                          setMarkedPrinted(true)
+                          toast.success('Reprint sent to 4×6 printer!')
+                        }}
+                        className="td-btn td-btn-sm bg-emerald-600 hover:bg-emerald-500 text-white border-none flex items-center gap-1.5 font-bold cursor-pointer"
+                      >
+                        <FiPrinter size={14} /> Reprint Label
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -2247,19 +3476,19 @@ export default function ShippingPage() {
                   <div className="grid grid-cols-4 gap-3">
                     <div>
                       <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block mb-1">Weight (lbs)</label>
-                      <input type="number" value={shipNowWeight} onChange={e => setShipNowWeight(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-orange-500/50 outline-none" />
+                      <input type="number" value={shipNowWeight} onChange={e => { setShipNowWeight(e.target.value); setShipNowBoxPreset(''); }} className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-orange-500/50 outline-none" />
                     </div>
                     <div>
                       <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block mb-1">L (in)</label>
-                      <input type="number" value={shipNowDims.length} onChange={e => setShipNowDims(d => ({...d, length: e.target.value}))} className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-orange-500/50 outline-none" />
+                      <input type="number" value={shipNowDims.length} onChange={e => { setShipNowDims(d => ({...d, length: e.target.value})); setShipNowBoxPreset(''); }} className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-orange-500/50 outline-none" />
                     </div>
                     <div>
                       <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block mb-1">W (in)</label>
-                      <input type="number" value={shipNowDims.width} onChange={e => setShipNowDims(d => ({...d, width: e.target.value}))} className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-orange-500/50 outline-none" />
+                      <input type="number" value={shipNowDims.width} onChange={e => { setShipNowDims(d => ({...d, width: e.target.value})); setShipNowBoxPreset(''); }} className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-orange-500/50 outline-none" />
                     </div>
                     <div>
                       <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block mb-1">H (in)</label>
-                      <input type="number" value={shipNowDims.height} onChange={e => setShipNowDims(d => ({...d, height: e.target.value}))} className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-orange-500/50 outline-none" />
+                      <input type="number" value={shipNowDims.height} onChange={e => { setShipNowDims(d => ({...d, height: e.target.value})); setShipNowBoxPreset(''); }} className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-orange-500/50 outline-none" />
                     </div>
                   </div>
 
@@ -2284,12 +3513,15 @@ export default function ShippingPage() {
                           <div key={preset.label + pIdx} className="relative group">
                             <button
                               onClick={() => {
-                                setShipNowDims({ length: preset.l, width: preset.w, height: preset.h })
+                                const newDims = { length: preset.l, width: preset.w, height: preset.h }
+                                setShipNowDims(newDims)
                                 setShipNowWeight(preset.wt)
+                                setShipNowBoxPreset(preset.label)
+                                fetchShipNowRates(shipNowOrder, preset.wt, newDims, shipNowPkg, true, preset.label)
                               }}
-                              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
                                 isActive
-                                  ? 'bg-orange-600 text-white border border-orange-500'
+                                  ? 'bg-orange-600 text-white border border-orange-500 shadow-sm'
                                   : 'bg-black/30 text-neutral-400 border border-white/10 hover:border-orange-500/30 hover:text-white'
                               }`}
                             >
@@ -2348,7 +3580,19 @@ export default function ShippingPage() {
                     const pkgItems = financialZohoLineItems(shipNowPkg.items?.lineItems || shipNowPkg.items?.line_items || (Array.isArray(shipNowPkg.items) ? shipNowPkg.items : []))
                     return pkgItems.length > 0 ? (
                       <div className="bg-black/20 rounded-xl p-3">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">Items Being Shipped</div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Items Being Shipped</div>
+                          {(pkgItems.length > 1 || parseFloat(shipNowWeight) >= 38) && (
+                            <button
+                              onClick={handleSplitPackage}
+                              disabled={splittingPackage}
+                              className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 cursor-pointer transition-colors"
+                              title="Split this package into 2 packages in Zoho &amp; system to get cheaper rates"
+                            >
+                              <FiScissors size={11} /> {splittingPackage ? 'Splitting...' : 'Split Package'}
+                            </button>
+                          )}
+                        </div>
                         <div className="space-y-1">
                           {pkgItems.map((item: any, idx: number) => (
                             <div key={idx} className="flex items-center gap-2 text-xs">
@@ -2363,46 +3607,150 @@ export default function ShippingPage() {
                     ) : null
                   })()}
 
-                  {/* Also show order-level line items if no package items */}
-                  {(!shipNowPkg?.items || !(shipNowPkg.items?.lineItems || shipNowPkg.items?.line_items || []).length) && shipNowOrder?.lineItems?.length > 0 && (
-                    <div className="bg-black/20 rounded-xl p-3">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">Order Items</div>
-                      <div className="space-y-1">
-                        {shipNowOrder.lineItems.map((item: any, idx: number) => (
-                          <div key={idx} className="flex items-center gap-2 text-xs">
-                            <span className="text-neutral-600">•</span>
-                            <span className="text-orange-400 font-semibold">{item.quantity || 1}x</span>
-                            <span className="text-neutral-300 truncate">{item.name || 'Item'}</span>
-                            {item.sku && <span className="text-neutral-600 text-[10px] font-mono ml-auto shrink-0">{item.sku}</span>}
-                          </div>
-                        ))}
+                  {/* Fallback only if no package items and single package order */}
+                  {(!shipNowPkg?.items || !(shipNowPkg.items?.lineItems || shipNowPkg.items?.line_items || []).length) && (
+                    shipNowOrder?.packages?.length === 1 && shipNowOrder?.lineItems?.length > 0 ? (
+                      <div className="bg-black/20 rounded-xl p-3">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Order Items (Single Package)</div>
+                          {(shipNowOrder.lineItems.length > 1 || parseFloat(shipNowWeight) >= 38) && (
+                            <button
+                              onClick={handleSplitPackage}
+                              disabled={splittingPackage}
+                              className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 cursor-pointer transition-colors"
+                              title="Split this package into 2 packages to get cheaper rates"
+                            >
+                              <FiScissors size={11} /> {splittingPackage ? 'Splitting...' : 'Split Package'}
+                            </button>
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          {shipNowOrder.lineItems.map((item: any, idx: number) => (
+                            <div key={idx} className="flex items-center gap-2 text-xs">
+                              <span className="text-neutral-600">•</span>
+                              <span className="text-orange-400 font-semibold">{item.quantity || 1}x</span>
+                              <span className="text-neutral-300 truncate">{item.name || 'Item'}</span>
+                              {item.sku && <span className="text-neutral-600 text-[10px] font-mono ml-auto shrink-0">{item.sku}</span>}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="bg-black/20 rounded-xl p-3">
+                        <p className="text-xs text-neutral-500 italic">Package contents pending sync from Zoho Books</p>
+                      </div>
+                    )
                   )}
 
                   {/* Destination Preview */}
-                  <div className="bg-black/20 rounded-xl p-3 flex items-start gap-3">
+                  <div className="bg-black/20 rounded-xl p-3.5 flex items-start gap-3">
                     <FiMapPin className="text-orange-400 shrink-0 mt-0.5" />
-                    <div className="text-sm">
-                      <div className="text-white font-medium">{shipNowOrder?.customerName}</div>
-                      <div className="text-neutral-400 text-xs">
+                    <div className="text-sm flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-white font-medium truncate">{shipNowOrder?.customerName}</div>
+                        {shipNowOrder?.salesperson && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500/15 border border-amber-500/30 text-amber-300 shrink-0">
+                            <FiUser size={10} /> {shipNowOrder.salesperson}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-neutral-400 text-xs mt-0.5">
                         {shipNowOrder?.shippingAddress?.address || shipNowOrder?.shippingAddress?.street || 'Address on file'}, {shipNowOrder?.shippingAddress?.city}, {shipNowOrder?.shippingAddress?.state} {shipNowOrder?.shippingAddress?.zip || shipNowOrder?.shippingAddress?.postal_code}
+                      </div>
+
+                      {/* Address Analysis & Surcharge Indicator */}
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        {shipNowRates.some((r: any) => r.residentialSurcharge > 0) ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950/50 border border-amber-500/30 text-amber-300 flex items-center gap-1">
+                            🏠 Residential Address (Surcharge Included)
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-950/50 border border-blue-500/30 text-blue-300 flex items-center gap-1">
+                            🏢 Commercial Delivery Dock
+                          </span>
+                        )}
+                        {addressAnalysis?.isRemoteArea && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-950/50 border border-purple-500/30 text-purple-300 flex items-center gap-1">
+                            ⚠️ Extended Area Surcharge (+${addressAnalysis.remoteAreaSurcharge})
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
 
+                  {/* ─── Package Splitting Optimizer Card (Over 40 lbs / Multi-item) ─── */}
+                  {splitRecommendation && (
+                    <div className={`p-4 rounded-2xl border transition-all ${
+                      splitRecommendation.isCheaper
+                        ? 'bg-emerald-950/40 border-emerald-500/40 shadow-lg shadow-emerald-950/20'
+                        : 'bg-orange-950/30 border-orange-500/30'
+                    }`}>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] uppercase font-black px-2 py-0.5 rounded-full ${
+                              splitRecommendation.isCheaper
+                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                            }`}>
+                              {splitRecommendation.isCheaper ? '💰 Rate Optimizer Recommendation' : '📦 Multi-Package Option'}
+                            </span>
+                            {splitRecommendation.isCheaper && (
+                              <span className="text-emerald-400 text-xs font-bold">
+                                Save ${splitRecommendation.savings?.toFixed(2)} by splitting!
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-neutral-200 font-medium">
+                            {splitRecommendation.summary}
+                          </p>
+                          <div className="grid grid-cols-2 gap-2 pt-2 text-xs">
+                            <div className="bg-black/40 rounded-xl p-2.5 border border-white/5">
+                              <div className="text-[10px] text-neutral-500 font-bold uppercase">1 Single Heavy Box ({shipNowWeight} lbs)</div>
+                              <div className="text-white font-bold text-sm mt-0.5">${splitRecommendation.singlePrice?.toFixed(2)}</div>
+                              <div className="text-[10px] text-neutral-400">Higher carrier weight tier</div>
+                            </div>
+                            <div className="bg-emerald-500/10 rounded-xl p-2.5 border border-emerald-500/20">
+                              <div className="text-[10px] text-emerald-400 font-bold uppercase">2 Split Boxes ({splitRecommendation.box1?.weight} lbs each)</div>
+                              <div className="text-emerald-300 font-bold text-sm mt-0.5">${splitRecommendation.splitPrice?.toFixed(2)} total</div>
+                              <div className="text-[10px] text-emerald-400/80">via {splitRecommendation.carrierName}</div>
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleSplitPackage}
+                          disabled={splittingPackage}
+                          className="td-btn td-btn-sm bg-emerald-600 hover:bg-emerald-500 text-white font-bold shrink-0 self-start sm:self-center shadow-md shadow-emerald-950/40 cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                        >
+                          {splittingPackage ? <FiRefreshCw className="animate-spin" size={13} /> : <FiScissors size={13} />}
+                          Split into 2 Packages
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Rate Selection */}
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-bold text-white">Select Carrier</h3>
+                    <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-bold text-white">Select Carrier</h3>
+                        {shipNowBoxPreset && (
+                          <span className="text-[10px] text-orange-400 font-semibold bg-orange-500/10 px-2 py-0.5 rounded-full border border-orange-500/20">
+                            {shipNowBoxPreset} ({shipNowDims.length}"×{shipNowDims.width}"×{shipNowDims.height}", {shipNowWeight} lbs)
+                          </span>
+                        )}
+                      </div>
                       <button
                         onClick={() => {
                           setShipNowRates([])
-                          fetchShipNowRates(shipNowOrder, shipNowWeight, shipNowDims)
+                          fetchShipNowRates(shipNowOrder, shipNowWeight, shipNowDims, shipNowPkg, true)
                         }}
-                        className="td-btn td-btn-sm bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border-white/10 text-[10px]"
+                        disabled={shipNowLoading}
+                        className="td-btn td-btn-sm bg-orange-600 hover:bg-orange-500 text-white font-bold border-none text-[11px] flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50 transition-all active:scale-95"
+                        title="Save box dimensions and weight to this package, then recalculate live carrier rates"
                       >
-                        <FiRefreshCw size={10} /> Refresh Rates
+                        <FiRefreshCw className={shipNowLoading ? "animate-spin" : ""} size={11} /> 
+                        Save Box &amp; Refresh Rates
                       </button>
                     </div>
                     {shipNowLoading && (
@@ -2420,10 +3768,15 @@ export default function ShippingPage() {
                             {rate.logoUrl && <img src={rate.logoUrl} alt="" className="w-6 h-6 rounded" />}
                             <div>
                               <div className="text-sm font-medium text-white">{rate.courierName}</div>
-                              <div className="text-[10px] text-neutral-500">
-                                {rate.minDeliveryTime && rate.maxDeliveryTime
-                                  ? `${rate.minDeliveryTime}-${rate.maxDeliveryTime} days`
-                                  : 'Transit time varies'}
+                              <div className="text-[10px] text-neutral-500 flex items-center gap-2">
+                                <span>
+                                  {rate.minDeliveryTime && rate.maxDeliveryTime
+                                    ? `${rate.minDeliveryTime}-${rate.maxDeliveryTime} days`
+                                    : 'Transit time varies'}
+                                </span>
+                                {rate.residentialSurcharge > 0 && (
+                                  <span className="text-amber-400 font-semibold">• Resi: +${rate.residentialSurcharge.toFixed(2)}</span>
+                                )}
                               </div>
                             </div>
                           </div>

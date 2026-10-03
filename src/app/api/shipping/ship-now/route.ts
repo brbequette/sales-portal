@@ -23,6 +23,7 @@ export async function POST(req: Request) {
       weight,
       dimensions,       // { length, width, height }
       items,            // [{ description, quantity, declaredValue, weight }]
+      parcels,          // optional multi-parcel array [{ weight, dimensions, items }]
       soNumber,         // SO number for reference
       packageNumber,    // Package number (e.g. PKG-25323) — EasyShip indexes by this
       selectedRateCost, // Cost from the rate the user selected (fallback)
@@ -36,7 +37,7 @@ export async function POST(req: Request) {
     // Let createShipmentAndBuyLabel search for a reusable shipment or create a new one.
     const existingEasyshipId: string | undefined = undefined
 
-    console.log(`[ship-now] Starting for pkg ${packageId}, weight: ${weight}, dims: ${JSON.stringify(dimensions)}, courier: ${courierServiceId}`)
+    console.log(`[ship-now] Starting for pkg ${packageId}, weight: ${weight}, dims: ${JSON.stringify(dimensions)}, courier: ${courierServiceId}, parcels: ${parcels?.length || 1}`)
 
     // 1. Create shipment + buy label via Easyship (reuses existing if available)
     const result = await createShipmentAndBuyLabel({
@@ -60,6 +61,7 @@ export async function POST(req: Request) {
       weight: parseFloat(weight),
       dimensions: dimensions,
       items: items || [{ description: 'Order item', quantity: 1, declaredValue: 100, weight: parseFloat(weight) }],
+      parcels: parcels && parcels.length > 0 ? parcels : undefined,
       // EasyShip indexes by package number (PKG-25323), not SO number
       platformOrderNumber: packageNumber || soNumber,
       existingEasyshipId,
@@ -82,9 +84,22 @@ export async function POST(req: Request) {
             shippingCharge: finalCost,
             items: {
               ...(await prisma.package.findUnique({ where: { id: packageId } }).then(p => (p?.items as any) || {})),
+              dimensions: dimensions,
+              weight: parseFloat(weight),
+              ...(body.boxPreset ? { boxPreset: body.boxPreset } : {}),
               easyshipShipmentId: result.easyshipShipmentId,
               labelUrl: result.labelUrl,
               trackingPageUrl: result.trackingPageUrl,
+              labelState: result.labelState,
+              shippingDocuments: result.shippingDocuments,
+              minDeliveryTime: result.minDeliveryTime,
+              maxDeliveryTime: result.maxDeliveryTime,
+              childTrackingNumbers: result.childTrackingNumbers,
+              parcelCount: result.parcelCount || 1,
+              fuelSurcharge: result.fuelSurcharge || 0,
+              residentialSurcharge: result.residentialSurcharge || 0,
+              insuranceFee: result.insuranceFee || 0,
+              discountAmount: result.discountAmount || 0,
               shippedAt: new Date().toISOString(),
               easyshipCost: finalCost,
               easyshipCurrency: result.currency || 'USD',
@@ -102,14 +117,30 @@ export async function POST(req: Request) {
     }
 
     // 3. Push tracking info to Zoho Books package
-    if (packageZohoId && salesOrderZohoId) {
+    let targetPkgZohoId = packageZohoId
+    let targetSoZohoId = salesOrderZohoId
+    if ((!targetPkgZohoId || !targetSoZohoId) && packageId) {
+      try {
+        const dbPkg = await prisma.package.findUnique({
+          where: { id: packageId },
+        })
+        if (dbPkg) {
+          if (!targetPkgZohoId) targetPkgZohoId = dbPkg.zohoId
+          if (!targetSoZohoId) targetSoZohoId = dbPkg.salesOrderId || undefined
+        }
+      } catch (lookupErr: any) {
+        console.warn('[ship-now] DB package lookup for Zoho IDs fallback failed:', lookupErr?.message)
+      }
+    }
+
+    if (targetPkgZohoId && targetSoZohoId) {
       try {
         const token = await getZohoAccessToken()
         const ZOHO_DC = process.env.ZOHO_DC || 'com'
         const orgId = ZOHO_ORGANIZATION_ID
 
         // Update the package in Zoho Books with delivery method and tracking
-        const zohoUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3/packages/${packageZohoId}?organization_id=${orgId}`
+        const zohoUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3/packages/${targetPkgZohoId}?organization_id=${orgId}`
         const zohoRes = await fetch(zohoUrl, { signal: AbortSignal.timeout(15000),
           method: 'PUT',
           headers: {
@@ -138,8 +169,8 @@ export async function POST(req: Request) {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              salesorder_id: salesOrderZohoId,
-              package_ids: [packageZohoId],
+              salesorder_id: targetSoZohoId,
+              package_ids: [targetPkgZohoId],
               delivery_method: result.courierName,
               tracking_number: result.trackingNumber,
               shipping_date: new Date().toISOString().split('T')[0],

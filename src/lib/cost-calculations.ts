@@ -330,16 +330,18 @@ export async function calculateDocumentCosts(
     manualCommPct?: number | null
     noVigOverrides?: Record<string, boolean>
     defaults?: BusinessDefaults
+    products?: any[]
+    settings?: AppSettings
   } = {}
 ): Promise<CostCalculationResult> {
-  const { manualVigRate, manualCommPct, noVigOverrides, defaults } = options
+  const { manualVigRate, manualCommPct, noVigOverrides, defaults, products, settings: prefetchedSettings } = options
   
   const bDefaults = defaults || await getBusinessDefaults()
   
-  const settings = await getSystemSettings()
+  const settings = prefetchedSettings || await getSystemSettings()
 
   // Pre-fetch DB products for accurate catalog VIG lookup
-  const dbProducts = await prisma.product.findMany().catch(() => [])
+  const dbProducts = products || await prisma.product.findMany().catch(() => [])
   const skuMap = new Map<string, any>()
   const nameMap = new Map<string, any>()
   dbProducts.forEach(p => {
@@ -356,15 +358,19 @@ export async function calculateDocumentCosts(
 
     const qty          = parseFloat(item.quantity || 1)
     const rate         = parseFloat(item.rate || 0)
-    const cost         = parseFloat(item.purchase_rate || item.pricebook_rate || 0)
-    const discountAmount = parseFloat(item.discount_amount || 0)
-    const itemTotal    = item.item_total !== undefined ? parseFloat(item.item_total) : ((qty * rate) - discountAmount)
-    const itemDeadCost = qty * cost
-
     const itemSku = (item.sku || item.code || "").toLowerCase().trim()
     const itemName = (item.name || "").toLowerCase().trim()
 
     const catalogProd = skuMap.get(itemSku) || nameMap.get(itemName)
+
+    let cost = parseFloat(item.purchase_rate || item.pricebook_rate || 0)
+    if ((!cost || cost === 0) && catalogProd && typeof catalogProd.unitCost === 'number' && catalogProd.unitCost > 0) {
+      cost = parseFloat(catalogProd.unitCost)
+    }
+
+    const discountAmount = parseFloat(item.discount_amount || 0)
+    const itemTotal    = item.item_total !== undefined ? parseFloat(item.item_total) : ((qty * rate) - discountAmount)
+    const itemDeadCost = qty * cost
 
     let gift = isGiftItem(item, bDefaults)
     let noVig = isNoVigItem(item, noVigOverrides, bDefaults)
