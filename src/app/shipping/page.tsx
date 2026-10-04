@@ -5,6 +5,7 @@ import { createPortal } from "react-dom"
 import { FiTruck, FiBox, FiPackage, FiCheck, FiSearch, FiMapPin, FiExternalLink, FiChevronDown, FiChevronUp, FiRefreshCw, FiDownloadCloud, FiDollarSign, FiX, FiEdit2, FiPlus, FiTrash2, FiPrinter, FiShield, FiXCircle, FiFileText, FiLink, FiCopy, FiScissors, FiAlertTriangle, FiUser, FiCalendar, FiClock, FiCheckSquare, FiSquare, FiSend, FiInfo, FiLayers } from "react-icons/fi"
 import { CreatePackageModal } from "@/components/CreatePackageModal"
 import { CreateDropshipmentModal } from "@/components/CreateDropshipmentModal"
+import { BatchDropshipModal } from "@/components/BatchDropshipModal"
 import { toast } from 'react-hot-toast';
 import { PeriodSelector, isInPeriod, type PeriodValue } from "@/components/PeriodSelector"
 import { financialZohoLineItems } from "@/lib/zoho-line-items"
@@ -129,11 +130,13 @@ export default function ShippingPage() {
   const [trackingModal, setTrackingModal] = useState<{ packageId: string; carrier: string; tracking: string } | null>(null)
   const [trackingSubmitting, setTrackingSubmitting] = useState(false)
 
-  // Package creation state
+  // Package & Dropship creation state
   const [packageModal, setPackageModal] = useState<{ salesOrderId: string; lineItems: any[] } | null>(null)
   const [dropshipModal, setDropshipModal] = useState<{ salesOrderId: string; lineItems: any[] } | null>(null)
+  const [batchDropshipModalOpen, setBatchDropshipModalOpen] = useState(false)
   const [fetchingLineItems, setFetchingLineItems] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
+  const [syncingTracking, setSyncingTracking] = useState(false)
   const [syncResult, setSyncResult] = useState<string | null>(null)
   const [fetchingLabelPkgId, setFetchingLabelPkgId] = useState<string | null>(null)
 
@@ -466,6 +469,34 @@ export default function ShippingPage() {
     } catch (e: any) {
       setSyncResult(`❌ ${e.message}`)
       setSyncing(false)
+    }
+  }
+
+  // Carrier tracking sync handler
+  const handleSyncTracking = async () => {
+    setSyncingTracking(true)
+    try {
+      toast.loading("Checking live carrier tracking...", { id: "sync-tracking" })
+      const res = await fetch("/api/shipping/sync-tracking", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ maxPackages: 30 })
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success(
+          `Carrier sync complete: ${data.syncedCount} inspected, ${data.updatedCount} updated, ${data.deliveredCount} delivered!`,
+          { id: "sync-tracking", duration: 5000 }
+        )
+        fetchOrders()
+        fetchCounts()
+      } else {
+        toast.error(`Carrier sync failed: ${data.error || "Unknown error"}`, { id: "sync-tracking" })
+      }
+    } catch (err: any) {
+      toast.error(`Carrier sync error: ${err.message}`, { id: "sync-tracking" })
+    } finally {
+      setSyncingTracking(false)
     }
   }
 
@@ -1342,6 +1373,15 @@ export default function ShippingPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleSyncTracking}
+            disabled={syncingTracking}
+            className="td-btn td-btn-ghost td-btn-sm disabled:opacity-50 text-cyan-400 border-cyan-800/40 hover:bg-cyan-950/30"
+            title="Checks live carrier tracking and updates delivery status for active shipments"
+          >
+            <FiTruck size={13} className={syncingTracking ? "animate-spin" : ""} />
+            {syncingTracking ? "Syncing Tracking…" : "Sync Tracking"}
+          </button>
           <button
             onClick={handleSyncPackages}
             disabled={syncing}
@@ -2757,6 +2797,19 @@ export default function ShippingPage() {
         />
       )}
 
+      {/* Batch Dropship Modal */}
+      {batchDropshipModalOpen && (
+        <BatchDropshipModal
+          salesOrderIds={Array.from(selectedOrderIds)}
+          onClose={() => setBatchDropshipModalOpen(false)}
+          onSuccess={() => {
+            setSelectedOrderIds(new Set())
+            fetchOrders()
+            fetchCounts()
+          }}
+        />
+      )}
+
       {/* ── Floating Batch Action Bar ── */}
       {selectedOrderIds.size > 0 && typeof document !== 'undefined' && createPortal(
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[400] bg-neutral-950/95 border border-orange-500/50 rounded-2xl px-5 py-3 shadow-2xl backdrop-blur-xl flex items-center gap-4 animate-in slide-in-from-bottom duration-200">
@@ -2770,6 +2823,14 @@ export default function ShippingPage() {
           </div>
           <div className="h-5 w-[1px] bg-white/10 hidden sm:block" />
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setBatchDropshipModalOpen(true)}
+              className="td-btn td-btn-sm bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black flex items-center gap-1.5 shadow-lg shadow-cyan-950/50 cursor-pointer"
+              title="Batch generate and dispatch dropship POs for selected orders"
+            >
+              <FiTruck size={14} />
+              Batch Dropship POs
+            </button>
             <button
               onClick={() => setBatchModalOpen(true)}
               className="td-btn td-btn-sm bg-orange-500 hover:bg-orange-400 text-black font-black flex items-center gap-1.5 shadow-lg shadow-orange-950/50 cursor-pointer"
