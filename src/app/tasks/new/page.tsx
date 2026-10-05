@@ -52,8 +52,10 @@ export default function NewTaskPage() {
       setTaskWhatId(accountId)
     }
     if (accountName) {
-      setPreselectedAccountName(decodeURIComponent(accountName))
+      setPreselectedAccountName(accountName)
     }
+    setTaskSubject(searchParams.get('subject') || '')
+    setTaskDescription(searchParams.get('description') || '')
   }, [searchParams])
 
   useEffect(() => {
