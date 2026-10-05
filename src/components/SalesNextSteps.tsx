@@ -21,7 +21,7 @@ export function SalesNextSteps({ account: supplied, accountId, active = true }: 
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
   }, [supplied, accountId, active, revision])
-  const account = supplied || (loaded?.requestedId === accountId ? loaded.account : null)
+  const account = supplied || (loaded && loaded.requestedId === accountId ? loaded.account : null)
   const ask = (prompt: string) => window.dispatchEvent(new CustomEvent('openTitanAi', { detail: { prompt } }))
   if (!supplied && !accountId) return <p className="p-4 text-sm text-neutral-400">Open an account, or choose a messaging account, to see its sales next steps.</p>
   if (loading) return <p role="status" className="p-4 text-sm">Reviewing account workflow…</p>
