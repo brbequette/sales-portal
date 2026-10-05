@@ -13,6 +13,7 @@ const metricBox = { length: 38.1, width: 30.48, height: 10.16 }
 const params: CreateShipmentParams = {
   destinationAddress: { postal_code: '85001', country_alpha2: 'US' },
   destinationContactName: 'Test Recipient',
+  destinationContactPhone: '+16025550101',
   courierServiceId: 'test-courier',
   weight: 10,
   dimensions,
@@ -166,4 +167,22 @@ it('stops before payment when the saved price changed', async () => {
   } }))
   await expect(createShipmentAndBuyLabel({ ...params, existingEasyshipId: 'ES-test', expectedCharge: 5.93 })).rejects.toThrow('differs from the selected price')
   expect(fetchMock).toHaveBeenCalledTimes(2)
+})
+
+
+describe('recipient phone readiness', () => {
+  it('stops a new shipment with a missing phone before any provider mutation', async () => {
+    await expect(createShipmentAndBuyLabel({ ...params, destinationContactPhone: '   ' })).rejects.toThrow('recipient phone')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+  it('preserves a phone supplied inside the destination address', async () => {
+    fetchMock.mockResolvedValueOnce(readyShipment('ES-phone')).mockResolvedValueOnce(labelResponse())
+    await createShipmentAndBuyLabel({ ...params, destinationContactPhone: '', destinationAddress: { ...params.destinationAddress, contact_phone: ' +16025550102 ' } })
+    expect(bodyAt(0).destination_address.contact_phone).toBe('+16025550102')
+  })
+  it('keeps the existing recipient phone when local fields are blank', async () => {
+    fetchMock.mockResolvedValueOnce(response({ shipment: { easyship_shipment_id: 'ES-phone', label_state: 'not_created', destination_address: { contact_phone: '+16025550103' } } })).mockResolvedValueOnce(readyShipment('ES-phone')).mockResolvedValueOnce(labelResponse())
+    await createShipmentAndBuyLabel({ ...params, destinationContactPhone: ' ', existingEasyshipId: 'ES-phone' })
+    expect(bodyAt(1).destination_address.contact_phone).toBe('+16025550103')
+  })
 })

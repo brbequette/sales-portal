@@ -9,6 +9,7 @@ import { BatchDropshipModal } from "@/components/BatchDropshipModal"
 import { toast } from 'react-hot-toast';
 import { PeriodSelector, isInPeriod, type PeriodValue } from "@/components/PeriodSelector"
 import { financialZohoLineItems } from "@/lib/zoho-line-items"
+import { recipientPhone, RECIPIENT_PHONE_REQUIRED } from "@/lib/shipping-recipient"
 import { getZohoBooksUrl } from "@/lib/zoho-urls"
 
 type ShipStatus = "all" | "needs_packaging" | "packaged" | "shipped" | "delivered" | "dropship"
@@ -649,6 +650,7 @@ export default function ShippingPage() {
   const [shipNowLoading, setShipNowLoading] = useState(false)
   const [shipNowBuying, setShipNowBuying] = useState(false)
   const [shipNowResult, setShipNowResult] = useState<any>(null)
+  const [shipNowPhone, setShipNowPhone] = useState('')
   const [shipNowWeight, setShipNowWeight] = useState('5')
   const [shipNowDims, setShipNowDims] = useState({ length: '15', width: '15', height: '4' })
   const [shipNowBoxPreset, setShipNowBoxPreset] = useState<string>('')
@@ -913,6 +915,7 @@ export default function ShippingPage() {
   const openShipNow = async (pkg: any, order: any) => {
     setShipNowPkg(pkg)
     setShipNowOrder(order)
+    setShipNowPhone(recipientPhone(order.shippingAddress?.phone, order.shippingAddress?.contact_phone, order.customerPhone))
     setShipNowResult(null)
     setSplitRecommendation(null)
     setAddressAnalysis(null)
@@ -1005,6 +1008,7 @@ export default function ShippingPage() {
 
   const handleBuyLabel = async (rate: any) => {
     if (!shipNowPkg || !shipNowOrder) return
+    if (!shipNowPhone.trim()) { toast.error(RECIPIENT_PHONE_REQUIRED); return }
     setShipNowBuying(true)
     const parsedWeight = parseFloat(shipNowWeight);
     const parsedLength = parseFloat(shipNowDims.length);
@@ -1069,7 +1073,7 @@ export default function ShippingPage() {
           items: packedItems,
           soNumber: shipNowOrder.soNumber,
           packageNumber: shipNowPkg.packageNumber || '',
-          destinationContactPhone: shipNowOrder?.shippingAddress?.phone || '',
+          destinationContactPhone: shipNowPhone.trim(),
         })
       })
       const data = await res.json()
@@ -1088,7 +1092,7 @@ export default function ShippingPage() {
           soNumber: shipNowOrder.soNumber,
           packageNumber: shipNowPkg.packageNumber || 'Package',
           customerName: shipNowOrder.customerName || 'Customer',
-          customerPhone: shipNowOrder.shippingAddress?.phone || shipNowOrder.account?.phone || '',
+          customerPhone: shipNowPhone.trim(),
           customerEmail: shipNowOrder.account?.email || shipNowOrder.customerEmail || '',
           salesperson: shipNowOrder.salesperson || 'Unassigned',
           orderAmount: shipNowOrder.amount || 0,
@@ -3719,6 +3723,10 @@ export default function ShippingPage() {
                         {shipNowOrder?.shippingAddress?.address || shipNowOrder?.shippingAddress?.street || 'Address on file'}, {shipNowOrder?.shippingAddress?.city}, {shipNowOrder?.shippingAddress?.state} {shipNowOrder?.shippingAddress?.zip || shipNowOrder?.shippingAddress?.postal_code}
                       </div>
 
+                      <label htmlFor="ship-now-recipient-phone" className="block text-xs text-neutral-300 mt-3">Recipient phone (required)</label>
+                      <input id="ship-now-recipient-phone" type="tel" autoComplete="tel" value={shipNowPhone} onChange={e => setShipNowPhone(e.target.value)} disabled={shipNowBuying} aria-required="true" aria-describedby="ship-now-phone-help" className="mt-1 w-full min-w-0 bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-orange-500/50 outline-none" />
+                      <p id="ship-now-phone-help" className="text-xs text-neutral-400 mt-1">{shipNowPhone.trim() ? 'Confirm the delivery contact number before purchasing.' : 'Add a recipient phone number to enable Buy Label.'}</p>
+
                       {/* Address Analysis & Surcharge Indicator */}
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
                         {shipNowRates.some((r: any) => r.residentialSurcharge > 0) ? (
@@ -3847,7 +3855,7 @@ export default function ShippingPage() {
                             </div>
                             <button
                               onClick={() => handleBuyLabel(rate)}
-                              disabled={shipNowBuying}
+                              disabled={shipNowBuying || !shipNowPhone.trim()}
                               className="td-btn td-btn-sm bg-orange-600 hover:bg-orange-500 text-white border-none disabled:opacity-50"
                             >
                               {shipNowBuying ? <FiRefreshCw className="animate-spin" size={12} /> : <FiTruck size={12} />}

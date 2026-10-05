@@ -1,3 +1,4 @@
+import { recipientPhone, ShippingRecipientError } from "./shipping-recipient";
 import { prisma } from '@/lib/prisma';
 import { COMPANY_CONFIG } from '@/lib/company-config';
 
@@ -533,9 +534,10 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
     ...params.destinationAddress,
     country_alpha2: normalizeCountryCode(params.destinationAddress.country_alpha2),
     contact_name: params.destinationContactName || shipment.destination_address?.contact_name || 'Customer',
-    contact_phone: params.destinationContactPhone || shipment.destination_address?.contact_phone || '',
+    contact_phone: recipientPhone(params.destinationContactPhone, params.destinationAddress.contact_phone, shipment.destination_address?.contact_phone),
     contact_email: params.destinationContactEmail || shipment.destination_address?.contact_email || COMPANY_CONFIG.email,
   };
+  if (!destination.contact_phone) throw new ShippingRecipientError();
   const courierSettings = { courier_service_id: params.courierServiceId, allow_fallback: false, apply_shipping_rules: false };
 
   // Step 1: Create shipment ONLY if we don't already have one

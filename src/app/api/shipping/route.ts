@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { recipientPhone } from "@/lib/shipping-recipient"
 import { prisma } from "@/lib/prisma"
 import { getAuthenticatedDbUser } from "@/lib/session-user"
 import { financialZohoLineItems } from "@/lib/zoho-line-items"
@@ -36,6 +37,7 @@ export async function GET(req: NextRequest) {
           select: { 
             id: true, 
             name: true,
+            contacts: { where: { isPrimary: true }, select: { phone: true, mobilePhone: true }, take: 2 },
             shippingStreet: true,
             shippingCity: true,
             shippingState: true,
@@ -224,6 +226,15 @@ export async function GET(req: NextRequest) {
         }
       }
 
+      const primaryContact = so.account?.contacts?.length === 1 ? so.account.contacts[0] : null
+      const customerPhone = recipientPhone(
+        zohoShipAddr?.phone, zohoShipAddr?.contact_phone, shippingAddress?.phone, shippingAddress?.contact_phone,
+        items._zohoRaw?.shipping_address?.phone, items._zohoRaw?.shipping_address?.contact_phone, items.customer_phone, items.phone,
+        primaryContact?.phone, primaryContact?.mobilePhone,
+        zohoBillAddr?.phone,
+      )
+      if (shippingAddress) shippingAddress = { ...shippingAddress, phone: customerPhone }
+
       // Line items
       const lineItems = items.line_items || items.lineItems || items._zohoRaw?.line_items || []
       const dcBreakdown = items.itemsDcBreakdown || []
@@ -280,6 +291,7 @@ export async function GET(req: NextRequest) {
         status: so.status,
         shipStatus,
         shippingAddress,
+        customerPhone,
         lineItemCount,
         lineItemNames,
         lineItems: mappedLineItems.map((li: any) => ({
