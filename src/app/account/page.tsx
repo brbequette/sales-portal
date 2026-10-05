@@ -736,7 +736,7 @@ function AccountHubContent() {
 
   const tabs: { id: ActiveTab; Icon: React.ElementType; label: string }[] = [
     { id: "overview",  Icon: FiBarChart2,   label: "Overview" },
-    { id: "comms",     Icon: FiPhone,       label: "Comm Center" },
+    { id: "comms",     Icon: FiPhone,       label: "Contact" },
     { id: "quicksale", Icon: FiShoppingCart, label: "Quick Sale" },
   ]
 
@@ -868,12 +868,12 @@ function AccountHubContent() {
 
       {/* Tab Bar */}
       <div className="flex-none glass-panel border-b border-white/10 overflow-x-auto scrollbar-none">
-        <div className="flex px-4 min-w-max gap-0.5">
+        <div className="grid grid-cols-3 px-1 gap-0.5 sm:flex sm:px-4">
           {tabs.map(({ id: tabId, Icon, label }) => (
             <button
               key={tabId}
               onClick={() => setActiveTab(tabId)}
-              className={`py-3 px-3 text-xs font-bold flex items-center gap-1.5 border-b-2 transition-all whitespace-nowrap ${
+              className={`py-3 px-2 text-xs font-bold flex items-center justify-center gap-1.5 border-b-2 transition-all whitespace-nowrap ${
                 activeTab === tabId
                   ? "text-emerald-400 border-emerald-500 bg-neutral-800/40"
                   : "text-neutral-500 border-transparent hover:text-neutral-300 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/20"
