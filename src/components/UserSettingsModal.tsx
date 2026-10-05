@@ -246,7 +246,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
         body: JSON.stringify({ mailboxId: mailbox.id }),
       })
       const payload = await response.json()
-      if (!response.ok) throw new Error(payload.error || 'Mailbox sync failed.')
+      if (!response.ok || !payload.success) throw new Error(payload.error || 'Mailbox sync failed.')
       toast.success(`Reviewed ${payload.processed || 0} recent messages.`)
       const refreshed = await fetch('/api/profile/email-mailboxes', { cache: 'no-store' }).then(response => response.json())
       setProfileMailboxes(refreshed.mailboxes || [])

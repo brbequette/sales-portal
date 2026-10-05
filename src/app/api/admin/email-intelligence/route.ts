@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { requireAdministrator } from "@/lib/auth-helpers"
+import { getAuthenticatedDbUser } from "@/lib/session-user"
+import { isAdministratorRole } from "@/lib/roles"
+import { isMailboxAddress, normalizeMailboxAddress, sameOriginEmailRequest } from "@/lib/email-intelligence-guards"
+import { reviewEmailEvent } from "@/lib/email-intelligence-review"
+
+async function requireAdministrator() {
+  const auth = await getAuthenticatedDbUser()
+  return { session: auth?.session, user: auth?.user, errorResponse: !auth ? NextResponse.json({ error: "Unauthorized" }, { status: 401 }) : !isAdministratorRole(auth.user.role) ? NextResponse.json({ error: "Administrator access required" }, { status: 403 }) : null }
+}
 import { getMicrosoftMailConfiguration } from "@/lib/microsoft-graph-mail"
 
 export const dynamic = "force-dynamic"
@@ -23,62 +31,79 @@ export async function GET(req: Request) {
   const auth = await requireAdministrator()
   if (auth.errorResponse) return auth.errorResponse
   const url = new URL(req.url)
+  const query = url.searchParams.get('accountSearch')?.trim()
+  if (query !== undefined && query !== null) {
+    const accounts = query.length < 2 ? [] : await prisma.account.findMany({ where: { name: { contains: query.slice(0, 100), mode: 'insensitive' } }, select: { id: true, name: true }, take: 20, orderBy: { name: 'asc' } })
+    return NextResponse.json({ accounts }, { headers: { 'Cache-Control': 'private, no-store' } })
+  }
   const status = url.searchParams.get("status") || undefined
   const events = await prisma.emailOperationalEvent.findMany({
     where: status && status !== "ALL" ? { status } : undefined,
     orderBy: { createdAt: "desc" },
     take: 100,
-    include: { email: { select: { subject: true, fromAddress: true, receivedAt: true, sentAt: true, direction: true, mailboxAddress: true } } },
+    include: { email: { select: { subject: true, fromAddress: true, receivedAt: true, sentAt: true, direction: true, mailboxAddress: true, body: true, attachments: { select: { id: true, name: true, classification: true, size: true } } } } },
   })
   const counts = await prisma.emailOperationalEvent.groupBy({ by: ["status"], _count: { _all: true } })
   const [mailboxes, users] = await Promise.all([
     prisma.emailMailbox.findMany({ orderBy: { address: "asc" }, include: { user: { select: { id: true, name: true, email: true } } } }),
     prisma.user.findMany({ where: { email: { not: "" } }, select: { id: true, name: true, email: true, role: true }, orderBy: { name: "asc" } }),
   ])
-  return NextResponse.json({ success: true, configuration: getMicrosoftMailConfiguration(), requiredDetails, counts, events, mailboxes, users })
+  return NextResponse.json({ success: true, configuration: getMicrosoftMailConfiguration(), requiredDetails, counts, events, mailboxes, users }, { headers: { 'Cache-Control': 'private, no-store' } })
 }
 
 export async function POST(req: Request) {
+  if (!sameOriginEmailRequest(req)) return NextResponse.json({ error: "Same-origin request required" }, { status: 403 })
   const auth = await requireAdministrator()
   if (auth.errorResponse) return auth.errorResponse
-  const actorId = String((auth.session?.user as { dbId?: string; id?: string } | undefined)?.dbId || (auth.session?.user as { id?: string } | undefined)?.id || "")
-  const body = await req.json() as { address?: string; displayName?: string; userId?: string; mailboxType?: string; lookbackDays?: number }
-  const address = String(body.address || "").trim().toLowerCase()
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) return NextResponse.json({ success: false, error: "A valid mailbox address is required." }, { status: 400 })
+  const actorId = auth.user!.id
+  const body = await req.json().catch(() => ({})) as { address?: string; displayName?: string; userId?: string; mailboxType?: string; lookbackDays?: number }
+  const address = normalizeMailboxAddress(body.address)
+  if (!isMailboxAddress(address)) return NextResponse.json({ success: false, error: "A valid mailbox address is required." }, { status: 400 })
+  if ((body.displayName !== undefined && typeof body.displayName !== 'string') || (body.userId != null && typeof body.userId !== 'string')) return NextResponse.json({ error: 'Invalid mailbox fields.' }, { status: 400 })
   if (body.userId && !(await prisma.user.findUnique({ where: { id: body.userId }, select: { id: true } }))) return NextResponse.json({ success: false, error: "The selected user does not exist." }, { status: 400 })
+  if (await prisma.emailMailbox.findUnique({ where: { address } })) return NextResponse.json({ error: "Mailbox already assigned." }, { status: 409 })
   const mailbox = await prisma.emailMailbox.create({ data: {
     address, displayName: String(body.displayName || "").trim() || null, userId: body.userId || null,
-    mailboxType: body.mailboxType === "SHARED" ? "SHARED" : "USER", lookbackDays: Math.max(1, Math.min(Number(body.lookbackDays) || 90, 365)), createdById: actorId || null,
+    mailboxType: body.mailboxType === "SHARED" ? "SHARED" : "USER", lookbackDays: Math.max(1, Math.min(Math.floor(Number(body.lookbackDays)) || 90, 365)), createdById: actorId || null,
   } })
   return NextResponse.json({ success: true, mailbox })
 }
 
 export async function PUT(req: Request) {
+  if (!sameOriginEmailRequest(req)) return NextResponse.json({ error: "Same-origin request required" }, { status: 403 })
   const auth = await requireAdministrator()
   if (auth.errorResponse) return auth.errorResponse
-  const body = await req.json() as { id?: string; userId?: string | null; displayName?: string; enabled?: boolean; includeInbox?: boolean; includeSent?: boolean; autoSync?: boolean; lookbackDays?: number; mailboxType?: string }
+  const body = await req.json().catch(() => ({})) as { id?: string; address?: string; userId?: string | null; displayName?: string; enabled?: boolean; includeInbox?: boolean; includeSent?: boolean; autoSync?: boolean; lookbackDays?: number; mailboxType?: string }
   if (!body.id) return NextResponse.json({ success: false, error: "Mailbox id is required." }, { status: 400 })
+  if ((body.displayName !== undefined && typeof body.displayName !== 'string') || (body.userId != null && typeof body.userId !== 'string')) return NextResponse.json({ error: 'Invalid mailbox fields.' }, { status: 400 })
   if (body.userId && !(await prisma.user.findUnique({ where: { id: body.userId }, select: { id: true } }))) return NextResponse.json({ success: false, error: "The selected user does not exist." }, { status: 400 })
+  if (['enabled', 'includeInbox', 'includeSent', 'autoSync'].some(key => (body as Record<string, unknown>)[key] !== undefined && typeof (body as Record<string, unknown>)[key] !== 'boolean')) return NextResponse.json({ error: 'Mailbox switches must be on or off.' }, { status: 400 })
+  if (!await prisma.emailMailbox.findUnique({ where: { id: body.id } })) return NextResponse.json({ error: 'Mailbox not found.' }, { status: 404 })
+  const address = body.address === undefined ? undefined : normalizeMailboxAddress(body.address)
+  if (address !== undefined && !isMailboxAddress(address)) return NextResponse.json({ error: "Enter a valid mailbox address." }, { status: 400 })
+  if (address) {
+    const duplicate = await prisma.emailMailbox.findUnique({ where: { address } })
+    if (duplicate && duplicate.id !== body.id) return NextResponse.json({ error: "Mailbox already assigned." }, { status: 409 })
+  }
   const mailbox = await prisma.emailMailbox.update({ where: { id: body.id }, data: {
+    address,
     userId: body.userId === undefined ? undefined : body.userId || null,
     displayName: body.displayName === undefined ? undefined : body.displayName.trim() || null,
     enabled: body.enabled, includeInbox: body.includeInbox, includeSent: body.includeSent, autoSync: body.autoSync,
-    lookbackDays: body.lookbackDays === undefined ? undefined : Math.max(1, Math.min(Number(body.lookbackDays) || 90, 365)),
+    lookbackDays: body.lookbackDays === undefined ? undefined : Math.max(1, Math.min(Math.floor(Number(body.lookbackDays)) || 90, 365)),
     mailboxType: body.mailboxType === undefined ? undefined : body.mailboxType === "SHARED" ? "SHARED" : "USER",
   } })
   return NextResponse.json({ success: true, mailbox })
 }
 
 export async function PATCH(req: Request) {
+  if (!sameOriginEmailRequest(req)) return NextResponse.json({ error: "Same-origin request required" }, { status: 403 })
   const auth = await requireAdministrator()
   if (auth.errorResponse) return auth.errorResponse
-  const actorId = String((auth.session?.user as { dbId?: string; id?: string } | undefined)?.dbId || (auth.session?.user as { id?: string } | undefined)?.id || "")
-  const body = await req.json() as { id?: string; action?: "APPROVE" | "REJECT" | "REOPEN" }
-  if (!body.id || !body.action) return NextResponse.json({ success: false, error: "Event id and action are required." }, { status: 400 })
-  const status = body.action === "APPROVE" ? "APPROVED" : body.action === "REJECT" ? "REJECTED" : "REVIEW_REQUIRED"
-  const event = await prisma.emailOperationalEvent.update({
-    where: { id: body.id },
-    data: { status, reviewedById: actorId || null, reviewedAt: status === "REVIEW_REQUIRED" ? null : new Date() },
-  })
-  return NextResponse.json({ success: true, event, note: status === "APPROVED" ? "Approved for a future apply step; no business record was changed." : undefined })
+  const body = await req.json().catch(() => ({})) as { id?: string; action?: string; expectedUpdatedAt?: string; accountId?: string; ownerId?: string; dueDate?: string }
+  if (!body.id || !body.action || !body.expectedUpdatedAt) return NextResponse.json({ error: "Event id, action and current revision are required." }, { status: 400 })
+  try {
+    const result = await reviewEmailEvent({ ...body, id: body.id, action: body.action, expectedUpdatedAt: body.expectedUpdatedAt, actorId: auth.user!.id })
+    return NextResponse.json({ success: true, ...result })
+  } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Review failed.' }, { status: 409 }) }
 }

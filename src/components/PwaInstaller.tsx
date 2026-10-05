@@ -53,11 +53,12 @@ export function PwaInstaller() {
       type="button"
       onClick={install}
       aria-label="Install Titan Sales Portal"
+      data-app-install="true"
       style={{
         position: "fixed",
-        right: 22,
-        bottom: 22,
-        zIndex: 100000,
+        left: 22,
+        bottom: "calc(5rem + env(safe-area-inset-bottom))",
+        zIndex: 9000,
         display: "flex",
         alignItems: "center",
         gap: 10,

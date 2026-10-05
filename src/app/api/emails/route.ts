@@ -1,8 +1,10 @@
 import { handler as sendHandler } from "../../../../netlify/functions/email-send";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getAuthenticatedDbUser } from "@/lib/session-user";
+import { isAdministratorRole } from "@/lib/roles";
+import type { Prisma } from "@prisma/client";
+
 
 async function executeNetlifyFunction(req: NextRequest) {
   const url = new URL(req.url);
@@ -38,19 +40,18 @@ async function executeNetlifyFunction(req: NextRequest) {
 // GET: List emails (optionally filtered by accountId)
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+    const auth = await getAuthenticatedDbUser();
+    if (!auth) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
     const { searchParams } = new URL(req.url);
     const accountId = searchParams.get('accountId');
 
-    const role = String(session.user.role || '').toLowerCase();
-    const privileged = role.includes('admin') || role.includes('manager');
-    const callerId = String((session.user as { dbId?: string; id?: string }).dbId || (session.user as { id?: string }).id || '');
+    const privileged = isAdministratorRole(auth.user.role) || auth.user.role.toUpperCase() === 'MANAGER';
+    const callerId = auth.user.id;
     const ownedAccountIds = privileged
       ? []
       : (await prisma.account.findMany({ where: { ownerId: callerId }, select: { id: true } })).map(account => account.id);
 
-    const where: any = privileged ? {} : { OR: [{ accountId: { in: ownedAccountIds } }, { userId: callerId }] };
+    const where: Prisma.EmailWhereInput = privileged ? {} : { OR: [{ accountId: { in: ownedAccountIds } }, { userId: callerId }] };
     if (accountId) {
       const account = await prisma.account.findFirst({
         where: { OR: [{ id: accountId }, { zohoId: accountId }] },
@@ -63,13 +64,19 @@ export async function GET(req: NextRequest) {
       delete where.OR;
     }
 
+    const query = searchParams.get('q')?.trim().slice(0, 100)
+    if (query) where.AND = [{ OR: [{ subject: { contains: query, mode: 'insensitive' } }, { body: { contains: query, mode: 'insensitive' } }, { fromAddress: { contains: query, mode: 'insensitive' } }, { toAddress: { contains: query, mode: 'insensitive' } }] }]
+    const cursor = searchParams.get('cursor')
+    // A cursor cannot be used to infer the position of an inaccessible message.
+    if (cursor && !await prisma.email.findFirst({ where: { AND: [where, { id: cursor }] }, select: { id: true } })) return NextResponse.json({ error: 'Invalid email page.' }, { status: 400 })
     const emails = await prisma.email.findMany({
       where,
-      orderBy: { receivedAt: 'desc' },
-      take: 50,
+      orderBy: [{ receivedAt: { sort: 'desc', nulls: 'last' } }, { sentAt: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }],
+      take: 51, ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      include: { operationalEvents: { where: { eventType: 'CUSTOMER_FOLLOW_UP', status: { in: ['REVIEW_REQUIRED', 'APPROVED'] } }, select: { id: true }, take: 1 } },
     });
 
-    return NextResponse.json({ success: true, emails });
+    return NextResponse.json({ success: true, emails: emails.slice(0, 50).map(({ operationalEvents, ...email }) => ({ ...email, intelligenceNeedsResponse: email.direction === 'INBOUND' && email.status !== 'REPLIED' && email.status !== 'ARCHIVED' && operationalEvents.length > 0 })), nextCursor: emails.length > 50 ? emails[49].id : null }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error: any) {
     console.error('Error fetching emails:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

@@ -4,8 +4,7 @@ import { getMicrosoftMailConfiguration } from "@/lib/microsoft-graph-mail"
 import { prisma } from "@/lib/prisma"
 import { getAuthenticatedDbUser } from "@/lib/session-user"
 
-const normalizeAddress = (value: unknown) => String(value || "").trim().toLowerCase()
-const isEmailAddress = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+import { normalizeMailboxAddress as normalizeAddress, isMailboxAddress as isEmailAddress, sameOriginEmailRequest } from "@/lib/email-intelligence-guards"
 
 export async function GET() {
   const auth = await getAuthenticatedDbUser()
@@ -24,6 +23,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  if (!sameOriginEmailRequest(req)) return NextResponse.json({ error: "Same-origin request required" }, { status: 403 })
   const auth = await getAuthenticatedDbUser()
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -60,6 +60,7 @@ export async function POST(req: Request) {
 }
 
 export async function PUT(req: Request) {
+  if (!sameOriginEmailRequest(req)) return NextResponse.json({ error: "Same-origin request required" }, { status: 403 })
   const auth = await getAuthenticatedDbUser()
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -83,7 +84,7 @@ export async function PUT(req: Request) {
       includeInbox: typeof body.includeInbox === "boolean" ? body.includeInbox : undefined,
       includeSent: typeof body.includeSent === "boolean" ? body.includeSent : undefined,
       autoSync: typeof body.autoSync === "boolean" ? body.autoSync : undefined,
-      lookbackDays: Number.isFinite(body.lookbackDays) ? Math.min(365, Math.max(1, Number(body.lookbackDays))) : undefined,
+      lookbackDays: Number.isFinite(body.lookbackDays) ? Math.min(365, Math.max(1, Math.floor(Number(body.lookbackDays)))) : undefined,
     },
   })
 

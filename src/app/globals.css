@@ -48,7 +48,9 @@
   --z-overlay: 300;
   --z-modal: 400;
   --z-popover: 500;
-  --z-toast: 600;
+  --z-communications: 10000;
+  --z-notification: 13000;
+  --z-toast: 200000;
   --z-tooltip: 700;
 }
 
@@ -806,3 +808,6 @@ html.light footer {
 .flyer-studio .btn-secondary { background: rgb(255 255 255 / 5%); color: var(--foreground); border: 1px solid var(--border); justify-content: center; }
 .flyer-studio .btn-secondary:hover { border-color: rgb(249 115 22 / 60%); color: #fb923c; }
 .flyer-studio button:disabled { cursor: not-allowed; opacity: 0.55; }
+
+/* Installation prompts must not cover the active communications controls. */
+body:has([aria-label='Titan communications'][data-open='true']) [data-app-install] { display: none !important; }

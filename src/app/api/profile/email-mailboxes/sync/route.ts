@@ -1,3 +1,4 @@
+import { sameOriginEmailRequest } from "@/lib/email-intelligence-guards"
 import { NextResponse } from "next/server"
 
 import { syncMicrosoftMailbox } from "@/lib/microsoft-graph-mail"
@@ -5,6 +6,7 @@ import { prisma } from "@/lib/prisma"
 import { getAuthenticatedDbUser } from "@/lib/session-user"
 
 export async function POST(req: Request) {
+  if (!sameOriginEmailRequest(req)) return NextResponse.json({ error: "Same-origin request required" }, { status: 403 })
   const auth = await getAuthenticatedDbUser()
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -16,7 +18,7 @@ export async function POST(req: Request) {
 
   try {
     const result = await syncMicrosoftMailbox({ mailboxId: mailbox.id, maxPerFolder: 50 })
-    return NextResponse.json({ success: true, ...result })
+    return NextResponse.json({ success: result.errors.length === 0, ...result })
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Mailbox sync failed." }, { status: 500 })
   }
