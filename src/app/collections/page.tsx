@@ -1,5 +1,7 @@
 "use client"
 
+import { prepareInAppCall } from "@/lib/internal-phone"
+
 import React, { useState, useEffect, useCallback, useMemo } from "react"
 import { 
   FiDollarSign, FiPhoneCall, FiClock, FiAlertCircle, FiSearch, 
@@ -295,9 +297,9 @@ export default function CollectionsPage() {
                         {inv.customer_contacts?.length ? (
                           <div className="flex flex-col gap-1">
                             {inv.customer_contacts.map(contact => (
-                              <a key={contact.id} href={`tel:${contact.phone_href || contact.phone}`} className="text-emerald-400 hover:text-emerald-300 font-semibold" title={`${contact.name}${contact.isPrimary ? " (Primary)" : ""}`}>
+                              <button type="button" key={contact.id}  className="text-emerald-400 hover:text-emerald-300 font-semibold" title={`${contact.name}${contact.isPrimary ? " (Primary)" : ""}`} onClick={event => { event.stopPropagation(); prepareInAppCall(contact.phone_href || contact.phone) }}>
                                 {contact.name}: {contact.phone}
-                              </a>
+                              </button>
                             ))}
                           </div>
                         ) : <span className="text-neutral-600">No phone</span>}

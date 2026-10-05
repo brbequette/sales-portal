@@ -2,6 +2,7 @@
 
 
 import { createContext, useContext, useState, useEffect } from "react"
+import { createPortal } from 'react-dom'
 import { FiX, FiBox, FiDollarSign, FiTag, FiInfo } from "react-icons/fi"
 import Link from "next/link"
 import { getCommunicationContext, publishCommunicationContext } from '@/lib/communication-context'
@@ -176,7 +177,7 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
   const profit = costVal !== null ? (retailVal - costVal) : null
   const profitMargin = (profit !== null && retailVal > 0) ? ((profit / retailVal) * 100) : null
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[200] animate-fadeIn">
       <div className="glass-panel border border-white/10 w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
         {/* Header */}
@@ -366,7 +367,7 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
           </button>
         </div>
       </div>
-    </div>
+    </div>, document.body
   )
 }
 

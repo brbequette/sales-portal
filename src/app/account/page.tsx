@@ -1,5 +1,7 @@
 "use client"
 
+import { prepareInAppCall } from "@/lib/internal-phone"
+
 import { StandaloneOrderBuilder } from '@/components/StandaloneOrderBuilder'
 
 import { formatPhoneNumber } from "@/lib/formatters"
@@ -432,9 +434,9 @@ function OverviewPanel({
                   {`${primaryContact.firstName || ""} ${primaryContact.lastName || ""}`.trim() || "No name"}
                 </div>
                 {phone && (
-                  <a href={`tel:${cleanPhone}`} className="flex items-center gap-1 text-[11px] text-sky-400 hover:text-sky-300 font-mono font-bold mb-1">
+                  <button type="button"  className="flex items-center gap-1 text-[11px] text-sky-400 hover:text-sky-300 font-mono font-bold mb-1" onClick={event => { event.stopPropagation(); prepareInAppCall(cleanPhone, { accountId: account.id, accountName: account.name }) }}>
                     <FiPhone size={9} />{phone}
-                  </a>
+                  </button>
                 )}
                 {primaryContact.email && (
                   <a href={`mailto:${primaryContact.email}`} className="flex items-center gap-1 text-[10px] text-neutral-400 hover:text-neutral-200 truncate">

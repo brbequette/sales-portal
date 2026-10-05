@@ -1,23 +1,52 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor, cleanup } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-const makeCall = vi.hoisted(() => vi.fn().mockResolvedValue(true))
-vi.mock('./useVoiceDirectory', () => ({ useVoiceDirectory: () => ({ numbers: [{ id: '1', numberId: '1', number: '+14805550100', label: 'Provider line', active: true }], users: [{ userid: '1', name: 'Provider User', extension: 103, status: 1 }], loading: false, error: '', refresh: vi.fn(), admin: false }) }))
-vi.mock('@/lib/zoho-voice-websdk', () => ({ makeZohoVoiceCall: makeCall, hasZohoVoiceWebSdkConfiguration: () => true }))
+import { act, fireEvent, render, screen, waitFor, cleanup } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+const mock = vi.hoisted(() => ({ makeCall: vi.fn().mockResolvedValue(true), control: vi.fn(), state: { registration: 'registered', calls: [] as any[], error: '' }, listeners: new Set<() => void>() }))
+vi.mock('./useVoiceDirectory', () => ({ useVoiceDirectory: () => ({ numbers: [{ id: '1', numberId: '1', number: '+14805550100', label: 'Provider line', active: true }], users: [], loading: false, error: '', refresh: vi.fn(), admin: false }) }))
+vi.mock('@/lib/zoho-voice-websdk', () => ({ makeZohoVoiceCall: mock.makeCall, hasZohoVoiceWebSdkConfiguration: () => true, connectZohoVoice: vi.fn().mockResolvedValue(undefined), controlVoiceCall: mock.control, getVoiceState: () => mock.state, getServerVoiceState: () => mock.state, subscribeVoice: (fn: () => void) => { mock.listeners.add(fn); return () => mock.listeners.delete(fn) } }))
 vi.mock('react-hot-toast', () => ({ toast: { error: vi.fn() } }))
 import { TitanVoiceSoftphone } from './TitanVoiceSoftphone'
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); makeCall.mockClear() })
-describe('real phone handoff', () => {
-  it('requires Call after prefill and never fabricates a connection', async () => {
+const emit = (calls: any[]) => act(() => { mock.state = { ...mock.state, calls }; mock.listeners.forEach(fn => fn()) })
+beforeEach(() => { mock.state = { registration: 'registered', calls: [], error: '' }; vi.clearAllMocks() })
+afterEach(() => { cleanup(); vi.unstubAllGlobals() })
+describe('internal phone', () => {
+  it('prefills without dialing and waits for a real provider connection event', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ success: true, number: '+14805550100', numberId: '1' })))
     vi.stubGlobal('fetch', fetchMock)
     const state = vi.fn(); render(<TitanVoiceSoftphone embedded onCallState={state} />)
-    fireEvent(window, new CustomEvent('inAppDial', { detail: { phone: '+14805550123' } }))
+    fireEvent(window, new CustomEvent('inAppDial', { detail: { phone: '+14805550123', accountId: 'a', accountName: 'Account A' } }))
     expect(fetchMock).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: /^Call$/ }))
-    await waitFor(() => expect(makeCall).toHaveBeenCalledWith('+14805550123', { number: '+14805550100', numberId: '1' }))
+    await waitFor(() => expect(mock.makeCall).toHaveBeenCalledWith('+14805550123', { number: '+14805550100', numberId: '1' }))
     expect(state.mock.calls.some(c => c[0].status === 'connected')).toBe(false)
-    expect(screen.queryByText(/Simulate Inbound/)).toBeNull()
-    expect(screen.queryByText(/Sarah Jenkins/)).toBeNull()
+    emit([{ callId: 'real-call', callStatus: 'connected', isAccepted: true, isOutgoing: true }])
+    expect(state).toHaveBeenLastCalledWith(expect.objectContaining({ status: 'connected', accountId: 'a' }))
+    fireEvent(window, new CustomEvent('inAppDial', { detail: { phone: '+14805550200', accountId: 'b' } }))
+    expect(state).toHaveBeenLastCalledWith(expect.objectContaining({ accountId: 'a' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Mute' }))
+    expect(mock.control).toHaveBeenLastCalledWith('mute', 'real-call', true)
+    fireEvent.click(screen.getByRole('button', { name: 'Dial 5' }))
+    expect(mock.control).toHaveBeenLastCalledWith('dtmf', 'real-call', '5')
+    fireEvent.click(screen.getByRole('button', { name: 'End call' }))
+    expect(mock.control).toHaveBeenLastCalledWith('end', 'real-call', undefined)
+  })
+  it('does not send a disconnected call to an extension or native phone', () => {
+    mock.state = { registration: 'unregistered', calls: [], error: '' }
+    const fetchMock = vi.fn(); vi.stubGlobal('fetch', fetchMock)
+    render(<TitanVoiceSoftphone />)
+    fireEvent(window, new CustomEvent('inAppDial', { detail: { phone: '+14805550123' } }))
+    expect((screen.getByRole('button', { name: /^Call$/ }) as HTMLButtonElement).disabled).toBe(true)
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(screen.queryByText(/ZDialer/)).toBeNull()
+  })
+  it('shows actual incoming calls and routes Answer and Decline to their call ID', () => {
+    render(<TitanVoiceSoftphone />)
+    emit([{ callId: 'incoming-id', callStatus: 'incoming', number: '+14805550123' }])
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }))
+    expect(mock.control).toHaveBeenLastCalledWith('answer', 'incoming-id', undefined)
+    fireEvent.click(screen.getByRole('button', { name: 'Decline' }))
+    expect(mock.control).toHaveBeenLastCalledWith('end', 'incoming-id', undefined)
+    emit([])
+    expect(screen.queryByRole('button', { name: 'Answer' })).toBeNull()
   })
 })

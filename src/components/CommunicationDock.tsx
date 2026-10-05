@@ -9,10 +9,11 @@ import { AiAssistant } from './AiAssistant'
 import { TitanVoiceSoftphone, type PhoneCallStatus } from './TitanVoiceSoftphone'
 import { CommunicationCenter } from './CommunicationCenter'
 import { SalesNextSteps } from './SalesNextSteps'
+import { CommunicationSearch } from './CommunicationSearch'
 import { COMMUNICATION_CONTEXT_EVENT, getCommunicationContext, publishCommunicationContext, type CommunicationContext } from '@/lib/communication-context'
 
 type Account = { id: string; name: string; contacts?: Array<{ id: string; name?: string; phone?: string; mobilePhone?: string; email?: string }> }
-type Tab = 'phone' | 'messages' | 'ai' | 'next'
+type Tab = 'phone' | 'messages' | 'ai' | 'next' | 'search'
 
 type DockProps = { user?: { id?: string; name?: string; role?: string } }
 
@@ -32,6 +33,7 @@ function CommunicationDockContent({ user }: DockProps) {
   const [accountId, setAccountId] = useState('')
   const [account, setAccount] = useState<Account | null>(null)
   const [contactId, setContactId] = useState('')
+  const pendingContact = useRef('')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Account[]>([])
   const [error, setError] = useState('')
@@ -71,6 +73,15 @@ function CommunicationDockContent({ user }: DockProps) {
     }
   }, [])
 
+  const chooseAccount = useCallback((id: string, name?: string, selectedContact = '') => {
+    if (accountId && (id !== accountId || selectedContact !== contactId) && !window.confirm('Switch messaging recipient? Switching clears the current draft. Cancel to keep it.')) return false
+    if (id === accountId) { setContactId(selectedContact); return true }
+    pendingContact.current = selectedContact
+    setAccount(null); setAccountId(id); setQuery(''); setResults([])
+    publishCommunicationContext({ kind: 'account', accountId: id, title: name })
+    return true
+  }, [accountId, contactId])
+
   useEffect(() => {
     const update = () => {
       const next = getCommunicationContext()
@@ -81,8 +92,10 @@ function CommunicationDockContent({ user }: DockProps) {
     const openPhone = () => { setOpen(true); setTab('phone') }
     const openMessages = (event: Event) => {
       setOpen(true); setTab('messages')
-      const phone = (event as CustomEvent<{ phone?: string }>).detail?.phone
-      if (phone) setQuery(phone)
+      const detail = (event as CustomEvent<{ phone?: string; accountId?: string; accountName?: string; contactId?: string }>).detail
+      setMessageView('account')
+      if (detail?.accountId) { chooseAccount(detail.accountId, detail.accountName, detail.contactId); return }
+      if (detail?.phone) setQuery(detail.phone)
     }
     const key = (event: KeyboardEvent) => {
       if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'a') openAI()
@@ -101,7 +114,7 @@ function CommunicationDockContent({ user }: DockProps) {
       window.removeEventListener('titan:open-messages', openMessages)
       window.removeEventListener('keydown', key)
     }
-  }, [])
+  }, [chooseAccount])
 
   useEffect(() => {
     if (pathname === '/account') {
@@ -123,7 +136,7 @@ function CommunicationDockContent({ user }: DockProps) {
         if (!response.ok || !data.account) throw new Error(data.error || 'Unable to load account')
         return data.account
       })
-      .then(data => { if (!controller.signal.aborted) setAccount(data) })
+      .then(data => { if (!controller.signal.aborted) { setAccount(data); setContactId(pendingContact.current); pendingContact.current = '' } })
       .catch(error => { if (!controller.signal.aborted) setError(error.message) })
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
@@ -141,17 +154,13 @@ function CommunicationDockContent({ user }: DockProps) {
     return () => { clearTimeout(timer); controller.abort() }
   }, [query])
 
-  const chooseAccount = (id: string, name?: string) => {
-    if (accountId && id !== accountId && !window.confirm('Switch messaging account? Any unsent draft for this account will be cleared.')) return
-    setAccount(null); setAccountId(id); setQuery(''); setResults([])
-    publishCommunicationContext({ kind: 'account', accountId: id, title: name })
-  }
   const busy = callStatus !== 'idle' && callStatus !== 'wrap_up'
   if (!mounted) return null
   return createPortal(<aside ref={dock} aria-label="Titan communications" data-open={open} data-expanded={expanded} className={styles.dock}>
     <section hidden={!open} aria-label="Communications workspace" className={styles.panel}>
       <header className="flex shrink-0 items-center gap-3 border-b border-white/10 px-4 py-3">
         <div className="min-w-0 flex-1"><h2 className="text-sm font-bold">Titan Communications</h2><p className="truncate text-xs text-neutral-400">{context?.title || account?.name || 'Phone, messages and AI in one place'}</p></div>
+        <button type="button" aria-label="Search accounts and records" aria-pressed={tab === 'search'} title="Search accounts, contacts, products and orders" onClick={() => setTab('search')} className={`rounded-lg p-2 ${tab === 'search' ? 'bg-cyan-600' : 'hover:bg-white/10'}`}><FiSearch /></button>
         {pathname !== '/display' && pathname !== '/communications' && <button type="button" aria-label="Open second screen" title="Open second screen" onClick={() => window.dispatchEvent(new Event('titan:open-second-screen'))} className="rounded-lg p-2 hover:bg-white/10"><FiMonitor /></button>}
         <button type="button" aria-label={expanded ? 'Restore panel size' : 'Expand communications'} onClick={() => setExpanded(value => !value)} className={`${styles.desktopAction} rounded-lg p-2 hover:bg-white/10`}>{expanded ? <FiMinimize2 /> : <FiMaximize2 />}</button>
         <button type="button" aria-label="Minimize communications" onClick={() => { setOpen(false); launcher.current?.focus() }} className="rounded-lg p-2 hover:bg-white/10"><FiX /></button>
@@ -161,6 +170,7 @@ function CommunicationDockContent({ user }: DockProps) {
         <button type="button" aria-pressed={tab === 'next'} onClick={() => setTab('next')} className={`rounded-lg py-2 text-sm font-semibold ${tab === 'next' ? 'bg-cyan-600 text-white' : 'text-neutral-400 hover:bg-white/10'}`}>Next steps</button>
       </nav>
       {/* Keep tools mounted: changing tabs or minimizing must not end a call or erase a draft. */}
+      <div hidden={tab !== 'search'} className={styles.tool}><CommunicationSearch active={open && tab === 'search'} onOpenRecord={() => setOpen(false)} onMessages={(id, name, selectedContact) => { if (chooseAccount(id, name, selectedContact)) { setMessageView('account'); setTab('messages') } }} /></div>
       <div hidden={tab !== 'phone'} className={styles.tool}><TitanVoiceSoftphone embedded onCallState={callState} /></div>
       <div hidden={tab !== 'ai'} className={styles.tool}><AiAssistant embedded active={open && tab === 'ai'} user={user} /></div>
       <div hidden={tab !== 'next'} className={`${styles.tool} ${styles.nextSteps}`} onClick={event => { if ((event.target as HTMLElement).closest('a')) setOpen(false) }}><SalesNextSteps accountId={context?.accountId || accountId} active={open && tab === 'next'} /></div>
@@ -175,7 +185,7 @@ function CommunicationDockContent({ user }: DockProps) {
         {loading && <p role="status" className="p-4 text-sm">Loading account…</p>}
         {error && <p role="alert" className="p-3 text-sm text-amber-300">{error}</p>}
         {!accountId && <p className="p-4 text-sm text-neutral-400">Open an account or search above to start a message.</p>}
-        {account && <div className={styles.accountTools}><CommunicationCenter key={accountId} accountId={accountId} account={account} contacts={account.contacts || []} selectedContactId={contactId} onContactChange={setContactId} initialTab="SMS" messagesOnly /></div>}
+        {account && <div className={styles.accountTools}><CommunicationCenter key={`${accountId}:${contactId}`} accountId={accountId} account={account} contacts={account.contacts || []} selectedContactId={contactId} onContactChange={setContactId} initialTab="SMS" messagesOnly /></div>}
         </div>
       </div>
     </section>

@@ -1773,7 +1773,7 @@ export default function SalesPage() {
                                                 <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-white/5">
                                                   {cPhone && (
                                                     <PhoneLink
-                                                      phone={cPhone}
+                                                      phone={cPhone} accountId={account.id} accountName={account.name} contactId={contact.id}
                                                       showNumberOnDesktop
                                                       className="px-2 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 rounded-lg text-cyan-300 font-mono text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer"
                                                     >
@@ -1782,7 +1782,7 @@ export default function SalesPage() {
                                                   )}
                                                   {cPhone && (
                                                     <PhoneLink
-                                                      phone={cPhone}
+                                                      phone={cPhone} accountId={account.id} accountName={account.name} contactId={contact.id}
                                                       type="sms"
                                                       className="px-2 py-1 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 rounded-lg text-sky-300 text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer"
                                                     >

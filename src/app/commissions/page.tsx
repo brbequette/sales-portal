@@ -1,5 +1,7 @@
 "use client"
 
+import { prepareInAppCall } from "@/lib/internal-phone"
+
 import React, { useState, useEffect, useMemo } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import Link from "next/link"
@@ -713,7 +715,7 @@ export default function CommissionsPage() {
                               <td className="px-3 py-2 text-neutral-300">{inv.contactName || '—'}</td>
                               <td className="px-3 py-2">
                                 {inv.contactPhone ? (
-                                  <a href={`tel:${inv.contactPhone}`} className="text-indigo-400 hover:text-indigo-300 underline">{inv.contactPhone}</a>
+                                  <button type="button"  className="text-indigo-400 hover:text-indigo-300 underline" onClick={event => { event.stopPropagation(); prepareInAppCall(inv.contactPhone) }}>{inv.contactPhone}</button>
                                 ) : <span className="text-neutral-600">—</span>}
                               </td>
                             </tr>

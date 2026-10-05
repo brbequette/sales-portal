@@ -1,5 +1,7 @@
 "use client"
 
+import { prepareInAppCall } from "@/lib/internal-phone"
+
 import React, { useState, useEffect, useMemo } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import { useSearchParams } from "next/navigation"
@@ -350,7 +352,7 @@ export default function SalesSheetPage() {
                           </td>
                           <td className="px-3 py-2 text-xs text-neutral-400 whitespace-nowrap">
                             {phoneNumber ? (
-                              <a href={`tel:${phoneNumber}`} onClick={e => e.stopPropagation()} className="text-indigo-400 hover:text-indigo-300 hover:underline">{phoneNumber}</a>
+                              <button type="button" onClick={event => { event.stopPropagation(); prepareInAppCall(phoneNumber) }} className="text-indigo-400 hover:text-indigo-300 hover:underline">{phoneNumber}</button>
                             ) : <span className="text-neutral-600">—</span>}
                           </td>
                           <td className="px-3 py-2 text-xs text-neutral-400 whitespace-nowrap">

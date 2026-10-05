@@ -5,7 +5,7 @@ import { useZoho } from "@/components/ZohoProvider"
 import { EMPTY_FACT_FINDING, type FactFindingValues } from "@/components/FactFindingPanel"
 import { type OrderLine } from "@/components/OrderBuilder"
 import { toast } from 'react-hot-toast'
-import { makeZohoVoiceCall } from '@/lib/zoho-voice-websdk'
+import { prepareInAppCall } from '@/lib/internal-phone'
 import type { AutodialerPlan } from '@/lib/autodialer-plan'
 
 interface UseSalesCampaignDataProps {
@@ -64,18 +64,11 @@ export function useSalesCampaignData({ accounts, onClose, onRefresh, autoStart =
 
   const initiateCall = useCallback(async (phone: string) => {
     if (!phone) return false
-    const dialer = (window as any).ZDialer
-    if (dialer?.dial) {
-      dialer.dial(phone)
-      return true
-    }
-    try {
-      return await makeZohoVoiceCall(phone)
-    } catch (error) {
-      console.error("Zoho Voice power dial failed", error)
-      return false
-    }
-  }, [])
+    prepareInAppCall(phone, { accountId: activeAccount?.id || activeAccount?.zohoId, accountName: activeAccount?.name })
+    setIsPowerDialerActive(false)
+    toast('Review the number and press Call in the in-app phone.')
+    return true
+  }, [activeAccount])
 
   useEffect(() => {
     if (isPowerDialerActive && activeAccount) {
@@ -339,7 +332,6 @@ export function useSalesCampaignData({ accounts, onClose, onRefresh, autoStart =
           contactReached,
           spokeTo: contactReached ? spokeTo : "",
           followUpDate: followUpDate || null,
-          durationMinutes: Math.max(1, Math.ceil(timerSeconds / 60)),
           userId: currentUser?.id,
           factFinding: {
             bladeSizes: factFinding.bladeSizes || undefined,
@@ -384,7 +376,7 @@ export function useSalesCampaignData({ accounts, onClose, onRefresh, autoStart =
     } finally {
       setIsSavingDisposition(false)
     }
-  }, [activeAccount, primaryContact?.id, isSavingDisposition, outcome, notes, repName, contactReached, spokeTo, followUpDate, timerSeconds, currentUser?.id, factFinding, orderLines, plan, handleNext])
+  }, [activeAccount, primaryContact?.id, isSavingDisposition, outcome, notes, repName, contactReached, spokeTo, followUpDate, currentUser?.id, factFinding, orderLines, plan, handleNext])
 
   return {
     currentIndex,

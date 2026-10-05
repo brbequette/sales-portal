@@ -1,0 +1,37 @@
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, expect, it, vi } from 'vitest'
+import { CommunicationSearch } from './CommunicationSearch'
+vi.mock('./ProductModalProvider', () => ({ useProductModal: () => ({ showProduct: vi.fn() }) }))
+vi.mock('next/link', () => ({ default: ({ children, ...props }: any) => <a {...props}>{children}</a> }))
+vi.mock('./InvoiceDetailsModal', () => ({ InvoiceDetailsModal: ({ invoice, type }: any) => <div role="dialog">{type} details: {invoice.id}</div> }))
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
+it('searches all records and prepares a contact call without placing one', async () => {
+  const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true, results: { contacts: [{ id: 'contact-1', accountId: 'account-1', firstName: 'Customer', phone: '+14805550123', account: { name: 'Customer business' } }], products: [{ id: 'product-1', name: 'Blade', sku: 'B14' }], invoices: [{ id: 'order-1', accountId: 'account-1', docType: 'SalesOrder', invoiceNumber: '46558' }] } }) })
+  vi.stubGlobal('fetch', fetch)
+  const dial = vi.fn(); window.addEventListener('inAppDial', dial)
+  const message = vi.fn()
+  render(<CommunicationSearch active onMessages={message} onOpenRecord={vi.fn()} />)
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Customer' } })
+  await waitFor(() => expect(screen.getByText('Blade')).toBeTruthy())
+  expect(screen.getByText('SalesOrder 46558')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Prepare call' }))
+  expect(dial.mock.calls[0][0].detail).toEqual(expect.objectContaining({ accountId: 'account-1', phone: '+14805550123' }))
+  expect(fetch.mock.calls.every(([url]) => url.startsWith('/api/global-search'))).toBe(true)
+  fireEvent.click(screen.getAllByRole('button', { name: 'Message' })[0])
+  expect(message).toHaveBeenCalledWith('account-1', 'Customer business', 'contact-1')
+  fireEvent.click(screen.getByRole('button', { name: 'Open order' }))
+  await waitFor(() => expect(screen.getByRole('dialog').textContent).toBe('SalesOrder details: order-1'))
+  window.removeEventListener('inAppDial', dial)
+})
+it('clears old results immediately and rejects late responses after a new search', async () => {
+  let resolveOld!: (value: unknown) => void
+  const fetch = vi.fn().mockImplementationOnce(() => new Promise(resolve => { resolveOld = resolve })).mockResolvedValue({ ok: true, json: async () => ({ success: true, results: { accounts: [{ id: 'new', name: 'New customer' }] } }) })
+  vi.stubGlobal('fetch', fetch)
+  render(<CommunicationSearch active onMessages={vi.fn()} onOpenRecord={vi.fn()} />)
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'old' } })
+  await waitFor(() => expect(fetch).toHaveBeenCalledOnce())
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'new' } })
+  resolveOld({ ok: true, json: async () => ({ success: true, results: { accounts: [{ id: 'old', name: 'Old customer' }] } }) })
+  await waitFor(() => expect(screen.getByText('New customer')).toBeTruthy())
+  expect(screen.queryByText('Old customer')).toBeNull()
+})
