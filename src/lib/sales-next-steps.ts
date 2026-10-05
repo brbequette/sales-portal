@@ -3,7 +3,7 @@ export type SalesAccount = { id: string; name: string; deals?: SalesRecord[]; ta
 export type SalesStep = { key: string; title: string; reason: string; record: string; urgent: boolean; existingTask: boolean }
 
 const normalize = (value?: string) => (value || '').trim().toLowerCase().replace(/[_-]/g, ' ')
-const closed = (value?: string) => /^(closed|completed|cancelled|canceled|lost|won|paid|void|declined|invoiced|delivered|fulfilled)$/.test(normalize(value)) || /^closed (won|lost)$/.test(normalize(value))
+const closed = (value?: string) => /^(closed|completed|cancelled|canceled|lost|won|void|voided|declined)$/.test(normalize(value)) || /^closed (won|lost)$/.test(normalize(value))
 
 /** Suggestions only. Source stages are never changed by viewing this queue. */
 export function salesNextSteps(account: SalesAccount, now = Date.now()): SalesStep[] {
@@ -16,10 +16,13 @@ export function salesNextSteps(account: SalesAccount, now = Date.now()): SalesSt
   for (const deal of account.deals || []) {
     if (closed(deal.stage)) continue
     const stage = normalize(deal.stage)
-    const title = /negotiat|decision/.test(stage) ? 'Resolve objections and agree the decision date'
-      : /quote|proposal/.test(stage) ? 'Confirm the quote was reviewed and agree a next step'
+    const title = /review|written off|refund|credit/.test(stage) ? 'Review the exception and supporting records'
+      : /partially paid|overdue|invoiced|invoice sent/.test(stage) ? 'Review the outstanding balance and payment follow-up'
+      : /paid|delivered|fulfilled/.test(stage) ? 'Verify delivery, gift and customer satisfaction before closing'
+      : /negotiat|decision/.test(stage) ? 'Resolve objections and agree the decision date'
+      : /quote|proposal|estimate/.test(stage) ? 'Confirm the quote was reviewed and agree a next step'
       : /qualif|discover|prospect/.test(stage) ? 'Confirm needs, decision maker and timing'
-      : /ship|order|fulfill/.test(stage) ? 'Check order progress and confirm delivery expectations'
+      : /ship|order|fulfill|po issued/.test(stage) ? 'Check order progress and confirm delivery expectations'
       : 'Review the deal and agree the next milestone'
     const overdue = !!deal.closingDate && Date.parse(deal.closingDate) < now
     steps.push({ key: `deal:${deal.id}`, title, reason: `${deal.name || 'Deal'} · ${deal.stage || 'Stage not recorded'}${overdue ? ' · Closing date has passed' : ''}`, record: `Deal ${deal.id || deal.zohoId || ''}`, urgent: overdue, existingTask: false })

@@ -29,4 +29,8 @@ describe('sales workflow suggestions', () => {
     expect(salesNextSteps(account)).toHaveLength(22)
     expect(JSON.stringify(account)).toBe(before)
   })
+  it('keeps post-payment completion checks and recognizes actual CRM stages', () => {
+    const steps = salesNextSteps({ id: 'a', name: 'Account', deals: [{ id: 'p', stage: 'Invoice Paid' }, { id: 'q', stage: 'Estimate Created' }, { id: 'o', stage: 'PO Issued To Vendor' }, { id: 'i', stage: 'Partially Paid' }] })
+    expect(steps.map(step => step.title)).toEqual(['Verify delivery, gift and customer satisfaction before closing', 'Confirm the quote was reviewed and agree a next step', 'Check order progress and confirm delivery expectations', 'Review the outstanding balance and payment follow-up'])
+  })
 })
