@@ -26,6 +26,12 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
 describe('unified communications panel', () => {
+  it('opens the shared phone panel for a dialer shortcut without a phone number', () => {
+    render(<CommunicationDock />)
+    act(() => { window.dispatchEvent(new CustomEvent('inAppDial', { detail: { phone: '' } })) })
+    expect(screen.getByRole('region', { name: 'Communications workspace' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Phone' }).getAttribute('aria-pressed')).toBe('true')
+  })
   it('offers one launcher and preserves phone and AI instances across tab switches and minimize', () => {
     render(<CommunicationDock />)
     expect(screen.getAllByRole('button', { name: 'Open Titan communications' })).toHaveLength(1)

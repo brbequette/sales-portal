@@ -52,6 +52,7 @@ function CommunicationDockContent({ user }: DockProps) {
       setAccountId(previous => previous || next?.accountId || '')
     }
     const openAI = () => { setOpen(true); setTab('ai') }
+    const openPhone = () => { setOpen(true); setTab('phone') }
     const openMessages = (event: Event) => {
       setOpen(true); setTab('messages')
       const phone = (event as CustomEvent<{ phone?: string }>).detail?.phone
@@ -64,11 +65,13 @@ function CommunicationDockContent({ user }: DockProps) {
     queueMicrotask(update)
     window.addEventListener(COMMUNICATION_CONTEXT_EVENT, update)
     window.addEventListener('openTitanAi', openAI)
+    window.addEventListener('inAppDial', openPhone)
     window.addEventListener('titan:open-messages', openMessages)
     window.addEventListener('keydown', key)
     return () => {
       window.removeEventListener(COMMUNICATION_CONTEXT_EVENT, update)
       window.removeEventListener('openTitanAi', openAI)
+      window.removeEventListener('inAppDial', openPhone)
       window.removeEventListener('titan:open-messages', openMessages)
       window.removeEventListener('keydown', key)
     }
