@@ -6,6 +6,7 @@ import { isAdminRole } from "../../src/lib/roles"
 const authenticatedHandler: Handler = async (event) => {
   const cors = {
     "Content-Type": "application/json",
+    "Cache-Control": "private, no-store",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
@@ -26,7 +27,24 @@ const authenticatedHandler: Handler = async (event) => {
       return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, results: {} }) }
     }
 
-    const query = q.toLowerCase()
+    const query = q.trim().slice(0, 120).toLowerCase()
+    if (!query) return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, results: {} }) }
+
+    const contacts = await prisma.contact.findMany({
+      where: { AND: [
+        ...(restrictToOwner ? [{ account: { ownerId } }] : []),
+        { OR: [
+          { firstName: { contains: query, mode: 'insensitive' } },
+          { lastName: { contains: query, mode: 'insensitive' } },
+          { email: { contains: query, mode: 'insensitive' } },
+          { phone: { contains: query } },
+          { mobilePhone: { contains: query } },
+          { account: { name: { contains: query, mode: 'insensitive' } } },
+        ] },
+      ] },
+      select: { id: true, firstName: true, lastName: true, phone: true, mobilePhone: true, email: true, accountId: true, account: { select: { name: true } } },
+      take: 15,
+    })
 
     // 1. Search Accounts (Prisma)
     const accounts = await prisma.account.findMany({
@@ -237,6 +255,7 @@ const authenticatedHandler: Handler = async (event) => {
     const allInvoices = [...enrichedInvoices, ...enrichedQuotes, ...enrichedSalesOrders]
 
     const results = {
+      contacts,
       accounts,
       invoices: allInvoices,
       deals,

@@ -27,6 +27,21 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
 describe('unified communications panel', () => {
+  it('requires confirmation before a text shortcut switches the saved recipient', async () => {
+    render(<CommunicationDock />)
+    act(() => publishCommunicationContext({ accountId: 'account-a', title: 'Customer A' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open Titan communications' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Messages' }))
+    await waitFor(() => expect(screen.getByLabelText('Message for account-a')).toBeTruthy())
+    fireEvent.change(screen.getByLabelText('Message for account-a'), { target: { value: 'Keep draft' } })
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const open = () => window.dispatchEvent(new CustomEvent('titan:open-messages', { detail: { accountId: 'account-b', contactId: 'contact-b' } }))
+    act(open)
+    expect((screen.getByLabelText('Message for account-a') as HTMLInputElement).value).toBe('Keep draft')
+    confirm.mockReturnValue(true)
+    act(open)
+    await waitFor(() => expect(screen.getByLabelText('Message for account-b')).toBeTruthy())
+  })
   it('follows current account next steps without redirecting the saved messaging draft', async () => {
     render(<CommunicationDock />)
     act(() => publishCommunicationContext({ accountId: 'account-a', title: 'Customer A' }))

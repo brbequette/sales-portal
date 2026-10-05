@@ -109,7 +109,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh, autoStart
         </div>
         <div className="flex items-center gap-2.5">
           <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/40 border border-cyan-500/20">
-            <FiClock className="text-cyan-500/60" size={11} />
+            <FiClock className="text-cyan-500/60" size={11} /><span className="text-[10px] text-neutral-400">Account time</span>
             <span className="font-mono text-sm font-black text-cyan-400 tabular-nums tracking-wider">{formatTimer(timerSeconds)}</span>
           </div>
           <button
@@ -149,17 +149,16 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh, autoStart
               <div className="flex gap-1.5 shrink-0 ml-3">
                 {cleanPhone && (
                   <PhoneLink
-                    phone={cleanPhone}
+                    phone={cleanPhone} accountId={activeAccount?.id || activeAccount?.zohoId} accountName={activeAccount?.name} contactName={contactName} contactId={primaryContact?.id}
                     showNumberOnDesktop
                     className="flex items-center gap-1 px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-black font-extrabold text-[10px] rounded-lg shadow-lg shadow-cyan-500/20 transition-all cursor-pointer"
-                    onBeforeCall={(ph) => initiateCall(ph)}
                   >
                     <FiPhoneCall size={12} />
                   </PhoneLink>
                 )}
                 {cleanPhone && (
                   <PhoneLink
-                    phone={cleanPhone}
+                    phone={cleanPhone} accountId={activeAccount?.id || activeAccount?.zohoId} accountName={activeAccount?.name} contactName={contactName} contactId={primaryContact?.id}
                     type="sms"
                     className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold text-[10px] rounded-lg border border-emerald-500/20 transition-all cursor-pointer"
                   >
@@ -181,12 +180,11 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh, autoStart
             <div className="px-5 mt-1.5 flex flex-wrap items-center gap-3">
               {displayPhone && (
                 <PhoneLink
-                  phone={cleanPhone}
+                  phone={cleanPhone} accountId={activeAccount?.id || activeAccount?.zohoId} accountName={activeAccount?.name} contactName={contactName} contactId={primaryContact?.id}
                   className="flex items-center gap-1"
-                  onBeforeCall={(ph) => navigator.clipboard?.writeText(ph).catch(() => {})}
                 >
                   <FiPhoneCall size={10} className="text-cyan-500" />
-                  <span className="text-xs font-mono font-bold text-cyan-300 select-all" title="Phone number for ZDialer">{formatPhoneNumber(displayPhone)}</span>
+                  <span className="text-xs font-mono font-bold text-cyan-300 select-all" title="Phone number for the in-app phone">{formatPhoneNumber(displayPhone)}</span>
                 </PhoneLink>
               )}
               {displayEmail && (

@@ -1,5 +1,7 @@
 "use client"
 
+import { prepareInAppCall } from "@/lib/internal-phone"
+
 
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { createPortal } from "react-dom"
@@ -159,9 +161,9 @@ function CallModal({ invoice, onClose, onSaved }: { invoice: Invoice, onClose: (
             {!!invoice.customer_contacts?.length && (
               <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
                 {invoice.customer_contacts.map(contact => (
-                  <a key={contact.id} href={`tel:${contact.phone_href || contact.phone}`} className="text-xs text-emerald-400 hover:text-emerald-300">
+                  <button type="button" key={contact.id}  className="text-xs text-emerald-400 hover:text-emerald-300" onClick={event => { event.stopPropagation(); prepareInAppCall(contact.phone_href || contact.phone) }}>
                     {contact.name}: {contact.phone}{contact.isPrimary ? " (PRIMARY)" : ""}
-                  </a>
+                  </button>
                 ))}
               </div>
             )}
@@ -841,9 +843,9 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
                   {!!activeAccount.invoices[0]?.customer_contacts?.length && (
                     <div className="flex flex-wrap gap-2 pt-2">
                       {activeAccount.invoices[0].customer_contacts.map(contact => (
-                        <a key={contact.id} href={`tel:${contact.phone_href || contact.phone}`} className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1">
+                        <button type="button" key={contact.id}  className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1" onClick={event => { event.stopPropagation(); prepareInAppCall(contact.phone_href || contact.phone) }}>
                           {contact.name}: {contact.phone}{contact.isPrimary ? " (PRIMARY)" : ""}
-                        </a>
+                        </button>
                       ))}
                     </div>
                   )}

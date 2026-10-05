@@ -422,7 +422,7 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
                   <div className="flex gap-1.5 shrink-0 ml-3">
                     {cleanPhone && (
                       <PhoneLink
-                        phone={cleanPhone}
+                        phone={cleanPhone} accountId={account?.id || account?.zohoId} accountName={account?.name} contactName={contactName} contactId={primaryContact?.id}
                         showNumberOnDesktop
                         className="flex items-center gap-1 px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-black font-extrabold text-[10px] rounded-lg shadow-lg shadow-cyan-500/20 transition-all cursor-pointer"
                       >
@@ -431,7 +431,7 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
                     )}
                     {cleanPhone && (
                       <PhoneLink
-                        phone={cleanPhone}
+                        phone={cleanPhone} accountId={account?.id || account?.zohoId} accountName={account?.name} contactName={contactName} contactId={primaryContact?.id}
                         type="sms"
                         className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold text-[10px] rounded-lg border border-emerald-500/20 transition-all cursor-pointer"
                       >
@@ -452,12 +452,11 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
                 <div className="px-5 mt-1.5 flex flex-wrap items-center gap-3">
                   {displayPhone && (
                     <PhoneLink
-                      phone={cleanPhone}
+                      phone={cleanPhone} accountId={account?.id || account?.zohoId} accountName={account?.name} contactName={contactName} contactId={primaryContact?.id}
                       className="flex items-center gap-1"
-                      onBeforeCall={(ph) => navigator.clipboard?.writeText(ph).catch(() => {})}
                     >
                       <FiPhoneCall size={10} className="text-cyan-500" />
-                      <span className="text-xs font-mono font-bold text-cyan-300 select-all" title="Phone number for ZDialer">{formatPhoneNumber(displayPhone)}</span>
+                      <span className="text-xs font-mono font-bold text-cyan-300 select-all" title="Phone number for the in-app phone">{formatPhoneNumber(displayPhone)}</span>
                     </PhoneLink>
                   )}
                   {displayEmail && (
