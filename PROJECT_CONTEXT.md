@@ -1642,3 +1642,29 @@ Local fix, not deployed: quote requests and new/reused shipment requests now sen
 
 Verified request/response field shapes against https://developers.easyship.com/reference/shipments_update (2024-09 OpenAPI). Eighteen mocked regression tests pass; no real labels purchased or production shipments changed. Local Prisma client regenerated to match the GitHub schema; no database migration executed. Production deployment and live shipment verification remain outstanding. Prior reconciliation stop instruction remains in force.
 Release validation: installed missing declared dependencies locally without changing package manifests, regenerated Prisma client, and passed the full TypeScript check plus all 18 shipping regression tests. User authorized push and production update; publication is pending.
+
+
+## Shipping fix pushed; production update blocked — 2026-10-05
+
+PR #154 (https://github.com/brbequette/sales-portal/pull/154) merged to main as 3867f699a629733603f3bfe39b010d363e86a55c. Full TypeScript check and 18 mocked shipping tests passed. Netlify preview 6ac3e36ca45b720008e934a4 passed, including headers/redirects and secret scanning. Authorized production deployment 6ac3e4a56a61ec0008f9155e failed at the pre-build Prisma migration gate. Existing P3009 blocker: 20260824120000_communications_automation_foundation failed on 2026-10-03 at 16:28:15.226496 UTC; same failure already blocked prior main deployment 6ac28bb321b22f00083bce55. No migration history was changed or gate bypassed.
+
+Production remains on 3f733bfbba7141f2e601d1ca6648401987ae77bc, deploy 6ac124cc6a13660008f3c73f, at https://www.tdusales.com. Shipping fix is NOT live. Netlify API masks production DATABASE_URL; established local environment points to a different host and was not used. Read-only failed-migration inspection and a verified recovery/backup are required before migration recovery and redeployment. Do not blindly mark the migration applied, reset the database, or promote the preview to bypass the gate. Unrelated local notes and operational files remain uncommitted.
+
+## Unified bottom-right communications workspace — 2026-10-05
+
+Local implementation, not deployed: AppShell now mounts one portal-based CommunicationDock in place of the separate floating AI and Titan Phone launchers. Responsive bottom-right panel exposes Phone, Messages, and AI; tools remain mounted across minimization/tab changes to preserve call state and drafts. Messages includes existing account SMS/email/WhatsApp tools and an embedded all-conversations inbox. PhoneLink actions open the unified tools; existing provider handlers and message confirmations remain authoritative. Account changes require an explicit messaging switch so unsent text is not silently redirected.
+
+Dual-screen broadcasts now include selected account/product/document context. Screen two has the same dock, follows active accounts by default, pins on workspace editing, offers full product/order details and an embedded screen-one workspace. Same-origin embedded call/AI/message actions relay to the host dock; display pages cannot recursively embed themselves. Product/order modals publish scoped context and restore it on close; cached invoice details expose the actual local account ID instead of guessing from Books customer IDs. Workspace height corrected to retain access to controls beneath the new context header.
+
+Validation: 11 focused tests passed (single launcher, tool persistence, draft/account protection, incoming-call/AI events, safe embedded paths, existing AI persistence contract). New component lint and the full TypeScript check passed. No outbound calls/messages or provider changes performed. Existing production migration blocker from the prior shipping release remains unresolved; this UI work is not live.
+
+## Upgrade recovery diagnosis and release preparation — 2026-10-05
+
+Verified production through the Netlify database API: only unresolved failure is obsolete 20260824120000_communications_automation_foundation, checksum b3ee9082e2ad54113f22a0e24a190f7463461be487051879bd7ee5520ffcc444, zero applied steps, first CREATE TABLE failed because CommunicationEvent already exists. Historical SQL checksum matches CRLF source; migration is absent from current release and all current migrations are applied. Manual snapshot snap-blue-cell-ajq3hj58 on production branch br-misty-rain-aj38g9pq created 18:15:26 UTC and verified by listing. No restore test performed.
+
+API exposes only netlifydb_readonly; guarded recovery transaction was rejected by database permissions and rolled back. Windows Prisma engine also returned P1001. No ledger/schema/customer data changed. Team Owner access requested; recovery remains blocked. See docs/communications-upgrade-recovery.md for exact guarded recovery procedure. Normal migrate deploy gate remains enabled. Netlify frame policy aligned to SAMEORIGIN for unified inbox/screen-two embeds. Combined release regression suite: 29 tests passed. UI and shipping publication remains pending.
+
+
+## Production migration recovery completed — 2026-10-05
+
+After the user signed into Netlify, the owner browser SQL console verified netlifydb_owner. Applied a single guarded UPDATE to the obsolete failed migration's rolled_back_at only, matching exact name/checksum/zero steps/error and exactly one unresolved failure. Rollback marker 2026-10-05T18:23:10.593Z independently read back through the read-only API. No schema/customer data or permission/credential settings changed; existing snapshot retained. Production migration blocker cleared. PR #155 contains unified communications; initial preview caught a useSearchParams Suspense boundary requirement, now fixed in the dock wrapper. Fresh TypeScript and lint passed before that wrapper-only fix; preview rebuild is required before merge/publication.

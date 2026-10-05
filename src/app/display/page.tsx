@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
+import { ScreenTwoContext } from '@/components/ScreenTwoContext'
+import { publishCommunicationContext } from '@/lib/communication-context'
+import type { DualScreenState } from '@/lib/dual-screen'
 import {
   FiMonitor, FiWifi, FiWifiOff, FiMaximize, FiSearch, FiPhone, FiPhoneCall,
   FiUser, FiMapPin, FiDollarSign, FiClock, FiRefreshCw, FiExternalLink,
@@ -108,6 +111,10 @@ function CommunicatorContent() {
   const lastControllerAt = useRef(0)
 
   const [connected, setConnected] = useState(false)
+  const [screenOneState, setScreenOneState] = useState<DualScreenState | null>(null)
+  const [followScreenOne, setFollowScreenOne] = useState(true)
+  const followScreenOneRef = useRef(true)
+  const setFollowing = (value: boolean) => { followScreenOneRef.current = value; setFollowScreenOne(value) }
   const [controllerAccountSuggestion, setControllerAccountSuggestion] = useState<{ id: string; name?: string } | null>(null)
 
   // Account Second-Screen Workspace State
@@ -195,6 +202,16 @@ function CommunicatorContent() {
         setConnected(true)
         lastControllerAt.current = Date.now()
         post("DISPLAY_ACK", { acknowledgedId: message.id })
+        setScreenOneState(message.state)
+        publishCommunicationContext(message.state.communication || null)
+        const communicationAccount = message.state.communication?.accountId
+        if (communicationAccount) {
+          setActiveAccountId(previous => {
+            if (followScreenOneRef.current || !previous || previous === communicationAccount) return communicationAccount
+            setControllerAccountSuggestion({ id: communicationAccount, name: message.state?.communication?.title })
+            return previous
+          })
+        }
 
         const cPath = message.state.controllerPath || ""
         if (cPath.includes("/account")) {
@@ -203,7 +220,7 @@ function CommunicatorContent() {
             const cAccId = url.searchParams.get("id")
             if (cAccId && cAccId !== activeAccountId) {
               setActiveAccountId(prev => {
-                if (!prev) return cAccId
+                if (followScreenOneRef.current || !prev) return cAccId
                 setControllerAccountSuggestion({ id: cAccId, name: message.state?.title })
                 return prev
               })
@@ -574,7 +591,16 @@ function CommunicatorContent() {
   }
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-[#07090d] text-white font-sans">
+    <div onInputCapture={() => setFollowing(false)} className="flex h-dvh flex-col overflow-hidden bg-[#07090d] text-white font-sans">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-4 py-2 text-xs">
+        <span className="text-neutral-400">{followScreenOne ? 'Following the active conversation and screen 1' : 'Account pinned while you work — drafts stay with this customer'}</span>
+        <button type="button" aria-pressed={followScreenOne} className="rounded-lg bg-cyan-700 px-3 py-2" onClick={() => {
+          if (!followScreenOne && !window.confirm('Resume following screen 1? Unsent work in this account workspace may be cleared.')) return
+          setFollowing(!followScreenOne)
+          if (!followScreenOne && screenOneState?.communication?.accountId) setActiveAccountId(screenOneState.communication.accountId)
+        }}>{followScreenOne ? 'Pin this account' : 'Follow screen 1'}</button>
+      </div>
+      <ScreenTwoContext state={screenOneState} />
       {/* ─── Top Global Communicator Header & Account Switcher ─── */}
       <header className="flex-none bg-[#0a0d14] border-b border-white/10 px-4 py-2.5 z-50 shadow-md">
         <div className="flex items-center justify-between gap-3">
@@ -776,6 +802,7 @@ function CommunicatorContent() {
         ) : account ? (
           /* Loaded Account: Render Full Communicator Hub with Back Button */
           <AccountSecondScreenWorkspace
+            key={account.id}
             accountId={account.id}
             account={account}
             onBack={() => {

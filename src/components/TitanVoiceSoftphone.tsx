@@ -68,7 +68,7 @@ const INTERNAL_DIRECTORY = [
   { id: "operator", name: "Titan HQ Operator", role: "Main Switchboard", ext: "100", phone: "+14804702577", direct: "Ext 100" },
 ]
 
-export function TitanVoiceSoftphone() {
+export function TitanVoiceSoftphone({ embedded = false, onCallState }: { embedded?: boolean; onCallState?: (state: { status: PhoneCallStatus; accountId: string; name: string }) => void }) {
   // Navigation & View State
   const [isExpanded, setIsExpanded] = useState(false)
   const [activeTab, setActiveTab] = useState<SoftphoneTab>("dialer")
@@ -100,6 +100,9 @@ export function TitanVoiceSoftphone() {
     isMuted: false,
     isOnHold: false,
   })
+  useEffect(() => {
+    onCallState?.({ status: call.status, accountId: call.accountId, name: call.accountName || call.contactName })
+  }, [call.status, call.accountId, call.accountName, call.contactName, onCallState])
 
   // Live Copilot & Battle-Card Intelligence
   const [copilotData, setCopilotData] = useState<any>(null)
@@ -603,8 +606,8 @@ export function TitanVoiceSoftphone() {
   return (
     <>
       {/* ─── FLOATING MINI-DOCK (Bottom-Right) ─── */}
-      <div className="fixed bottom-4 right-4 z-[9999] font-sans antialiased">
-        {!isExpanded ? (
+      <div className={embedded ? "h-full overflow-y-auto font-sans antialiased" : "fixed bottom-4 right-4 z-[9999] font-sans antialiased"}>
+        {!isExpanded && !embedded ? (
           /* Minimized Phone Badge */
           <button
             onClick={() => setIsExpanded(true)}
@@ -644,7 +647,7 @@ export function TitanVoiceSoftphone() {
           </button>
         ) : (
           /* ─── EXPANDED SOFTPHONE CONSOLE ─── */
-          <div className="w-80 sm:w-96 rounded-3xl border border-white/20 bg-[#090c12]/98 backdrop-blur-2xl shadow-2xl overflow-hidden flex flex-col text-white animate-in zoom-in-95 duration-150">
+          <div className={`${embedded ? "w-full min-h-full" : "w-80 sm:w-96 rounded-3xl border border-white/20"} bg-[#090c12]/98 overflow-hidden flex flex-col text-white`}>
             
             {/* Live Stale Quote Alert Banner */}
             {activeQuoteAlert && (
@@ -703,6 +706,7 @@ export function TitanVoiceSoftphone() {
                 </button>
                 <button
                   onClick={() => setIsExpanded(false)}
+                  hidden={embedded}
                   className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
                   title="Minimize Phone"
                 >

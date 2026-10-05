@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useSyncExternalStore } from "react"
 import { createPortal } from "react-dom"
 import { signOut } from "next-auth/react"
 import { useZoho } from "@/components/ZohoProvider"
@@ -16,9 +16,9 @@ import {
 import { GlobalTopBar } from "@/components/GlobalTopBar"
 import { UserSettingsModal } from "@/components/UserSettingsModal"
 import { CommandPalette } from "@/components/CommandPalette"
-import { AiAssistant } from "@/components/AiAssistant"
+import { CommunicationDock } from "@/components/CommunicationDock"
+import { EmbeddedCommunicationBridge } from '@/components/EmbeddedCommunicationBridge'
 import { DebugPanel } from "@/components/DebugPanel"
-import { TitanVoiceSoftphone } from "@/components/TitanVoiceSoftphone"
 import { isAdminRole, isAdministratorRole } from "@/lib/roles"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -171,7 +171,8 @@ function SidebarLink({ item, active, expanded }: { item: NavItem; active: boolea
 
 export function DisplayAwareAppShell({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams()
-  if (searchParams.get("display") === "1") return <>{children}</>
+  const embedded = useSyncExternalStore(() => () => {}, () => window.parent !== window, () => false)
+  if (searchParams.get("display") === "1" || embedded) return <>{children}<EmbeddedCommunicationBridge /></>
   return <AppShell>{children}</AppShell>
 }
 
@@ -204,7 +205,7 @@ function SalesProductivityPrompt({ enabled }: { enabled: boolean }) {
   if (!enabled || typeof document === "undefined") return null
   const start = () => { setIdle(false); sessionStorage.setItem("titan-sales-workday-active", "1"); router.push("/sales/todays-calls") }
   return createPortal(<>
-    <button type="button" onClick={start} className="fixed bottom-20 right-3 z-[800] inline-flex min-h-12 items-center gap-2 rounded-full bg-gradient-to-r from-orange-500 to-amber-400 px-5 text-sm font-black text-black shadow-[0_12px_40px_rgba(249,115,22,.35)] md:bottom-5 md:right-5"><FiZap /> Get to work. Make money.</button>
+    <button type="button" onClick={start} className="fixed bottom-36 left-3 z-[800] inline-flex min-h-12 items-center gap-2 rounded-full bg-gradient-to-r from-orange-500 to-amber-400 px-5 text-sm font-black text-black shadow-[0_12px_40px_rgba(249,115,22,.35)] md:bottom-5 md:left-24"><FiZap /> Get to work. Make money.</button>
     {idle && <div className="fixed inset-0 z-[12000] grid place-items-center bg-black p-6 text-center text-white"><div className="max-w-xl"><FiZap className="mx-auto text-5xl text-orange-400" /><div className="mt-6 text-xs font-black uppercase tracking-[.28em] text-orange-400">Your next opportunity is waiting</div><h2 className="mt-4 text-4xl font-black uppercase leading-tight sm:text-6xl">You don’t make money standing still.</h2><p className="mx-auto mt-5 max-w-md text-base leading-7 text-neutral-400">Five focused minutes can create the next quote, order, or customer relationship. Pick up where you left off and take the next best action.</p><button type="button" onClick={start} className="mt-8 min-h-14 rounded-2xl bg-orange-500 px-8 text-base font-black uppercase text-black"><FiZap className="mr-2 inline" /> Get back to work</button></div></div>}
   </>, document.body)
 }
@@ -303,7 +304,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setShowMoreMenu(false)
   }, [pathname])
 
-  if (pathname === "/login" || pathname === "/intro-offer" || pathname.startsWith("/tv") || pathname.startsWith("/display") || isPublicPage) {
+  if (pathname.startsWith("/display")) {
+    return <>{children}<CommunicationDock user={user ? { id: user.id, name: user.name || undefined, role: user.role } : undefined} /></>
+  }
+  if (pathname === "/login" || pathname === "/intro-offer" || pathname.startsWith("/tv") || isPublicPage) {
     return <>{children}</>
   }
 
@@ -792,8 +796,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </main>
 
       <CommandPalette />
-      <AiAssistant user={user ? { id: user.id, name: user.name || undefined, role: user.role } : undefined} />
-      <TitanVoiceSoftphone />
+      <CommunicationDock user={user ? { id: user.id, name: user.name || undefined, role: user.role } : undefined} />
       <DebugPanel />
       <UserSettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </div>

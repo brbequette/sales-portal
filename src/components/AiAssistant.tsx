@@ -6,6 +6,8 @@ import { FiZap, FiX, FiMic, FiSend, FiMessageSquare, FiVolume2, FiVolumeX, FiThu
 
 interface AiAssistantProps {
   user?: { id?: string; name?: string; role?: string };
+  embedded?: boolean;
+  active?: boolean;
 }
 
 interface Message {
@@ -77,8 +79,9 @@ function AssistantMessage({ content }: { content: string }) {
   );
 }
 
-export function AiAssistant({ user }: AiAssistantProps) {
+export function AiAssistant({ user, embedded = false, active = true }: AiAssistantProps) {
   const [isOpen, setIsOpen] = useState(false);
+  useEffect(() => { if (embedded) setIsOpen(active); }, [embedded, active]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -395,7 +398,7 @@ export function AiAssistant({ user }: AiAssistantProps) {
   })();
 
   // Floating button (closed state)
-  if (!isOpen) {
+  if (!isOpen && !embedded) {
     return (
       <button
         onClick={() => setIsOpen(true)}
@@ -409,7 +412,7 @@ export function AiAssistant({ user }: AiAssistantProps) {
   }
 
   return (
-    <div className="fixed inset-0 md:inset-auto md:bottom-6 md:right-6 md:w-[420px] md:h-[600px] z-[1000] flex flex-col bg-neutral-950/95 backdrop-blur-2xl border border-amber-500/30 md:rounded-3xl shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden transition-all duration-300">
+    <div className={embedded ? "flex h-full min-h-0 flex-col bg-neutral-950 text-white" : "fixed inset-0 md:inset-auto md:bottom-6 md:right-6 md:w-[420px] md:h-[600px] z-[1000] flex flex-col bg-neutral-950/95 backdrop-blur-2xl border border-amber-500/30 md:rounded-3xl shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden transition-all duration-300"}>
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-white/10 bg-neutral-900/90">
         <div className="flex items-center gap-3">
@@ -443,6 +446,7 @@ export function AiAssistant({ user }: AiAssistantProps) {
             onClick={() => setIsOpen(false)}
             className="p-2 hover:bg-white/10 rounded-full transition-colors"
             title="Close"
+            hidden={embedded}
           >
             <FiX className="w-5 h-5 text-neutral-300" />
           </button>
