@@ -39,3 +39,13 @@ it('only prepares an editable draft and a task-review link', async () => {
   expect(fetch).toHaveBeenCalledTimes(1)
   expect(screen.getByRole('link', { name: 'Review and schedule follow-up' }).getAttribute('href')).toContain('/tasks/new?accountId=a')
 })
+
+it('clamps the notification menu inside a narrow viewport even when the bell is on the left', () => {
+  const originalWidth = window.innerWidth
+  Object.defineProperty(window, 'innerWidth', { configurable: true, value: 320 })
+  try {
+    render(<NotificationCenter />)
+    fireEvent.click(screen.getByRole('button', { name: 'Open notifications' }))
+    expect(screen.getByRole('dialog', { name: 'Notifications' }).style.right).toBe('8px')
+  } finally { Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalWidth }) }
+})

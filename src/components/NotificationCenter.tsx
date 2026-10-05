@@ -37,7 +37,9 @@ export function NotificationCenter() {
       const height = window.visualViewport?.height || window.innerHeight
       const offset = window.visualViewport?.offsetTop || 0
       const top = Math.max(offset + 8, Math.min(rect ? rect.bottom + 8 : offset + 64, offset + Math.max(8, height - 240)))
-      setPosition({ top, right: Math.max(8, rect ? window.innerWidth - rect.right : 12), maxHeight: Math.max(100, offset + height - top - 12) })
+      const width = Math.min(320, window.innerWidth - 16)
+      const right = Math.max(8, Math.min(window.innerWidth - width - 8, rect ? window.innerWidth - rect.right : 12))
+      setPosition({ top, right, maxHeight: Math.max(100, offset + height - top - 12) })
     }
     update()
     window.addEventListener('resize', update); window.addEventListener('scroll', update, true)
