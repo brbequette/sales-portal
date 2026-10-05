@@ -65,9 +65,13 @@ export async function POST(req: NextRequest) {
       data.isModerator = fields.isModerator
     }
     if (current) data.userid = body.userId
+    const entityId = body.userId || String(data.emailid).toLowerCase()
+    if (body.action === 'create' && (await listVoiceUsers()).some(u => u.emailid.toLowerCase() === String(data.emailid).toLowerCase())) throw new Error('A Voice user with this email already exists')
+    const unresolved = await prisma.providerWriteOperation.findFirst({ where: { provider: 'ZOHO_VOICE', entityType: 'VOICE_USER', entityId, state: { in: ['SYNCING', 'AMBIGUOUS'] } } })
+    if (unresolved) throw new Error('A previous change for this user is unresolved. Verify its outcome before another write.')
     operationKey = `zoho-voice:user:${actor.id}:${body.requestId}`
     const fingerprint = hash({ action: body.action, data, actor: actor.id })
-    const operation = await prisma.providerWriteOperation.upsert({ where: { operationKey }, update: {}, create: { operationKey, provider: 'ZOHO_VOICE', entityType: 'VOICE_USER', entityId: body.userId || 'new', operation: body.action, requestFingerprint: fingerprint } })
+    const operation = await prisma.providerWriteOperation.upsert({ where: { operationKey }, update: {}, create: { operationKey, provider: 'ZOHO_VOICE', entityType: 'VOICE_USER', entityId, operation: body.action, requestFingerprint: fingerprint } })
     if (operation.requestFingerprint !== fingerprint || operation.state !== 'PENDING') throw new Error('This request has already been submitted. Refresh Voice to check its result; it was not repeated.')
     const claim = await prisma.providerWriteOperation.updateMany({ where: { operationKey, state: 'PENDING' }, data: { state: 'SYNCING', lastAttemptAt: new Date(), attemptCount: { increment: 1 } } })
     if (claim.count !== 1) throw new Error('Request already in progress')
