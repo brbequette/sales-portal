@@ -185,7 +185,7 @@ function CommunicationDockContent({ user }: DockProps) {
         {loading && <p role="status" className="p-4 text-sm">Loading account…</p>}
         {error && <p role="alert" className="p-3 text-sm text-amber-300">{error}</p>}
         {!accountId && <p className="p-4 text-sm text-neutral-400">Open an account or search above to start a message.</p>}
-        {account && <div className={styles.accountTools}><CommunicationCenter key={`${accountId}:${contactId}`} accountId={accountId} account={account} contacts={account.contacts || []} selectedContactId={contactId} onContactChange={setContactId} initialTab="SMS" messagesOnly /></div>}
+        {account && <div className={styles.accountTools}><CommunicationCenter key={`${accountId}:${contactId}`} accountId={accountId} account={account} contacts={account.contacts || []} selectedContactId={contactId} onContactChange={id => { chooseAccount(accountId, account.name, id) }} initialTab="SMS" messagesOnly /></div>}
         </div>
       </div>
     </section>
