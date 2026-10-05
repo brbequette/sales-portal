@@ -62,6 +62,20 @@ export interface ParcelDimensions {
   height: number;
 }
 
+// Easyship takes the outer package size on parcel.box, in centimeters.
+// A box slug selects saved packaging and must not override user-entered sizes.
+function customBox(dimensions: ParcelDimensions | undefined): ParcelDimensions {
+  if (!dimensions || ![dimensions.length, dimensions.width, dimensions.height]
+    .every(value => Number.isFinite(value) && value > 0 && inToCm(value) > 0)) {
+    throw new Error('Package length, width, and height must be positive numbers in inches');
+  }
+  return {
+    length: inToCm(dimensions.length),
+    width: inToCm(dimensions.width),
+    height: inToCm(dimensions.height),
+  };
+}
+
 export interface ParcelItem {
   description: string;
   category: string;
@@ -121,7 +135,7 @@ function getHeaders() {
   };
 }
 
-export async function getExistingShipmentRates(platformOrderNumber: string): Promise<{ shipmentId: string; labelState: string; rates: EasyshipRate[] } | null> {
+export async function getExistingShipmentRates(platformOrderNumber: string, expected: { weight: number; dimensions: ParcelDimensions }): Promise<{ shipmentId: string; labelState: string; rates: EasyshipRate[] } | null> {
   if (!platformOrderNumber) return null;
   try {
     const res = await fetch(
@@ -130,7 +144,15 @@ export async function getExistingShipmentRates(platformOrderNumber: string): Pro
     );
     if (!res.ok) return null;
     const data = await res.json();
-    const shipment = (data.shipments || []).find((s: any) => s.rates && s.rates.length > 0);
+    const box = customBox(expected.dimensions);
+    const shipment = (data.shipments || []).find((s: any) => {
+      const parcel = s.parcels?.[0];
+      const dimensions = parcel?.box?.outer_dimensions;
+      return s.rates?.length > 0 && s.parcels?.length === 1 && dimensions &&
+        ['length', 'width', 'height'].every(axis =>
+          Math.abs(Number(dimensions[axis]) - box[axis as keyof ParcelDimensions]) < 0.01) &&
+        Math.abs(Number(parcel.total_actual_weight) - lbsToKg(expected.weight)) < 0.001;
+    });
     if (!shipment || !shipment.rates || !Array.isArray(shipment.rates)) return null;
 
     const rates: EasyshipRate[] = shipment.rates.map((rate: any) => ({
@@ -174,7 +196,9 @@ export async function getEasyshipRates(params: GetRatesParams): Promise<Easyship
   // Convert our imperial (lbs, in) parcels to metric for the request.
   const convertedParcels = params.parcels.map(p => ({
     total_actual_weight: lbsToKg(p.total_actual_weight),
-    box: p.box || { slug: 'custom' },
+    box: p.box?.slug && p.box.slug !== 'custom'
+      ? p.box
+      : customBox(p.items[0]?.dimensions),
     items: (p.items || []).map(item => ({
       description: item.description || 'Order item',
       category: item.category || 'home_appliances',
@@ -465,6 +489,10 @@ export async function getOriginFromDB(): Promise<Address> {
 }
 
 export async function createShipmentAndBuyLabel(params: CreateShipmentParams): Promise<ShipmentResult> {
+  // Validate every parcel before any provider request, especially label purchase.
+  const boxes = params.parcels?.length
+    ? params.parcels.map(p => customBox(p.dimensions))
+    : [customBox(params.dimensions)];
   const dbOrigin = await getOriginFromDB();
   const origin = params.originAddress || dbOrigin;
 
@@ -524,9 +552,9 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
         contact_email: params.destinationContactEmail || COMPANY_CONFIG.email,
       },
       parcels: (params.parcels && params.parcels.length > 0)
-        ? params.parcels.map(p => ({
+        ? params.parcels.map((p, index) => ({
             total_actual_weight: lbsToKg(p.weight),
-            box: { slug: 'custom' },
+            box: boxes[index],
             items: (p.items && p.items.length > 0 ? p.items : params.items).map(item => ({
               description: item.description || 'Order item',
               sku: item.sku || '',
@@ -544,7 +572,7 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
           }))
         : [{
             total_actual_weight: lbsToKg(params.weight),
-            box: { slug: 'custom' },
+            box: boxes[0],
             items: params.items.map(item => ({
               description: item.description,
               sku: (item as any).sku || '',
@@ -578,54 +606,53 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
     easyshipId = shipment.easyship_shipment_id || '';
   } else {
     console.log(`Reusing existing Easyship shipment: ${easyshipId}`);
-    try {
-      const parcelsPayload = (params.parcels && params.parcels.length > 0)
-        ? params.parcels.map(p => ({
-            total_actual_weight: lbsToKg(p.weight),
-            box: { slug: 'custom' },
-            items: (p.items && p.items.length > 0 ? p.items : params.items).map(item => ({
-              description: item.description || 'Order item',
-              sku: item.sku || '',
-              category: 'home_appliances',
-              quantity: item.quantity || 1,
-              dimensions: {
-                length: inToCm(p.dimensions.length),
-                width: inToCm(p.dimensions.width),
-                height: inToCm(p.dimensions.height),
-              },
-              actual_weight: lbsToKg(item.weight || (p.weight / ((p.items || params.items).length || 1))),
-              declared_currency: 'USD',
-              declared_customs_value: item.declaredValue || 0.10,
-            }))
+    const parcelsPayload = (params.parcels && params.parcels.length > 0)
+      ? params.parcels.map((p, index) => ({
+          total_actual_weight: lbsToKg(p.weight),
+          box: boxes[index],
+          items: (p.items && p.items.length > 0 ? p.items : params.items).map(item => ({
+            description: item.description || 'Order item',
+            sku: item.sku || '',
+            category: 'home_appliances',
+            quantity: item.quantity || 1,
+            dimensions: {
+              length: inToCm(p.dimensions.length),
+              width: inToCm(p.dimensions.width),
+              height: inToCm(p.dimensions.height),
+            },
+            actual_weight: lbsToKg(item.weight || (p.weight / ((p.items || params.items).length || 1))),
+            declared_currency: 'USD',
+            declared_customs_value: item.declaredValue || 0.10,
           }))
-        : [{
-            total_actual_weight: lbsToKg(params.weight),
-            box: { slug: 'custom' },
-            items: params.items.map(item => ({
-              description: item.description,
-              sku: (item as any).sku || '',
-              category: 'home_appliances',
-              quantity: item.quantity,
-              dimensions: {
-                length: inToCm(params.dimensions.length),
-                width: inToCm(params.dimensions.width),
-                height: inToCm(params.dimensions.height),
-              },
-              actual_weight: lbsToKg(item.weight),
-              declared_currency: 'USD',
-              declared_customs_value: item.declaredValue
-            }))
-          }];
+        }))
+      : [{
+          total_actual_weight: lbsToKg(params.weight),
+          box: boxes[0],
+          items: params.items.map(item => ({
+            description: item.description,
+            sku: (item as any).sku || '',
+            category: 'home_appliances',
+            quantity: item.quantity,
+            dimensions: {
+              length: inToCm(params.dimensions.length),
+              width: inToCm(params.dimensions.width),
+              height: inToCm(params.dimensions.height),
+            },
+            actual_weight: lbsToKg(item.weight),
+            declared_currency: 'USD',
+            declared_customs_value: item.declaredValue
+          }))
+        }];
 
-      await fetch(`${EASYSHIP_API_URL}/shipments/${easyshipId}`, {
-        method: 'PATCH',
-        headers: getHeaders(),
-        body: JSON.stringify({ parcels: parcelsPayload })
-      });
-      console.log(`[easyship] Patched parcels on reused shipment ${easyshipId}`);
-    } catch (patchErr) {
-      console.warn(`[easyship] Non-fatal: could not patch reused shipment parcels:`, patchErr);
+    const patchRes = await fetch(`${EASYSHIP_API_URL}/shipments/${easyshipId}`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+      body: JSON.stringify({ parcels: parcelsPayload })
+    });
+    if (!patchRes.ok) {
+      throw new Error(`Easyship could not update package dimensions (${patchRes.status}). Label purchase stopped; refresh rates and try again.`);
     }
+    console.log(`[easyship] Patched parcels on reused shipment ${easyshipId}`);
   }
 
   // Step 2: Buy label via /labels endpoint
