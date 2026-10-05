@@ -1,3 +1,4 @@
+import { recipientPhone, ShippingRecipientError } from "@/lib/shipping-recipient"
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createShipmentAndBuyLabel } from '@/lib/easyship'
@@ -56,7 +57,7 @@ export async function POST(req: Request) {
         country_alpha2: destinationAddress?.country_alpha2 || destinationAddress?.country || 'US',
       },
       destinationContactName: destinationContactName || 'Customer',
-      destinationContactPhone,
+      destinationContactPhone: recipientPhone(destinationContactPhone, destinationAddress?.contact_phone, destinationAddress?.phone),
       courierServiceId,
       expectedCharge: Number(selectedRateCost),
       weight: parseFloat(weight),
@@ -202,7 +203,7 @@ export async function POST(req: Request) {
     console.error('Ship Now error:', error)
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to create shipment' },
-      { status: 500 }
+      { status: error instanceof ShippingRecipientError ? 400 : 500 }
     )
   }
 }
