@@ -8,10 +8,11 @@ import styles from './CommunicationDock.module.css'
 import { AiAssistant } from './AiAssistant'
 import { TitanVoiceSoftphone, type PhoneCallStatus } from './TitanVoiceSoftphone'
 import { CommunicationCenter } from './CommunicationCenter'
+import { SalesNextSteps } from './SalesNextSteps'
 import { COMMUNICATION_CONTEXT_EVENT, getCommunicationContext, publishCommunicationContext, type CommunicationContext } from '@/lib/communication-context'
 
 type Account = { id: string; name: string; contacts?: Array<{ id: string; name?: string; phone?: string; mobilePhone?: string; email?: string }> }
-type Tab = 'phone' | 'messages' | 'ai'
+type Tab = 'phone' | 'messages' | 'ai' | 'next'
 
 type DockProps = { user?: { id?: string; name?: string; role?: string } }
 
@@ -155,12 +156,14 @@ function CommunicationDockContent({ user }: DockProps) {
         <button type="button" aria-label={expanded ? 'Restore panel size' : 'Expand communications'} onClick={() => setExpanded(value => !value)} className={`${styles.desktopAction} rounded-lg p-2 hover:bg-white/10`}>{expanded ? <FiMinimize2 /> : <FiMaximize2 />}</button>
         <button type="button" aria-label="Minimize communications" onClick={() => { setOpen(false); launcher.current?.focus() }} className="rounded-lg p-2 hover:bg-white/10"><FiX /></button>
       </header>
-      <nav aria-label="Communication tools" className="grid shrink-0 grid-cols-3 gap-1 border-b border-white/10 p-2">
+      <nav aria-label="Communication tools" className="grid shrink-0 grid-cols-4 gap-1 border-b border-white/10 p-2">
         {([{ id: 'phone', label: 'Phone', Icon: FiPhone }, { id: 'messages', label: 'Messages', Icon: FiMessageSquare }, { id: 'ai', label: 'AI', Icon: FiCpu }] as const).map(({ id, label, Icon }) => <button key={id} type="button" aria-pressed={tab === id} onClick={() => setTab(id)} className={`flex items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold ${tab === id ? 'bg-cyan-600 text-white' : 'text-neutral-400 hover:bg-white/10'}`}><Icon />{label}{id === 'phone' && busy && <span className="h-2 w-2 rounded-full bg-emerald-300" />}</button>)}
+        <button type="button" aria-pressed={tab === 'next'} onClick={() => setTab('next')} className={`rounded-lg py-2 text-sm font-semibold ${tab === 'next' ? 'bg-cyan-600 text-white' : 'text-neutral-400 hover:bg-white/10'}`}>Next steps</button>
       </nav>
       {/* Keep tools mounted: changing tabs or minimizing must not end a call or erase a draft. */}
       <div hidden={tab !== 'phone'} className={styles.tool}><TitanVoiceSoftphone embedded onCallState={callState} /></div>
       <div hidden={tab !== 'ai'} className={styles.tool}><AiAssistant embedded active={open && tab === 'ai'} user={user} /></div>
+      <div hidden={tab !== 'next'} className={`${styles.tool} ${styles.nextSteps}`} onClick={event => { if ((event.target as HTMLElement).closest('a')) setOpen(false) }}><SalesNextSteps accountId={context?.accountId || accountId} active={open && tab === 'next'} /></div>
       <div hidden={tab !== 'messages'} className={`${styles.tool} ${styles.messages}`}>
         <div className="flex shrink-0 gap-2 text-xs"><button aria-pressed={messageView === 'account'} onClick={() => setMessageView('account')} className="rounded-lg bg-white/10 px-3 py-2">Account messages</button><button aria-pressed={messageView === 'inbox'} onClick={() => { setInboxLoaded(true); setMessageView('inbox') }} className="rounded-lg bg-white/10 px-3 py-2">All conversations</button></div>
         {inboxLoaded && <iframe hidden={messageView !== 'inbox'} title="All text conversations" src="/messages?display=1" className={styles.inbox} />}

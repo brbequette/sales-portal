@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { createPortal } from "react-dom"
 import { FiX, FiSave } from "react-icons/fi"
 import { toast } from 'react-hot-toast';
 
@@ -97,8 +98,9 @@ export function AccountEditModal({ account, onClose, onSaved }: AccountEditModal
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+  if (typeof document === 'undefined') return null
+  return createPortal(
+    <div role="dialog" aria-modal="true" aria-label="Edit account" className="fixed inset-0 z-[9500] flex items-center justify-center p-4 bg-black/60">
       <div className="bg-surface border border-white/10 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Header */}
@@ -253,6 +255,6 @@ export function AccountEditModal({ account, onClose, onSaved }: AccountEditModal
           </button>
         </div>
       </div>
-    </div>
+    </div>, document.body
   )
 }

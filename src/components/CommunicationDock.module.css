@@ -30,6 +30,7 @@
 .panel[hidden], .dock > [hidden] { display: none !important; }
 .panel :is(input, textarea, select) { min-width: 0; max-width: 100%; }
 .tool { flex: 1; min-height: 0; min-width: 0; overflow: hidden; }
+.nextSteps { overflow-y: auto; overscroll-behavior: contain; padding: 12px; }
 .messages { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
 .account { display: flex; flex: 1; flex-direction: column; min-height: 0; gap: 8px; }
 .inbox { flex: 1; min-height: 0; width: 100%; border: 0; }
@@ -78,6 +79,8 @@
   }
   .desktopAction { display: none; }
   .messages { padding: 8px; }
+  .panel nav[aria-label='Communication tools'] button { font-size: 12px; gap: 4px; }
+  .panel nav[aria-label='Communication tools'] svg { display: none; }
   .panel :is(input, textarea, select) { font-size: 16px; }
 }
 

@@ -27,6 +27,19 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
 describe('unified communications panel', () => {
+  it('follows current account next steps without redirecting the saved messaging draft', async () => {
+    render(<CommunicationDock />)
+    act(() => publishCommunicationContext({ accountId: 'account-a', title: 'Customer A' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open Titan communications' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Messages$/ }))
+    await waitFor(() => expect(screen.getByLabelText('Message for account-a')).toBeTruthy())
+    fireEvent.change(screen.getByLabelText('Message for account-a'), { target: { value: 'Keep customer A draft' } })
+    act(() => publishCommunicationContext({ accountId: 'account-b', title: 'Customer B' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Next steps$/ }))
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Quote / order' }).getAttribute('href')).toContain('account-b'))
+    fireEvent.click(screen.getByRole('button', { name: /^Messages$/ }))
+    expect((screen.getByLabelText('Message for account-a') as HTMLInputElement).value).toBe('Keep customer A draft')
+  })
   it('opens the shared phone panel for a dialer shortcut without a phone number', () => {
     render(<CommunicationDock />)
     act(() => { window.dispatchEvent(new CustomEvent('inAppDial', { detail: { phone: '' } })) })

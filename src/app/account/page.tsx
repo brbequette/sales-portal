@@ -30,6 +30,7 @@ import { AccountPackages } from "@/components/AccountPackages"
 import { TaskEditor } from "@/components/TaskEditor"
 import { AccountEditModal } from "@/components/AccountEditModal"
 import { AccountSecondScreenWorkspace } from "@/components/AccountSecondScreenWorkspace"
+import { SalesNextSteps } from "@/components/SalesNextSteps"
 import { toast } from 'react-hot-toast';
 
 type ActiveTab = "comms" | "overview" | "quicksale"
@@ -333,29 +334,7 @@ function OverviewPanel({
   return (
     <div className="flex flex-col gap-2 p-2">
 
-      {/* AI-first account brief */}
-      <section className="overflow-hidden rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-500/[0.10] via-neutral-950 to-sky-500/[0.06] p-4 shadow-xl">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300"><FiZap /> AI account brief</div>
-            <h2 className="mt-2 text-lg font-black text-white">{nextAction}</h2>
-            <p className="mt-1 max-w-3xl text-xs leading-5 text-neutral-400">
-              {attentionCount > 0
-                ? `${attentionCount} item${attentionCount === 1 ? '' : 's'} need attention across tasks, collections, orders, and billing. Lifetime revenue is $${totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}.`
-                : `No urgent workflow exceptions are visible. Lifetime revenue is $${totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}; use the next touch to strengthen the relationship.`}
-            </p>
-          </div>
-          <div className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase ${riskTone === 'red' ? 'border-red-500/30 bg-red-500/10 text-red-300' : riskTone === 'amber' ? 'border-amber-500/30 bg-amber-500/10 text-amber-300' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'}`}>
-            {riskTone === 'red' ? 'Needs attention' : riskTone === 'amber' ? 'Work pending' : 'Healthy'}
-          </div>
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <button onClick={() => onNavigateTab('comms')} className="td-btn td-btn-sm td-btn-primary justify-center"><FiPhone /> Call / message</button>
-          <button onClick={() => onNavigateTab('quicksale')} className="td-btn td-btn-sm td-btn-ghost justify-center"><FiShoppingCart /> Create order</button>
-          <button onClick={() => window.location.assign(`/tasks/new?accountId=${encodeURIComponent(account.id)}&accountName=${encodeURIComponent(account.name)}`)} className="td-btn td-btn-sm td-btn-ghost justify-center"><FiCheckSquare /> Add task</button>
-          <button onClick={() => onAskAi(`Give me the verified account intelligence and next-best action for ${account.name}. Link every supporting record.`)} className="td-btn td-btn-sm td-btn-ghost justify-center"><FiZap /> Ask AI</button>
-        </div>
-      </section>
+      <SalesNextSteps account={account} />
 
       {/* Attention queue */}
       <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-3">
@@ -668,10 +647,14 @@ function AccountHubContent() {
     }
   }, [account, invoiceParam])
   const [reorderCart, setReorderCart] = useState<any[]>([])
-  const [leftRailOpen, setLeftRailOpen] = useState(true)
+  const [leftRailOpen, setLeftRailOpen] = useState(false)
   const [showInvoiceFlipbook, setShowInvoiceFlipbook] = useState(false)
 
   const localTime = useLocalTime(account?.timeZone)
+
+  useEffect(() => {
+    setActiveTab(tabParam === 'comms' ? 'comms' : tabParam === 'quicksale' ? 'quicksale' : 'overview')
+  }, [tabParam, id])
 
   const fetchAccountData = async (showLoading = true) => {
     if (showLoading) setLoading(true)
@@ -753,7 +736,7 @@ function AccountHubContent() {
 
   const tabs: { id: ActiveTab; Icon: React.ElementType; label: string }[] = [
     { id: "overview",  Icon: FiBarChart2,   label: "Overview" },
-    { id: "comms",     Icon: FiPhone,       label: "Comm Center" },
+    { id: "comms",     Icon: FiPhone,       label: "Contact" },
     { id: "quicksale", Icon: FiShoppingCart, label: "Quick Sale" },
   ]
 
@@ -776,7 +759,7 @@ function AccountHubContent() {
 
       {/* Header */}
       <header className="flex-none glass-panel border-b border-white/10 px-4 py-3">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
 
           {/* Left: back + account name */}
           <div className="flex items-center gap-3 min-w-0">
@@ -885,12 +868,12 @@ function AccountHubContent() {
 
       {/* Tab Bar */}
       <div className="flex-none glass-panel border-b border-white/10 overflow-x-auto scrollbar-none">
-        <div className="flex px-4 min-w-max gap-0.5">
+        <div className="grid grid-cols-3 px-1 gap-0.5 sm:flex sm:px-4">
           {tabs.map(({ id: tabId, Icon, label }) => (
             <button
               key={tabId}
               onClick={() => setActiveTab(tabId)}
-              className={`py-3 px-3 text-xs font-bold flex items-center gap-1.5 border-b-2 transition-all whitespace-nowrap ${
+              className={`py-3 px-2 text-xs font-bold flex items-center justify-center gap-1.5 border-b-2 transition-all whitespace-nowrap ${
                 activeTab === tabId
                   ? "text-emerald-400 border-emerald-500 bg-neutral-800/40"
                   : "text-neutral-500 border-transparent hover:text-neutral-300 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/20"
@@ -907,7 +890,7 @@ function AccountHubContent() {
       <div className="flex-1 min-h-0 flex overflow-hidden">
 
         {/* Left Rail -- always visible on desktop, toggled on mobile */}
-        {leftRailOpen && (
+        {(
           <>
             {/* Desktop */}
             <div className="hidden lg:flex flex-col shrink-0">
@@ -921,14 +904,14 @@ function AccountHubContent() {
             onEditRequest={() => setIsEditingAccount(true)}
           />  </div>
             {/* Mobile */}
-            <div className="flex lg:hidden flex-col shrink-0">
+            {leftRailOpen && createPortal(<div className="fixed inset-0 z-[9000] flex flex-col overflow-y-auto bg-neutral-950 p-4 lg:hidden" role="dialog" aria-modal="true" aria-label="Account details"><button className="mb-3 self-end rounded-lg border border-white/20 px-4 py-2 text-sm" onClick={() => setLeftRailOpen(false)}>Close account details</button><div className="mx-auto w-full max-w-md [&>div]:w-full">
               <AccountLeftRail
                 account={account}
                 onTabSwitch={(tab) => { setActiveTab(tab); setLeftRailOpen(false) }}
                 onReorder={(cart) => { setReorderCart(cart); setActiveTab("quicksale"); setLeftRailOpen(false) }}
-                onEditRequest={() => setIsEditingAccount(true)}
+                onEditRequest={() => { setLeftRailOpen(false); setIsEditingAccount(true) }}
               />
-            </div>
+            </div></div>, document.body)}
           </>
         )}
 
@@ -969,6 +952,7 @@ function AccountHubContent() {
 
           {/* OVERVIEW */}
           {activeTab === "overview" && (
+            <>
             <OverviewPanel
               account={account}
               invoices={account.invoices || []}
@@ -995,6 +979,7 @@ function AccountHubContent() {
               onNavigateTab={setActiveTab}
               onAskAi={(prompt) => window.dispatchEvent(new CustomEvent('openTitanAi', { detail: { prompt } }))}
             />
+            </>
           )}
 
         </div>

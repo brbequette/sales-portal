@@ -3,6 +3,7 @@
 
 import { formatPhoneNumber } from "@/lib/formatters"
 import { useState, useEffect } from "react"
+import { createPortal } from "react-dom"
 import { FiX, FiUser, FiPhone, FiMail, FiDollarSign, FiClock, FiShoppingBag, FiInfo, FiMapPin, FiExternalLink, FiRefreshCw, FiAlertTriangle, FiFileText, FiSettings } from "react-icons/fi"
 import { PhoneLink } from "@/components/PhoneLink"
 import { OrderBuilder } from "@/components/OrderBuilder"
@@ -76,7 +77,8 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
     { id: "settings", label: "Settings" }
   ] as const
 
-  return (
+  if (typeof document === 'undefined') return null
+  return createPortal(
     <>
       <div className="fixed inset-0 bg-black/60 z-40" onClick={onClose}></div>
       <div className="fixed top-0 right-0 h-full w-full max-w-4xl bg-background z-50 shadow-2xl border-l border-white/10 flex flex-col transform transition-transform duration-300">
@@ -305,7 +307,7 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
           onClose={() => { setViewingInvoice(null); setViewingDocType(null); }}
         />
       )}
-    </>
+    </>, document.body
   )
 }
 

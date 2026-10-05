@@ -46,7 +46,10 @@ export async function authenticateFunction(event: HandlerEvent, options: AuthOpt
     cookies,
   } as any
 
-  const token = await getToken({ req, secret })
+  // Match authOptions.cookies.sessionToken. NEXTAUTH_URL can differ between
+  // Netlify function/build contexts and is not the cookie naming authority.
+  const secureCookie = process.env.NODE_ENV === 'production' || process.env.NETLIFY === 'true'
+  const token = await getToken({ req, secret, secureCookie, cookieName: secureCookie ? '__Secure-next-auth.session-token' : 'next-auth.session-token' })
 
   if (!token) {
     const error: any = new Error("Unauthorized")
