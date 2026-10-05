@@ -10,23 +10,7 @@ interface AiAssistantProps {
   active?: boolean;
 }
 
-interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-  logId?: string; // AiChatLog id for feedback
-  feedback?: boolean | null; // null = no feedback, true = helpful, false = not helpful
-  pendingActions?: Array<{ toolName: string; summary: string; confirmationToken: string }>;
-  verified?: boolean;
-  sourceCount?: number;
-  suggestedReplies?: string[];
-}
-
-const AI_HISTORY_VERSION = 1;
-
-function historyKey(userId: string) {
-  return `titan-ai-history:v${AI_HISTORY_VERSION}:${userId}`;
-}
+import { useAiConversations, type AiMessage as Message } from './useAiConversations';
 
 const AGENT_QUICK_PROMPTS = [
   "Review my upcoming engagement steps and offer the next actions",
@@ -82,8 +66,9 @@ function AssistantMessage({ content }: { content: string }) {
 export function AiAssistant({ user, embedded = false, active = true }: AiAssistantProps) {
   const [isOpen, setIsOpen] = useState(false);
   useEffect(() => { if (embedded) setIsOpen(active); }, [embedded, active]);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [inputText, setInputText] = useState('');
+  const chats = useAiConversations(user?.id);
+  const { messages, setMessages, inputText, setInputText } = chats;
+  const [chatList, setChatList] = useState<'active' | 'archived' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -94,8 +79,6 @@ export function AiAssistant({ user, embedded = false, active = true }: AiAssista
   const recognitionRef = useRef<any>(null);
   const admin = isAdminRole(user?.role);
   const [pageContext, setPageContext] = useState<{ activeTab?: string; selectedRecord?: string }>({});
-  const hydratedUserRef = useRef<string | null>(null);
-  const skipPersistRef = useRef(false);
 
   const currentContext = useCallback(() => {
     const query = typeof window === 'undefined' ? '' : window.location.search;
@@ -105,42 +88,6 @@ export function AiAssistant({ user, embedded = false, active = true }: AiAssista
       context: { page: pathname, query, ...pageContext },
     };
   }, [pathname, pageContext]);
-
-  useEffect(() => {
-    if (!user?.id) {
-      hydratedUserRef.current = null;
-      skipPersistRef.current = true;
-      queueMicrotask(() => setMessages([]));
-      return;
-    }
-    if (hydratedUserRef.current === user.id) return;
-    hydratedUserRef.current = user.id;
-    skipPersistRef.current = true;
-    queueMicrotask(() => setMessages([]));
-    try {
-      const saved = localStorage.getItem(historyKey(user.id));
-      if (!saved) return;
-      const parsed = JSON.parse(saved) as { messages?: Array<Omit<Message, 'timestamp'> & { timestamp: string }> };
-      if (Array.isArray(parsed.messages)) {
-        queueMicrotask(() => setMessages(parsed.messages!.slice(-50).map(message => ({ ...message, timestamp: new Date(message.timestamp) }))));
-      }
-    } catch {
-      localStorage.removeItem(historyKey(user.id));
-    }
-  }, [user?.id]);
-
-  useEffect(() => {
-    if (!user?.id || hydratedUserRef.current !== user.id) return;
-    if (skipPersistRef.current) {
-      skipPersistRef.current = false;
-      return;
-    }
-    try {
-      localStorage.setItem(historyKey(user.id), JSON.stringify({ messages: messages.slice(-50) }));
-    } catch {
-      // History persistence is helpful but must never prevent assistant use.
-    }
-  }, [messages, user?.id]);
 
   useEffect(() => {
     const updateContext = (event: Event) => {
@@ -207,7 +154,7 @@ export function AiAssistant({ user, embedded = false, active = true }: AiAssista
     };
     window.addEventListener('openTitanAi', handleOpenAi);
     return () => window.removeEventListener('openTitanAi', handleOpenAi);
-  }, []);
+  }, [setInputText]);
 
   // Initialize Speech Recognition
   useEffect(() => {
@@ -234,7 +181,8 @@ export function AiAssistant({ user, embedded = false, active = true }: AiAssista
         recognitionRef.current.onend = () => setIsListening(false);
       }
     }
-  }, []);
+    return () => { recognitionRef.current?.abort(); };
+  }, [setInputText]);
 
   const toggleListening = () => {
     if (!recognitionRef.current) {
@@ -303,7 +251,7 @@ export function AiAssistant({ user, embedded = false, active = true }: AiAssista
   };
 
   const handleSend = async (text: string = inputText, confirmationToken?: string) => {
-    if (!text.trim()) return;
+    if (!text.trim() || isLoading || !chats.ready) return;
 
     if (!confirmationToken) {
       const userMessage: Message = { role: 'user', content: text, timestamp: new Date() };
@@ -414,7 +362,7 @@ export function AiAssistant({ user, embedded = false, active = true }: AiAssista
   return (
     <div className={embedded ? "flex h-full min-h-0 flex-col bg-neutral-950 text-white" : "fixed inset-0 md:inset-auto md:bottom-6 md:right-6 md:w-[420px] md:h-[600px] z-[1000] flex flex-col bg-neutral-950/95 backdrop-blur-2xl border border-amber-500/30 md:rounded-3xl shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden transition-all duration-300"}>
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-white/10 bg-neutral-900/90">
+      <div className="flex shrink-0 flex-wrap gap-2 items-center justify-between p-3 border-b border-white/10 bg-neutral-900/90">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-600 shadow-md">
             <FiZap className="w-5 h-5 text-neutral-950" />
@@ -453,8 +401,26 @@ export function AiAssistant({ user, embedded = false, active = true }: AiAssista
         </div>
       </div>
 
+      <div className="shrink-0 border-b border-white/10 px-3 py-2 space-y-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <input aria-label="AI chat title" title="Rename this topic" maxLength={80} value={chats.conversation?.title || ''} onChange={e => chats.renameChat(e.target.value)} onBlur={() => { if (!chats.conversation?.title.trim()) chats.renameChat('New chat') }} className="min-w-0 flex-1 rounded-lg border border-white/10 bg-neutral-950 px-2 py-1 text-sm font-semibold" />
+          <button disabled={isLoading || isListening || !chats.ready} onClick={() => { chats.newChat(); setChatList(null) }} className="shrink-0 rounded-lg bg-amber-500/20 px-3 py-2 text-xs text-amber-200 disabled:opacity-40">+ New chat</button>
+        </div>
+        <div className="flex flex-wrap gap-2 text-xs">
+          <button aria-pressed={chatList === 'active'} onClick={() => setChatList(chatList === 'active' ? null : 'active')} className="rounded-lg bg-white/10 px-2 py-1">Chats ({chats.conversations.filter(c => !c.archived).length})</button>
+          <button aria-pressed={chatList === 'archived'} onClick={() => setChatList(chatList === 'archived' ? null : 'archived')} className="rounded-lg bg-white/10 px-2 py-1">Archive ({chats.conversations.filter(c => c.archived).length})</button>
+          <button disabled={isLoading || isListening || !chats.ready} onClick={() => { chats.archiveChat(); setChatList(null) }} className="ml-auto rounded-lg px-2 py-1 text-neutral-400 hover:bg-white/10 disabled:opacity-40">Archive chat</button>
+        </div>
+        {chats.storageError && <p role="status" className="text-xs text-amber-300">Chat history could not be saved in this browser. Keep this window open to retain it.</p>}
+      </div>
+      {chatList && <div className="min-h-0 flex-1 overflow-y-auto p-3 space-y-2" aria-label={chatList === 'archived' ? 'Archived AI chats' : 'AI chats'}>
+        <div className="flex items-center justify-between text-sm"><strong>{chatList === 'archived' ? 'Completed conversations' : 'Your topics'}</strong><button onClick={() => setChatList(null)} className="p-2 text-neutral-400">Back to chat</button></div>
+        {!chats.conversations.some(c => c.archived === (chatList === 'archived')) && <p className="text-sm text-neutral-400">No archived conversations yet.</p>}
+        {chats.conversations.filter(c => c.archived === (chatList === 'archived')).slice().reverse().map(c => <button key={c.id} disabled={isLoading || isListening} onClick={() => { chats.openChat(c.id); setChatList(null) }} className="block w-full rounded-xl border border-white/10 p-3 text-left hover:bg-white/5 disabled:opacity-40"><span className="block truncate text-sm font-semibold">{c.title || 'Untitled chat'}</span><span className="block truncate text-xs text-neutral-400">{c.archived ? 'Restore and open · ' : ''}{c.messages.at(-1)?.content || c.draft || 'Start a new topic'}</span></button>)}
+        <p className="text-xs text-neutral-500">Saved on this browser for your account.</p>
+      </div>}
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div hidden={chatList !== null} className="flex-1 min-h-0 min-w-0 break-words overflow-y-auto p-4 space-y-4">
         {user?.id && (
           <section className="rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.06] p-3 shadow-inner">
             <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-emerald-300">
@@ -614,9 +580,9 @@ export function AiAssistant({ user, embedded = false, active = true }: AiAssista
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t border-white/10 bg-neutral-900/90">
+      <div hidden={chatList !== null} className="shrink-0 p-3 border-t border-white/10 bg-neutral-900/90">
         <div className="flex items-center gap-2">
-          <div className="flex-1 relative">
+          <div className="flex-1 min-w-0 relative">
             <input
               type="text"
               value={inputText}
@@ -637,7 +603,7 @@ export function AiAssistant({ user, embedded = false, active = true }: AiAssista
           </div>
           <button
             onClick={() => handleSend()}
-            disabled={!inputText.trim() && !isLoading}
+            aria-label="Send AI message" disabled={!inputText.trim() || isLoading || !chats.ready}
             className="flex-shrink-0 flex items-center justify-center w-10 h-10 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 text-neutral-950 font-black rounded-xl transition-all shadow-md disabled:opacity-40"
           >
             <FiSend className="w-4 h-4" />

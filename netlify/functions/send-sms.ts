@@ -6,32 +6,8 @@ import { corsHeaders, handleOptions } from "./lib/cors"
 import { getZohoVoiceAccessToken } from "./lib/zoho-voice-auth"
 import { prisma } from "./lib/prisma"
 import { guardSmsSend } from "../../src/lib/sms-suppression"
+import { requireVoiceSender } from "./lib/voice-directory"
 import { createHash } from "node:crypto"
-
-// Module-level cache for phone numbers (rarely changes)
-let _phoneNumbersCache: any[] | null = null
-let _phoneNumbersCacheAt = 0
-const PHONE_CACHE_TTL = 60 * 60 * 1000 // 1 hour
-
-async function getFromNumber(): Promise<string> {
-  const now = Date.now()
-  if (_phoneNumbersCache && now < _phoneNumbersCacheAt + PHONE_CACHE_TTL) {
-    const defaultNum = _phoneNumbersCache.find(n => n.isDefault) || _phoneNumbersCache[0]
-    return defaultNum?.number || ''
-  }
-  const envNum = process.env.ZOHO_VOICE_FROM_NUMBER || ''
-  if (envNum) return envNum
-  try {
-    const setting = await prisma.systemSetting.findUnique({ where: { key: 'zoho_phone_numbers' } })
-    if (setting?.value) {
-      _phoneNumbersCache = JSON.parse(setting.value)
-      _phoneNumbersCacheAt = now
-      const defaultNum = _phoneNumbersCache!.find(n => n.isDefault) || _phoneNumbersCache![0]
-      return defaultNum?.number || ''
-    }
-  } catch (e) { console.warn('Failed to parse phone numbers setting:', e) }
-  return ''
-}
 
 const authenticatedHandler: Handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return handleOptions()
@@ -48,7 +24,7 @@ const authenticatedHandler: Handler = async (event) => {
   let providerSubmissionStarted = false
   try {
     const caller = await authenticateFunction(event)
-    const { accountId, contactId, message, requestId } = JSON.parse(event.body || "{}")
+    const { accountId, contactId, message, requestId, fromNumber: requestedFrom } = JSON.parse(event.body || "{}")
 
     if (!accountId || !message || !requestId) {
       return {
@@ -112,9 +88,10 @@ const authenticatedHandler: Handler = async (event) => {
     const guard = await guardSmsSend({ phone: phoneNumber, traffic: "TRANSACTIONAL" })
     if (!guard.allowed) return { statusCode: 409, headers: corsHeaders, body: JSON.stringify({ success: false, error: `SMS blocked: ${guard.reason}` }) }
 
+    const fromNumber = (await requireVoiceSender(caller, requestedFrom)).number
     const operationKey = `zoho-voice:sms:individual:${String(requestId)}`
     activeOperationKey = operationKey
-    const requestFingerprint = createHash('sha256').update(JSON.stringify({ accountId: account.id, contactId: contact?.id || null, phoneNumber, message })).digest('hex')
+    const requestFingerprint = createHash('sha256').update(JSON.stringify({ accountId: account.id, contactId: contact?.id || null, phoneNumber, message, fromNumber, callerId })).digest('hex')
     const operation = await prisma.providerWriteOperation.upsert({ where: { operationKey }, update: {}, create: { operationKey, provider: 'ZOHO_VOICE', entityType: 'SMS', entityId: account.id, operation: 'SEND_MESSAGE', requestFingerprint } })
     if (operation.requestFingerprint !== requestFingerprint) return { statusCode: 409, headers: corsHeaders, body: JSON.stringify({ success: false, error: 'requestId was already used for different message data' }) }
     if (operation.state === 'SUCCEEDED') {
@@ -137,7 +114,6 @@ const authenticatedHandler: Handler = async (event) => {
       }
     }
 
-    const fromNumber = await getFromNumber()
     if (!fromNumber) {
       await prisma.providerWriteOperation.update({ where: { operationKey }, data: { state: 'FAILED', lastError: 'No outbound sender configured before submission.', providerMessage: 'No outbound sender configured.', completedAt: new Date() } })
       return {

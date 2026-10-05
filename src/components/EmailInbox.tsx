@@ -226,8 +226,8 @@ export function EmailInbox({
   // Views
   if (isComposing) {
     return (
-      <div className="flex flex-col h-full bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-hidden animate-fade-in">
-        <div className="flex items-center justify-between p-4 border-b border-[var(--border)] bg-[var(--surface-2)]">
+      <div className="flex flex-col h-full min-h-0 min-w-0 bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-hidden animate-fade-in">
+        <div className="flex shrink-0 flex-wrap gap-2 items-center justify-between p-2 border-b border-[var(--border)] bg-[var(--surface-2)]">
           <div className="flex items-center gap-2">
             <button 
               onClick={() => setIsComposing(false)}
@@ -272,7 +272,7 @@ export function EmailInbox({
           </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
           <div>
             <input 
               type="text" 
@@ -301,7 +301,7 @@ export function EmailInbox({
             />
           </div>
           
-          <div className="flex gap-2 py-2 border-y border-[var(--border)]">
+          <div className="flex flex-wrap gap-2 py-2 border-y border-[var(--border)]">
             <span className="text-xs text-[var(--muted)] flex items-center px-1">Merge Tags:</span>
             <button onClick={() => insertMergeTag("{{contactName}}")} className="px-2 py-1 bg-[var(--surface-3)] rounded text-xs text-[var(--muted)] hover:text-white transition-colors">{"{{Name}}"}</button>
             <button onClick={() => insertMergeTag("{{accountName}}")} className="px-2 py-1 bg-[var(--surface-3)] rounded text-xs text-[var(--muted)] hover:text-white transition-colors">{"{{Company}}"}</button>
@@ -321,8 +321,8 @@ export function EmailInbox({
 
   if (selectedEmail) {
     return (
-      <div className="flex flex-col h-full bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-hidden animate-fade-in">
-        <div className="flex items-center justify-between p-4 border-b border-[var(--border)] bg-[var(--surface-2)]">
+      <div className="flex flex-col h-full min-h-0 min-w-0 bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-hidden animate-fade-in">
+        <div className="flex shrink-0 flex-wrap gap-2 items-center justify-between p-2 border-b border-[var(--border)] bg-[var(--surface-2)]">
           <div className="flex items-center gap-2">
             <button 
               onClick={() => setSelectedEmail(null)}
@@ -347,7 +347,7 @@ export function EmailInbox({
           </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 min-h-0 overflow-y-auto p-5">
           <div className="flex justify-between items-start mb-6">
             <div>
               <div className="font-bold text-white">{selectedEmail.fromName || selectedEmail.fromAddress}</div>
@@ -393,9 +393,9 @@ export function EmailInbox({
   }
 
   return (
-    <div className="flex flex-col h-full bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-hidden">
+    <div className="flex flex-col h-full min-h-0 min-w-0 bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-hidden">
       {/* Header */}
-      <div className="p-4 border-b border-[var(--border)] flex items-center justify-between bg-[var(--surface-2)]">
+      <div className="p-2 border-b border-[var(--border)] flex shrink-0 flex-wrap gap-2 items-center justify-between bg-[var(--surface-2)]">
         <div className="flex items-center gap-2">
           <FiInbox className="text-[var(--primary)]" size={18} />
           <h2 className="font-bold text-white">Email Inbox</h2>
@@ -419,7 +419,7 @@ export function EmailInbox({
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-[var(--border)] px-2 bg-[var(--surface-2)]">
+      <div className="flex shrink-0 overflow-x-auto border-b border-[var(--border)] px-2 bg-[var(--surface-2)]">
         {(["All", "Needs Response", "Sent", "Archived"] as const).map(tab => (
           <button
             key={tab}
@@ -436,7 +436,7 @@ export function EmailInbox({
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {isLoading ? (
           <div className="p-8 flex flex-col items-center justify-center text-[var(--muted)]">
             <div className="animate-spin mb-4"><FiRefreshCw size={24} /></div>

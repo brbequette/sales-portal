@@ -4,6 +4,7 @@ const SCRIPT_ID = "zoho-voice-websdk"
 const SCRIPT_URL = "https://js.zohostatic.com/zvoice_plugin/latest/js/zohovoice.min.js"
 
 type ZohoVoiceClient = {
+  setOutgoingNumber: (options: { number: string; numberId: string; isDefault: boolean }) => unknown | Promise<unknown>
   makeCall: (options: string | { number: string }) => unknown | Promise<unknown>
 }
 
@@ -67,13 +68,14 @@ async function getClient(): Promise<ZohoVoiceClient | null> {
   return window.__titanZohoVoicePromise
 }
 
-export async function makeZohoVoiceCall(phone: string): Promise<boolean> {
+export async function makeZohoVoiceCall(phone: string, sender?: { number: string; numberId: string }): Promise<boolean> {
   const normalized = phone.replace(/[^\d+]/g, "")
   if (!normalized) return false
 
   const client = await getClient()
   if (!client) return false
 
+  if (sender) await client.setOutgoingNumber({ ...sender, isDefault: true })
   await client.makeCall({ number: normalized })
   return true
 }

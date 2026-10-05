@@ -10,6 +10,7 @@ export interface Address {
   state?: string;
   postal_code?: string;
   country_alpha2?: string;
+  line_2?: string;
   contact_name?: string;
   contact_phone?: string;
   contact_email?: string;
@@ -411,6 +412,7 @@ export interface CreateShipmentParams {
   destinationContactName: string;
   destinationContactPhone?: string;
   destinationContactEmail?: string;
+  expectedCharge?: number;
   courierServiceId: string;
   weight: number;
   dimensions: ParcelDimensions;
@@ -489,6 +491,8 @@ export async function getOriginFromDB(): Promise<Address> {
 }
 
 export async function createShipmentAndBuyLabel(params: CreateShipmentParams): Promise<ShipmentResult> {
+  if (!params.courierServiceId) throw new Error("Select a carrier and refresh rates before buying a label.");
+
   // Validate every parcel before any provider request, especially label purchase.
   const boxes = params.parcels?.length
     ? params.parcels.map(p => customBox(p.dimensions))
@@ -499,33 +503,40 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
   let easyshipId = params.existingEasyshipId || '';
   let shipment: any = {};
 
-  // Step 0: If no existing ID known, search EasyShip for a shipment matching this order number
-  // This catches cases where EasyShip synced the order via its own platform integration
+  // Never create another shipment after a failed lookup or an existing label request.
   if (!easyshipId && params.platformOrderNumber) {
-    try {
-      const searchRes = await fetch(
-        `${EASYSHIP_API_URL}/shipments?platform_order_number=${encodeURIComponent(params.platformOrderNumber)}&per_page=5`,
-        { method: 'GET', headers: getHeaders() }
-      );
-      if (searchRes.ok) {
-        const searchData = await searchRes.json();
-        const shipments = searchData.shipments || [];
-        // Only reuse shipments that DON'T have a label already requested
-        const reusable = shipments.find((s: any) => 
-          !s.label_state || s.label_state === 'not_created' || s.label_state === 'failed'
-        );
-        if (reusable?.easyship_shipment_id) {
-          easyshipId = reusable.easyship_shipment_id;
-          shipment = reusable;
-          console.log(`[easyship] Found reusable shipment (label_state: ${reusable.label_state}) for order ${params.platformOrderNumber}: ${easyshipId}`);
-        } else if (shipments.length > 0) {
-          console.log(`[easyship] Found ${shipments.length} existing shipments but all have labels already (states: ${shipments.map((s: any) => s.label_state).join(', ')}). Will create new shipment.`);
-        }
-      }
-    } catch (e) {
-      console.error('[easyship] Shipment lookup failed (will create new):', e);
+    const searchRes = await fetch(
+      `${EASYSHIP_API_URL}/shipments?platform_order_number=${encodeURIComponent(params.platformOrderNumber)}&per_page=100`,
+      { method: 'GET', headers: getHeaders() }
+    );
+    if (!searchRes.ok) throw new Error('Could not check existing Easyship shipments. Label purchase stopped to prevent a duplicate.');
+    const searchData = await searchRes.json();
+    const shipments = searchData.shipments || [];
+    if (shipments.some((s: any) => s.label_state && s.label_state !== 'not_created')) {
+      throw new Error('This order already has a label request in Easyship. Open the existing shipment before retrying; no new label was purchased.');
+    }
+    if (shipments.length > 1) throw new Error('Multiple Easyship drafts match this order. Select the correct shipment before purchasing.');
+    if (shipments[0]?.easyship_shipment_id) easyshipId = shipments[0].easyship_shipment_id;
+  }
+  if (easyshipId) {
+    const existingRes = await fetch(`${EASYSHIP_API_URL}/shipments/${encodeURIComponent(easyshipId)}`, { headers: getHeaders() });
+    if (!existingRes.ok) throw new Error('Could not verify the existing shipment. Label purchase stopped.');
+    const existingData = await existingRes.json();
+    shipment = existingData.shipment || existingData;
+    if (shipment.label_state !== 'not_created') throw new Error('This shipment already has a label request or an unknown label state. Check Easyship before retrying.');
+    if (params.platformOrderNumber && shipment.order_data?.platform_order_number !== params.platformOrderNumber) {
+      throw new Error('The selected Easyship shipment belongs to a different order. Label purchase stopped.');
     }
   }
+  const destination = {
+    ...shipment.destination_address,
+    ...params.destinationAddress,
+    country_alpha2: normalizeCountryCode(params.destinationAddress.country_alpha2),
+    contact_name: params.destinationContactName || shipment.destination_address?.contact_name || 'Customer',
+    contact_phone: params.destinationContactPhone || shipment.destination_address?.contact_phone || '',
+    contact_email: params.destinationContactEmail || shipment.destination_address?.contact_email || COMPANY_CONFIG.email,
+  };
+  const courierSettings = { courier_service_id: params.courierServiceId, allow_fallback: false, apply_shipping_rules: false };
 
   // Step 1: Create shipment ONLY if we don't already have one
   if (!easyshipId) {
@@ -541,16 +552,10 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
         contact_email: origin.contact_email || COMPANY_CONFIG.shippingEmail,
         company_name: origin.company_name || COMPANY_CONFIG.name,
       },
-      destination_address: {
-        line_1: params.destinationAddress.line_1 || '',
-        city: params.destinationAddress.city || '',
-        state: params.destinationAddress.state || '',
-        postal_code: params.destinationAddress.postal_code || '',
-        country_alpha2: normalizeCountryCode(params.destinationAddress.country_alpha2),
-        contact_name: params.destinationContactName || 'Customer',
-        contact_phone: params.destinationContactPhone || '0000000000',
-        contact_email: params.destinationContactEmail || COMPANY_CONFIG.email,
-      },
+      destination_address: destination,
+      courier_settings: courierSettings,
+      shipping_settings: { buy_label: false },
+      ...(params.platformOrderNumber ? { order_data: { platform_order_number: params.platformOrderNumber } } : {}),
       parcels: (params.parcels && params.parcels.length > 0)
         ? params.parcels.map((p, index) => ({
             total_actual_weight: lbsToKg(p.weight),
@@ -647,15 +652,30 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
     const patchRes = await fetch(`${EASYSHIP_API_URL}/shipments/${easyshipId}`, {
       method: 'PATCH',
       headers: getHeaders(),
-      body: JSON.stringify({ parcels: parcelsPayload })
+      body: JSON.stringify({ parcels: parcelsPayload, destination_address: destination, courier_settings: courierSettings, shipping_settings: { buy_label: false } })
     });
     if (!patchRes.ok) {
       throw new Error(`Easyship could not update package dimensions (${patchRes.status}). Label purchase stopped; refresh rates and try again.`);
     }
-    console.log(`[easyship] Patched parcels on reused shipment ${easyshipId}`);
+    const patchData = await patchRes.json();
+    shipment = patchData.shipment || patchData;
   }
 
-  // Step 2: Buy label via /labels endpoint
+  if (!easyshipId) throw new Error('Easyship did not return a shipment ID. No label was requested.');
+  if (!shipment.destination_address?.country_alpha2 || !shipment.courier_service?.id) {
+    throw new Error('Easyship shipment is not ready: missing destination country or selected carrier. No label was purchased; refresh rates.');
+  }
+  if (shipment.courier_service.id !== params.courierServiceId) throw new Error('Easyship selected a different carrier. No label was purchased; refresh rates.');
+
+  const selectedRate = Array.isArray(shipment.rates) ? shipment.rates.find((r: any) => r.courier_service?.id === params.courierServiceId) : shipment.rates?.selected;
+  if (params.expectedCharge !== undefined) {
+    const refreshedCharge = Number(selectedRate?.total_charge);
+    if (!Number.isFinite(params.expectedCharge) || params.expectedCharge <= 0 || !Number.isFinite(refreshedCharge) || Math.abs(refreshedCharge - params.expectedCharge) > 0.005) {
+      throw new Error('The saved shipment rate differs from the selected price. No label was purchased. Refresh rates and review the new price.');
+    }
+  }
+
+  // Step 2: Buy label only after the saved shipment is ready.
   let labelUrl = '';
   let trackingNumber = shipment.trackings?.[0]?.tracking_number || shipment.tracking_number || '';
   let trackingPageUrl = shipment.tracking_page_url || '';
@@ -744,7 +764,10 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
       || trackingPageUrl;
     
     // Label and courier info
-    labelState = labelShipment.label_state || 'created';
+    labelState = labelShipment.label_state || '';
+    if (!['created', 'generated'].includes(labelState) || !labelUrl || !trackingNumber) {
+      throw new Error(`Easyship label request for ${easyshipId} is ${labelState || 'unconfirmed'}. Check this existing shipment; do not create another label.`);
+    }
     courierName = labelShipment.courier_service?.name 
       || labelShipment.courier?.name 
       || courierName;

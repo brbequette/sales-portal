@@ -42,7 +42,7 @@ function EmployeeLoginForm() {
     try {
       const res = await signIn('credentials', {
         email: email.trim(),
-        password: password || 'demo',
+        password,
         redirect: false,
       });
 

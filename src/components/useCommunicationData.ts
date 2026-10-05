@@ -108,16 +108,17 @@ export function useCommunicationData({
   // ━━━ Effects ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   useEffect(() => {
-    fetch("/api/manage-zoho-numbers")
-      .then(r => r.json())
-      .then(d => {
-        if (d.success && d.numbers?.length > 0) {
-          setOutboundNumbers(d.numbers)
-          const def = d.numbers.find((n: any) => n.isDefault)
-          setSelectedOutboundNumber(def ? def.number : d.numbers[0].number)
-        }
-      })
-      .catch(console.error)
+    const refreshNumbers = () => fetch("/api/manage-zoho-numbers", { cache: 'no-store' })
+      .then(r => r.json()).then(d => {
+        const available = d.success ? (d.numbers || []).filter((n: any) => n.active) : []
+        setOutboundNumbers(available)
+        setSelectedOutboundNumber(current => available.some((n: any) => n.number === current) ? current : available[0]?.number || '')
+      }).catch(() => { setOutboundNumbers([]); setSelectedOutboundNumber('') })
+    void refreshNumbers()
+    const focus = () => { void refreshNumbers() }
+    const timer = setInterval(focus, 60000)
+    window.addEventListener('focus', focus)
+    return () => { clearInterval(timer); window.removeEventListener('focus', focus) }
   }, [])
 
   useEffect(() => {
@@ -297,7 +298,7 @@ export function useCommunicationData({
       const response = await fetch("/api/send-sms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountId, contactId: primaryContact?.id || null, message, requestId }),
+        body: JSON.stringify({ accountId, contactId: primaryContact?.id || null, message, requestId, fromNumber: selectedOutboundNumber }),
       })
       const data = await response.json()
       if (!response.ok || !data.success || !data.providerAccepted || !data.smsMessage?.id) {
@@ -319,7 +320,7 @@ export function useCommunicationData({
     } finally {
       setIsSaving(false)
     }
-  }, [smsText, accountId, primaryContact?.id, contactName, displayPhone, cleanPhone, notify])
+  }, [smsText, accountId, primaryContact?.id, contactName, displayPhone, cleanPhone, notify, selectedOutboundNumber])
 
   const sendEmailLog = useCallback(async () => {
     notify("Email sending is not configured. Nothing was sent or logged.", "error")

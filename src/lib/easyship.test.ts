@@ -20,7 +20,9 @@ const params: CreateShipmentParams = {
 }
 const fetchMock = vi.fn()
 const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
-const labelResponse = () => response({ shipment: { tracking_number: 'TEST', label_state: 'created' } })
+const labelResponse = () => response({ shipment: { tracking_number: 'TEST', label_state: 'created', label_url: 'https://example.com/label.pdf' } })
+const readyShipment = (id: string) => response({ shipment: { easyship_shipment_id: id, destination_address: { country_alpha2: 'US' }, courier_service: { id: 'test-courier' } } })
+const draft = (id = 'ES-test', order?: string) => response({ shipment: { easyship_shipment_id: id, label_state: 'not_created', order_data: { platform_order_number: order } } })
 const bodyAt = (index: number) => JSON.parse(fetchMock.mock.calls[index][1].body)
 
 beforeEach(() => {
@@ -45,47 +47,50 @@ describe('Easyship package dimensions', () => {
   })
 
   it.each([false, true])('sends outer dimensions when existing shipment is %s', async existing => {
-    fetchMock.mockResolvedValueOnce(response({ shipment: { easyship_shipment_id: 'ES-test' } }))
+    if (existing) fetchMock.mockResolvedValueOnce(draft())
+    fetchMock.mockResolvedValueOnce(readyShipment('ES-test'))
       .mockResolvedValueOnce(labelResponse())
     await createShipmentAndBuyLabel({ ...params, existingEasyshipId: existing ? 'ES-test' : undefined })
-    expect(fetchMock.mock.calls[0][1].method).toBe(existing ? 'PATCH' : 'POST')
-    expect(bodyAt(0).parcels[0].box).toEqual(metricBox)
-    expect(fetchMock.mock.calls[1][0]).toMatch(/\/ES-test\/label$/)
+    expect(fetchMock.mock.calls[existing ? 1 : 0][1].method).toBe(existing ? 'PATCH' : 'POST')
+    expect(bodyAt(existing ? 1 : 0).parcels[0].box).toEqual(metricBox)
+    expect(fetchMock.mock.calls[existing ? 2 : 1][0]).toMatch(/\/ES-test\/label$/)
   })
 
   it.each([false, true])('keeps distinct dimensions for multiple boxes, existing=%s', async existing => {
-    fetchMock.mockResolvedValueOnce(response({ shipment: { easyship_shipment_id: 'ES-multi' } }))
+    if (existing) fetchMock.mockResolvedValueOnce(draft('ES-multi'))
+    fetchMock.mockResolvedValueOnce(readyShipment('ES-multi'))
       .mockResolvedValueOnce(labelResponse())
     await createShipmentAndBuyLabel({
       ...params, existingEasyshipId: existing ? 'ES-multi' : undefined,
       parcels: [{ weight: 10, dimensions }, { weight: 5, dimensions: { length: 17, width: 17, height: 0.5 } }],
     })
-    expect(bodyAt(0).parcels.map((p: { box: unknown }) => p.box)).toEqual([
+    expect(bodyAt(existing ? 1 : 0).parcels.map((p: { box: unknown }) => p.box)).toEqual([
       metricBox, { length: 43.18, width: 43.18, height: 1.27 },
     ])
   })
 
   it('updates a shipment found by order number before buying its label', async () => {
     fetchMock.mockResolvedValueOnce(response({ shipments: [{ easyship_shipment_id: 'ES-synced', label_state: 'not_created' }] }))
-      .mockResolvedValueOnce(response({}))
+      .mockResolvedValueOnce(draft('ES-synced', 'PKG-test'))
+      .mockResolvedValueOnce(readyShipment('ES-synced'))
       .mockResolvedValueOnce(labelResponse())
     await createShipmentAndBuyLabel({ ...params, platformOrderNumber: 'PKG-test' })
-    expect(fetchMock.mock.calls[1][1].method).toBe('PATCH')
-    expect(bodyAt(1).parcels[0].box).toEqual(metricBox)
+    expect(fetchMock.mock.calls[2][1].method).toBe('PATCH')
+    expect(bodyAt(2).parcels[0].box).toEqual(metricBox)
   })
 
   it.each([422, 500])('does not purchase a label when dimensions update fails with %s', async status => {
-    fetchMock.mockResolvedValueOnce(response({ error: 'Rejected' }, status))
+    fetchMock.mockResolvedValueOnce(draft()).mockResolvedValueOnce(response({ error: 'Rejected' }, status))
     await expect(createShipmentAndBuyLabel({ ...params, existingEasyshipId: 'ES-test' }))
       .rejects.toThrow('Label purchase stopped')
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it('does not purchase a label after a network failure updating dimensions', async () => {
-    fetchMock.mockRejectedValueOnce(new Error('Connection lost'))
+    fetchMock.mockResolvedValueOnce(draft()).mockRejectedValueOnce(new Error('Connection lost'))
     await expect(createShipmentAndBuyLabel({ ...params, existingEasyshipId: 'ES-test' }))
       .rejects.toThrow('Connection lost')
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it.each([0, -1, NaN, Infinity])('rejects invalid box dimensions before provider calls: %s', async height => {
@@ -122,4 +127,43 @@ describe('Easyship package dimensions', () => {
     }] }))
     expect(await getExistingShipmentRates('PKG-test', { weight: 10, dimensions })).toBeNull()
   })
+})
+
+
+describe('shipment readiness and duplicate prevention', () => {
+  it('repairs the destination country and selects the quoted courier before purchase', async () => {
+    fetchMock.mockResolvedValueOnce(draft()).mockResolvedValueOnce(readyShipment('ES-test')).mockResolvedValueOnce(labelResponse())
+    await createShipmentAndBuyLabel({ ...params, existingEasyshipId: 'ES-test' })
+    expect(bodyAt(1)).toMatchObject({ destination_address: { country_alpha2: 'US' }, courier_settings: { courier_service_id: 'test-courier', allow_fallback: false }, shipping_settings: { buy_label: false } })
+  })
+  it('stops before payment when the saved shipment has no destination country', async () => {
+    fetchMock.mockResolvedValueOnce(draft()).mockResolvedValueOnce(response({ shipment: { courier_service: { id: 'test-courier' } } }))
+    await expect(createShipmentAndBuyLabel({ ...params, existingEasyshipId: 'ES-test' })).rejects.toThrow('not ready')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+  it('does not create a duplicate when order lookup finds an existing label', async () => {
+    fetchMock.mockResolvedValueOnce(response({ shipments: [{ easyship_shipment_id: 'ES-paid', label_state: 'generated' }] }))
+    await expect(createShipmentAndBuyLabel({ ...params, platformOrderNumber: 'PKG-test' })).rejects.toThrow('already has a label')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+  it('does not modify a paid shipment supplied directly', async () => {
+    fetchMock.mockResolvedValueOnce(response({ shipment: { label_state: 'generated' } }))
+    await expect(createShipmentAndBuyLabel({ ...params, existingEasyshipId: 'ES-paid' })).rejects.toThrow('already has a label')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+  it('stops on lookup failure rather than making another shipment', async () => {
+    fetchMock.mockResolvedValueOnce(response({}, 503))
+    await expect(createShipmentAndBuyLabel({ ...params, platformOrderNumber: 'PKG-test' })).rejects.toThrow('prevent a duplicate')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+
+it('stops before payment when the saved price changed', async () => {
+  fetchMock.mockResolvedValueOnce(draft()).mockResolvedValueOnce(response({ shipment: {
+    destination_address: { country_alpha2: 'US' }, courier_service: { id: 'test-courier' },
+    rates: [{ courier_service: { id: 'test-courier' }, total_charge: 8.25 }],
+  } }))
+  await expect(createShipmentAndBuyLabel({ ...params, existingEasyshipId: 'ES-test', expectedCharge: 5.93 })).rejects.toThrow('differs from the selected price')
+  expect(fetchMock).toHaveBeenCalledTimes(2)
 })

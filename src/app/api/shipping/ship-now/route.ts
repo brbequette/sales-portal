@@ -33,9 +33,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Missing required fields (courierServiceId, weight)' }, { status: 400 })
     }
 
-    // Don't pass stored Easyship IDs — they may have stale labels from prior attempts.
-    // Let createShipmentAndBuyLabel search for a reusable shipment or create a new one.
-    const existingEasyshipId: string | undefined = undefined
+    // The provider draft and label state are verified before mutation.
+    const existingEasyshipId: string | undefined = bodyEasyshipId || undefined
 
     console.log(`[ship-now] Starting for pkg ${packageId}, weight: ${weight}, dims: ${JSON.stringify(dimensions)}, courier: ${courierServiceId}, parcels: ${parcels?.length || 1}`)
 
@@ -50,14 +49,16 @@ export async function POST(req: Request) {
       } : undefined,
       destinationAddress: {
         line_1: destinationAddress?.line_1 || destinationAddress?.address || '',
+        ...(destinationAddress?.line_2 !== undefined ? { line_2: destinationAddress.line_2 } : {}),
         city: destinationAddress?.city || '',
         state: destinationAddress?.state || '',
         postal_code: destinationAddress?.postal_code || destinationAddress?.zip || '',
-        country_alpha2: destinationAddress?.country_alpha2 || 'US',
+        country_alpha2: destinationAddress?.country_alpha2 || destinationAddress?.country || 'US',
       },
       destinationContactName: destinationContactName || 'Customer',
       destinationContactPhone,
       courierServiceId,
+      expectedCharge: Number(selectedRateCost),
       weight: parseFloat(weight),
       dimensions: dimensions,
       items: items || [{ description: 'Order item', quantity: 1, declaredValue: 100, weight: parseFloat(weight) }],

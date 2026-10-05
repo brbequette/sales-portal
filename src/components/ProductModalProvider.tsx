@@ -172,11 +172,7 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
   const text = parsedDesc.text || rawDesc || fallback?.description || ""
   const retailVal = parseFloat(price as any || 0)
   
-  // Estimate cost if missing (assuming 40% margin on average for UI demo purposes if missing)
-  if (costVal === null && retailVal > 0) {
-    costVal = retailVal * 0.6
-  }
-
+  // Missing source cost stays unknown; never fabricate margin.
   const profit = costVal !== null ? (retailVal - costVal) : null
   const profitMargin = (profit !== null && retailVal > 0) ? ((profit / retailVal) * 100) : null
 

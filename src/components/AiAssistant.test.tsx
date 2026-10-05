@@ -1,0 +1,30 @@
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { AiAssistant } from './AiAssistant'
+vi.mock('next/navigation', () => ({ usePathname: () => '/dashboard' }))
+beforeEach(() => {
+  localStorage.clear()
+  Element.prototype.scrollIntoView = vi.fn()
+  vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => ({ ok: true, json: async () => url === '/api/ai/chat' ? { success: true, response: `Reply to ${JSON.parse(options!.body as string).message}` } : {success:true,questions:[],opportunities:[]} })))
+})
+afterEach(() => { cleanup(); vi.unstubAllGlobals() })
+it('sends only the selected topic history and restores drafts through the UI', async () => {
+  render(<AiAssistant embedded active user={{id:'test-user',role:'ADMIN'}} />)
+  await waitFor(() => expect(screen.getByLabelText('AI chat title')).toHaveProperty('value','New chat'))
+  fireEvent.change(screen.getByPlaceholderText('Ask anything about any data...'), {target:{value:'Shipping prices'}})
+  fireEvent.click(screen.getByLabelText('Send AI message'))
+  await screen.findByText('Reply to Shipping prices')
+  fireEvent.change(screen.getByPlaceholderText('Ask anything about any data...'), {target:{value:'Unsent shipping draft'}})
+  fireEvent.click(screen.getByRole('button',{name:'+ New chat'}))
+  fireEvent.change(screen.getByPlaceholderText('Ask anything about any data...'), {target:{value:'Commission topic'}})
+  fireEvent.click(screen.getByLabelText('Send AI message'))
+  await screen.findByText('Reply to Commission topic')
+  const requests = vi.mocked(fetch).mock.calls.filter(([url]) => url === '/api/ai/chat')
+  expect(JSON.parse(requests[1][1]!.body as string).conversationHistory).toEqual([])
+  fireEvent.click(screen.getByRole('button',{name:'Archive chat'}))
+  expect(screen.getByPlaceholderText('Ask anything about any data...')).toHaveProperty('value','Unsent shipping draft')
+  expect(screen.queryByText('Reply to Commission topic')).toBeNull()
+  fireEvent.click(screen.getByRole('button',{name:'Archive (1)'}))
+  fireEvent.click(screen.getByRole('button',{name:/Commission topic Restore and open/}))
+  expect(screen.getByText('Reply to Commission topic')).toBeTruthy()
+})

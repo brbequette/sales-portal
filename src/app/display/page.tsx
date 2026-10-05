@@ -19,7 +19,6 @@ import {
 import { DUAL_SCREEN_CHANNEL, type DualScreenMessage, isDualScreenMessage } from "@/lib/dual-screen"
 import { AccountSecondScreenWorkspace } from "@/components/AccountSecondScreenWorkspace"
 import { useZoho } from "@/components/ZohoProvider"
-import { TitanVoiceSoftphone } from "@/components/TitanVoiceSoftphone"
 import { toast } from "react-hot-toast"
 
 interface AccountContact {
@@ -1529,8 +1528,6 @@ function CommunicatorContent() {
           </div>
         </div>
       )}
-      {/* Global In-App Titan Softphone with Zoho Voice Bridge */}
-      <TitanVoiceSoftphone />
     </div>
   )
 }

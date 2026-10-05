@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import { useRouter } from "next/navigation"
 import { FiPhoneCall, FiMessageSquare, FiSettings, FiChevronDown, FiChevronUp, FiSearch, FiFilter, FiUser, FiClock, FiCheck, FiX, FiCornerUpRight, FiCornerDownLeft, FiDatabase } from "react-icons/fi"
+import { VoiceManagement } from "@/components/VoiceManagement"
 import { toast } from 'react-hot-toast';
 
 export default function CommunicationsDashboard() {
@@ -11,9 +12,7 @@ export default function CommunicationsDashboard() {
   const router = useRouter()
   
   const [unifiedLogs, setUnifiedLogs] = useState<any[]>([])
-  const [zohoNumbers, setZohoNumbers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [savingNumbers, setSavingNumbers] = useState(false)
   const [syncingVoice, setSyncingVoice] = useState(false)
   const [reconcilingCalls, setReconcilingCalls] = useState(false)
   const [callAudit, setCallAudit] = useState<any>(null)
@@ -36,11 +35,6 @@ export default function CommunicationsDashboard() {
           setUnifiedLogs(data.unifiedLogs || [])
         }
 
-        const numRes = await fetch('/api/manage-zoho-numbers?action=list')
-        const numData = await numRes.json()
-        if (numData.success) {
-          setZohoNumbers(numData.numbers || [])
-        }
         const auditRes = await fetch('/api/admin/communications/reconcile-calls')
         const auditData = await auditRes.json()
         if (auditData.success) setCallAudit(auditData)
@@ -54,30 +48,6 @@ export default function CommunicationsDashboard() {
       fetchData()
     }
   }, [isInitialized, currentUser])
-
-  const handleSaveNumbers = async () => {
-    try {
-      setSavingNumbers(true)
-      const numRes = await fetch('/api/manage-zoho-numbers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ numbers: zohoNumbers })
-      })
-      const numData = await numRes.json()
-
-      if (numData.success) {
-        localStorage.removeItem('lc:zoho-numbers')
-        toast.success('Numbers saved successfully!')
-      } else {
-        toast.error('Error saving numbers: ' + numData.error)
-      }
-    } catch (e) {
-      console.error(e)
-      toast.error('Error saving numbers.')
-    } finally {
-      setSavingNumbers(false)
-    }
-  }
 
   // Filter Logic
   const filteredLogs = unifiedLogs.filter(log => {
@@ -171,91 +141,7 @@ export default function CommunicationsDashboard() {
           {[['Calls', callAudit.calls], ['Transcripts', callAudit.transcripts], ['Confirmed', callAudit.confirmed], ['Repairable', callAudit.repairable], ['Repaired', callAudit.repaired], ['Ambiguous', callAudit.ambiguous], ['Unresolved', callAudit.unresolved]].map(([label, value]) => <div key={String(label)} className="rounded-xl border border-white/10 bg-white/[.035] p-3"><div className="text-[9px] font-black uppercase text-neutral-500">{label}</div><div className="mt-1 text-xl font-black text-white">{value}</div></div>)}
         </div>}
 
-        {/* Settings Panel (Collapsible) */}
-        {showSettings && (
-          <div className="glass-panel border border-white/10 rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-top-4 fade-in duration-200">
-            <div className="bg-black/20 px-6 py-4 border-b border-white/10 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-white">Zoho Phone Numbers</h2>
-                <p className="text-sm text-neutral-400">Manage phone numbers used for voice and SMS routing</p>
-              </div>
-              <button 
-                onClick={() => setZohoNumbers([...zohoNumbers, { number: "", name: "", isDefault: false, assignedUserIds: [] }])}
-                className="text-xs font-bold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 px-3 py-1.5 rounded-lg transition-colors"
-              >
-                + Add Number
-              </button>
-            </div>
-            <div className="p-6 space-y-3">
-              {zohoNumbers.map((num, i) => (
-                <div key={i} className="flex flex-col sm:flex-row gap-3 items-start sm:items-center bg-black/40 p-3 rounded-lg border border-white/10">
-                  <div className="flex-1 w-full space-y-2">
-                    <input 
-                      type="text"
-                      placeholder="Phone Number (e.g. +14804702577)"
-                      value={num.number}
-                      onChange={(e) => {
-                        const newNums = [...zohoNumbers]
-                        newNums[i].number = e.target.value
-                        setZohoNumbers(newNums)
-                      }}
-                      className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-                    />
-                    <input 
-                      type="text"
-                      placeholder="Friendly Name (e.g. Main Line)"
-                      value={num.name}
-                      onChange={(e) => {
-                        const newNums = [...zohoNumbers]
-                        newNums[i].name = e.target.value
-                        setZohoNumbers(newNums)
-                      }}
-                      className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
-                  
-                  <div className="flex items-center gap-4 shrink-0 mt-2 sm:mt-0 px-2">
-                    <label className="flex items-center gap-2 text-sm font-medium text-neutral-300 cursor-pointer">
-                      <input 
-                        type="radio"
-                        name="default_zoho_number"
-                        checked={num.isDefault}
-                        onChange={() => {
-                          const newNums = zohoNumbers.map((n, idx) => ({ ...n, isDefault: idx === i }))
-                          setZohoNumbers(newNums)
-                        }}
-                        className="w-4 h-4 accent-indigo-500"
-                      />
-                      Default
-                    </label>
-                    <button
-                      onClick={() => setZohoNumbers(zohoNumbers.filter((_, idx) => idx !== i))}
-                      className="text-red-400 hover:text-red-300 p-2 bg-red-500/10 rounded-md transition-colors"
-                      title="Remove Number"
-                    >
-                      <FiX />
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {zohoNumbers.length === 0 && (
-                <div className="text-center py-8 border border-dashed border-white/10 rounded-lg text-neutral-500 text-sm">
-                  No Zoho numbers added yet.
-                </div>
-              )}
-              
-              <div className="flex justify-end pt-4 mt-2">
-                <button 
-                  onClick={handleSaveNumbers}
-                  disabled={savingNumbers}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-6 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
-                >
-                  {savingNumbers ? "Saving..." : "Save Configuration"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {showSettings && <VoiceManagement />}
 
         {/* Filters */}
         <div className="glass-panel/50 border border-white/10 rounded-xl p-4 flex flex-col md:flex-row items-center gap-4 shadow-sm">
