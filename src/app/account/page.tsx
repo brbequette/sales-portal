@@ -909,7 +909,7 @@ function AccountHubContent() {
                 account={account}
                 onTabSwitch={(tab) => { setActiveTab(tab); setLeftRailOpen(false) }}
                 onReorder={(cart) => { setReorderCart(cart); setActiveTab("quicksale"); setLeftRailOpen(false) }}
-                onEditRequest={() => setIsEditingAccount(true)}
+                onEditRequest={() => { setLeftRailOpen(false); setIsEditingAccount(true) }}
               />
             </div></div>, document.body)}
           </>
