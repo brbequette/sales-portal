@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { FiCpu, FiMessageSquare, FiMonitor, FiPhone, FiSearch, FiX } from 'react-icons/fi'
@@ -12,7 +12,13 @@ import { COMMUNICATION_CONTEXT_EVENT, getCommunicationContext, publishCommunicat
 type Account = { id: string; name: string; contacts?: Array<{ id: string; name?: string; phone?: string; mobilePhone?: string; email?: string }> }
 type Tab = 'phone' | 'messages' | 'ai'
 
-export function CommunicationDock({ user }: { user?: { id?: string; name?: string; role?: string } }) {
+type DockProps = { user?: { id?: string; name?: string; role?: string } }
+
+export function CommunicationDock(props: DockProps) {
+  return <Suspense fallback={null}><CommunicationDockContent {...props} /></Suspense>
+}
+
+function CommunicationDockContent({ user }: DockProps) {
   const pathname = usePathname()
   const search = useSearchParams().toString()
   const mounted = useSyncExternalStore(() => () => {}, () => true, () => false)

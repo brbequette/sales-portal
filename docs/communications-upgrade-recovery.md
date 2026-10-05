@@ -15,12 +15,15 @@ A manual production recovery snapshot was created and listed back successfully:
 `snap-blue-cell-ajq3hj58`, source branch `br-misty-rain-aj38g9pq`,
 2026-10-05 18:15:26 UTC. This verifies snapshot availability, not a restore test.
 
-The connected Netlify account exposes only `netlifydb_readonly`. Recovery was
-rejected by database permissions and did not change the migration ledger.
-A Team Owner must provide an authorized production connection through the
-normal credential setup. Never commit or print the connection string.
+The personal-access-token connection exposes only `netlifydb_readonly`.
+Its recovery attempt was rejected without changing the ledger. After the user
+signed into the owner browser session, the production SQL console verified
+`netlifydb_owner` and applied a guarded update to only this failure's
+`rolled_back_at` timestamp: 2026-10-05 18:23:10.593 UTC. Independent readback
+confirmed recovery. No customer data, schema, credentials, or access-control
+settings were changed. The normal production migration gate remains enabled.
 
-Before recovery, inspect `_prisma_migrations` again and confirm the same single
+For any future recurrence, inspect `_prisma_migrations` again and confirm the same single
 unresolved failure, checksum, zero steps, first-statement error, absence of the
 obsolete migration from the release, and availability of a fresh snapshot.
 If any precondition differs, stop and investigate the changed state.
