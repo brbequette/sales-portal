@@ -24,7 +24,7 @@ export function salesNextSteps(account: SalesAccount, now = Date.now()): SalesSt
       : /qualif|discover|prospect/.test(stage) ? 'Confirm needs, decision maker and timing'
       : /ship|order|fulfill|po issued/.test(stage) ? 'Check order progress and confirm delivery expectations'
       : 'Review the deal and agree the next milestone'
-    const overdue = !!deal.closingDate && Date.parse(deal.closingDate) < now
+    const overdue = !/^(paid|invoice paid|delivered|fulfilled)$/.test(stage) && !!deal.closingDate && Date.parse(deal.closingDate) < now
     steps.push({ key: `deal:${deal.id}`, title, reason: `${deal.name || 'Deal'} · ${deal.stage || 'Stage not recorded'}${overdue ? ' · Closing date has passed' : ''}`, record: `Deal ${deal.id || deal.zohoId || ''}`, urgent: overdue, existingTask: false })
   }
   for (const quote of account.quotes || []) {
