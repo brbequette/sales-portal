@@ -59,3 +59,16 @@ describe('AI topic conversations', () => {
     expect(localStorage.getItem('titan-ai-conversations:v2:user-a')).toBe('unreadable')
   })
 })
+
+it('preserves topics saved by another window and receives archive updates', async () => {
+  const h = await setup(); const original = h.result.current.conversation!.id
+  const external = {id:'second-window', title:'Other window topic', archived:false, messages:[message('Other topic')],draft:'',updatedAt:new Date(Date.now()+1000).toISOString()}
+  const stored = JSON.parse(localStorage.getItem('titan-ai-conversations:v2:user-a')!)
+  localStorage.setItem('titan-ai-conversations:v2:user-a', JSON.stringify({...stored,conversations:[...stored.conversations,external]}))
+  act(() => h.result.current.setInputText('My draft'))
+  expect(JSON.parse(localStorage.getItem('titan-ai-conversations:v2:user-a')!).conversations).toHaveLength(2)
+  act(() => window.dispatchEvent(new StorageEvent('storage',{key:'titan-ai-conversations:v2:user-a',newValue:JSON.stringify({...stored,conversations:[...stored.conversations,{...external,archived:true}]})})))
+  expect(h.result.current.conversations.find(c=>c.id==='second-window')?.archived).toBe(true)
+  expect(h.result.current.conversation?.id).toBe(original)
+  expect(h.result.current.inputText).toBe('My draft')
+})
