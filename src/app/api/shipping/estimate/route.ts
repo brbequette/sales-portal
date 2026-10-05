@@ -184,7 +184,10 @@ export async function POST(req: Request) {
     // we MUST recalculate live rates for the newly specified box!
     if (packageNumber && !forceRefresh && !saveBox) {
       try {
-        const existingData = await getExistingShipmentRates(packageNumber);
+        const existingData = await getExistingShipmentRates(packageNumber, {
+          weight: parsedWeight,
+          dimensions: { length: parsedLength, width: parsedWidth, height: parsedHeight },
+        });
         if (existingData && existingData.rates.length > 0) {
           rates = existingData.rates;
           fromExistingShipment = true;
