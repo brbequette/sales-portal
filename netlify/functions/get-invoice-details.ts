@@ -77,6 +77,7 @@ function buildLocalResponse(dbDoc: any, type: string, vigRate: number, packages:
     // Preserve all extra stored fields
     ...items._zohoRaw,
     _source: 'local_db',
+    accountId: dbDoc.accountId || dbDoc.account?.id || null,
     _cachedAt: items.lastSyncedAt,
     costsCalculatedAt: dbDoc.costsCalculatedAt?.toISOString() || items.costsCalculatedAt || null,
     packages,

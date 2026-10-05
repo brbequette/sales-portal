@@ -174,7 +174,7 @@ export function AccountSecondScreenWorkspace({ accountId, account, onBack }: { a
     { id: "postal", label: "Postal Letter", icon: <FiMail /> },
   ]
 
-  return <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#07090d] text-white">
+  return <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#07090d] text-white">
     <header className="flex-none border-b border-white/10 bg-black/70 px-5 py-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">

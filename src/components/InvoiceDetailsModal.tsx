@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
 import { classifyZohoLineItem, financialZohoLineItems, orderedZohoLineItems } from "@/lib/zoho-line-items"
 import { useEffect, useRef, useState } from "react"
+import { getCommunicationContext, publishCommunicationContext } from '@/lib/communication-context'
 
 function EmailPurchaseOrderButton({ salesOrderId, purchaseOrderId, purchaseOrderNumber, recipientEmail }: {
   salesOrderId: string
@@ -211,6 +212,16 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
     session,
     preferences,
   } = useInvoiceDetailsData({ invoice, type, onClose, invoiceList, currentIndex, onNavigate })
+
+  const contextRecordId = typeof invoice === 'string' ? invoice : invoice?.zohoId || invoice?.id
+  const contextAccountId = displayData?.accountId || (typeof invoice === 'object' ? invoice?.accountId : undefined)
+  useEffect(() => {
+    if (!contextRecordId) return
+    const previous = getCommunicationContext()
+    const context = { accountId: contextAccountId, kind: currentType, recordId: String(contextRecordId), title: `${currentType} details` }
+    publishCommunicationContext(context)
+    return () => { if (getCommunicationContext() === context) publishCommunicationContext(previous) }
+  }, [contextRecordId, contextAccountId, currentType])
 
   const calculatedValue = displayData?.costsCalculatedAt || displayData?.items?.costsCalculatedAt
   const calculatedDate = calculatedValue ? new Date(calculatedValue) : null

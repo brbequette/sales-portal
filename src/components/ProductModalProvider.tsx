@@ -4,6 +4,7 @@
 import { createContext, useContext, useState, useEffect } from "react"
 import { FiX, FiBox, FiDollarSign, FiTag, FiInfo } from "react-icons/fi"
 import Link from "next/link"
+import { getCommunicationContext, publishCommunicationContext } from '@/lib/communication-context'
 
 type ProductInfo = {
   id: string
@@ -30,6 +31,14 @@ export function ProductModalProvider({ children }: { children: React.ReactNode }
   const [activeProduct, setActiveProduct] = useState<ProductInfo | null>(null)
   const [fallback, setFallback] = useState<any>(null)
   const [isOpen, setIsOpen] = useState(false)
+
+  useEffect(() => {
+    if (!isOpen) return
+    const previous = getCommunicationContext()
+    const context = { ...previous, kind: 'product' as const, recordId: activeProduct?.id, productSearch: activeProduct?.sku || fallback?.sku || fallback?.name, title: activeProduct?.name || fallback?.name }
+    publishCommunicationContext(context)
+    return () => { if (getCommunicationContext() === context) publishCommunicationContext(previous) }
+  }, [isOpen, activeProduct, fallback])
 
   useEffect(() => {
     // Fetch products once to build the catalog dictionary

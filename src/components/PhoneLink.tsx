@@ -54,6 +54,10 @@ export function PhoneLink({
 
   const handleDesktopClick = async (e: React.MouseEvent) => {
     e.stopPropagation()
+    if (isSms) {
+      window.dispatchEvent(new CustomEvent('titan:open-messages', { detail: { phone: cleanPhone } }))
+      return
+    }
     onBeforeCall?.(cleanPhone)
 
     // Trigger ZDialer window API if present
@@ -101,7 +105,7 @@ export function PhoneLink({
         data-zohovoice-type={isSms ? "sms" : "call"}
         data-phone-number={cleanPhone}
         className={`inline-flex items-center gap-1.5 hover:text-emerald-400 transition-colors ${className}`}
-        onClick={() => onBeforeCall?.(cleanPhone)}
+        onClick={event => { event.preventDefault(); void handleDesktopClick(event) }}
       >
         {children ? children : (icon && (isSms ? <FiMessageSquare className="shrink-0" /> : <FiPhone className="shrink-0" />))}
         <span className="flex flex-col text-left leading-tight">

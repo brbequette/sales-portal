@@ -60,14 +60,19 @@ export function CommunicationCenter({
   contacts,
   selectedContactId,
   onContactChange,
+  initialTab,
+  messagesOnly = false,
 }: {
   accountId: string
   account?: any
   contacts?: any[]
   selectedContactId?: string
   onContactChange?: (contactId: string) => void
+  initialTab?: 'SMS' | 'EMAIL' | 'WHATSAPP'
+  messagesOnly?: boolean
 }) {
   const data = useCommunicationData({ accountId, account, contacts, selectedContactId })
+  useEffect(() => { if (initialTab) data.setActiveTab(initialTab) }, [initialTab, data.setActiveTab])
   const {
     currentUser, repName,
     activeTab, setActiveTab, callSubTab, setCallSubTab,
@@ -201,7 +206,7 @@ type Message = {
           { key: "SMS", icon: <FiMessageCircle size={12} />, label: "SMS", color: "bg-emerald-600 text-white", inactive: "text-neutral-400 hover:text-white hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300" },
           { key: "EMAIL", icon: <FiMail size={12} />, label: "Email", color: "bg-purple-600 text-white", inactive: "text-neutral-400 hover:text-white hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300" },
           { key: "WHATSAPP", icon: <FiMessageSquare size={12} />, label: "WhatsApp", color: "bg-green-600 text-white", inactive: "text-neutral-400 hover:text-white hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300" },
-        ] as const).map(tab => (
+        ] as const).filter(tab => !messagesOnly || tab.key !== 'CALL').map(tab => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key as any)}

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import toast from "react-hot-toast"
 import { FiCheckCircle, FiExternalLink, FiMonitor, FiRadio, FiX } from "react-icons/fi"
 import { DUAL_SCREEN_CHANNEL, type DualScreenMessage, type DualScreenState, isDualScreenMessage } from "@/lib/dual-screen"
+import { COMMUNICATION_CONTEXT_EVENT, getCommunicationContext } from '@/lib/communication-context'
 
 function id() { return crypto.randomUUID() }
 
@@ -40,9 +41,14 @@ export function DualScreenController() {
   useEffect(() => { currentPath.current = `${window.location.pathname}${window.location.search}` }, [pathname])
 
   const sendState = useCallback(() => {
-    const state: DualScreenState = { view: "dashboard", title: document.title || "Titan Diamond", controllerPath: currentPath.current, updatedAt: new Date().toISOString() }
+    const state: DualScreenState = { view: "dashboard", title: document.title || "Titan Diamond", controllerPath: currentPath.current, updatedAt: new Date().toISOString(), communication: getCommunicationContext() }
     post("CONTROLLER_STATE", { state })
   }, [post])
+
+  useEffect(() => {
+    window.addEventListener(COMMUNICATION_CONTEXT_EVENT, sendState)
+    return () => window.removeEventListener(COMMUNICATION_CONTEXT_EVENT, sendState)
+  }, [sendState])
 
   useEffect(() => {
     const storedControllerId = sessionStorage.getItem("titan-dual-screen-controller-id")
@@ -86,7 +92,7 @@ export function DualScreenController() {
   const launch = () => {
     if (!("BroadcastChannel" in window)) { toast.error("This browser does not support same-computer display synchronization."); return }
     const liveUrl = new URL(window.location.href)
-    const accountId = liveUrl.pathname === "/account" ? liveUrl.searchParams.get("id") : ""
+    const accountId = getCommunicationContext()?.accountId || (liveUrl.pathname === "/account" ? liveUrl.searchParams.get("id") : "")
     const displayUrl = accountId
       ? `/display?accountId=${encodeURIComponent(accountId)}&controller=${encodeURIComponent(sourceId.current)}`
       : `/display?controller=${encodeURIComponent(sourceId.current)}`
@@ -102,6 +108,11 @@ export function DualScreenController() {
     setDirectLink(`/display?controller=${encodeURIComponent(sourceId.current)}`)
     setPanelOpen(true)
   }
+
+  useEffect(() => {
+    window.addEventListener('titan:open-second-screen', launch)
+    return () => window.removeEventListener('titan:open-second-screen', launch)
+  })
 
   return <>
     <button onClick={launch} className="hidden xl:flex items-center gap-2 rounded-lg border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-200 hover:bg-cyan-500/20" title="Open the standalone communicator for this account"><FiMonitor/>Launch Communicator</button>

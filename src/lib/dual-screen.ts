@@ -1,3 +1,4 @@
+import type { CommunicationContext } from './communication-context'
 export const DUAL_SCREEN_CHANNEL = "titan-diamond-dual-screen-v1"
 
 export type DualScreenView = "dashboard" | "processing" | "operations" | "salesboard"
@@ -7,6 +8,7 @@ export type DualScreenState = {
   title: string
   controllerPath: string
   updatedAt: string
+  communication?: CommunicationContext | null
 }
 
 export type DualScreenMessage = {
