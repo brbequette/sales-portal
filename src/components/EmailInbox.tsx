@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import {
   FiMail, FiSend, FiInbox, FiRefreshCw, FiChevronLeft, FiPlus,
@@ -9,6 +9,7 @@ import {
   FiBookOpen, FiZap
 } from "react-icons/fi"
 import { toast } from "react-hot-toast"
+import { EmailSalesAssist } from "@/components/EmailSalesAssist"
 import { isAdministratorRole } from "@/lib/roles"
 
 export function EmailInbox({
@@ -28,6 +29,9 @@ export function EmailInbox({
   const canSync = isAdministratorRole(currentUser?.role)
   
   // State
+  const emailRequest = useRef(0)
+  const [search, setSearch] = useState('')
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [emails, setEmails] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSyncing, setIsSyncing] = useState(false)
@@ -49,28 +53,35 @@ export function EmailInbox({
   const primaryContact = contacts?.find(c => c.id === selectedContactId) || contacts?.find(c => c.isPrimary) || contacts?.[0]
 
   useEffect(() => {
-    fetchEmails()
-    fetchTemplates()
+    setSelectedEmail(null)
+    setEmails([]); setNextCursor(null)
+    void fetchEmails()
+    void fetchTemplates()
     
     // Set default To address if composing
     if (primaryContact?.email) {
       setComposeTo(primaryContact.email)
     }
-  }, [accountId, primaryContact])
+    return () => { emailRequest.current++ }
+  }, [accountId, primaryContact, search])
 
-  const fetchEmails = async () => {
+  const fetchEmails = async (cursor?: string) => {
+    const request = ++emailRequest.current
     setIsLoading(true)
     try {
-      const url = accountId ? `/api/emails?accountId=${accountId}` : '/api/emails'
+      const params = new URLSearchParams({ ...(accountId ? { accountId } : {}), ...(search ? { q: search } : {}), ...(cursor ? { cursor } : {}) })
+      const url = `/api/emails?${params}`
       const res = await fetch(url)
       const data = await res.json()
-      if (data.success) {
-        setEmails(data.emails || [])
+      if (request === emailRequest.current && !data.success) throw new Error(data.error || 'Unable to load email history.')
+      if (request === emailRequest.current && data.success) {
+        setEmails(previous => cursor ? [...previous, ...(data.emails || []).filter((email: { id: string }) => !previous.some(old => old.id === email.id))] : data.emails || [])
+        setNextCursor(data.nextCursor || null)
       }
     } catch (error) {
-      console.error("Failed to fetch emails:", error)
+      if (request === emailRequest.current) toast.error(error instanceof Error ? error.message : 'Unable to load email history.')
     } finally {
-      setIsLoading(false)
+      if (request === emailRequest.current) setIsLoading(false)
     }
   }
 
@@ -89,13 +100,13 @@ export function EmailInbox({
   const handleSync = async () => {
     setIsSyncing(true)
     try {
-      const res = await fetch('/api/emails/sync', { method: 'POST' })
+      const res = await fetch('/api/admin/email-intelligence/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
       const data = await res.json()
       if (data.success) {
-        toast.success("Emails synced successfully")
+        toast.success("Email batch processed. History continues syncing automatically.")
         fetchEmails()
       } else {
-        toast.error("Failed to sync emails")
+        toast.error(data.error || data.results?.flatMap((r: { errors: string[] }) => r.errors).join("; ") || "Failed to sync emails")
       }
     } catch (error) {
       toast.error("Error syncing emails")
@@ -145,48 +156,9 @@ export function EmailInbox({
     }
   }
 
-  const handleAcceptResponse = async (emailId: string, responseBody: string) => {
-    if (!window.confirm(`Send this suggested reply to ${selectedEmail.fromAddress}?`)) return
-    try {
-      // Send the email first
-      const payload = {
-        accountId,
-        contactId: selectedEmail.contactId || primaryContact?.id,
-        toAddress: selectedEmail.fromAddress,
-        subject: `Re: ${selectedEmail.subject}`,
-        content: responseBody,
-      }
-      
-      const res = await fetch('/api/emails', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-      
-      const data = await res.json()
-      
-      if (data.success) {
-        // Mark suggested response as accepted
-        await fetch('/api/emails/accept-response', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ emailId, responseBody })
-        })
-        
-        toast.success("Response sent!")
-        fetchEmails()
-        setSelectedEmail(null)
-      } else {
-        toast.error("Failed to send response")
-      }
-    } catch (error) {
-      toast.error("Error sending response")
-    }
-  }
-  
   const handleEditSuggestion = (suggestion: string) => {
     setIsComposing(true)
-    setComposeTo(selectedEmail.fromAddress)
+    setComposeTo(selectedEmail.direction === 'OUTBOUND' ? selectedEmail.toAddress : selectedEmail.fromAddress)
     setComposeSubject(`Re: ${selectedEmail.subject}`)
     setComposeBody(suggestion)
     setSelectedEmail(null)
@@ -216,7 +188,7 @@ export function EmailInbox({
     return emails.filter(e => {
       const status = String(e.status || "").toUpperCase()
       const direction = String(e.direction || "").toUpperCase()
-      if (activeTab === "Needs Response") return e.needsResponse === true || status === "NEEDS_RESPONSE"
+      if (activeTab === "Needs Response") return e.intelligenceNeedsResponse || e.needsResponse === true || status === "NEEDS_RESPONSE"
       if (activeTab === "Sent") return direction === "OUTBOUND"
       if (activeTab === "Archived") return status === "ARCHIVED"
       return true
@@ -335,7 +307,7 @@ export function EmailInbox({
           <div className="flex gap-2">
             <button 
               onClick={() => {
-                setComposeTo(selectedEmail.fromAddress)
+                setComposeTo(selectedEmail.direction === 'OUTBOUND' ? selectedEmail.toAddress : selectedEmail.fromAddress)
                 setComposeSubject(`Re: ${selectedEmail.subject}`)
                 setIsComposing(true)
                 setSelectedEmail(null)
@@ -348,21 +320,22 @@ export function EmailInbox({
         </div>
         
         <div className="flex-1 min-h-0 overflow-y-auto p-5">
-          <div className="flex justify-between items-start mb-6">
+          <div className="flex flex-wrap gap-2 justify-between items-start mb-6">
             <div>
-              <div className="font-bold text-white">{selectedEmail.fromName || selectedEmail.fromAddress}</div>
+              <div className="font-bold text-white break-all">{selectedEmail.fromName || selectedEmail.fromAddress}</div>
               <div className="text-xs text-[var(--muted)] mt-0.5">To: {selectedEmail.toAddress}</div>
               {selectedEmail.ccAddress && <div className="text-xs text-[var(--muted)]">Cc: {selectedEmail.ccAddress}</div>}
             </div>
             <div className="text-xs text-[var(--muted)] whitespace-nowrap">
-              {new Date(selectedEmail.timestamp || selectedEmail.createdAt).toLocaleString()}
+              {new Date(selectedEmail.sentAt || selectedEmail.receivedAt || selectedEmail.timestamp || selectedEmail.createdAt).toLocaleString()}
             </div>
           </div>
           
-          <div className="text-sm text-white whitespace-pre-wrap leading-relaxed">
+          <div className="text-sm text-white whitespace-pre-wrap break-words leading-relaxed">
             {selectedEmail.body}
           </div>
           
+          <EmailSalesAssist emailId={selectedEmail.id} linked={Boolean(selectedEmail.accountId)} onDraft={handleEditSuggestion} />
           {selectedEmail.suggestedReply && (
             <div className="mt-8 p-4 bg-orange-500/10 border border-orange-500/30 rounded-xl">
               <div className="flex items-center gap-2 text-orange-400 font-bold text-xs mb-2 uppercase tracking-wider">
@@ -371,12 +344,12 @@ export function EmailInbox({
               <div className="text-sm text-neutral-300 whitespace-pre-wrap mb-4">
                 {selectedEmail.suggestedReply}
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button 
-                  onClick={() => handleAcceptResponse(selectedEmail.id, selectedEmail.suggestedReply)}
+                  onClick={() => handleEditSuggestion(selectedEmail.suggestedReply)}
                   className="td-btn td-btn-primary td-btn-sm"
                 >
-                  <FiSend size={14} /> Accept & Send
+                  <FiEdit size={14} /> Review draft
                 </button>
                 <button 
                   onClick={() => handleEditSuggestion(selectedEmail.suggestedReply)}
@@ -418,6 +391,7 @@ export function EmailInbox({
         </div>
       </div>
 
+      <div className="shrink-0 p-2"><input aria-label="Search email history" placeholder="Search subject, sender or message" value={search} onChange={e => setSearch(e.target.value)} className="td-input" /></div>
       {/* Tabs */}
       <div className="flex shrink-0 overflow-x-auto border-b border-[var(--border)] px-2 bg-[var(--surface-2)]">
         {(["All", "Needs Response", "Sent", "Archived"] as const).map(tab => (
@@ -435,6 +409,7 @@ export function EmailInbox({
         ))}
       </div>
 
+      {nextCursor && <button disabled={isLoading} onClick={() => void fetchEmails(nextCursor)} className="td-btn td-btn-sm shrink-0">Load older emails</button>}
       {/* List */}
       <div className="flex-1 min-h-0 overflow-y-auto">
         {isLoading ? (
@@ -465,7 +440,7 @@ export function EmailInbox({
                       {email.fromName || email.fromAddress}
                     </span>
                     <span className="text-[10px] text-[var(--muted)] whitespace-nowrap ml-2">
-                      {new Date(email.timestamp || email.createdAt).toLocaleDateString()}
+                      {new Date(email.sentAt || email.receivedAt || email.timestamp || email.createdAt).toLocaleDateString()}
                     </span>
                   </div>
                   <div className={`text-sm truncate mb-1 ${email.isRead ? 'text-neutral-300' : 'text-white font-semibold'}`}>

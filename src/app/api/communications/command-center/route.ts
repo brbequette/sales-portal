@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getMicrosoftMailConfiguration } from "@/lib/microsoft-graph-mail"
+import { getAuthenticatedDbUser } from "@/lib/session-user"
 import { checkAccountOwnership } from "@/lib/auth-helpers"
 
 export async function GET(request: NextRequest) {
@@ -9,6 +11,8 @@ export async function GET(request: NextRequest) {
   const access = await checkAccountOwnership(accountId)
   if (!access.authorized) return access.errorResponse || NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
+  const auth = await getAuthenticatedDbUser()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const startOfDay = new Date()
   startOfDay.setHours(0, 0, 0, 0)
 
@@ -20,7 +24,7 @@ export async function GET(request: NextRequest) {
     prisma.smsMessage.count({ where: { accountId, direction: "INBOUND", status: { notIn: ["READ", "ARCHIVED"] } } }),
     prisma.salesCommitment.count({ where: { accountId, status: { in: ["PROPOSED", "APPROVED", "OPEN"] } } }),
     prisma.emailMailbox.findFirst({
-      where: { enabled: true },
+      where: { enabled: true, provider: 'MICROSOFT_365', userId: auth.user.id },
       orderBy: [{ lastSyncAt: "desc" }, { updatedAt: "desc" }],
       select: { address: true, lastSyncAt: true, lastSyncStatus: true, lastSyncError: true },
     }),
@@ -33,7 +37,7 @@ export async function GET(request: NextRequest) {
       voiceWebSdk: Boolean(process.env.NEXT_PUBLIC_ZOHO_VOICE_WEBSDK_API_KEY?.trim()),
       voiceOAuth: Boolean(process.env.ZOHO_VOICE_REFRESH_TOKEN?.trim()),
       sms: Boolean(process.env.ZOHO_VOICE_REFRESH_TOKEN?.trim()),
-      emailIngestion: Boolean(mailbox),
+      emailIngestion: getMicrosoftMailConfiguration().configured && Boolean(mailbox?.lastSyncAt && ['SUCCESS', 'IN_PROGRESS'].includes(mailbox.lastSyncStatus || '')),
     },
     mailbox,
     generatedAt: new Date().toISOString(),

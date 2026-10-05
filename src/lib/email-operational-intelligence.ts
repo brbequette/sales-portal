@@ -131,24 +131,33 @@ export async function matchOperationalEvent(data: Record<string, unknown>) {
   const poNumber = String(data.poNumber || "").trim()
   const trackingNumber = String(data.trackingNumber || "").trim()
 
-  const invoice = invoiceNumber ? await prisma.invoice.findFirst({ where: { invoiceNumber } }) : null
-  const salesOrder = salesOrderNumber ? await prisma.salesOrder.findFirst({ where: { OR: [
-    { rawData: { path: ["salesorder_number"], equals: salesOrderNumber } },
-    { items: { path: ["salesorder_number"], equals: salesOrderNumber } },
-  ] } }) : null
-  const purchaseOrder = poNumber ? await prisma.purchaseOrder.findFirst({ where: { referenceNumber: poNumber } }) : null
-  const pkg = trackingNumber ? await prisma.package.findFirst({ where: { trackingNumber } }) : null
-
+  const [invoices, orders, purchases, packages] = await Promise.all([
+    invoiceNumber ? prisma.invoice.findMany({ where: { invoiceNumber }, take: 2 }) : [],
+    salesOrderNumber ? prisma.salesOrder.findMany({ where: { OR: [
+      { rawData: { path: ["salesorder_number"], equals: salesOrderNumber } },
+      { items: { path: ["salesorder_number"], equals: salesOrderNumber } },
+    ] }, take: 2 }) : [],
+    poNumber ? prisma.purchaseOrder.findMany({ where: { poNumber }, take: 2 }) : [],
+    trackingNumber ? prisma.package.findMany({ where: { trackingNumber }, take: 2 }) : [],
+  ])
+  const ambiguous = [invoices, orders, purchases, packages].some(rows => rows.length > 1)
+  const invoice = invoices.length === 1 ? invoices[0] : null
+  const salesOrder = orders.length === 1 ? orders[0] : null
+  const purchaseOrder = purchases.length === 1 ? purchases[0] : null
+  const pkg = packages.length === 1 ? packages[0] : null
+  const accountIds = new Set([invoice?.accountId, salesOrder?.accountId].filter(Boolean))
+  const conflicting = accountIds.size > 1 || Boolean(purchaseOrder?.salesOrderId && salesOrder && purchaseOrder.salesOrderId !== salesOrder.id)
   const matches = [invoice, salesOrder, purchaseOrder, pkg].filter(Boolean).length
+  const conflictReason = ambiguous ? "More than one document matches an identifier. Review before linking." : conflicting ? "References point to different accounts or orders." : matches === 0 ? "No matching local document was found." : null
   return {
-    invoiceId: invoice?.id,
-    salesOrderId: salesOrder?.id,
-    purchaseOrderId: purchaseOrder?.id,
-    packageId: pkg?.id,
-    accountId: invoice?.accountId || salesOrder?.accountId,
-    matchMethod: invoice ? "INVOICE_NUMBER" : purchaseOrder ? "PURCHASE_ORDER_NUMBER" : salesOrder ? "SALES_ORDER_NUMBER" : pkg ? "TRACKING_NUMBER" : undefined,
-    matchConfidence: matches === 1 ? 0.98 : matches > 1 ? 0.9 : 0,
-    conflictReason: matches === 0 ? "No matching local document was found." : undefined,
+    invoiceId: ambiguous || conflicting ? null : invoice?.id || null,
+    salesOrderId: ambiguous || conflicting ? null : salesOrder?.id || null,
+    purchaseOrderId: ambiguous || conflicting ? null : purchaseOrder?.id || null,
+    packageId: ambiguous || conflicting ? null : pkg?.id || null,
+    accountId: ambiguous || conflicting ? null : invoice?.accountId || salesOrder?.accountId || null,
+    matchMethod: ambiguous || conflicting ? null : invoice ? "INVOICE_NUMBER" : purchaseOrder ? "PURCHASE_ORDER_NUMBER" : salesOrder ? "SALES_ORDER_NUMBER" : pkg ? "TRACKING_NUMBER" : null,
+    matchConfidence: conflictReason ? 0 : 0.98,
+    conflictReason,
   }
 }
 

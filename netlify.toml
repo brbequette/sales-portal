@@ -69,3 +69,6 @@
 
 [functions."bounded-books-auto-sync"]
   schedule = "*/15 * * * *"
+
+[functions."microsoft-email-intelligence"]
+  schedule = "*/3 * * * *"

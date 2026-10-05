@@ -1,6 +1,7 @@
 "use client"
 
 
+import { createPortal } from "react-dom"
 import { useState, useRef, useEffect } from "react"
 import { FiBell, FiCheck, FiCheckCircle, FiTrash2 } from "react-icons/fi"
 import { useRouter } from "next/navigation"
@@ -25,13 +26,32 @@ export function NotificationCenter() {
   const router = useRouter()
   const { notifications, unreadCount, markAsRead, markAllAsRead, requestPermission, permission } = useNotifications()
   const [open, setOpen] = useState(false)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [position, setPosition] = useState({ top: 64, right: 12, maxHeight: 480 })
   const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const update = () => {
+      const rect = containerRef.current?.getBoundingClientRect()
+      const height = window.visualViewport?.height || window.innerHeight
+      const offset = window.visualViewport?.offsetTop || 0
+      const top = Math.max(offset + 8, Math.min(rect ? rect.bottom + 8 : offset + 64, offset + Math.max(8, height - 240)))
+      const width = Math.min(320, window.innerWidth - 16)
+      const right = Math.max(8, Math.min(window.innerWidth - width - 8, rect ? window.innerWidth - rect.right : 12))
+      setPosition({ top, right, maxHeight: Math.max(100, offset + height - top - 12) })
+    }
+    update()
+    window.addEventListener('resize', update); window.addEventListener('scroll', update, true)
+    window.visualViewport?.addEventListener('resize', update)
+    return () => { window.removeEventListener('resize', update); window.removeEventListener('scroll', update, true); window.visualViewport?.removeEventListener('resize', update) }
+  }, [open])
 
   // Click outside closes dropdown
   useEffect(() => {
     if (!open) return
     function handleClick(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node) && !panelRef.current?.contains(e.target as Node)) {
         setOpen(false)
       }
     }
@@ -53,6 +73,7 @@ export function NotificationCenter() {
     <div className="relative" ref={containerRef}>
       {/* Bell Button */}
       <button
+        aria-label="Open notifications" aria-expanded={open}
         onClick={() => {
           if (permission === "default") requestPermission()
           setOpen(!open)
@@ -68,8 +89,8 @@ export function NotificationCenter() {
       </button>
 
       {/* Dropdown Panel */}
-      {open && (
-        <div className="absolute top-full right-0 mt-2 w-80 max-w-[calc(100vw-1rem)] glass-panel border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 flex flex-col max-h-[70vh] animate-in fade-in slide-in-from-top-2 duration-200">
+      {open && createPortal(
+        <div ref={panelRef} role="dialog" aria-label="Notifications" style={{ ...position, zIndex: 'var(--z-notification)' }} className="fixed w-80 max-w-[calc(100vw-1rem)] glass-panel border border-white/10 rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[70vh] animate-in fade-in slide-in-from-top-2 duration-200">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 glass-panel/80">
             <h3 className="text-sm font-bold text-white">Notifications</h3>
@@ -84,6 +105,7 @@ export function NotificationCenter() {
             )}
           </div>
 
+          <button onClick={() => setOpen(false)} className="self-end px-4 py-2 text-xs text-neutral-300" aria-label="Close notifications">Close</button>
           {/* Notification List */}
           <div className="overflow-y-auto flex-1 max-h-96">
             {notifications.length === 0 ? (
@@ -137,7 +159,7 @@ export function NotificationCenter() {
               </div>
             )}
           </div>
-        </div>
+        </div>, document.body
       )}
     </div>
   )

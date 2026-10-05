@@ -787,9 +787,9 @@ export function GlobalTopBar() {
       )
     })()}
     </div>{/* end sticky wrapper */}
-    {showClockInPrompt && currentUser?.id && (
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[600] animate-[slideUp_0.3s_ease-out]">
-        <div className="flex items-center gap-3 bg-gradient-to-r from-blue-900/95 to-indigo-900/95 backdrop-blur-xl border border-blue-500/30 rounded-2xl px-5 py-3 shadow-[0_8px_32px_rgba(59,130,246,0.3)] text-white">
+    {showClockInPrompt && currentUser?.id && typeof document !== 'undefined' && createPortal(
+      <div style={{ zIndex: 'var(--z-notification)', bottom: 'calc(5rem + env(safe-area-inset-bottom))' }} className="fixed left-1/2 -translate-x-1/2 w-[calc(100%-24px)] max-w-md animate-[slideUp_0.3s_ease-out]">
+        <div className="flex flex-wrap items-center gap-3 bg-gradient-to-r from-blue-900/95 to-indigo-900/95 backdrop-blur-xl border border-blue-500/30 rounded-2xl px-5 py-3 shadow-[0_8px_32px_rgba(59,130,246,0.3)] text-white">
           <div className="w-9 h-9 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
             <FiClock size={18} className="text-blue-400" />
           </div>
@@ -811,7 +811,7 @@ export function GlobalTopBar() {
             ×
           </button>
         </div>
-      </div>
+      </div>, document.body
     )}
     </>
   )
