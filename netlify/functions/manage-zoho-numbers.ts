@@ -1,51 +1,12 @@
-import { withFunctionAuth } from "./lib/auth-middleware"
-import { Handler } from "@netlify/functions"
-
-import { prisma } from "./lib/prisma"
-
-const authenticatedHandler: Handler = async (event) => {
-  const cors = {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Cache-Control": "no-store, max-age=0"
-  }
-
-  if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 204, headers: cors, body: "" }
-  }
-
+import { authenticateFunction, withFunctionAuth } from './lib/auth-middleware'
+import { Handler } from '@netlify/functions'
+import { voiceInventory } from './lib/voice-directory'
+const authenticatedHandler: Handler = async event => {
+  const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+  if (event.httpMethod !== 'GET') return { statusCode: 405, headers, body: JSON.stringify({ success: false, error: 'Numbers are managed in Zoho Voice. Use Voice user management for assignments.' }) }
   try {
-    if (event.httpMethod === "GET") {
-      const setting = await prisma.systemSetting.findUnique({
-        where: { key: "zoho_phone_numbers" }
-      })
-      const numbers = setting ? JSON.parse(setting.value) : []
-      return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, numbers }) }
-    } 
-    else if (event.httpMethod === "POST") {
-      const body = JSON.parse(event.body || "{}")
-      const { numbers } = body
-      if (!Array.isArray(numbers)) throw new Error("numbers must be an array")
-      
-      await prisma.systemSetting.upsert({
-        where: { key: "zoho_phone_numbers" },
-        update: { value: JSON.stringify(numbers) },
-        create: { key: "zoho_phone_numbers", value: JSON.stringify(numbers) }
-      })
-
-      return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true }) }
-    }
-
-    return { statusCode: 405, headers: cors, body: JSON.stringify({ success: false, message: "Method not allowed" }) }
-  } catch (error: any) {
-    console.error("Zoho Numbers Error:", error)
-    return {
-      statusCode: 500,
-      headers: cors,
-      body: JSON.stringify({ success: false, error: error.message })
-    }
-  }
+    const inventory = await voiceInventory(await authenticateFunction(event))
+    return { statusCode: 200, headers, body: JSON.stringify({ success: true, ...inventory }) }
+  } catch (e) { return { statusCode: 503, headers, body: JSON.stringify({ success: false, error: e instanceof Error ? e.message : 'Voice inventory unavailable' }) } }
 }
-
-export const handler = withFunctionAuth(authenticatedHandler, { requireAdmin: true })
+export const handler = withFunctionAuth(authenticatedHandler)

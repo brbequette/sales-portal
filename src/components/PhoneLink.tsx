@@ -60,24 +60,6 @@ export function PhoneLink({
     }
     onBeforeCall?.(cleanPhone)
 
-    // Trigger ZDialer window API if present
-    if (typeof window !== 'undefined') {
-      const win = window as any
-      if (isSms && win.ZDialer?.sendSMS) {
-        try { win.ZDialer.sendSMS(cleanPhone); return; } catch (err) {}
-      }
-      if (isSms && win.ZohoVoice?.sendSMS) {
-        try { win.ZohoVoice.sendSMS(cleanPhone); return; } catch (err) {}
-      }
-      if (!isSms && win.ZDialer?.dial) {
-        try {
-          win.ZDialer.dial(cleanPhone)
-          toast.success(`Zoho Voice call started: ${cleanPhone}`, { icon: '📞' })
-          return
-        } catch (err) {}
-      }
-    }
-
     if (!isSms) {
       // Trigger in-app Titan Voice Softphone
       window.dispatchEvent(new CustomEvent("inAppDial", { detail: { phone: cleanPhone } }))

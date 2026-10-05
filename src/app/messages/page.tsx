@@ -47,6 +47,7 @@ export default function MessagesPage() {
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null)
   const [loadingCampaigns, setLoadingCampaigns] = useState(false)
   const [zohoNumbers, setOutboundNumbers] = useState<any[]>([])
+  const smsRequestId = useRef<string | null>(null)
   const [selectedOutboundNumber, setSelectedOutboundNumber] = useState("")
 
   const [updateAvailable, setUpdateAvailable] = useState(false)
@@ -78,17 +79,15 @@ export default function MessagesPage() {
 
   // Sender numbers are configuration data and must always reflect the database.
   useEffect(() => {
-    fetch("/api/manage-zoho-numbers", { cache: "no-store" })
-      .then(r => r.json())
-      .then(d => {
-        if (d.success && d.numbers?.length > 0) {
-          setOutboundNumbers(d.numbers)
-          const def = d.numbers.find((n: any) => n.isDefault)
-          const defaultNumber = def ? def.number : d.numbers[0].number
-          setSelectedOutboundNumber(defaultNumber)
-        }
-      })
-      .catch(console.error)
+    const refresh = () => fetch('/api/manage-zoho-numbers', { cache: 'no-store' }).then(r => r.json()).then(d => {
+      const available = d.success ? (d.numbers || []).filter((n: any) => n.active) : []
+      setOutboundNumbers(available)
+      setSelectedOutboundNumber(current => available.some((n: any) => n.number === current) ? current : available[0]?.number || '')
+    }).catch(() => { setOutboundNumbers([]); setSelectedOutboundNumber('') })
+    const focus = () => { void refresh() }
+    focus(); window.addEventListener('focus', focus)
+    const timer = setInterval(focus, 60000)
+    return () => { clearInterval(timer); window.removeEventListener('focus', focus) }
   }, [])
 
   // Fetch campaigns list
@@ -283,12 +282,14 @@ export default function MessagesPage() {
         body: JSON.stringify({
           text: textInput,
           fromNumber,
+          requestId: smsRequestId.current || (smsRequestId.current = crypto.randomUUID()),
           attachVCard,
           vcardCustomFields: attachVCard ? vcardFields : null
         })
       })
       const data = await res.json()
       if (data.success) {
+        smsRequestId.current = null
         setTextInput('')
         setSuggestions([])
         fetchMessages(selectedAccountId)

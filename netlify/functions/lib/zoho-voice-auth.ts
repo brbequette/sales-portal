@@ -1,4 +1,3 @@
-import { getZohoAccessToken } from "./zoho-auth"
 
 const cleanEnv = (value: string | undefined) => value?.trim().replace(/^(["'])(.*)\1$/, "$2") || ""
 
@@ -15,20 +14,6 @@ export async function getZohoVoiceAccessToken(forceRefresh = false): Promise<str
   const clientId = cleanEnv(process.env.ZOHO_VOICE_CLIENT_ID) || cleanEnv(process.env.ZOHO_CLIENT_ID)
   const clientSecret = cleanEnv(process.env.ZOHO_VOICE_CLIENT_SECRET) || cleanEnv(process.env.ZOHO_CLIENT_SECRET)
   const dc = cleanEnv(process.env.ZOHO_DC) || "com"
-
-  if (!refreshToken) {
-    // Fall back to main Zoho OAuth token cached in DB
-    try {
-      const generalToken = await getZohoAccessToken(forceRefresh)
-      if (generalToken) {
-        cachedVoiceToken = generalToken
-        voiceTokenExpiresAt = now + 55 * 60 * 1000
-        return cachedVoiceToken
-      }
-    } catch (e: any) {
-      console.warn("Zoho voice fallback to main Zoho token error:", e?.message)
-    }
-  }
 
   if (!refreshToken || !clientId || !clientSecret) {
     throw new Error("Zoho Voice OAuth credentials missing. Configure ZOHO_VOICE_REFRESH_TOKEN with ZohoVoice.sms.CREATE scope.")

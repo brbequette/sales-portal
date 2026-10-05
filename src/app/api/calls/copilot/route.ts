@@ -2,34 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { checkAccountOwnership } from "@/lib/auth-helpers"
 import { financialZohoLineItems } from "@/lib/zoho-line-items"
 
-const COMPETITOR_BATTLE_CARDS = [
-  {
-    name: "Husqvarna (Vari-Cut / Tacti-Cut)",
-    weakness: "Higher markup via franchise dealers, shorter segment height (10mm vs Titan 12-15mm).",
-    counterPitch: "Point out Titan's 15mm laser-welded undercut segments — 30% longer blade life for 20% lower cost per cut.",
-    dealBreakerSpec: "15mm segment height, laser-welded drop segments protect steel core in abrasive asphalt."
-  },
-  {
-    name: "Diamond Products (Core Cut)",
-    weakness: "Standard matrix often glazes over on high-PSI cured concrete with hard river rock.",
-    counterPitch: "Titan's multi-layered bond matrix with titanium-coated diamond grit stays sharp in 5000+ PSI aggregate.",
-    dealBreakerSpec: "Cobalt-infused matrix prevents glazing, free arbor bushings included with every carton."
-  },
-  {
-    name: "Norton Clipper",
-    weakness: "Long fulfillment lead times and strict minimum freight thresholds.",
-    counterPitch: "Titan ships same-day direct from Scottsdale, AZ with flat contractor freight and no order minimums.",
-    dealBreakerSpec: "In-stock guarantee: orders placed before 2 PM MST ship same day."
-  },
-  {
-    name: "Cheap Imports (eBay / Amazon / Direct China)",
-    weakness: "High core wobble, thrown segments (dangerous), inconsistent tensioning.",
-    counterPitch: "Titan uses German steel cores with pin-hole tensioning and ISO laser welding. Fully certified safety ratings.",
-    dealBreakerSpec: "100% money-back safety & segment guarantee on every blade."
-  }
-]
+const COMPETITOR_BATTLE_CARDS: unknown[] = []
 
 export async function GET(req: NextRequest) {
   try {
@@ -44,6 +20,9 @@ export async function GET(req: NextRequest) {
 
     let account: any = null
 
+    if (!accountId) return NextResponse.json({ error: 'Select an authorized account for copilot context' }, { status: 400 })
+    const access = await checkAccountOwnership(accountId)
+    if (!access.authorized) return access.errorResponse
     if (accountId) {
       account = await prisma.account.findFirst({
         where: { OR: [{ id: accountId }, { zohoId: accountId }] },

@@ -1,3 +1,4 @@
+import { handler as guardedSmsHandler } from "../../../../../netlify/functions/send-sms"
 /* eslint-disable @typescript-eslint/no-explicit-any, prefer-const */
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
@@ -100,78 +101,12 @@ export async function POST(req: Request, context: { params: Promise<{ accountId:
       }
     }
 
-    const account = await prisma.account.findUnique({
-      where: { id: params.accountId },
-      include: { contacts: true }
-    })
-
-    if (!account) return NextResponse.json({ success: false, error: 'Account not found' }, { status: 404 })
-
-    let selectedContact = null
-    if (contactId) {
-      selectedContact = account.contacts.find((c: any) => c.id === contactId)
-    }
-    if (!selectedContact) {
-      selectedContact = account.contacts.find((c: any) => c.isPrimary) || account.contacts[0]
-    }
-
-    const rawPhoneNumber = selectedContact?.mobilePhone || selectedContact?.phone
-
-    if (!rawPhoneNumber) {
-      return NextResponse.json({ success: false, error: 'Account/Contact has no phone number' }, { status: 400 })
-    }
-
-    let phoneNumber = rawPhoneNumber.replace(/[^\d+]/g, '')
-    if (phoneNumber.length === 10 && !phoneNumber.startsWith('+')) phoneNumber = '+1' + phoneNumber
-    else if (!phoneNumber.startsWith('+') && phoneNumber.length > 10) phoneNumber = '+' + phoneNumber
-    const guard = await guardSmsSend({ phone: phoneNumber, traffic: 'TRANSACTIONAL' })
-    if (!guard.allowed) return NextResponse.json({ success: false, error: `SMS blocked: ${guard.reason}` }, { status: 409 })
-
-    const accessToken = await getZohoVoiceAccessToken()
-    if (!accessToken) throw new Error('Failed to get Zoho Access Token')
-
-    const zohoDc = process.env.ZOHO_DC || 'com'
-    const zohoVoiceUrl = `https://voice.zoho.${zohoDc}/rest/json/v2/sms/send`
-    const smsData = {
-      customerNumber: phoneNumber,
-      message: finalText,
-      senderId: fromNumber
-    }
-
-    const formData = new FormData()
-    formData.append('sms_data', JSON.stringify(smsData))
-
-    const smsRes = await fetch(zohoVoiceUrl, { signal: AbortSignal.timeout(15000),
-      method: 'POST',
-      headers: {
-        'Authorization': `Zoho-oauthtoken ${accessToken}`,
-        ...formData.getHeaders()
-      },
-      body: formData as any
-    })
-
-    const resultText = await smsRes.text()
-    let resultJson: any = {}
-    try { resultJson = JSON.parse(resultText) } catch (e) { console.warn('Failed to parse Zoho SMS response:', e) }
-
-    if (smsRes.ok && resultJson.status !== 'error' && resultJson.code !== 'error') {
-      const msg = await prisma.smsMessage.create({
-        data: {
-          accountId: account.id,
-          contactId: selectedContact?.id || null,
-          authorId: dbUser.id,
-          fromNumber: fromNumber,
-          toNumber: phoneNumber,
-          // Keep the local record identical to the message Zoho actually sent,
-          // including an appended vCard/contact block when one was requested.
-          body: finalText,
-          direction: 'OUTBOUND'
-        }
-      })
-      return NextResponse.json({ success: true, message: msg })
-    } else {
-      throw new Error(resultJson.message || 'Zoho API Error')
-    }
+    const result: any = await guardedSmsHandler({
+      httpMethod: 'POST', path: '/api/send-sms', headers: Object.fromEntries(req.headers.entries()),
+      body: JSON.stringify({ accountId: params.accountId, contactId, message: finalText, fromNumber, requestId: body.requestId }),
+      queryStringParameters: {}, isBase64Encoded: false,
+    } as any, {} as any)
+    return new NextResponse(result.body, { status: result.statusCode, headers: result.headers })
   } catch (error: any) {
     console.error('Send Account Message Error:', error)
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })

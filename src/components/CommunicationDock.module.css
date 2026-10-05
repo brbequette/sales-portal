@@ -42,11 +42,11 @@
 .panel [data-phone-tabs] { flex-shrink: 0; }
 .panel [data-phone-scroll] { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .panel [data-phone-body] { padding: 10px 12px; }
-.panel [data-phone-body='dialer'] { height: 100%; min-height: 338px; }
+.panel [data-phone-body='dialer'] { height: 100%; min-height: 280px; }
 .panel [data-phone-dialer] {
   display: grid;
-  grid-template-rows: auto auto minmax(176px, 1fr) auto;
-  gap: 8px;
+  grid-template-rows: auto auto minmax(136px, 1fr) auto;
+  gap: 6px;
   height: 100%;
   max-height: 520px;
   max-width: 480px;
@@ -54,7 +54,7 @@
 }
 .panel [data-phone-dialer] > * { margin-block: 0; }
 .panel [data-phone-number] { height: 44px; padding: 8px 34px 8px 12px; font-size: 16px; }
-.panel [data-phone-keypad] { gap: 6px; min-height: 0; grid-template-rows: repeat(4, minmax(38px, 1fr)); }
+.panel [data-phone-keypad] { gap: 6px; min-height: 0; grid-template-rows: repeat(4, minmax(28px, 1fr)); }
 .panel [data-phone-keypad] button { padding: 4px; border-radius: 12px; }
 .panel [data-phone-call] { min-height: 44px; padding: 10px; }
 .panel [data-phone-caller] { flex-wrap: wrap; gap: 4px 12px; }

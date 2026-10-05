@@ -628,7 +628,7 @@ type Message = {
       {activeTab === "SMS" && (
         <div className={`flex-1 min-w-0 flex flex-col bg-black/20 border border-white/10 rounded-xl justify-between overflow-hidden ${messagesOnly ? "p-2 min-h-[58px]" : "p-4 min-h-[320px]"}`}>
           {outboundNumbers.length > 0 && (
-            <div className="mb-3 pb-3 border-b border-white/10 flex items-center gap-2">
+            <div className="mb-2 pb-2 border-b border-white/10 flex flex-wrap items-center gap-2">
               <label className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">From:</label>
               <select
                 value={selectedOutboundNumber}
@@ -639,6 +639,7 @@ type Message = {
                   <option key={i} value={num.number}>{num.label || "Number"} ({num.number})</option>
                 ))}
               </select>
+              <span className="text-[10px] text-neutral-400">SMS activation is checked by Zoho when sending.</span>
             </div>
           )}
 
