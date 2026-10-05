@@ -3,7 +3,8 @@
 import { Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { FiCpu, FiMessageSquare, FiMonitor, FiPhone, FiSearch, FiX } from 'react-icons/fi'
+import { FiCpu, FiMaximize2, FiMinimize2, FiMessageSquare, FiMonitor, FiPhone, FiSearch, FiX } from 'react-icons/fi'
+import styles from './CommunicationDock.module.css'
 import { AiAssistant } from './AiAssistant'
 import { TitanVoiceSoftphone, type PhoneCallStatus } from './TitanVoiceSoftphone'
 import { CommunicationCenter } from './CommunicationCenter'
@@ -23,6 +24,7 @@ function CommunicationDockContent({ user }: DockProps) {
   const search = useSearchParams().toString()
   const mounted = useSyncExternalStore(() => () => {}, () => true, () => false)
   const [open, setOpen] = useState(false)
+  const [expanded, setExpanded] = useState(false)
   const [tab, setTab] = useState<Tab>('phone')
   const [callStatus, setCallStatus] = useState<PhoneCallStatus>('idle')
   const [context, setContext] = useState<CommunicationContext | null>(null)
@@ -36,6 +38,29 @@ function CommunicationDockContent({ user }: DockProps) {
   const [messageView, setMessageView] = useState<'account' | 'inbox'>('account')
   const [inboxLoaded, setInboxLoaded] = useState(false)
   const launcher = useRef<HTMLButtonElement>(null)
+  const dock = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const viewport = window.visualViewport
+    const mobile = window.matchMedia('(max-width: 767px), (max-height: 500px) and (pointer: coarse)')
+    const oldOverflow = document.body.style.overflow
+    const resize = () => {
+      dock.current?.style.setProperty('--communications-viewport-height', `${viewport?.height || window.innerHeight}px`)
+      dock.current?.style.setProperty('--communications-viewport-top', `${viewport?.offsetTop || 0}px`)
+      document.body.style.overflow = mobile.matches ? 'hidden' : oldOverflow
+    }
+    resize()
+    viewport?.addEventListener('resize', resize)
+    viewport?.addEventListener('scroll', resize)
+    window.addEventListener('resize', resize)
+    return () => {
+      viewport?.removeEventListener('resize', resize)
+      viewport?.removeEventListener('scroll', resize)
+      window.removeEventListener('resize', resize)
+      document.body.style.overflow = oldOverflow
+    }
+  }, [open])
   const callState = useCallback((state: { status: PhoneCallStatus; accountId: string; name: string }) => {
     setCallStatus(state.status)
     if (state.status !== 'idle' && state.status !== 'wrap_up') {
@@ -122,34 +147,35 @@ function CommunicationDockContent({ user }: DockProps) {
   }
   const busy = callStatus !== 'idle' && callStatus !== 'wrap_up'
   if (!mounted) return null
-  return createPortal(<aside aria-label="Titan communications" className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] right-3 z-[10000] md:bottom-4 md:right-4">
-    <section hidden={!open} aria-label="Communications workspace" className="mb-3 flex h-[min(620px,72dvh)] w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-2xl border border-white/15 bg-[#090c12] text-white shadow-2xl md:h-[52dvh] md:min-h-[360px] md:w-[clamp(390px,46vw,720px)]">
+  return createPortal(<aside ref={dock} aria-label="Titan communications" data-open={open} data-expanded={expanded} className={styles.dock}>
+    <section hidden={!open} aria-label="Communications workspace" className={styles.panel}>
       <header className="flex shrink-0 items-center gap-3 border-b border-white/10 px-4 py-3">
         <div className="min-w-0 flex-1"><h2 className="text-sm font-bold">Titan Communications</h2><p className="truncate text-xs text-neutral-400">{context?.title || account?.name || 'Phone, messages and AI in one place'}</p></div>
         {pathname !== '/display' && pathname !== '/communications' && <button type="button" aria-label="Open second screen" title="Open second screen" onClick={() => window.dispatchEvent(new Event('titan:open-second-screen'))} className="rounded-lg p-2 hover:bg-white/10"><FiMonitor /></button>}
+        <button type="button" aria-label={expanded ? 'Restore panel size' : 'Expand communications'} onClick={() => setExpanded(value => !value)} className={`${styles.desktopAction} rounded-lg p-2 hover:bg-white/10`}>{expanded ? <FiMinimize2 /> : <FiMaximize2 />}</button>
         <button type="button" aria-label="Minimize communications" onClick={() => { setOpen(false); launcher.current?.focus() }} className="rounded-lg p-2 hover:bg-white/10"><FiX /></button>
       </header>
       <nav aria-label="Communication tools" className="grid shrink-0 grid-cols-3 gap-1 border-b border-white/10 p-2">
         {([{ id: 'phone', label: 'Phone', Icon: FiPhone }, { id: 'messages', label: 'Messages', Icon: FiMessageSquare }, { id: 'ai', label: 'AI', Icon: FiCpu }] as const).map(({ id, label, Icon }) => <button key={id} type="button" aria-pressed={tab === id} onClick={() => setTab(id)} className={`flex items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold ${tab === id ? 'bg-cyan-600 text-white' : 'text-neutral-400 hover:bg-white/10'}`}><Icon />{label}{id === 'phone' && busy && <span className="h-2 w-2 rounded-full bg-emerald-300" />}</button>)}
       </nav>
       {/* Keep tools mounted: changing tabs or minimizing must not end a call or erase a draft. */}
-      <div hidden={tab !== 'phone'} className="min-h-0 flex-1 overflow-auto"><TitanVoiceSoftphone embedded onCallState={callState} /></div>
-      <div hidden={tab !== 'ai'} className="min-h-0 flex-1 overflow-hidden"><AiAssistant embedded active={open && tab === 'ai'} user={user} /></div>
-      <div hidden={tab !== 'messages'} className="min-h-0 flex-1 overflow-y-auto p-3">
-        <div className="mb-3 flex gap-2 text-xs"><button aria-pressed={messageView === 'account'} onClick={() => setMessageView('account')} className="rounded-lg bg-white/10 px-3 py-2">Account messages</button><button aria-pressed={messageView === 'inbox'} onClick={() => { setInboxLoaded(true); setMessageView('inbox') }} className="rounded-lg bg-white/10 px-3 py-2">All conversations</button></div>
-        {inboxLoaded && <iframe hidden={messageView !== 'inbox'} title="All text conversations" src="/messages?display=1" className="h-[42dvh] min-h-[280px] w-full border-0" />}
-        <div hidden={messageView !== 'account'}>
-        <label className="mb-2 flex items-center gap-2 rounded-lg border border-white/15 p-2"><FiSearch /><input aria-label="Find messaging account" value={query} onChange={event => { setQuery(event.target.value); setResults([]) }} placeholder="Find account or customer…" className="min-w-0 flex-1 bg-transparent text-sm outline-none" /></label>
+      <div hidden={tab !== 'phone'} className={styles.tool}><TitanVoiceSoftphone embedded onCallState={callState} /></div>
+      <div hidden={tab !== 'ai'} className={styles.tool}><AiAssistant embedded active={open && tab === 'ai'} user={user} /></div>
+      <div hidden={tab !== 'messages'} className={`${styles.tool} ${styles.messages}`}>
+        <div className="flex shrink-0 gap-2 text-xs"><button aria-pressed={messageView === 'account'} onClick={() => setMessageView('account')} className="rounded-lg bg-white/10 px-3 py-2">Account messages</button><button aria-pressed={messageView === 'inbox'} onClick={() => { setInboxLoaded(true); setMessageView('inbox') }} className="rounded-lg bg-white/10 px-3 py-2">All conversations</button></div>
+        {inboxLoaded && <iframe hidden={messageView !== 'inbox'} title="All text conversations" src="/messages?display=1" className={styles.inbox} />}
+        <div hidden={messageView !== 'account'} className={styles.account}>
+        <label className="flex shrink-0 items-center gap-2 rounded-lg border border-white/15 p-2"><FiSearch /><input aria-label="Find messaging account" value={query} onChange={event => { setQuery(event.target.value); setResults([]) }} placeholder="Find account or customer…" className="min-w-0 flex-1 bg-transparent text-sm outline-none" /></label>
         {results.map(result => <button type="button" key={result.id} onClick={() => chooseAccount(result.id, result.name)} className="block w-full rounded-lg p-2 text-left text-sm hover:bg-white/10">{result.name}</button>)}
         {context?.accountId && context.accountId !== accountId && <button type="button" onClick={() => chooseAccount(context.accountId!, context.title)} className="mb-3 rounded-lg bg-cyan-500/15 p-2 text-xs text-cyan-200">Use current conversation’s account{context.title ? `: ${context.title}` : ''}</button>}
         {account && <p className="mb-2 text-xs text-cyan-200">Messaging: <strong>{account.name}</strong></p>}
         {loading && <p role="status" className="p-4 text-sm">Loading account…</p>}
         {error && <p role="alert" className="p-3 text-sm text-amber-300">{error}</p>}
         {!accountId && <p className="p-4 text-sm text-neutral-400">Open an account or search above to start a message.</p>}
-        {account && <CommunicationCenter key={accountId} accountId={accountId} account={account} contacts={account.contacts || []} selectedContactId={contactId} onContactChange={setContactId} initialTab="SMS" messagesOnly />}
+        {account && <div className={styles.accountTools}><CommunicationCenter key={accountId} accountId={accountId} account={account} contacts={account.contacts || []} selectedContactId={contactId} onContactChange={setContactId} initialTab="SMS" messagesOnly /></div>}
         </div>
       </div>
     </section>
-    <button ref={launcher} type="button" aria-label={open ? 'Minimize Titan communications' : 'Open Titan communications'} aria-expanded={open} onClick={() => setOpen(value => !value)} className="ml-auto flex min-h-12 items-center gap-3 rounded-2xl border border-cyan-300/25 bg-[#101c2b] px-4 py-3 text-sm font-bold text-white shadow-xl hover:bg-cyan-950"><span className={`h-2 w-2 rounded-full ${busy ? 'animate-pulse bg-emerald-400' : 'bg-cyan-400'}`} /><FiPhone /><FiMessageSquare /><FiCpu /><span>{busy ? `Call · ${callStatus.replace('_', ' ')}` : 'Communications'}</span></button>
+    <button ref={launcher} hidden={open} type="button" aria-label="Open Titan communications" aria-expanded={open} onClick={() => setOpen(true)} className="ml-auto flex min-h-12 items-center gap-3 rounded-2xl border border-cyan-300/25 bg-[#101c2b] px-4 py-3 text-sm font-bold text-white shadow-xl hover:bg-cyan-950"><span className={`h-2 w-2 rounded-full ${busy ? 'animate-pulse bg-emerald-400' : 'bg-cyan-400'}`} /><FiPhone /><FiMessageSquare /><FiCpu /><span>{busy ? `Call · ${callStatus.replace('_', ' ')}` : 'Communications'}</span></button>
   </aside>, document.body)
 }

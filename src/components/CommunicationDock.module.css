@@ -1,0 +1,106 @@
+.dock {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 10000;
+  max-width: calc(100vw - 32px);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  width: clamp(420px, 46vw, 720px);
+  max-width: calc(100vw - 32px);
+  height: min(720px, max(540px, 68dvh), calc(100dvh - 32px));
+  overflow: hidden;
+  border-radius: 20px;
+  border: 1px solid #ffffff26;
+  background: #090c12;
+  color: white;
+  box-shadow: 0 16px 64px #0009;
+  container-type: size;
+}
+
+.dock[data-expanded='true'] .panel {
+  width: min(1000px, calc(100vw - 32px));
+  height: calc(100dvh - 32px);
+}
+
+.panel [hidden] { display: none !important; }
+.panel[hidden], .dock > [hidden] { display: none !important; }
+.panel :is(input, textarea, select) { min-width: 0; max-width: 100%; }
+.tool { flex: 1; min-height: 0; min-width: 0; overflow: hidden; }
+.messages { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+.account { display: flex; flex: 1; flex-direction: column; min-height: 0; gap: 8px; }
+.inbox { flex: 1; min-height: 0; width: 100%; border: 0; }
+.accountTools { display: flex; flex: 1; min-height: 0; overflow: auto; }
+.desktopAction { display: inline-flex; }
+
+/* Embedded tools share the panel's height; only their content areas scroll. */
+.panel [data-phone-console] { height: 100%; min-height: 0; }
+.panel [data-phone-header] { flex-shrink: 0; padding: 8px 12px; }
+.panel [data-phone-tabs] { flex-shrink: 0; }
+.panel [data-phone-scroll] { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.panel [data-phone-body] { padding: 10px 12px; }
+.panel [data-phone-body='dialer'] { height: 100%; min-height: 338px; }
+.panel [data-phone-dialer] {
+  display: grid;
+  grid-template-rows: auto auto minmax(176px, 1fr) auto;
+  gap: 8px;
+  height: 100%;
+  max-height: 520px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+.panel [data-phone-dialer] > * { margin-block: 0; }
+.panel [data-phone-number] { height: 44px; padding: 8px 34px 8px 12px; font-size: 16px; }
+.panel [data-phone-keypad] { gap: 6px; min-height: 0; grid-template-rows: repeat(4, minmax(38px, 1fr)); }
+.panel [data-phone-keypad] button { padding: 4px; border-radius: 12px; }
+.panel [data-phone-call] { min-height: 44px; padding: 10px; }
+.panel [data-phone-caller] { flex-wrap: wrap; gap: 4px 12px; }
+
+@media (max-width: 767px), (max-height: 500px) and (pointer: coarse) {
+  .dock { right: 12px; bottom: calc(4rem + env(safe-area-inset-bottom)); max-width: calc(100vw - 24px); }
+  .dock[data-open='true'] {
+    inset: var(--communications-viewport-top, 0px) 0 auto;
+    width: 100%;
+    max-width: none;
+    height: var(--communications-viewport-height, 100dvh);
+  }
+  .panel, .dock[data-expanded='true'] .panel {
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    border: 0;
+    border-radius: 0;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .desktopAction { display: none; }
+  .messages { padding: 8px; }
+  .panel :is(input, textarea, select) { font-size: 16px; }
+}
+
+@media (max-height: 500px) and (min-width: 600px) {
+  .panel [data-phone-body='dialer'] { min-height: 205px; }
+  .panel [data-phone-dialer] { grid-template-columns: 1fr 1fr; grid-template-rows: auto 1fr auto; max-width: none; }
+  .panel [data-phone-keypad] { grid-column: 2; grid-row: 1 / 4; }
+  .panel [data-phone-caller] { align-content: start; }
+}
+
+.panel [data-message-contact] { padding: 8px; overflow-wrap: anywhere; }
+.panel [data-message-contact] > div { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; min-width: 0; }
+.panel [data-message-contact] > div > :first-child { flex-basis: 100%; }
+@container (max-height: 540px) {
+  .panel [data-message-contact] > div > :first-child { display: none; }
+}
+
+@container (max-height: 460px) {
+  .panel > header { padding: 4px 12px; }
+  .panel > header p { display: none; }
+  .panel > nav { padding: 4px; }
+  .messages, .account { gap: 4px; }
+  .messages { padding: 4px 8px; }
+  .account > p { margin: 0; }
+  .panel [data-message-contact] { padding: 4px 8px; }
+}

@@ -20,6 +20,7 @@ vi.mock('./CommunicationCenter', () => ({ CommunicationCenter: ({ accountId }: {
 } }))
 
 beforeEach(() => {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false })))
   publishCommunicationContext(null)
   vi.stubGlobal('fetch', vi.fn(async (url: string) => ({ ok: true, json: async () => ({ account: { id: url.includes('account-b') ? 'account-b' : 'account-a', name: 'Customer', contacts: [] } }) })))
 })

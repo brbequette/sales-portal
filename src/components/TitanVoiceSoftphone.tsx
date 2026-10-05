@@ -606,7 +606,7 @@ export function TitanVoiceSoftphone({ embedded = false, onCallState }: { embedde
   return (
     <>
       {/* ─── FLOATING MINI-DOCK (Bottom-Right) ─── */}
-      <div className={embedded ? "h-full overflow-y-auto font-sans antialiased" : "fixed bottom-4 right-4 z-[9999] font-sans antialiased"}>
+      <div className={embedded ? "h-full min-h-0 flex flex-col overflow-hidden font-sans antialiased" : "fixed bottom-4 right-4 z-[9999] font-sans antialiased"}>
         {!isExpanded && !embedded ? (
           /* Minimized Phone Badge */
           <button
@@ -647,7 +647,7 @@ export function TitanVoiceSoftphone({ embedded = false, onCallState }: { embedde
           </button>
         ) : (
           /* ─── EXPANDED SOFTPHONE CONSOLE ─── */
-          <div className={`${embedded ? "w-full min-h-full" : "w-80 sm:w-96 rounded-3xl border border-white/20"} bg-[#090c12]/98 overflow-hidden flex flex-col text-white`}>
+          <div data-phone-console className={`${embedded ? "w-full h-full min-h-0" : "w-80 sm:w-96 rounded-3xl border border-white/20"} bg-[#090c12]/98 overflow-hidden flex flex-col text-white`}>
             
             {/* Live Stale Quote Alert Banner */}
             {activeQuoteAlert && (
@@ -673,7 +673,7 @@ export function TitanVoiceSoftphone({ embedded = false, onCallState }: { embedde
             )}
 
             {/* Header Strip */}
-            <div className="bg-gradient-to-r from-cyan-950/60 via-[#0d121c] to-[#090c12] border-b border-white/10 px-4 py-3 flex items-center justify-between">
+            <div data-phone-header className="bg-gradient-to-r from-cyan-950/60 via-[#0d121c] to-[#090c12] border-b border-white/10 px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 flex items-center justify-center shadow-md shadow-cyan-900/40">
                   <FiPhoneCall className="text-white text-xs" />
@@ -717,7 +717,7 @@ export function TitanVoiceSoftphone({ embedded = false, onCallState }: { embedde
 
             {/* Navigation Tabs (Dialer, Directory, Recent) */}
             {call.status === "idle" && (
-              <div className="grid grid-cols-3 bg-[#0d121b] border-b border-white/10 text-xs">
+              <div data-phone-tabs className="grid grid-cols-3 bg-[#0d121b] border-b border-white/10 text-xs">
                 <button
                   onClick={() => setActiveTab("dialer")}
                   className={`py-2 text-center font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
@@ -756,6 +756,7 @@ export function TitanVoiceSoftphone({ embedded = false, onCallState }: { embedde
               </div>
             )}
 
+            <div data-phone-scroll>
             {/* AI Call Copilot & Battle-Card Panel */}
             {showCopilot && (
               <div className="p-3.5 bg-gradient-to-b from-[#101726] to-[#0a0d14] border-b border-cyan-500/20 space-y-3 text-xs max-h-96 overflow-y-auto custom-scrollbar animate-in slide-in-from-top-2 duration-150">
@@ -954,7 +955,7 @@ export function TitanVoiceSoftphone({ embedded = false, onCallState }: { embedde
                     Your Agent Bridge Number
                   </label>
                   <input
-                    type="tel"
+                    data-phone-number type="tel"
                     value={agentBridgePhone}
                     onChange={e => setAgentBridgePhone(e.target.value)}
                     placeholder="e.g. +1 480-555-0199 (cell/desk)"
@@ -1021,14 +1022,14 @@ export function TitanVoiceSoftphone({ embedded = false, onCallState }: { embedde
             )}
 
             {/* Main Phone Body */}
-            <div className="p-4 space-y-4">
+            <div data-phone-body={call.status === "idle" && activeTab === "dialer" && !showSettings && !showCopilot ? "dialer" : "content"} className="p-4 space-y-4">
 
               {/* ─── State 1: IDLE / DIALER TABS ─── */}
               {call.status === "idle" && (
                 <>
                   {/* TAB 1: KEYPAD DIALER */}
                   {activeTab === "dialer" && (
-                    <div className="space-y-3">
+                    <div data-phone-dialer className="space-y-3">
                       {/* Phone Number Display */}
                       <div className="relative">
                         <input
@@ -1049,13 +1050,13 @@ export function TitanVoiceSoftphone({ embedded = false, onCallState }: { embedde
                       </div>
 
                       {/* Outbound Caller ID tag */}
-                      <div className="flex items-center justify-between text-[10px] text-neutral-400 px-1">
+                      <div data-phone-caller className="flex items-center justify-between text-[10px] text-neutral-400 px-1">
                         <span>Caller ID: <strong className="text-cyan-300 font-mono">{selectedCallerId}</strong></span>
                         <span className="capitalize">{callingMode.replace(/_/g, " ")}</span>
                       </div>
 
                       {/* Numeric Keypad with DTMF Tone Generation */}
-                      <div className="grid grid-cols-3 gap-2">
+                      <div data-phone-keypad className="grid grid-cols-3 gap-2">
                         {[
                           { d: "1", sub: "" },
                           { d: "2", sub: "ABC" },
@@ -1084,7 +1085,7 @@ export function TitanVoiceSoftphone({ embedded = false, onCallState }: { embedde
                       {/* Big Call Button */}
                       <div className="pt-1">
                         <button
-                          onClick={() => startCall(dialInput)}
+                          data-phone-call onClick={() => startCall(dialInput)}
                           disabled={!dialInput}
                           className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-black text-sm flex items-center justify-center gap-2 shadow-xl shadow-emerald-950/60 disabled:opacity-40 transition cursor-pointer"
                         >
@@ -1465,6 +1466,7 @@ export function TitanVoiceSoftphone({ embedded = false, onCallState }: { embedde
                   </div>
                 </div>
               )}
+            </div>
             </div>
           </div>
         )}

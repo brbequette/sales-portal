@@ -146,7 +146,7 @@ type Message = {
   timestamp: string
 }
   return (
-    <div className="space-y-4 h-full flex flex-col relative">
+    <div className={messagesOnly ? "min-h-0 min-w-0 w-full flex-1 flex flex-col gap-2 relative" : "space-y-4 h-full flex flex-col relative"}>
 
       {/* Notification toast */}
       {notification && (
@@ -161,37 +161,38 @@ type Message = {
       )}
 
       {/* Title */}
-      <h2 className="text-xl font-semibold text-[var(--primary)] flex items-center gap-2">
+      {!messagesOnly && <h2 className="text-xl font-semibold text-[var(--primary)] flex items-center gap-2">
         <FiPhoneCall />
         Communications &amp; Sales Center
-      </h2>
+      </h2>}
 
       {campaignTemplates.length > 0 && (
-        <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3">
+        <details open={messagesOnly ? undefined : true} className="shrink-0 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-2">
+          <summary className="cursor-pointer text-xs text-cyan-300">Saved campaigns and flyer copy</summary>
           <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-cyan-300">Load saved campaign or flyer copy</label>
           <select defaultValue="" onChange={event => { loadCampaign(event.target.value); event.currentTarget.value = "" }} className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-xs text-white outline-none focus:border-cyan-500">
             <option value="" disabled>Select content and open its communication tool…</option>
             {campaignTemplates.map(template => <option key={template.id} value={template.id}>{template.name} · {template.channel}</option>)}
           </select>
           <p className="mt-1 text-[10px] text-neutral-500">Flyer artwork stays with the saved campaign; direct text messaging currently loads the copy only.</p>
-        </div>
+        </details>
       )}
 
       {/* Primary Contact Banner */}
       {primaryContact ? (
-        <div className="p-3 bg-neutral-800/50 border border-neutral-700 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div data-message-contact={messagesOnly || undefined} className="shrink-0 p-3 bg-neutral-800/50 border border-neutral-700 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <div className="text-[10px] text-neutral-400 uppercase tracking-wider font-bold">Communicating with</div>
             {contacts && contacts.length > 1 && onContactChange ? <select value={primaryContact.id} onChange={event => onContactChange(event.target.value)} className="my-1 rounded-lg border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm font-bold text-white outline-none focus:border-cyan-500">{contacts.map(contact => <option key={contact.id} value={contact.id}>{[contact.firstName, contact.lastName].filter(Boolean).join(" ") || "Unnamed contact"}{contact.isPrimary ? " · Primary" : ""}</option>)}</select> : <div className="font-bold text-base text-white">{primaryContact.firstName} {primaryContact.lastName}</div>}
             <div className="text-xs text-neutral-500 font-mono mt-0.5">
               {activeTab === "EMAIL" ? primaryContact.email : (
                 cleanPhone
-                  ? <PhoneLink phone={cleanPhone} className="hover:text-[var(--primary)] underline">{displayPhone}</PhoneLink>
+                  ? messagesOnly ? <span>{displayPhone}</span> : <PhoneLink phone={cleanPhone} className="hover:text-[var(--primary)] underline">{displayPhone}</PhoneLink>
                   : displayPhone || "No phone on file"
               )}
             </div>
           </div>
-          <FactFindingSummary values={factFinding} />
+          {!messagesOnly && <FactFindingSummary values={factFinding} />}
         </div>
       ) : (
         <div className="p-3 bg-neutral-800/50 border border-neutral-700 rounded-lg text-neutral-400 text-sm">
@@ -200,7 +201,7 @@ type Message = {
       )}
 
       {/* Ã¢"â‚¬Ã¢"â‚¬ Channel Tabs Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬Ã¢"â‚¬ */}
-      <div className="flex space-x-1.5 border-b border-white/10 pb-0 overflow-x-auto flex-nowrap scrollbar-none">
+      <div className="flex shrink-0 space-x-1.5 border-b border-white/10 pb-0 overflow-x-auto flex-nowrap scrollbar-none">
         {([
           { key: "CALL", icon: <FiPhoneCall size={12} />, label: "Call", color: "bg-[var(--primary)] text-white", inactive: "text-neutral-400 hover:text-white hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300" },
           { key: "SMS", icon: <FiMessageCircle size={12} />, label: "SMS", color: "bg-emerald-600 text-white", inactive: "text-neutral-400 hover:text-white hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300" },
@@ -625,7 +626,7 @@ type Message = {
           SMS TAB
       Ã¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-Â */}
       {activeTab === "SMS" && (
-        <div className="flex-1 flex flex-col bg-black/20 border border-white/10 rounded-xl p-4 min-h-[320px] justify-between overflow-hidden">
+        <div className={`flex-1 min-w-0 flex flex-col bg-black/20 border border-white/10 rounded-xl justify-between overflow-hidden ${messagesOnly ? "p-2 min-h-[58px]" : "p-4 min-h-[320px]"}`}>
           {outboundNumbers.length > 0 && (
             <div className="mb-3 pb-3 border-b border-white/10 flex items-center gap-2">
               <label className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">From:</label>
@@ -641,7 +642,7 @@ type Message = {
             </div>
           )}
 
-          <div className="flex-1 overflow-y-auto space-y-3 pr-1 pb-4 scrollbar-thin max-h-[280px]">
+          <div className={`flex-1 min-h-0 overflow-y-auto space-y-3 pr-1 pb-4 scrollbar-thin ${messagesOnly ? "" : "max-h-[280px]"}`}>
             {chatMessages.length === 0 && (
               <div className="py-8">
                 <EmptyState icon={<FiMessageSquare size={32} />} title="No messages yet" description="Start the conversation below" />
@@ -651,7 +652,7 @@ type Message = {
               const isRep = msg.sender === "rep"
               return (
                 <div key={msg.id} className={`flex flex-col ${isRep ? "items-end" : "items-start"}`}>
-                  <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-xs leading-relaxed ${
+                  <div className={`max-w-[80%] break-words rounded-2xl px-4 py-2 text-xs leading-relaxed ${
                     isRep ? "bg-emerald-600 text-white rounded-tr-none" : "bg-neutral-800 text-neutral-200 rounded-tl-none border border-neutral-700"
                   }`}>{msg.text}</div>
                   <span className="text-[9px] text-neutral-500 mt-1 font-mono px-1">{msg.timestamp}</span>
@@ -661,19 +662,19 @@ type Message = {
             <div ref={chatEndRef} />
           </div>
 
-          <div className="pt-3 border-t border-white/10 flex gap-2">
+          <div className="shrink-0 pt-2 border-t border-white/10 flex gap-2">
             <input
               type="text"
               value={smsText}
               onChange={e => setSmsText(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") sendSMS() }}
               placeholder="Send text message..."
-              className="flex-1 glass-panel border border-neutral-700 rounded-full px-4 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+              className="flex-1 min-w-0 glass-panel border border-neutral-700 rounded-full px-4 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
             />
             <button
-              onClick={sendSMS}
+              aria-label="Send text message" onClick={sendSMS}
               disabled={!smsText.trim()}
-              className="w-9 h-9 rounded-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white flex items-center justify-center shadow-lg transition-colors"
+              className="shrink-0 w-10 h-10 rounded-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white flex items-center justify-center shadow-lg transition-colors"
             >
               <FiSend size={14} />
             </button>
