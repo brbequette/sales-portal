@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { salesNextSteps, salesStepPrompt, type SalesAccount } from '@/lib/sales-next-steps'
 
 export function SalesNextSteps({ account: supplied, accountId, active = true }: { account?: SalesAccount; accountId?: string; active?: boolean }) {
-  const [loaded, setLoaded] = useState<SalesAccount | null>(null)
+  const [loaded, setLoaded] = useState<{ requestedId: string; account: SalesAccount } | null>(null)
   const [error, setError] = useState('')
   const [revision, setRevision] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -16,12 +16,12 @@ export function SalesNextSteps({ account: supplied, accountId, active = true }: 
     setLoading(true); setError('')
     fetch(`/api/get-account-details?id=${encodeURIComponent(accountId)}`, { signal: controller.signal, cache: 'no-store' })
       .then(async response => { const data = await response.json(); if (!response.ok || !data.account) throw new Error(data.error || 'Unable to load next steps'); return data.account })
-      .then(data => { if (!controller.signal.aborted) setLoaded(data) })
+      .then(data => { if (!controller.signal.aborted) setLoaded({ requestedId: accountId, account: data }) })
       .catch(reason => { if (!controller.signal.aborted) setError(reason.message) })
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
   }, [supplied, accountId, active, revision])
-  const account = supplied || (loaded?.id === accountId ? loaded : null)
+  const account = supplied || (loaded?.requestedId === accountId ? loaded.account : null)
   const ask = (prompt: string) => window.dispatchEvent(new CustomEvent('openTitanAi', { detail: { prompt } }))
   if (!supplied && !accountId) return <p className="p-4 text-sm text-neutral-400">Open an account, or choose a messaging account, to see its sales next steps.</p>
   if (loading) return <p role="status" className="p-4 text-sm">Reviewing account workflow…</p>
