@@ -90,7 +90,9 @@ const addresses = (recipients: GraphRecipient[] | undefined) => (recipients || [
 async function syncAttachments(token: string, mailbox: string, messageId: string, emailId: string) {
   const payload = await graphJson<{ value?: Array<{ id: string; name?: string; contentType?: string; size?: number; contentId?: string; isInline?: boolean }> }>(
     token,
-    `/users/${encodeURIComponent(mailbox)}/messages/${encodeURIComponent(messageId)}/attachments?$select=id,name,contentType,size,isInline,contentId`,
+    // The collection is the base attachment type; contentId exists only on fileAttachment.
+    // Selecting it here makes Graph reject messages with attachments (HTTP 400).
+    `/users/${encodeURIComponent(mailbox)}/messages/${encodeURIComponent(messageId)}/attachments?$select=id,name,contentType,size,isInline`,
   )
   for (const attachment of payload.value || []) {
     const name = attachment.name || "Unnamed attachment"

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { beforeEach, afterEach, expect, it, vi } from 'vitest'
-const m = vi.hoisted(() => ({ mailbox: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() }, setting: { findUnique: vi.fn(), create: vi.fn(), updateMany: vi.fn() }, email: { upsert: vi.fn(), update: vi.fn() }, contact: { findMany: vi.fn() }, events: { createMany: vi.fn() }, fetch: vi.fn(), store: null as null | { key: string; value: string } }))
-vi.mock('@/lib/prisma', () => ({ prisma: { emailMailbox: m.mailbox, systemSetting: m.setting, email: m.email, contact: m.contact, emailOperationalEvent: m.events } }))
+const m = vi.hoisted(() => ({ mailbox: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() }, setting: { findUnique: vi.fn(), create: vi.fn(), updateMany: vi.fn() }, email: { upsert: vi.fn(), update: vi.fn() }, contact: { findMany: vi.fn() }, events: { createMany: vi.fn() }, attachment: { upsert: vi.fn() }, fetch: vi.fn(), store: null as null | { key: string; value: string } }))
+vi.mock('@/lib/prisma', () => ({ prisma: { emailMailbox: m.mailbox, systemSetting: m.setting, email: m.email, contact: m.contact, emailOperationalEvent: m.events, emailAttachment: m.attachment } }))
 vi.mock('@/lib/email-operational-intelligence', () => ({ plainTextFromHtml: (s: string) => s, extractOperationalEvents: () => [{ eventType: 'SHIPMENT_CONFIRMED', confidence: .8, summary: 'Review shipment', data: {} }], matchOperationalEvent: async () => ({ accountId: null }), eventFingerprint: (s: string) => s, attachmentClassification: () => 'OTHER' }))
 import { syncMicrosoftMailbox } from '../src/lib/microsoft-graph-mail'
 const next = 'https://graph.microsoft.com/v1.0/users/sales%40example.com/mailFolders/inbox/messages/delta?$skiptoken=page2'
@@ -76,4 +76,23 @@ it('ignores deletion tombstones without deleting stored sales history', async ()
   page = { value: [{ id: 'old', '@removed': { reason: 'deleted' } }], '@odata.deltaLink': delta }
   await syncMicrosoftMailbox({ mailboxId: 'box' })
   expect(m.email.upsert).not.toHaveBeenCalled(); expect(m.events.createMany).not.toHaveBeenCalled()
+})
+
+it('imports attachment metadata without selecting file-only properties or downloading contents', async () => {
+  page = { value: [{ ...message('with-file'), hasAttachments: true }], '@odata.nextLink': next }
+  m.fetch.mockImplementation(async (url: string) => {
+    if (url.includes('login.microsoftonline')) return Response.json({ access_token: 'test' })
+    if (url.includes('/attachments?')) {
+      const fields = new URL(url).searchParams.get('$select')!.split(',')
+      const supported = ['id', 'name', 'contentType', 'size', 'isInline']
+      if (fields.some(field => !supported.includes(field))) return new Response('', { status: 400 })
+      return Response.json({ value: [{ id: 'file1', name: 'quote.pdf', contentType: 'application/pdf', size: 1024, isInline: false }] })
+    }
+    return Response.json(page)
+  })
+  const result = await syncMicrosoftMailbox({ mailboxId: 'box' })
+  expect(result.errors).toEqual([])
+  expect(result.processed).toBe(1)
+  expect(m.attachment.upsert).toHaveBeenCalledWith(expect.objectContaining({ create: expect.objectContaining({ emailId: 'with-file', name: 'quote.pdf', size: 1024 }) }))
+  expect(JSON.parse(m.store!.value).nextFolder).toBe('sentitems')
 })
