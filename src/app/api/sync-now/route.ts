@@ -38,7 +38,9 @@ const ZOHO_DC = process.env.ZOHO_DC?.trim().replace(/^(["'])(.*)\1$/, '$2') || '
  *   4. Upserts changes to DB
  *   5. Updates sync_status with new lastSyncAt + count
  */
-const TIMEOUT_MS = 8000;
+const TIMEOUT_MS = 45000;
+// One provider page per request leaves time to persist before the function deadline.
+const PAGE_OPTIONS = { maxPages: 1, timeoutMs: TIMEOUT_MS, completionReserveMs: 15000 };
 const BATCH_SIZE = 50;
 const PAGE_SIZE = 200;
 
@@ -52,6 +54,11 @@ export async function POST(req: NextRequest) {
     }
     if (!isAdministratorRole(session.user.role)) {
       return NextResponse.json({ error: 'Administrator access required' }, { status: 403 })
+    }
+
+    const pause = await prisma.systemSetting.findUnique({ where: { key: 'pause_mass_zoho_updates' } })
+    if (pause?.value === 'true' || pause?.value === '1') {
+      return NextResponse.json({ success: false, error: 'Zoho syncs are paused to conserve API usage. Resume Mass Sync only when ready.' }, { status: 503 })
     }
 
     await prisma.systemSetting.upsert({
@@ -93,8 +100,8 @@ export async function POST(req: NextRequest) {
       } else {
         try {
           // Delta: only pull leads modified since last sync
-          const pageResult = await fetchZohoPages<any>({
-            baseUrl: `https://www.zohoapis.${ZOHO_DC}/crm/v3/Leads?per_page=${PAGE_SIZE}&sort_by=Modified_Time&sort_order=desc`,
+          const pageResult = await fetchZohoPages<any>({ ...PAGE_OPTIONS,
+            baseUrl: `https://www.zohoapis.${ZOHO_DC}/crm/v3/Leads?fields=Owner,Company,First_Name,Last_Name,Email,Phone,Mobile,Designation,Industry,Lead_Status,Street,City,State,Zip_Code,Modified_Time&per_page=${PAGE_SIZE}&sort_by=Modified_Time&sort_order=desc`,
             headers: zohoCrmReadHeaders(token, tStatus.lastSyncAt),
             kind: 'crm',
             selectRecords: payload => payload.data || [],
@@ -181,7 +188,7 @@ export async function POST(req: NextRequest) {
         try {
           // Delta: only pull invoices modified since last sync
           const sinceParam = zohoBooksSinceParam(tStatus.lastSyncAt)
-          const pageResult = await fetchZohoPages<any>({ baseUrl: `https://www.zohoapis.${ZOHO_DC}/books/v3/invoices?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=${PAGE_SIZE}&sort_column=last_modified_time&sort_order=D${sinceParam}`, headers: { Authorization: `Zoho-oauthtoken ${token}` }, kind: 'books', selectRecords: payload => payload.invoices || [], startedAt: startTime, startPage: tStatus.continuationPage || 1 })
+          const pageResult = await fetchZohoPages<any>({ ...PAGE_OPTIONS, baseUrl: `https://www.zohoapis.${ZOHO_DC}/books/v3/invoices?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=${PAGE_SIZE}&sort_column=last_modified_time&sort_order=D${sinceParam}`, headers: { Authorization: `Zoho-oauthtoken ${token}` }, kind: 'books', selectRecords: payload => payload.invoices || [], startedAt: startTime, startPage: tStatus.continuationPage || 1 })
           let syncedCount = 0;
           let incompleteReason = pageResult.incompleteReason;
           {
@@ -269,7 +276,7 @@ export async function POST(req: NextRequest) {
       } else {
         try {
           const sinceParam = zohoBooksSinceParam(tStatus.lastSyncAt)
-          const pageResult = await fetchZohoPages<any>({ baseUrl: `https://www.zohoapis.${ZOHO_DC}/books/v3/salesorders?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=${PAGE_SIZE}&sort_column=last_modified_time&sort_order=D${sinceParam}`, headers: { Authorization: `Zoho-oauthtoken ${token}` }, kind: 'books', selectRecords: payload => payload.salesorders || [], startedAt: startTime, startPage: tStatus.continuationPage || 1 })
+          const pageResult = await fetchZohoPages<any>({ ...PAGE_OPTIONS, baseUrl: `https://www.zohoapis.${ZOHO_DC}/books/v3/salesorders?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=${PAGE_SIZE}&sort_column=last_modified_time&sort_order=D${sinceParam}`, headers: { Authorization: `Zoho-oauthtoken ${token}` }, kind: 'books', selectRecords: payload => payload.salesorders || [], startedAt: startTime, startPage: tStatus.continuationPage || 1 })
           let syncedCount = 0;
           let incompleteReason = pageResult.incompleteReason;
           {
@@ -316,32 +323,9 @@ export async function POST(req: NextRequest) {
                 billing_address: existingItems.billing_address || so.billing_address || null,
               };
 
-              // If active order lacks line items, fetch individual order from Zoho Books
-              const isActive = !['void', 'draft', 'cancelled', 'closed'].includes(String(so.status || '').toLowerCase());
-              if (isActive && (!mergedItems.line_items || mergedItems.line_items.length === 0)) {
-                try {
-                  const detailRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/salesorders/${so.salesorder_id}?organization_id=${ZOHO_ORGANIZATION_ID}`, {
-                    headers: { Authorization: `Zoho-oauthtoken ${token}` },
-                    signal: AbortSignal.timeout(8000),
-                  });
-                  if (detailRes.ok) {
-                    const detailData = await detailRes.json();
-                    if (detailData.code === 0 && detailData.salesorder) {
-                      const doc = detailData.salesorder;
-                      mergedItems = {
-                        ...mergedItems,
-                        line_items: doc.line_items || [],
-                        shipping_address: doc.shipping_address || mergedItems.shipping_address,
-                        billing_address: doc.billing_address || mergedItems.billing_address,
-                        sub_total: parseFloat(doc.sub_total || 0),
-                        lastSyncedAt: new Date().toISOString(),
-                      };
-                    }
-                  }
-                } catch (fetchErr: any) {
-                  console.warn(`[sync-now] Failed to fetch SO ${so.salesorder_id} line items:`, fetchErr.message);
-                }
-              }
+              // This is a bounded summary sync. Preserve existing line items; individual
+              // document hydration belongs to the explicit detail workflow, not an
+              // unbounded extra provider request for every order in this page.
 
               // Automatically calculate document costs if line items are present
               if (Array.isArray(mergedItems.line_items) && mergedItems.line_items.length > 0) {
@@ -430,8 +414,8 @@ export async function POST(req: NextRequest) {
       } else {
         try {
           // Accounts come from Zoho CRM (not Books)
-          const pageResult = await fetchZohoPages<any>({
-            baseUrl: `https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts?per_page=${PAGE_SIZE}&sort_by=Modified_Time&sort_order=desc`,
+          const pageResult = await fetchZohoPages<any>({ ...PAGE_OPTIONS,
+            baseUrl: `https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts?fields=Owner,Account_Name,Industry,Last_Purchase_Date,Time_Zone,Modified_Time&per_page=${PAGE_SIZE}&sort_by=Modified_Time&sort_order=desc`,
             headers: zohoCrmReadHeaders(token, tStatus.lastSyncAt),
             kind: 'crm',
             selectRecords: payload => payload.data || [],
@@ -521,7 +505,7 @@ export async function POST(req: NextRequest) {
       } else {
         try {
           const sinceParam = zohoBooksSinceParam(tStatus.lastSyncAt)
-          const pageResult = await fetchZohoPages<any>({ baseUrl: `https://www.zohoapis.${ZOHO_DC}/books/v3/packages?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=${PAGE_SIZE}&sort_column=last_modified_time&sort_order=D${sinceParam}`, headers: { Authorization: `Zoho-oauthtoken ${token}` }, kind: 'books', selectRecords: payload => payload.packages || [], startedAt: startTime, startPage: tStatus.continuationPage || 1 })
+          const pageResult = await fetchZohoPages<any>({ ...PAGE_OPTIONS, baseUrl: `https://www.zohoapis.${ZOHO_DC}/books/v3/packages?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=${PAGE_SIZE}&sort_column=last_modified_time&sort_order=D${sinceParam}`, headers: { Authorization: `Zoho-oauthtoken ${token}` }, kind: 'books', selectRecords: payload => payload.packages || [], startedAt: startTime, startPage: tStatus.continuationPage || 1 })
           let syncedCount = 0;
           let incompleteReason = pageResult.incompleteReason;
           {
@@ -589,7 +573,7 @@ export async function POST(req: NextRequest) {
       } else {
         try {
           const sinceParam = zohoBooksSinceParam(tStatus.lastSyncAt)
-          const pageResult = await fetchZohoPages<any>({ baseUrl: `https://www.zohoapis.${ZOHO_DC}/books/v3/purchaseorders?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=${PAGE_SIZE}&sort_column=last_modified_time&sort_order=D${sinceParam}`, headers: { Authorization: `Zoho-oauthtoken ${token}` }, kind: 'books', selectRecords: payload => payload.purchaseorders || [], startedAt: startTime, startPage: tStatus.continuationPage || 1 })
+          const pageResult = await fetchZohoPages<any>({ ...PAGE_OPTIONS, baseUrl: `https://www.zohoapis.${ZOHO_DC}/books/v3/purchaseorders?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=${PAGE_SIZE}&sort_column=last_modified_time&sort_order=D${sinceParam}`, headers: { Authorization: `Zoho-oauthtoken ${token}` }, kind: 'books', selectRecords: payload => payload.purchaseorders || [], startedAt: startTime, startPage: tStatus.continuationPage || 1 })
           let syncedCount = 0;
           let incompleteReason = pageResult.incompleteReason;
           {
@@ -656,7 +640,7 @@ export async function POST(req: NextRequest) {
       } else {
         try {
           const sinceParam = zohoBooksSinceParam(tStatus.lastSyncAt)
-          const pageResult = await fetchZohoPages<any>({ baseUrl: `https://www.zohoapis.${ZOHO_DC}/books/v3/estimates?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=${PAGE_SIZE}&sort_column=last_modified_time&sort_order=D${sinceParam}`, headers: { Authorization: `Zoho-oauthtoken ${token}` }, kind: 'books', selectRecords: payload => payload.estimates || [], startedAt: startTime, startPage: tStatus.continuationPage || 1 })
+          const pageResult = await fetchZohoPages<any>({ ...PAGE_OPTIONS, baseUrl: `https://www.zohoapis.${ZOHO_DC}/books/v3/estimates?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=${PAGE_SIZE}&sort_column=last_modified_time&sort_order=D${sinceParam}`, headers: { Authorization: `Zoho-oauthtoken ${token}` }, kind: 'books', selectRecords: payload => payload.estimates || [], startedAt: startTime, startPage: tStatus.continuationPage || 1 })
           let syncedCount = 0;
           let incompleteReason = pageResult.incompleteReason;
           {
@@ -737,7 +721,7 @@ export async function POST(req: NextRequest) {
       } else {
         try {
           const sinceParam = zohoBooksSinceParam(tStatus.lastSyncAt)
-          const pageResult = await fetchZohoPages<any>({ baseUrl: `https://www.zohoapis.${ZOHO_DC}/books/v3/customerpayments?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=${PAGE_SIZE}&sort_column=last_modified_time&sort_order=D${sinceParam}`, headers: { Authorization: `Zoho-oauthtoken ${token}` }, kind: 'books', selectRecords: payload => payload.customerpayments || [], startedAt: startTime, startPage: tStatus.continuationPage || 1 })
+          const pageResult = await fetchZohoPages<any>({ ...PAGE_OPTIONS, baseUrl: `https://www.zohoapis.${ZOHO_DC}/books/v3/customerpayments?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=${PAGE_SIZE}&sort_column=last_modified_time&sort_order=D${sinceParam}`, headers: { Authorization: `Zoho-oauthtoken ${token}` }, kind: 'books', selectRecords: payload => payload.customerpayments || [], startedAt: startTime, startPage: tStatus.continuationPage || 1 })
           let syncedCount = 0;
           let incompleteReason = pageResult.incompleteReason;
           {
@@ -821,7 +805,7 @@ export async function POST(req: NextRequest) {
       } else {
         try {
           const sinceParam = zohoBooksSinceParam(tStatus.lastSyncAt)
-          const pageResult = await fetchZohoPages<any>({ baseUrl: `https://www.zohoapis.${ZOHO_DC}/books/v3/contacts?organization_id=${ZOHO_ORGANIZATION_ID}&contact_type=vendor&per_page=${PAGE_SIZE}&sort_column=last_modified_time&sort_order=D${sinceParam}`, headers: { Authorization: `Zoho-oauthtoken ${token}` }, kind: 'books', selectRecords: payload => payload.contacts || [], startedAt: startTime, startPage: tStatus.continuationPage || 1 })
+          const pageResult = await fetchZohoPages<any>({ ...PAGE_OPTIONS, baseUrl: `https://www.zohoapis.${ZOHO_DC}/books/v3/contacts?organization_id=${ZOHO_ORGANIZATION_ID}&contact_type=vendor&per_page=${PAGE_SIZE}&sort_column=last_modified_time&sort_order=D${sinceParam}`, headers: { Authorization: `Zoho-oauthtoken ${token}` }, kind: 'books', selectRecords: payload => payload.contacts || [], startedAt: startTime, startPage: tStatus.continuationPage || 1 })
           let syncedCount = 0;
           let incompleteReason = pageResult.incompleteReason;
           {
@@ -877,7 +861,7 @@ export async function POST(req: NextRequest) {
       } else {
         try {
           const sinceParam = zohoBooksSinceParam(tStatus.lastSyncAt)
-          const pageResult = await fetchZohoPages<any>({ baseUrl: `https://www.zohoapis.${ZOHO_DC}/books/v3/items?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=${PAGE_SIZE}&sort_column=last_modified_time&sort_order=D${sinceParam}`, headers: { Authorization: `Zoho-oauthtoken ${token}` }, kind: 'books', selectRecords: payload => payload.items || [], startedAt: startTime, startPage: tStatus.continuationPage || 1 })
+          const pageResult = await fetchZohoPages<any>({ ...PAGE_OPTIONS, baseUrl: `https://www.zohoapis.${ZOHO_DC}/books/v3/items?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=${PAGE_SIZE}&sort_column=last_modified_time&sort_order=D${sinceParam}`, headers: { Authorization: `Zoho-oauthtoken ${token}` }, kind: 'books', selectRecords: payload => payload.items || [], startedAt: startTime, startPage: tStatus.continuationPage || 1 })
           let syncedCount = 0;
           let incompleteReason = pageResult.incompleteReason;
           {
