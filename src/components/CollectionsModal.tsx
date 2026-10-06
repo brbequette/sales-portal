@@ -9,6 +9,7 @@ import { FiPhoneCall, FiSearch, FiRefreshCw, FiDownload, FiAlertCircle, FiX, FiU
 import { useZoho } from "@/components/ZohoProvider"
 import { toast } from 'react-hot-toast';
 import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
+import { CollectionsScript } from "@/components/CollectionsScript"
 import { loadAcceptJs } from "@/lib/load-external-script"
 
 // â"€â"€ Types â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -172,6 +173,7 @@ function CallModal({ invoice, onClose, onSaved }: { invoice: Invoice, onClose: (
         </div>
 
         <div className="p-5 space-y-4 flex-1 overflow-y-auto">
+          <CollectionsScript invoices={[invoice]} callerName={callerName} />
           {/* Outcome */}
           <div>
             <label className="text-xs text-neutral-400 font-semibold uppercase tracking-wide block mb-2">Outcome</label>
@@ -828,7 +830,7 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
 
           {/* Right panel - Script, Invoices, Disposition */}
           {activeAccount ? (
-            <div className="flex-1 flex flex-col overflow-y-auto p-6 space-y-6">
+            <div className="flex-1 min-w-0 flex flex-col overflow-y-auto p-6 space-y-6 [&>*]:shrink-0">
               
               {/* Customer Contact & Summary */}
               <div className="bg-black/20/40 border border-neutral-805 rounded-2xl p-4 flex justify-between items-start gap-4">
@@ -856,24 +858,10 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
                 </div>
               </div>
 
-              {/* Standardized Script */}
-              <div className="bg-gradient-to-r from-red-955 to-neutral-900 border border-red-500/10 rounded-2xl p-5 space-y-3 relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-2 text-[9px] uppercase font-bold text-red-500/50">Call Script</div>
-                <h4 className="text-xs font-bold text-red-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <FiFileText size={13} /> Collections Script
-                </h4>
-                <div className="text-sm text-neutral-300 leading-relaxed font-sans border-l-2 border-red-500/30 pl-3.5 whitespace-pre-line py-1">
-                  {`"Hello, is this the accounts payable department for ${activeAccount.customerName}?
-
-                  My name is ${callerName || "[caller]"} from Titan Diamond. I am calling to follow up on some outstanding invoices on your account. 
-
-                  Currently, you have ${Object.keys(selectedInvoices).filter(id => selectedInvoices[id]).length} outstanding invoice(s) selected, totaling ${fmt(Object.keys(selectedInvoices).filter(id => selectedInvoices[id]).reduce((sum, id) => sum + (activeAccount.invoices.find(i => i.id === id)?.balance || 0), 0))}.
-
-                  ${activeAccount.oldestInvoice ? `Our oldest pending invoice is #${activeAccount.oldestInvoice.invoice_number}, which was due on ${activeAccount.oldestInvoice.due_date || "--"} and is currently ${activeAccount.oldestInvoice.days_overdue} days overdue.` : ""}
-
-                  Would you like to process a credit card payment for this balance today, or could you provide a promise date for when we can expect a check payment?"`}
-                </div>
-              </div>
+              <CollectionsScript
+                invoices={activeAccount.invoices.filter(invoice => selectedInvoices[invoice.id])}
+                callerName={callerName}
+              />
 
               {/* Invoices Selection List */}
               <div className="space-y-2.5">

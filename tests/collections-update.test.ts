@@ -57,4 +57,3 @@ it('does not turn a database failure into a fresh empty collection', async () =>
   expect(result.data.success).toBe(false)
   expect(result.data.dataSignature).toBeUndefined()
 })
-
