@@ -81,14 +81,22 @@ export default function AdminSettingsPage() {
   const handleForceSync = async (table: string) => {
     setSyncingTable(table)
     try {
-      await fetch('/api/sync-now', {
+      const response = await fetch('/api/sync-now', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tables: [table], force: true }),
       })
+      const result = await response.json()
+      const tableResult = result.results?.[table]
       await fetchSyncData()
-      setSyncMsg(`${table} synced successfully`)
-      setTimeout(() => setSyncMsg(''), 3000)
+      if (!response.ok || !result.success || tableResult?.error) {
+        setSyncMsg(tableResult?.error || result.error || 'Sync failed; checkpoint retained')
+      } else if (tableResult?.skipped) {
+        setSyncMsg(`${table}: ${tableResult.skipped}`)
+      } else {
+        setSyncMsg(`${table}: ${tableResult?.synced ?? 0} records saved`)
+      }
+      // Keep failures visible until the next action instead of hiding them after three seconds.
     } catch {
       setSyncMsg('Sync failed')
     } finally {

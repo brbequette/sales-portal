@@ -1737,3 +1737,8 @@ Normal activation deploy6ac423da825d791f2a5bfd1a published22:29:50Z, main6559b61
 ## Shipping recipient phone correction — 2026-10-05
 
 Easyship create shipment422 reported missing destination_address.contact_phone. Shipping order address reconstruction dropped saved phones; corrected preservation across Zoho/camel-case addresses and unique primary contact fallback. Ship Now now shows editable required recipient phone, resets it per order, and disables purchase while blank. Server retains nested destination/provider-draft numbers and rejects missing contact before shipment mutation. No fake or shipper phone fallback, no customer-profile writes. Added address-mapping and new/existing shipment regressions;30 focused tests pass. No paid label purchased. Normal preview/production build gates and live UI verification pending. Prior email production8261048c remains active; unrelated local work preserved.
+
+
+## Sync Control failure repair — 2026-10-06
+
+User approved deploying the prepared fix while retaining the Zoho pause. Added required CRM Leads/Accounts field selections. Bounded manual sync to one provider page per table, aligned persistence budget to45seconds with fetch reserve, and removed per-order detail calls from summary sync. Existing cached detail fields retained; explicit detail workflows remain separate. Forced manual sync now checks pause_mass_zoho_updates before OAuth/provider access. UI reports HTTP/table failures instead of unconditional success. Six mocked regressions and full TypeScript pass. No live Zoho calls, no sync resumed. Normal deployment gates pending. This pause does not cover every separate scheduled integration; do not claim universal API shutdown.
