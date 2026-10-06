@@ -2,10 +2,12 @@ import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { prisma, Prisma } from "./lib/prisma"
 import { isAdminRole } from "../../src/lib/roles"
+import { createHash } from "node:crypto"
 
 const authenticatedHandler: Handler = async (event) => {
   const cors = {
     "Content-Type": "application/json",
+    "Cache-Control": "private, no-store",
     "Access-Control-Allow-Origin": "*",
   }
 
@@ -52,23 +54,6 @@ const authenticatedHandler: Handler = async (event) => {
     const effectiveRepId = canViewCompanyCollections && repId
       ? repId
       : (canViewCompanyCollections ? undefined : sessionUser.id)
-
-    // ── checkOnly mode: returns count + latestUpdatedAt only ──────────────
-    if (checkOnly === 'true') {
-      const [count, latest] = await Promise.all([
-        prisma.invoice.count({ where: effectiveRepId ? { account: { ownerId: effectiveRepId } } : {} }),
-        prisma.invoice.findFirst({
-          where: effectiveRepId ? { account: { ownerId: effectiveRepId } } : {},
-          orderBy: { updatedAt: 'desc' },
-          select: { updatedAt: true },
-        })
-      ])
-      return {
-        statusCode: 200,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({ success: true, checkOnly: true, count, latestUpdatedAt: latest?.updatedAt ?? null, canViewCompanyCollections })
-      }
-    }
 
     // Refresh re-queries PostgreSQL only; provider reconciliation is a separate action.
 
@@ -157,7 +142,7 @@ const authenticatedHandler: Handler = async (event) => {
         ${tabFilterSql}
         ${repFilterSql}
       ORDER BY i."dueDate" ASC NULLS LAST
-    `).catch(() => [])
+    `)
 
     const daysOverdue = (dueDate: Date | null) => {
       if (!dueDate) return 0
@@ -223,6 +208,24 @@ const authenticatedHandler: Handler = async (event) => {
       }
     })
 
+    // Both responses describe the same authorized, filtered snapshot. Ignore sync-only
+    // timestamps and row ordering; include contacts/ownership/call history displayed by the UI.
+    const signatureRows = formatted.map(({ updated_at: _updatedAt, ...invoice }) => ({
+      ...invoice,
+      customer_contacts: [...invoice.customer_contacts].sort((a, b) => String(a.id).localeCompare(String(b.id))),
+    })).sort((a, b) => String(a.id).localeCompare(String(b.id)))
+    const dataSignature = createHash('sha256')
+      .update(JSON.stringify({ canViewCompanyCollections, invoices: signatureRows }))
+      .digest('hex')
+
+    if (checkOnly === 'true') {
+      return {
+        statusCode: 200,
+        headers: cors,
+        body: JSON.stringify({ success: true, checkOnly: true, dataSignature, count: formatted.length, canViewCompanyCollections }),
+      }
+    }
+
     // totalBalance: sum of remaining balances (inv.balance ?? inv.amount) — correctly reflects partial payments
     const totalBalance = formatted.reduce((s, i) => s + (i.balance || 0), 0)
     const totalProfit = formatted.reduce((s, i) => s + (i.profit || 0), 0)
@@ -233,6 +236,7 @@ const authenticatedHandler: Handler = async (event) => {
       headers: cors,
       body: JSON.stringify({
         success: true,
+        dataSignature,
         invoices: formatted,
         count: formatted.length,
         totalBalance,
