@@ -2,7 +2,7 @@
 
 import { prepareInAppCall } from "@/lib/internal-phone"
 
-import React, { useState, useEffect, useCallback, useMemo } from "react"
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { 
   FiDollarSign, FiPhoneCall, FiClock, FiAlertCircle, FiSearch, 
   FiRefreshCw, FiUser, FiCreditCard, FiTruck, FiFileText, FiFilter
@@ -27,6 +27,8 @@ export default function CollectionsPage() {
   const [loading, setLoading] = useState(true)
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [dataSig, setDataSig] = useState<string | null>(null)
+  const requestVersion = useRef(0)
+  const userKey = currentUser?.id || currentUser?.email || ""
   const [search, setSearch] = useState("")
   const [selectedRep, setSelectedRep] = useState<string>("all")
   const [sortBy, setSortBy] = useState("days_desc")
@@ -40,27 +42,36 @@ export default function CollectionsPage() {
     invoice: Invoice | null;
   }>({ mode: null, invoice: null })
 
-  const checkForUpdates = async (currentSig: string, apiUrl: string) => {
-    try {
-      const separator = apiUrl.includes('?') ? '&' : '?'
-      const res = await fetch(`${apiUrl}${separator}checkOnly=true`)
-      const data = await res.json()
-      if (!data.checkOnly) return
-      const remoteSig = `${data.count}|${data.latestUpdatedAt ?? ''}`
-      if (remoteSig !== currentSig) setUpdateAvailable(true)
-    } catch {}
-  }
+  useEffect(() => {
+    if (!dataSig || !userKey) return
+    let active = true
+    const version = requestVersion.current
+    const controller = new AbortController()
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/get-collections?checkOnly=true', { signal: controller.signal, cache: 'no-store' })
+        const data = await res.json()
+        if (active && version === requestVersion.current && res.ok && data.success && data.checkOnly && typeof data.dataSignature === 'string') {
+          setUpdateAvailable(data.dataSignature !== dataSig)
+        }
+      } catch { /* A failed check is not evidence of changed data. */ }
+    }, 2000)
+    return () => { active = false; clearTimeout(timer); controller.abort() }
+  }, [dataSig, userKey])
 
   const fetchCollections = useCallback(async (force = false) => {
     if (!currentUser?.id && !currentUser?.email) return
-    const cacheKey = `collections-v5-${currentUser?.id || currentUser?.email || "anonymous"}`
+    const version = ++requestVersion.current
+    setDataSig(null)
+    setUpdateAvailable(false)
+    const cacheKey = `collections-v6-${userKey}`
     const cached = !force && currentUser
-      ? sessionGet<{ invoices: Invoice[]; canViewCompanyCollections: boolean } | Invoice[]>(cacheKey, TTL.TEN_MIN)
+      ? sessionGet<{ invoices: Invoice[]; canViewCompanyCollections: boolean; dataSignature: string }>(cacheKey, TTL.TEN_MIN)
       : null
-    const cachedInvoices = Array.isArray(cached) ? cached : cached?.invoices
-    if (Array.isArray(cachedInvoices)) {
-      setInvoices(cachedInvoices)
-      setManagerScope(Boolean(cached && !Array.isArray(cached) && cached.canViewCompanyCollections === true))
+    if (cached && Array.isArray(cached.invoices) && typeof cached.dataSignature === 'string') {
+      setInvoices(cached.invoices)
+      setManagerScope(cached.canViewCompanyCollections === true)
+      setDataSig(cached.dataSignature)
       setLoading(false)
       return
     }
@@ -70,27 +81,28 @@ export default function CollectionsPage() {
       const emailParam = currentUser?.email ? `?email=${encodeURIComponent(currentUser.email)}` : ''
       const res = await fetch(`/api/get-collections${emailParam}`)
       const data = await res.json()
-      if (data.success && Array.isArray(data.invoices)) {
+      if (version !== requestVersion.current) return
+      if (res.ok && data.success && Array.isArray(data.invoices)) {
         setManagerScope(data.canViewCompanyCollections === true)
         setInvoices(data.invoices)
-        sessionSet(cacheKey, { invoices: data.invoices, canViewCompanyCollections: data.canViewCompanyCollections === true })
-        const sig = `${data.invoices.length}|${data.invoices[0]?.updated_at ?? ''}`
-        setDataSig(sig)
+        sessionSet(cacheKey, { invoices: data.invoices, canViewCompanyCollections: data.canViewCompanyCollections === true, dataSignature: data.dataSignature })
+        setDataSig(typeof data.dataSignature === 'string' ? data.dataSignature : null)
         setUpdateAvailable(false)
-        setTimeout(() => checkForUpdates(sig, '/api/get-collections'), 2000)
       } else {
         toast.error(data.error || "Failed to load collections")
       }
     } catch (e: any) {
+      if (version !== requestVersion.current) return
       console.error("Collections fetch error:", e)
       toast.error("Failed to connect to collections service")
     } finally {
-      setLoading(false)
+      if (version === requestVersion.current) setLoading(false)
     }
-  }, [currentUser])
+  }, [userKey, currentUser?.email])
 
   useEffect(() => {
     fetchCollections()
+    return () => { requestVersion.current++ }
   }, [fetchCollections])
 
   // Extract unique sales reps for filter dropdown
