@@ -350,7 +350,7 @@ export default function MessagesPage() {
   }, {} as Record<string, any[]>) : {}
 
   return (
-    <div className="flex h-full bg-[#0a0a0a] overflow-hidden text-neutral-200">
+    <div className="flex h-full box-border pb-[calc(5rem+env(safe-area-inset-bottom))] bg-[#0a0a0a] overflow-hidden text-neutral-200">
       
       {/* LEFT PANE - Account List */}
       <div className={`w-full md:w-80 flex-shrink-0 flex flex-col border-r border-white/10 ${selectedAccountId ? 'hidden md:flex' : 'flex'}`}>
