@@ -1,0 +1,18 @@
+.actions { display:flex; flex-direction:column; gap:10px; min-width:0; font-size:13px; }
+.recipient { display:flex; align-items:center; gap:12px; flex-wrap:wrap; font-size:18px; font-weight:700; overflow-wrap:anywhere; }
+.recipient a { color:#67e8f9; }
+/* The labelled Titan action invokes the installed control. Avoid duplicate
+   provider icons and keep text handoffs behind the SMS preflight. */
+.recipient :global(.zvoice-extn-ctc-main) { display:none; }
+.primary { display:flex; justify-content:center; align-items:center; gap:8px; min-height:44px; border-radius:12px; padding:10px 14px; color:white; background:#047857; font-weight:700; text-align:center; }
+.primary:disabled { opacity:.45; cursor:not-allowed; }
+.help { color:#a3adb9; font-size:12px; line-height:1.6; }
+.check { display:flex; align-items:flex-start; gap:10px; line-height:1.5; }
+.check input { margin-top:4px; width:18px; height:18px; flex-shrink:0; }
+.copies { display:flex; gap:10px; flex-wrap:wrap; }
+.copies button { display:flex; align-items:center; gap:6px; min-height:40px; padding:8px 12px; border:1px solid #ffffff24; border-radius:10px; }
+.copies button:disabled { opacity:.45; }
+.actions details { border-top:1px solid #ffffff18; padding-top:8px; }
+.actions summary { cursor:pointer; min-height:32px; }
+.actions details a, .actions > a:not(.primary) { display:flex; align-items:center; gap:8px; color:#67e8f9; min-height:36px; font-size:12px; }
+.status { color:#a5f3fc; border:1px solid #22d3ee30; border-radius:8px; padding:10px; font-size:12px; line-height:1.5; }

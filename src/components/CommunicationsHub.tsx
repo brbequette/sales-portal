@@ -1,4 +1,5 @@
 "use client"
+import { USE_ZDIALER, requestZDialerMessage } from "@/lib/zdialer"
 
 import { useState, useEffect, useRef } from "react"
 import { FiList, FiFileText, FiMessageSquare, FiPhone, FiMail, FiClock, FiCpu } from "react-icons/fi"
@@ -105,6 +106,7 @@ export function CommunicationsHub({ accountId, dealId, account, contacts }: Comm
     e.preventDefault()
     if (!smsText.trim()) return
 
+    if (USE_ZDIALER) { requestZDialerMessage(recipientPhone, smsText, account?.name || "", accountId, primaryContact?.id || ""); return }
     setSendingSms(true)
     setSmsOutcome(null)
     try {
@@ -306,7 +308,7 @@ export function CommunicationsHub({ accountId, dealId, account, contacts }: Comm
                 disabled={sendingSms || !smsText.trim()}
                 className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all duration-150 flex items-center gap-1.5 whitespace-nowrap"
               >
-                {sendingSms ? "Sending..." : "Send"}
+                {sendingSms ? "Sending..." : USE_ZDIALER ? "Continue in ZDialer" : "Send"}
               </button>
             </form>
           </div>

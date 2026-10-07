@@ -1,4 +1,5 @@
 "use client"
+import { USE_ZDIALER } from "@/lib/zdialer"
 
 import { useEffect, useState } from "react"
 
@@ -627,7 +628,8 @@ type Message = {
       Ã¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-ÂÃ¢-Â */}
       {activeTab === "SMS" && (
         <div className={`flex-1 min-w-0 flex flex-col bg-black/20 border border-white/10 rounded-xl justify-between overflow-hidden ${messagesOnly ? "p-2 min-h-[58px]" : "p-4 min-h-[320px]"}`}>
-          {outboundNumbers.length > 0 && (
+          {USE_ZDIALER && <p className="pb-2 text-xs text-cyan-200">Texts continue in ZDialer. Select your business sender there; your draft stays here.</p>}
+          {!USE_ZDIALER && outboundNumbers.length > 0 && (
             <div className="mb-2 pb-2 border-b border-white/10 flex flex-wrap items-center gap-2">
               <label className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">From:</label>
               <select
@@ -673,7 +675,7 @@ type Message = {
               className="flex-1 min-w-0 glass-panel border border-neutral-700 rounded-full px-4 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
             />
             <button
-              aria-label="Send text message" onClick={sendSMS}
+              aria-label={USE_ZDIALER ? "Continue text in ZDialer" : "Send text message"} title={USE_ZDIALER ? "Continue in ZDialer" : "Send"} onClick={sendSMS}
               disabled={!smsText.trim()}
               className="shrink-0 w-10 h-10 rounded-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white flex items-center justify-center shadow-lg transition-colors"
             >

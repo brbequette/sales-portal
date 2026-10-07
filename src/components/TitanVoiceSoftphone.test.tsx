@@ -5,7 +5,7 @@ const mock = vi.hoisted(() => ({ makeCall: vi.fn().mockResolvedValue(true), cont
 vi.mock('./useVoiceDirectory', () => ({ useVoiceDirectory: () => ({ numbers: [{ id: '1', numberId: '1', number: '+14805550100', label: 'Provider line', active: true }], users: [], loading: false, error: '', refresh: vi.fn(), admin: false }) }))
 vi.mock('@/lib/zoho-voice-websdk', () => ({ makeZohoVoiceCall: mock.makeCall, hasZohoVoiceWebSdkConfiguration: () => true, connectZohoVoice: vi.fn().mockResolvedValue(undefined), controlVoiceCall: mock.control, getVoiceState: () => mock.state, getServerVoiceState: () => mock.state, subscribeVoice: (fn: () => void) => { mock.listeners.add(fn); return () => mock.listeners.delete(fn) } }))
 vi.mock('react-hot-toast', () => ({ toast: { error: vi.fn() } }))
-import { TitanVoiceSoftphone } from './TitanVoiceSoftphone'
+import { BrowserVoiceSoftphone as TitanVoiceSoftphone } from './TitanVoiceSoftphone'
 const emit = (calls: any[]) => act(() => { mock.state = { ...mock.state, calls }; mock.listeners.forEach(fn => fn()) })
 beforeEach(() => { mock.state = { registration: 'registered', calls: [], error: '' }; vi.clearAllMocks() })
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })

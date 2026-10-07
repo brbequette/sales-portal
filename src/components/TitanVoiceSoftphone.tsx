@@ -3,11 +3,17 @@ import React, { useCallback, useEffect, useState, useSyncExternalStore } from 'r
 import { FiPhone, FiRefreshCw } from 'react-icons/fi'
 import { toast } from 'react-hot-toast'
 import { useVoiceDirectory } from './useVoiceDirectory'
+import { USE_ZDIALER } from '@/lib/zdialer'
+import { ZDialerPhone } from './ZDialerPhone'
 import { makeZohoVoiceCall, hasZohoVoiceWebSdkConfiguration, connectZohoVoice, controlVoiceCall, subscribeVoice, getVoiceState, getServerVoiceState } from '@/lib/zoho-voice-websdk'
 export type PhoneCallStatus = 'idle' | 'incoming' | 'dialing' | 'ringing' | 'connected' | 'on_hold' | 'wrap_up'
 export type PhoneCallingMode = 'browser_softphone' | 'zoho_voice_bridge' | 'zdialer'
 export type SoftphoneTab = 'dialer' | 'directory' | 'recent' | 'copilot'
-export function TitanVoiceSoftphone({ embedded = false, directoryActive = true, onCallState }: { embedded?: boolean; directoryActive?: boolean; onCallState?: (state: { status: PhoneCallStatus; accountId: string; name: string }) => void }) {
+type SoftphoneProps = { embedded?: boolean; directoryActive?: boolean; onCallState?: (state: { status: PhoneCallStatus; accountId: string; name: string }) => void }
+export function TitanVoiceSoftphone(props: SoftphoneProps) {
+  return USE_ZDIALER ? <ZDialerPhone {...props} /> : <BrowserVoiceSoftphone {...props} />
+}
+export function BrowserVoiceSoftphone({ embedded = false, directoryActive = true, onCallState }: SoftphoneProps) {
   const { numbers, users, error, loading, admin, refresh } = useVoiceDirectory(directoryActive)
   const [number, setNumber] = useState('')
   const [from, setFrom] = useState('')

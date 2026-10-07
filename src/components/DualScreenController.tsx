@@ -132,14 +132,14 @@ export function DualScreenController() {
       if (hasLocalCall()) return
       const detail = (event as CustomEvent).detail || {}
       const safe: Record<string, string> = {}
-      for (const key of ['phone', 'accountId', 'accountName', 'contactId', 'contactName', 'prompt']) {
+      for (const key of ['phone', 'accountId', 'accountName', 'contactId', 'contactName', 'prompt', 'message']) {
         if (typeof detail[key] === 'string') safe[key] = detail[key]
       }
       event.stopImmediatePropagation()
-      post('COMMUNICATION_ACTION', { action: { event: event.type as 'inAppDial' | 'openTitanAi' | 'titan:open-messages', detail: safe } })
+      post('COMMUNICATION_ACTION', { action: { event: event.type as 'inAppDial' | 'openTitanAi' | 'titan:open-messages' | 'titan:zdialer-message', detail: safe } })
       displayWindow.current?.focus()
     }
-    const events = ['inAppDial', 'openTitanAi', 'titan:open-messages']
+    const events = ['inAppDial', 'openTitanAi', 'titan:open-messages', 'titan:zdialer-message']
     events.forEach(name => window.addEventListener(name, forward, true))
     return () => events.forEach(name => window.removeEventListener(name, forward, true))
   }, [connected, mobile, post])

@@ -21,7 +21,7 @@ export type DualScreenMessage = {
   displayId?: string
   controllerId?: string
   acknowledgedId?: string
-  action?: { event: 'inAppDial' | 'openTitanAi' | 'titan:open-messages'; detail?: Record<string, string> }
+  action?: { event: 'inAppDial' | 'openTitanAi' | 'titan:open-messages' | 'titan:zdialer-message'; detail?: Record<string, string> }
 }
 
 export const DUAL_SCREEN_VIEWS: Array<{ id: DualScreenView; label: string; description: string }> = [

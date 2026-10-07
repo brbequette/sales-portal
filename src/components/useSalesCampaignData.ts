@@ -5,6 +5,7 @@ import { useZoho } from "@/components/ZohoProvider"
 import { EMPTY_FACT_FINDING, type FactFindingValues } from "@/components/FactFindingPanel"
 import { type OrderLine } from "@/components/OrderBuilder"
 import { toast } from 'react-hot-toast'
+import { USE_ZDIALER } from '@/lib/zdialer'
 import { prepareInAppCall } from '@/lib/internal-phone'
 import type { AutodialerPlan } from '@/lib/autodialer-plan'
 
@@ -66,7 +67,7 @@ export function useSalesCampaignData({ accounts, onClose, onRefresh, autoStart =
     if (!phone) return false
     prepareInAppCall(phone, { accountId: activeAccount?.id || activeAccount?.zohoId, accountName: activeAccount?.name })
     setIsPowerDialerActive(false)
-    toast('Review the number and press Call in the in-app phone.')
+    toast(USE_ZDIALER ? 'Review the number and continue with ZDialer in the communicator.' : 'Review the number and press Call in the in-app phone.')
     return true
   }, [activeAccount])
 
