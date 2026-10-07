@@ -136,7 +136,7 @@ const authenticatedHandler: Handler = async (event, context) => {
         reminderAt: t.reminderAt,
         reminderMethod: t.reminderMethod,
         reminderFired: t.reminderFired,
-        actionUrl: t.account?.zohoId ? `/account/${t.account.zohoId}` : '#'
+        actionUrl: t.accountId ? `/account?id=${encodeURIComponent(t.accountId)}` : '#'
       }
     })
 

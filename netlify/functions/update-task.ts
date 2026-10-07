@@ -6,7 +6,7 @@ import { prisma } from "./lib/prisma"
 import { isAdminRole } from "../../src/lib/roles"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
-const authenticatedHandler: Handler = async (event, context) => {
+export const authenticatedHandler: Handler = async (event, context) => {
   if (event.httpMethod !== "PUT") {
     return { statusCode: 405, body: JSON.stringify({ success: false, message: "Method Not Allowed" }) }
   }
@@ -23,13 +23,30 @@ const authenticatedHandler: Handler = async (event, context) => {
     }
 
     const existingTask = taskId
-      ? await prisma.task.findUnique({ where: { id: taskId }, select: { id: true, ownerId: true } })
-      : await prisma.task.findUnique({ where: { zohoId }, select: { id: true, ownerId: true } })
+      ? await prisma.task.findUnique({ where: { id: taskId }, select: { id: true, ownerId: true, zohoId: true } })
+      : await prisma.task.findUnique({ where: { zohoId }, select: { id: true, ownerId: true, zohoId: true } })
     if (!existingTask) {
       return { statusCode: 404, body: JSON.stringify({ success: false, message: "Task not found" }) }
     }
     if (!administrator && (!actorId || existingTask.ownerId !== actorId)) {
       return { statusCode: 403, body: JSON.stringify({ success: false, message: "Forbidden: You do not own this task" }) }
+    }
+    if (existingTask.zohoId !== zohoId) {
+      return { statusCode: 400, body: JSON.stringify({ success: false, message: "Task identifiers do not match" }) }
+    }
+    if (subject !== undefined && (typeof subject !== 'string' || !subject.trim())) {
+      return { statusCode: 400, body: JSON.stringify({ success: false, message: "Enter a task title" }) }
+    }
+    if (status !== undefined && !['Not Started', 'In Progress', 'Deferred', 'Completed', 'Waiting on someone else'].includes(status)) {
+      return { statusCode: 400, body: JSON.stringify({ success: false, message: "Invalid task status" }) }
+    }
+    if (priority !== undefined && !['High', 'Normal', 'Low'].includes(priority)) {
+      return { statusCode: 400, body: JSON.stringify({ success: false, message: "Invalid task priority" }) }
+    }
+    for (const value of [dueDate, reminderAt]) {
+      if (value && (typeof value !== 'string' || !Number.isFinite(new Date(value).getTime()))) {
+        return { statusCode: 400, body: JSON.stringify({ success: false, message: "Invalid task date" }) }
+      }
     }
 
     if (!administrator && whatId) {
@@ -101,6 +118,9 @@ const authenticatedHandler: Handler = async (event, context) => {
       }
     }
 
+    // CRM IDs are numeric. Titan-generated callbacks and operational tasks
+    // have namespaced IDs and must never be sent to the CRM task endpoint.
+    if (/^\d+$/.test(existingTask.zohoId)) {
     const token = await getZohoAccessToken()
     
     // Update in Zoho
@@ -123,6 +143,7 @@ const authenticatedHandler: Handler = async (event, context) => {
     if (!res.ok || !zohoSuccess) {
       console.error("Zoho Task Update failed:", JSON.stringify(zohoData))
       return { statusCode: 400, body: JSON.stringify({ success: false, message: "Failed to update task in Zoho", error: zohoData }) }
+    }
     }
 
     // Update locally
