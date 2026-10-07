@@ -1,6 +1,7 @@
 "use client"
 
 import { prepareInAppCall } from "@/lib/internal-phone"
+import { CollectionOverview } from "@/components/CollectionOverview"
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { 
@@ -22,6 +23,7 @@ function fmt(n: number) {
 export default function CollectionsPage() {
   const { zohoContext: currentUser } = useZoho()
   const [managerScope, setManagerScope] = useState(false)
+  const [expandedInvoice, setExpandedInvoice] = useState<string | null>(null)
   const canViewAllReps = isAdminRole(currentUser?.role) || managerScope
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
@@ -301,8 +303,9 @@ export default function CollectionsPage() {
                   const days = inv.days_overdue || 0
                   const isSevere = days >= 90
                   return (
-                    <tr key={inv.id} className="hover:bg-white/[0.03] transition-colors">
-                      <td className="td-td font-mono font-bold text-white">#{inv.invoice_number}</td>
+                    <React.Fragment key={inv.id}>
+                    <tr onClick={() => setExpandedInvoice(current => current === inv.id ? null : inv.id)} className="hover:bg-white/[0.03] transition-colors cursor-pointer">
+                      <td className="td-td font-mono font-bold text-white"><button aria-expanded={expandedInvoice === inv.id} aria-controls={`overview-${inv.id}`} onClick={e => { e.stopPropagation(); setExpandedInvoice(current => current === inv.id ? null : inv.id) }} className="text-left text-cyan-300"><span aria-hidden="true">{expandedInvoice === inv.id ? '▾' : '▸'}</span> #{inv.invoice_number}</button></td>
                       <td className="td-td font-semibold text-neutral-200">{inv.customer_name}</td>
                       <td className="td-td text-neutral-400 text-xs">{inv.salesperson_name || "Unassigned"}</td>
                       <td className="td-td text-xs whitespace-nowrap">
@@ -328,7 +331,7 @@ export default function CollectionsPage() {
                         </span>
                       </td>
                       <td className="td-td text-right font-black text-red-400">{fmt(inv.balance)}</td>
-                      <td className="td-td text-right">
+                      <td className="td-td text-right" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => setActiveModal({ mode: 'call', invoice: inv })}
@@ -354,6 +357,8 @@ export default function CollectionsPage() {
                         </div>
                       </td>
                     </tr>
+                    {expandedInvoice === inv.id && <tr id={`overview-${inv.id}`}><td colSpan={9} className="p-0"><CollectionOverview invoice={inv} /></td></tr>}
+                    </React.Fragment>
                   )
                 })}
               </tbody>
