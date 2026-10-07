@@ -607,12 +607,7 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
 function MiniCalendar({ tasks, onSelectTask }: { tasks: Task[]; onSelectTask: (t: Task) => void }) {
   const [view, setView]         = useState<CalView>("month")
   const [cur,  setCur]          = useState(new Date())
-  const [cat,  setCat]          = useState<Category>("all")
-
-  const visible = useMemo(() =>
-    tasks.filter(t => cat === "all" || classifyTask(t) === cat),
-    [tasks, cat]
-  )
+  const visible = tasks
 
   const go = (d: -1 | 1) => {
     const n = new Date(cur)
@@ -751,24 +746,11 @@ function MiniCalendar({ tasks, onSelectTask }: { tasks: Task[]; onSelectTask: (t
     <div className="flex-1 flex flex-col min-h-0">
       {/* Cal header */}
       <div className="shrink-0 px-4 py-3 border-b border-white/8">
-        {/* Category filter */}
-        <div className="flex gap-2 overflow-x-auto pb-3 -mx-4 px-4 hide-scroll">
-          {(Object.keys(CAT) as Category[]).map(c => (
-            <button key={c} onClick={() => setCat(c)}
-              className={`shrink-0 flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border transition-all ${
-                cat === c ? `${CAT[c].bg} ${CAT[c].text} ${CAT[c].border}` : "bg-white/3 text-neutral-500 border-white/8"
-              }`}
-            >
-              <span className={`w-2 h-2 rounded-full ${CAT[c].dot}`} />
-              {CAT[c].label}
-            </button>
-          ))}
-        </div>
         {/* Nav + view toggle */}
         <div className="flex items-center gap-2">
-          <button onClick={() => go(-1)} className="p-2 rounded-xl hover:bg-white/8 text-neutral-400 transition-all"><FiChevronLeft size={16}/></button>
+          <button aria-label="Previous calendar period" onClick={() => go(-1)} className="p-2 rounded-xl hover:bg-white/8 text-neutral-400 transition-all"><FiChevronLeft size={16}/></button>
           <p className="flex-1 text-center text-sm font-bold text-white truncate">{title()}</p>
-          <button onClick={() => go(1)}  className="p-2 rounded-xl hover:bg-white/8 text-neutral-400 transition-all"><FiChevronRight size={16}/></button>
+          <button aria-label="Next calendar period" onClick={() => go(1)}  className="p-2 rounded-xl hover:bg-white/8 text-neutral-400 transition-all"><FiChevronRight size={16}/></button>
           <button onClick={() => setCur(new Date())} className="text-xs font-bold text-violet-400 px-2 py-1 rounded-lg hover:bg-violet-500/10 transition-all border border-violet-500/30">Today</button>
         </div>
         {/* View switcher */}
