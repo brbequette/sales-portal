@@ -1,6 +1,10 @@
 "use client"
 
 import { prepareInAppCall } from "@/lib/internal-phone"
+import { CollectionOverview } from "@/components/CollectionOverview"
+import styles from './collections.module.css'
+import { publishCommunicationContext } from '@/lib/communication-context'
+import Link from 'next/link'
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { 
@@ -22,6 +26,7 @@ function fmt(n: number) {
 export default function CollectionsPage() {
   const { zohoContext: currentUser } = useZoho()
   const [managerScope, setManagerScope] = useState(false)
+  const [expandedInvoice, setExpandedInvoice] = useState<string | null>(null)
   const canViewAllReps = isAdminRole(currentUser?.role) || managerScope
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
@@ -64,7 +69,7 @@ export default function CollectionsPage() {
     const version = ++requestVersion.current
     setDataSig(null)
     setUpdateAvailable(false)
-    const cacheKey = `collections-v6-${userKey}`
+    const cacheKey = `collections-v7-${userKey}`
     const cached = !force && currentUser
       ? sessionGet<{ invoices: Invoice[]; canViewCompanyCollections: boolean; dataSignature: string }>(cacheKey, TTL.TEN_MIN)
       : null
@@ -163,11 +168,16 @@ export default function CollectionsPage() {
     }
   }, [filteredInvoices])
 
+  const toggleInvoice = (invoice: Invoice) => {
+    setExpandedInvoice(current => current === invoice.id ? null : invoice.id)
+    publishCommunicationContext(expandedInvoice === invoice.id ? null : { kind: 'Invoice', recordId: invoice.id, accountId: invoice.account_id, title: `${invoice.customer_name} · Invoice #${invoice.invoice_number}` })
+  }
+
   return (
-    <div className="page-content">
+    <div className={`page-content ${styles.page}`}>
 
       {/* ─── Header ────────────────────────────────────────── */}
-      <div className="page-header">
+      <div className={`page-header ${styles.header}`}>
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center justify-center">
             <FiPhoneCall className="text-red-400" size={17} />
@@ -178,6 +188,7 @@ export default function CollectionsPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Link href="/collections/stats" className="td-btn td-btn-sm">Collection stats</Link>
           <button
             onClick={() => fetchCollections(true)}
             disabled={loading}
@@ -198,7 +209,7 @@ export default function CollectionsPage() {
       </div>
 
       {/* ─── Body ──────────────────────────────────────────── */}
-      <div className="page-body animate-fade-in space-y-4">
+      <div className={`page-body animate-fade-in space-y-4 ${styles.body}`}>
 
         <UpdateBanner show={updateAvailable} onUpdate={() => { setUpdateAvailable(false); fetchCollections(true) }} accentColor="red" label="Collections data updated" />
 
@@ -222,7 +233,8 @@ export default function CollectionsPage() {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col gap-3">
+        <div className={styles.filters}>
+          <div className="text-xs font-semibold text-neutral-300">Filter overdue invoices by due date</div>
           {/* Period Filter */}
           <PeriodSelector
             value={collPeriod}
@@ -234,20 +246,22 @@ export default function CollectionsPage() {
             onCustomStartChange={setCollCustomStart}
             onCustomEndChange={setCollCustomEnd}
           />
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1 max-w-sm">
+          <div className={styles.filterFields}>
+            <div className="relative min-w-0 flex-1">
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={14} />
             <input
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search invoice #, customer, or rep..."
+              aria-label="Search collections"
+              placeholder="Invoice, account, rep or contact…"
               className="td-input pl-9"
             />
           </div>
           {canViewAllReps && <div className="flex items-center gap-2">
             <FiFilter className="text-neutral-500 shrink-0" size={14} />
             <select
+              aria-label="Sales representative"
               value={selectedRep}
               onChange={e => setSelectedRep(e.target.value)}
               className="td-select"
@@ -268,8 +282,9 @@ export default function CollectionsPage() {
         </div>
         </div>
 
+        <div className={styles.queueHeading}><div><h2>Collection work queue</h2><p>{filteredInvoices.length} invoices · Select a row for account, order, shipping and payment details</p></div><span>{fmt(metrics.totalBalance)} outstanding</span></div>
         {/* Invoices Table */}
-        <div className="td-table-wrapper relative">
+        <div className={`td-table-wrapper relative ${styles.tableWrap}`}>
           {loading && invoices.length === 0 ? (
             <div className="p-12 text-center space-y-3">
               <FiRefreshCw className="animate-spin mx-auto text-red-500" size={28} />
@@ -282,16 +297,12 @@ export default function CollectionsPage() {
               <p className="text-xs text-neutral-600">All accounts are current, or adjust your search filters.</p>
             </div>
           ) : (
-            <table className="td-table">
+            <table className={`td-table ${styles.table}`}>
               <thead>
                 <tr>
-                  <th className="td-th">Invoice #</th>
-                  <th className="td-th">Customer</th>
-                  <th className="td-th">Sales Rep</th>
-                  <th className="td-th">Phone</th>
-                  <th className="td-th">Due Date</th>
-                  <th className="td-th">Last Contact</th>
-                  <th className="td-th">Days Overdue</th>
+                  <th className="td-th">Account / invoice</th>
+                  <th className="td-th">Contacts</th>
+                  <th className="td-th">Timing</th>
                   <th className="td-th text-right">Balance</th>
                   <th className="td-th text-right">Actions</th>
                 </tr>
@@ -301,35 +312,26 @@ export default function CollectionsPage() {
                   const days = inv.days_overdue || 0
                   const isSevere = days >= 90
                   return (
-                    <tr key={inv.id} className="hover:bg-white/[0.03] transition-colors">
-                      <td className="td-td font-mono font-bold text-white">#{inv.invoice_number}</td>
-                      <td className="td-td font-semibold text-neutral-200">{inv.customer_name}</td>
-                      <td className="td-td text-neutral-400 text-xs">{inv.salesperson_name || "Unassigned"}</td>
-                      <td className="td-td text-xs whitespace-nowrap">
-                        {inv.customer_contacts?.length ? (
-                          <div className="flex flex-col gap-1">
-                            {inv.customer_contacts.map(contact => (
-                              <button type="button" key={contact.id}  className="text-emerald-400 hover:text-emerald-300 font-semibold" title={`${contact.name}${contact.isPrimary ? " (Primary)" : ""}`} onClick={event => { event.stopPropagation(); prepareInAppCall(contact.phone_href || contact.phone) }}>
-                                {contact.name}: {contact.phone}
-                              </button>
-                            ))}
-                          </div>
-                        ) : <span className="text-neutral-600">No phone</span>}
+                    <React.Fragment key={inv.id}>
+                    <tr data-expanded={expandedInvoice === inv.id} onClick={() => toggleInvoice(inv)} className={styles.invoiceRow}>
+                      <td className={`td-td ${styles.identity}`}>
+                        <button aria-expanded={expandedInvoice === inv.id} aria-controls={`overview-${inv.id}`} onClick={e => { e.stopPropagation(); toggleInvoice(inv) }} className={styles.accountButton}>
+                          <span className="text-cyan-300 text-xs"><span aria-hidden="true">{expandedInvoice === inv.id ? '▾' : '▸'}</span> Invoice #{inv.invoice_number}</span>
+                          <strong>{inv.customer_name}</strong>
+                        </button>
+                        <div className={styles.rep}>Rep · {inv.salesperson_name || 'Unassigned'}</div>
                       </td>
-                      <td className="td-td text-neutral-400 text-xs">{inv.due_date || "--"}</td>
-                      <td className="td-td text-purple-300 text-xs font-medium whitespace-nowrap">
-                        {(inv as any).last_called_at || (inv as any).lastCalledAt
-                          ? new Date((inv as any).last_called_at || (inv as any).lastCalledAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-                          : "Never"}
+                      <td className={`td-td ${styles.contacts}`} data-label="Contacts">
+                        {inv.customer_contacts?.length ? <div className="flex flex-col gap-2">{inv.customer_contacts.map(contact => <button type="button" key={contact.id} className={styles.contact} title={`Call ${contact.name}${contact.isPrimary ? ' (Primary)' : ''}`} onClick={event => { event.stopPropagation(); prepareInAppCall(contact.phone_href || contact.phone, { accountId: inv.account_id, accountName: inv.customer_name, contactName: contact.name }) }}><span>{contact.name}</span><span>{contact.phone}</span></button>)}</div> : <span className="text-neutral-500">No saved phone</span>}
                       </td>
-                      <td className="td-td">
-                        <span className={`status-pill ${isSevere ? "status-pill-red" : days >= 30 ? "status-pill-amber" : "status-pill-blue"}`}>
-                          {days}d
-                        </span>
+                      <td className={`td-td ${styles.timing}`} data-label="Timing">
+                        <span className={`status-pill ${isSevere ? 'status-pill-red' : days >= 30 ? 'status-pill-amber' : 'status-pill-blue'}`}>{days} days overdue</span>
+                        <div>Due {inv.due_date || '—'}</div>
+                        <div>Last call · {(inv as any).last_called_at || (inv as any).lastCalledAt ? new Date((inv as any).last_called_at || (inv as any).lastCalledAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Never'}</div>
                       </td>
-                      <td className="td-td text-right font-black text-red-400">{fmt(inv.balance)}</td>
-                      <td className="td-td text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                      <td className={`td-td ${styles.balance}`} data-label="Balance">{fmt(inv.balance)}</td>
+                      <td className={`td-td ${styles.actions}`} onClick={e => e.stopPropagation()}>
+                        <div className="flex flex-wrap items-center justify-end gap-2">
                           <button
                             onClick={() => setActiveModal({ mode: 'call', invoice: inv })}
                             className="td-btn td-btn-sm bg-emerald-600/15 text-emerald-400 hover:bg-emerald-600 hover:text-white border-emerald-600/20"
@@ -354,6 +356,8 @@ export default function CollectionsPage() {
                         </div>
                       </td>
                     </tr>
+                    {expandedInvoice === inv.id && <tr className={styles.overviewRow} id={`overview-${inv.id}`}><td colSpan={5} className="p-0"><CollectionOverview invoice={inv} /></td></tr>}
+                    </React.Fragment>
                   )
                 })}
               </tbody>

@@ -8,10 +8,13 @@ import { FiCheckCircle, FiExternalLink, FiMonitor, FiRadio, FiX } from "react-ic
 import { DUAL_SCREEN_CHANNEL, type DualScreenMessage, type DualScreenState, isDualScreenMessage } from "@/lib/dual-screen"
 import { COMMUNICATION_CONTEXT_EVENT, getCommunicationContext } from '@/lib/communication-context'
 
+import { useCommunicationLayout, setDisplayConnected, isMobileCommunicator, hasLocalCall } from '@/lib/communication-layout'
+
 function id() { return crypto.randomUUID() }
 
 export function DualScreenController() {
   const pathname = usePathname() || "/dashboard"
+  const { mobile } = useCommunicationLayout()
   const sourceId = useRef("")
   const sequence = useRef(0)
   const channel = useRef<BroadcastChannel | null>(null)
@@ -27,9 +30,11 @@ export function DualScreenController() {
   const mounted = useSyncExternalStore(() => () => {}, () => true, () => false)
 
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent("titan:dual-screen-status", { detail: { connected } }))
+    setDisplayConnected(connected && !mobile)
+    window.dispatchEvent(new CustomEvent("titan:dual-screen-status", { detail: { connected: connected && !mobile } }))
     sessionStorage.setItem("titan-dual-screen-connected", connected ? "1" : "0")
-  }, [connected])
+    return () => setDisplayConnected(false)
+  }, [connected, mobile])
 
   const post = useCallback((type: DualScreenMessage["type"], extra: Partial<DualScreenMessage> = {}) => {
     if (!channel.current || !sourceId.current) return
@@ -59,7 +64,7 @@ export function DualScreenController() {
     channel.current = bc
     bc.onmessage = event => {
       if (!isDualScreenMessage(event.data) || event.data.sourceId === sourceId.current || seen.current.has(event.data.id)) return
-      if (event.data.controllerId && event.data.controllerId !== sourceId.current) return
+      if (event.data.controllerId !== sourceId.current || isMobileCommunicator()) return
       seen.current.add(event.data.id)
       if (seen.current.size > 500) seen.current.clear()
       if (event.data.type === "DISPLAY_READY" || event.data.type === "DISPLAY_HEARTBEAT") {
@@ -90,7 +95,14 @@ export function DualScreenController() {
   useEffect(() => { if (connected) sendState() }, [connected, pathname, sendState])
 
   const launch = () => {
+    if (isMobileCommunicator()) return
+    if (hasLocalCall()) { toast.error("Finish the current call before moving communications to another screen."); return }
     if (!("BroadcastChannel" in window)) { toast.error("This browser does not support same-computer display synchronization."); return }
+    if (connected && !displayWindow.current?.closed) {
+      if (displayWindow.current) displayWindow.current.focus()
+      else post('DISPLAY_FOCUS')
+      return
+    }
     const liveUrl = new URL(window.location.href)
     const accountId = getCommunicationContext()?.accountId || (liveUrl.pathname === "/account" ? liveUrl.searchParams.get("id") : "")
     const displayUrl = accountId
@@ -114,9 +126,28 @@ export function DualScreenController() {
     return () => window.removeEventListener('titan:open-second-screen', launch)
   })
 
+  useEffect(() => {
+    if (!connected || mobile) return
+    const forward = (event: Event) => {
+      if (hasLocalCall()) return
+      const detail = (event as CustomEvent).detail || {}
+      const safe: Record<string, string> = {}
+      for (const key of ['phone', 'accountId', 'accountName', 'contactId', 'contactName', 'prompt']) {
+        if (typeof detail[key] === 'string') safe[key] = detail[key]
+      }
+      event.stopImmediatePropagation()
+      post('COMMUNICATION_ACTION', { action: { event: event.type as 'inAppDial' | 'openTitanAi' | 'titan:open-messages', detail: safe } })
+      displayWindow.current?.focus()
+    }
+    const events = ['inAppDial', 'openTitanAi', 'titan:open-messages']
+    events.forEach(name => window.addEventListener(name, forward, true))
+    return () => events.forEach(name => window.removeEventListener(name, forward, true))
+  }, [connected, mobile, post])
+
+  if (mobile) return null
   return <>
-    <button onClick={launch} className="hidden xl:flex items-center gap-2 rounded-lg border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-200 hover:bg-cyan-500/20" title="Open the standalone communicator for this account"><FiMonitor/>Launch Communicator</button>
-    <button onClick={openPanel} className="flex xl:hidden items-center justify-center rounded-lg border border-cyan-500/25 bg-cyan-500/10 p-2 text-cyan-200" aria-label="Second display controls"><FiMonitor/></button>
+    <button onClick={launch} className="hidden xl:flex items-center gap-2 rounded-lg border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-200 hover:bg-cyan-500/20" title="Open the standalone communicator for this account"><FiMonitor/>{connected ? "Communicator on screen 2" : "Launch Communicator"}</button>
+    <button onClick={openPanel} className="hidden md:flex xl:hidden items-center justify-center rounded-lg border border-cyan-500/25 bg-cyan-500/10 p-2 text-cyan-200" aria-label="Second display controls"><FiMonitor/></button>
     {mounted && panelOpen && createPortal(<div className="fixed inset-0 z-[12000] flex items-center justify-center bg-black/70 p-4" onClick={() => setPanelOpen(false)}><section className="w-full max-w-lg rounded-2xl border border-white/15 bg-[#0b0e13] p-5 shadow-2xl" onClick={event => event.stopPropagation()}>
       <div className="flex items-start justify-between"><div><div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-cyan-400"><FiRadio/>Dual-screen controller</div><h2 className="mt-1 text-xl font-black text-white">Standalone communicator</h2><p className="mt-1 text-sm text-neutral-500">Account pages open a dedicated calls, messages, email, and AI workspace.</p></div><button onClick={() => setPanelOpen(false)} className="rounded-lg p-2 text-neutral-500 hover:bg-white/5 hover:text-white"><FiX/></button></div>
       <div className={`mt-4 flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${connected ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-300" : "border-amber-500/25 bg-amber-500/10 text-amber-300"}`}>{connected ? <FiCheckCircle/> : <FiRadio/>}{connected ? "Second display connected" : "Waiting for second display"}</div>

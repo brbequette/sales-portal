@@ -136,7 +136,7 @@ function Account360({ account, onCommunicate }: { account: any; onCommunicate: (
 export function AccountSecondScreenWorkspace({ accountId, account, onBack }: { accountId: string; account: any; onBack?: () => void }) {
   const searchParams = useSearchParams()
   const devBypass = process.env.NODE_ENV === "development" && searchParams.get("bypass") === "true" ? "&bypass=true" : ""
-  const [tab, setTab] = useState<WorkspaceTab>("communications")
+  const [tab, setTab] = useState<WorkspaceTab>("account")
   const primary = account?.contacts?.find((contact: any) => contact.isPrimary) || account?.contacts?.[0]
   const [selectedContactId, setSelectedContactId] = useState(primary?.id || "")
   const selectedContact = account?.contacts?.find((contact: any) => contact.id === selectedContactId) || primary
@@ -166,7 +166,7 @@ export function AccountSecondScreenWorkspace({ accountId, account, onBack }: { a
   }
 
   const tabs: Array<{ id: WorkspaceTab; label: string; icon: React.ReactNode }> = [
-    { id: "communications", label: "Communications & Sales", icon: <FiSend /> },
+    { id: "communications", label: "Sales tools", icon: <FiSend /> },
     { id: "account", label: "Account 360", icon: <FiBriefcase /> },
     { id: "timeline", label: "Unified History", icon: <FiClock /> },
     { id: "campaigns", label: "Campaign Builder", icon: <FiTarget /> },
@@ -195,7 +195,7 @@ export function AccountSecondScreenWorkspace({ accountId, account, onBack }: { a
             </div>
           </div>
         </div>
-        <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">Paired to screen 1 · calls, SMS, email, AI, orders, and history</div>
+        <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">Account details · orders, history and sales tools</div>
       </div>
       <nav className="mt-3 flex gap-1 overflow-x-auto">
         {tabs.map(item => <button key={item.id} onClick={() => setTab(item.id)} className={`flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-bold ${tab === item.id ? "bg-cyan-600 text-white" : "bg-white/5 text-neutral-400 hover:bg-white/10 hover:text-white"}`}>{item.icon}{item.label}</button>)}
@@ -206,7 +206,7 @@ export function AccountSecondScreenWorkspace({ accountId, account, onBack }: { a
 
     <main className="min-h-0 flex-1 overflow-hidden">
       {tab === "communications" && <div className="h-full overflow-y-auto p-4"><CommunicationCenter accountId={account?.id || accountId} account={account} contacts={account?.contacts || []} selectedContactId={selectedContactId} onContactChange={setSelectedContactId} /></div>}
-      {tab === "account" && <Account360 account={account} onCommunicate={contactId => { setSelectedContactId(contactId); setTab("communications") }} />}
+      {tab === "account" && <Account360 account={account} onCommunicate={contactId => { setSelectedContactId(contactId); window.dispatchEvent(new CustomEvent("titan:open-messages", { detail: { accountId, accountName: account.name, contactId } })) }} />}
       {tab === "timeline" && <CommunicationTimeline accountId={account?.id || accountId} />}
       {tab === "campaigns" && <div className="h-full"><iframe title="Campaign Builder" src={`/admin/campaigns?display=1&accountId=${encodeURIComponent(accountId)}&accountName=${encodeURIComponent(account?.name || "")}${devBypass}`} className="h-full w-full border-0" /></div>}
       {tab === "creative" && <div className="h-full"><iframe title="Flyer Studio" src={`/admin/flyer-studio?display=1&accountId=${encodeURIComponent(accountId)}&accountName=${encodeURIComponent(account?.name || "")}${devBypass}`} className="h-full w-full border-0" /></div>}

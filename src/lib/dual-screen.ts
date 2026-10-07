@@ -16,11 +16,12 @@ export type DualScreenMessage = {
   sourceId: string
   sequence: number
   sentAt: string
-  type: "CONTROLLER_STATE" | "CONTROLLER_PING" | "DISPLAY_READY" | "DISPLAY_HEARTBEAT" | "DISPLAY_CLOSING" | "DISPLAY_ACK"
+  type: "CONTROLLER_STATE" | "CONTROLLER_PING" | "DISPLAY_READY" | "DISPLAY_HEARTBEAT" | "DISPLAY_CLOSING" | "DISPLAY_ACK" | "COMMUNICATION_ACTION" | "DISPLAY_FOCUS"
   state?: DualScreenState
   displayId?: string
   controllerId?: string
   acknowledgedId?: string
+  action?: { event: 'inAppDial' | 'openTitanAi' | 'titan:open-messages'; detail?: Record<string, string> }
 }
 
 export const DUAL_SCREEN_VIEWS: Array<{ id: DualScreenView; label: string; description: string }> = [

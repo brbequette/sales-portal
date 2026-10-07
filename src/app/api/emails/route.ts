@@ -64,6 +64,11 @@ export async function GET(req: NextRequest) {
       delete where.OR;
     }
 
+    const folder = searchParams.get('folder') || 'all'
+    if (!['all', 'inbox', 'sent', 'archived'].includes(folder)) return NextResponse.json({ success: false, error: 'Invalid email folder' }, { status: 400 })
+    if (folder === 'inbox') { where.direction = 'INBOUND'; where.status = { not: 'ARCHIVED' } }
+    if (folder === 'sent') where.direction = 'OUTBOUND'
+    if (folder === 'archived') where.status = 'ARCHIVED'
     const query = searchParams.get('q')?.trim().slice(0, 100)
     if (query) where.AND = [{ OR: [{ subject: { contains: query, mode: 'insensitive' } }, { body: { contains: query, mode: 'insensitive' } }, { fromAddress: { contains: query, mode: 'insensitive' } }, { toAddress: { contains: query, mode: 'insensitive' } }] }]
     const cursor = searchParams.get('cursor')

@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react'
 export interface VoiceLine { id: string; numberId: string; numberMapId: string; number: string; label: string; active: boolean; smsCapability: string }
 export interface VoicePerson { userid: string; agentId: string; name: string; extension?: number; status: number; zvtRoleName?: string }
-export function useVoiceDirectory() {
+export function useVoiceDirectory(enabled = true) {
   const [numbers, setNumbers] = useState<VoiceLine[]>([])
   const [users, setUsers] = useState<VoicePerson[]>([])
   const [error, setError] = useState('')
@@ -18,11 +18,12 @@ export function useVoiceDirectory() {
     finally { setLoading(false) }
   }, [])
   useEffect(() => {
+    if (!enabled) return
     void refresh()
     const onFocus = () => { void refresh() }
     const timer = setInterval(() => { if (document.visibilityState === 'visible') void refresh() }, 60000)
     window.addEventListener('focus', onFocus)
     return () => { clearInterval(timer); window.removeEventListener('focus', onFocus) }
-  }, [refresh])
+  }, [refresh, enabled])
   return { numbers, users, error, loading, admin, refresh }
 }

@@ -8,9 +8,14 @@ export type CommunicationContext = {
 }
 
 let current: CommunicationContext | null = null
-export function getCommunicationContext() { return current }
+let sourcePath = ''
+export function getCommunicationContext() {
+  if (typeof window !== 'undefined' && sourcePath !== `${window.location.pathname}${window.location.search}`) return null
+  return current
+}
 export function publishCommunicationContext(context: CommunicationContext | null) {
   current = context
+  sourcePath = `${window.location.pathname}${window.location.search}`
   window.dispatchEvent(new CustomEvent(COMMUNICATION_CONTEXT_EVENT, { detail: context }))
   window.dispatchEvent(new CustomEvent('titanAiContext', { detail: { selectedRecord: context ? JSON.stringify(context) : undefined } }))
 }

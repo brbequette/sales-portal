@@ -3,6 +3,7 @@ import { Handler } from "@netlify/functions"
 
 import { prisma } from "./lib/prisma"
 import { isAdminRole } from "../../src/lib/roles"
+import { randomUUID } from 'node:crypto'
 
 const authenticatedHandler: Handler = async (event) => {
   const cors = {
@@ -15,10 +16,14 @@ const authenticatedHandler: Handler = async (event) => {
   try {
     const sessionUser = await authenticateFunction(event)
     const actorId = sessionUser.dbId || sessionUser.userId
+    const manager = await prisma.systemSetting.findUnique({ where: { key: 'collections_manager_id' } })
+    const canViewCompany = isAdminRole(sessionUser.role) || (!!manager?.value && manager.value === actorId) || sessionUser.email?.toLowerCase() === 'brian@titandiamond.net'
     if (event.httpMethod === "POST") {
       // Save a call log
       const body = JSON.parse(event.body || "{}")
       const { invoiceId, invoiceIds, outcome, notes, callerName, contactReached, spokeTo, promiseDate, followUpDate, durationMinutes } = body
+      const activityType = body.activityType || (callerName === 'System Payment' ? 'payment' : callerName === 'System Return' ? 'return' : 'call')
+      if (!['call', 'payment', 'return'].includes(activityType)) return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'Invalid collection activity type' }) }
 
       const requestedInvoiceIds = Array.from(new Set([
         ...(Array.isArray(invoiceIds) ? invoiceIds : []),
@@ -37,7 +42,7 @@ const authenticatedHandler: Handler = async (event) => {
         return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "A campaign disposition must contain invoices from one account" }) }
       }
 
-      if (!isAdminRole(sessionUser.role) && invoice.account.ownerId !== actorId) {
+      if (!canViewCompany && invoice.account.ownerId !== actorId) {
         return { statusCode: 403, headers: cors, body: JSON.stringify({ error: "You can only log collection calls for your own accounts" }) }
       }
 
@@ -54,9 +59,16 @@ const authenticatedHandler: Handler = async (event) => {
         callback_requested: "Callback",
         other: "Other",
       }
+      const minutes = durationMinutes === undefined || durationMinutes === null || durationMinutes === '' ? null : Number(durationMinutes)
+      if (!outcomeLabels[outcome] || (minutes !== null && (!Number.isFinite(minutes) || minutes < 0 || minutes > 1440))) {
+        return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'Choose a valid outcome and call duration from 0 to 1440 minutes.' }) }
+      }
+      for (const value of [promiseDate, followUpDate]) if (value && (!/^\d{4}-\d{2}-\d{2}$/.test(value) || !Number.isFinite(Date.parse(value)) || new Date(value).toISOString().slice(0, 10) !== value)) {
+        return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'Enter a valid promise or follow-up date.' }) }
+      }
 
       const content = [
-        `📞 Collection Call — Invoice${invoices.length > 1 ? "s" : ""} ${invoices.map(item => (item.items as any)?.invoiceNumber || item.zohoId?.slice(-6)).join(", ")}`,
+        `📞 Collection ${activityType === 'call' ? 'Call' : activityType === 'payment' ? 'Payment' : 'Return'} — Invoice${invoices.length > 1 ? "s" : ""} ${invoices.map(item => (item.items as any)?.invoiceNumber || item.zohoId?.slice(-6)).join(", ")}`,
         `Outcome: ${outcomeLabels[outcome] || outcome}`,
         contactReached ? `Spoke With: ${spokeTo || "Contact"}` : "No contact reached",
         durationMinutes ? `Duration: ${durationMinutes} min` : null,
@@ -66,9 +78,12 @@ const authenticatedHandler: Handler = async (event) => {
         `By: ${defaultUser.name || callerName || "Staff"}`,
       ].filter(Boolean).join("\n")
 
+      const pause = await prisma.systemSetting.findUnique({ where: { key: 'pause_mass_zoho_updates' } })
+      const noteId = randomUUID()
       const [note] = await prisma.$transaction([
         prisma.note.create({
           data: {
+            id: noteId,
             accountId: invoice.accountId,
             authorId: defaultUser.id,
             content,
@@ -77,18 +92,25 @@ const authenticatedHandler: Handler = async (event) => {
                        ["disputed"].includes(outcome) ? "negative" : "neutral",
           }
         }),
-        prisma.account.update({
+        ...(activityType === 'call' ? [prisma.account.update({
           where: { id: invoice.accountId },
           data: { lastCalledAt: new Date() }
-        }),
+        })] : []),
+        prisma.communicationEvent.create({ data: {
+          accountId: invoice.accountId, actorId: defaultUser.id, channel: activityType === 'call' ? 'phone' : 'system', direction: 'outbound',
+          eventType: `collection_${activityType}`, sourceType: 'Note', sourceId: noteId, occurredAt: new Date(),
+          subject: `Collection ${activityType}`, summary: outcomeLabels[outcome],
+          metadata: { invoiceIds: invoices.map(i => i.id), outcome: outcomeLabels[outcome], contactReached: contactReached === true,
+            durationMinutes: minutes, promiseDate: promiseDate || null, followUpDate: followUpDate || null },
+        } }),
       ])
 
       // Push Note to Zoho CRM
       let zohoSynced = false
-      if (invoice.account?.zohoId) {
+      if (invoice.account?.zohoId && pause?.value !== 'true') {
         try {
           const { pushZohoNote } = await import("./lib/zoho-auth")
-          await pushZohoNote(invoice.account.zohoId, `Collection Call Log: ${outcomeLabels[outcome] || outcome}`, content)
+          await pushZohoNote(invoice.account.zohoId, `Collection ${activityType}: ${outcomeLabels[outcome] || outcome}`, content)
           zohoSynced = true
         } catch (zohoError) {
           console.error("Collection call saved locally but Zoho note sync failed:", zohoError)
@@ -107,13 +129,13 @@ const authenticatedHandler: Handler = async (event) => {
       include: { account: { select: { ownerId: true } } },
     })
     if (!invoice) return { statusCode: 404, headers: cors, body: JSON.stringify({ error: "Not found" }) }
-    if (!isAdminRole(sessionUser.role) && invoice.account.ownerId !== actorId) {
+    if (!canViewCompany && invoice.account.ownerId !== actorId) {
       return { statusCode: 403, headers: cors, body: JSON.stringify({ error: "You can only view collection calls for your own accounts" }) }
     }
 
     const notes = await prisma.note.findMany({
       where: { accountId: invoice.accountId, content: { contains: "Collection Call" } },
-      include: { author: true },
+      include: { author: { select: { id: true, name: true } } },
       orderBy: { createdAt: "desc" },
     })
 

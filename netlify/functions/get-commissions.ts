@@ -8,6 +8,7 @@ import { classifyCommissionCostQuality, COMMISSION_COST_QUALITY, hasAuthoritativ
 import { companyCalendarDaysBetween } from "../../src/lib/company-calendar-days"
 import { financialZohoLineItems } from "../../src/lib/zoho-line-items"
 import { COMMISSION_LEDGER_START } from "../../src/lib/commission-ledger-period"
+import { COLLECTIONS_BONUS_START, collectionsBonusRate, ensureCollectionsManagerLedger } from '../../src/lib/collections-compensation'
 
 
 // Statuses where the FINAL half is earned (invoice has been paid)
@@ -834,6 +835,8 @@ const authenticatedHandler: Handler = async (event) => {
       }
     }
 
+    // A configured collector can earn the weekly company bonus without owning sales invoices.
+    ensureCollectionsManagerLedger(byRep, rawUsers.find(u => u.id === collectionsManagerId))
     // Add payouts and calculate balances
     for (const payout of payouts) {
       if (byRep[payout.repId]) {
@@ -859,7 +862,7 @@ const authenticatedHandler: Handler = async (event) => {
             const startStr = weekStart.toISOString().split('T')[0]
             
             // Only apply to weeks starting after June 8th 2026
-            if (startStr >= '2026-06-08') {
+            if (startStr >= COLLECTIONS_BONUS_START) {
               weeklyTotals[startStr] = (weeklyTotals[startStr] || 0) + inv.amount
             }
           }
@@ -867,10 +870,7 @@ const authenticatedHandler: Handler = async (event) => {
       }
 
       for (const [weekStartStr, totalAmount] of Object.entries(weeklyTotals)) {
-        let bonusRate = 0
-        if (totalAmount >= 50000) bonusRate = 0.01
-        else if (totalAmount >= 37500) bonusRate = 0.0075
-        else if (totalAmount >= 25000) bonusRate = 0.005
+        const bonusRate = collectionsBonusRate(totalAmount)
 
         if (bonusRate > 0) {
           const bonusAmount = totalAmount * bonusRate

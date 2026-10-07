@@ -1,0 +1,10 @@
+.layout { display: grid; height: 100dvh; min-height: 0; grid-template-columns: minmax(0, 1fr) minmax(380px, 38%); background: #07090d; }
+.details, .tools { min-width: 0; min-height: 0; height: 100%; overflow: hidden; }
+.switcher { display: none; }
+@media (max-width: 1279px) {
+  .layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .switcher { display: flex; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #ffffff20; }
+  .switcher button { padding: 8px 16px; border-radius: 8px; font-size: 12px; color: #cbd5e1; background: #ffffff09; }
+  .switcher button[aria-pressed='true'] { background: #0e7490; color: white; }
+  .layout[data-view='tools'] .details, .layout[data-view='details'] .tools { display: none; }
+}

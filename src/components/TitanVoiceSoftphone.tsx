@@ -7,8 +7,8 @@ import { makeZohoVoiceCall, hasZohoVoiceWebSdkConfiguration, connectZohoVoice, c
 export type PhoneCallStatus = 'idle' | 'incoming' | 'dialing' | 'ringing' | 'connected' | 'on_hold' | 'wrap_up'
 export type PhoneCallingMode = 'browser_softphone' | 'zoho_voice_bridge' | 'zdialer'
 export type SoftphoneTab = 'dialer' | 'directory' | 'recent' | 'copilot'
-export function TitanVoiceSoftphone({ embedded = false, onCallState }: { embedded?: boolean; onCallState?: (state: { status: PhoneCallStatus; accountId: string; name: string }) => void }) {
-  const { numbers, users, error, loading, admin, refresh } = useVoiceDirectory()
+export function TitanVoiceSoftphone({ embedded = false, directoryActive = true, onCallState }: { embedded?: boolean; directoryActive?: boolean; onCallState?: (state: { status: PhoneCallStatus; accountId: string; name: string }) => void }) {
+  const { numbers, users, error, loading, admin, refresh } = useVoiceDirectory(directoryActive)
   const [number, setNumber] = useState('')
   const [from, setFrom] = useState('')
   const [tab, setTab] = useState<'dialer' | 'directory'>('dialer')
