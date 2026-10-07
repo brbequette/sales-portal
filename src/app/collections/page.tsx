@@ -2,6 +2,7 @@
 
 import { prepareInAppCall } from "@/lib/internal-phone"
 import { CollectionOverview } from "@/components/CollectionOverview"
+import Link from 'next/link'
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { 
@@ -180,6 +181,7 @@ export default function CollectionsPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Link href="/collections/stats" className="td-btn td-btn-sm">Collection stats</Link>
           <button
             onClick={() => fetchCollections(true)}
             disabled={loading}

@@ -40,12 +40,18 @@ function DetailPanel({ detail, close }: { detail: Detail; close: () => void }) {
   </div>, document.body)
 }
 
-export function CollectionOverview({ invoice }: { invoice: Invoice }) {
+export function CollectionOverview({ invoice: suppliedInvoice, invoiceId }: { invoice?: Invoice; invoiceId?: string }) {
   const [tab, setTab] = useState(tabs[0])
   const [data, setData] = useState<Overview | null>(null)
   const [error, setError] = useState('')
   const [retry, setRetry] = useState(0)
   const [detail, setDetail] = useState<Detail | null>(null)
+  const invoiceDocument = data?.documents[0]
+  const invoice = suppliedInvoice || {
+    id: invoiceId || '', invoice_number: invoiceDocument?.number || '…', customer_name: data?.account.name || 'Invoice',
+    balance: invoiceDocument?.balance, total: invoiceDocument?.total, status: invoiceDocument?.status || '',
+    due_date: invoiceDocument?.dueDate || null, days_overdue: '—', salesperson_name: invoiceDocument?.salesperson || '',
+  }
   useEffect(() => {
     const controller = new AbortController()
     setData(null); setError(''); setDetail(null)

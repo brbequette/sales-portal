@@ -1,5 +1,6 @@
 "use client"
 
+import Link from 'next/link'
 import { useZoho } from "@/components/ZohoProvider"
 import { useState, useEffect, useMemo } from "react"
 import { FiDollarSign, FiPlus, FiEdit2, FiTrash2, FiCheck, FiX, FiUser, FiClock, FiTarget, FiActivity, FiRefreshCw, FiSend, FiFileText, FiList } from "react-icons/fi"
@@ -244,7 +245,7 @@ export default function CompensationPlansPage() {
               <FiTarget className="text-emerald-500" size={20} />
             </div>
             <div>
-              <h1 className="page-title text-2xl font-bold text-white">Compensation Plans</h1>
+              <h1 className="page-title text-2xl font-bold text-white">Compensation Plans</h1><Link href="/collections/stats" className="text-cyan-400 text-sm underline">Collections earnings and reporting settings</Link>
               <p className="page-subtitle text-sm text-neutral-400">Manage rep compensation, commissions, and performance commitments.</p>
             </div>
           </div>
