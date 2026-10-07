@@ -72,7 +72,7 @@ describe('ZDialer platform handoff', () => {
     expect(screen.getByRole('link', { name: 'Continue to ZDialer' }).getAttribute('href')).toBe('tel:+16185550100')
     view.rerender(<ZDialerActions phone="6185550100" kind="sms" draft="Keep me" />)
     expect(document.querySelector('a[href^="sms:"],a[href^="tel:"],a[href^="zohovoice:"]')).toBeNull()
-    expect(screen.getByText(/switch to the ZDialer mobile app/)).toBeTruthy()
+    expect(screen.getByText(/switch to ZDialer/)).toBeTruthy()
   })
   it('checks saved restrictions before exposing SMS handoff controls and retains the draft on rejection', async () => {
     vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ error: 'SMS blocked: opt out' }), { status: 409 }))
