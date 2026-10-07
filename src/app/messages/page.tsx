@@ -1,4 +1,5 @@
 "use client"
+import { USE_ZDIALER, requestZDialerMessage } from "@/lib/zdialer"
 
 import { useState, useEffect, useRef } from "react"
 import { createPortal } from "react-dom"
@@ -79,6 +80,7 @@ export default function MessagesPage() {
 
   // Sender numbers are configuration data and must always reflect the database.
   useEffect(() => {
+    if (USE_ZDIALER) return
     const refresh = () => fetch('/api/manage-zoho-numbers', { cache: 'no-store' }).then(r => r.json()).then(d => {
       const available = d.success ? (d.numbers || []).filter((n: any) => n.active) : []
       setOutboundNumbers(available)
@@ -266,6 +268,20 @@ export default function MessagesPage() {
   const handleSend = async () => {
     if (!textInput.trim() || !selectedAccountId) return
     
+    if (USE_ZDIALER) {
+      const recent = [...messages].reverse().find(message => message.fromNumber && message.toNumber)
+      const recipient = recent ? recent.direction === 'INBOUND' ? recent.fromNumber : recent.toNumber : ''
+      const account = accounts.find(item => item.id === selectedAccountId)
+      let draft = textInput
+      const userId = session?.user?.dbId || session?.user?.id
+      if (attachVCard && userId) {
+        const fields = new URLSearchParams()
+        for (const [key, value] of Object.entries(vcardFields)) if (value) fields.set(key, value)
+        draft += `\n\nhttps://tdusales.com/api/vcard/${encodeURIComponent(userId)}?${fields}`
+      }
+      requestZDialerMessage(recipient, draft, account?.name || '', selectedAccountId)
+      return
+    }
     const lastOurMsg = [...messages].reverse().find(m => m.direction === 'OUTBOUND')
     const fromNumber = selectedOutboundNumber || lastOurMsg?.fromNumber || ''
     
@@ -723,6 +739,7 @@ export default function MessagesPage() {
               </div>
             )}
 
+            {USE_ZDIALER && <p className="px-4 py-2 text-xs text-cyan-200">ZDialer handles sending and current delivery status. Titan keeps your draft and saved history.</p>}
             {/* Reply Input Box */}
             <div className="p-4 bg-[#0a0a0c] border-t border-white/10 flex flex-col gap-2 shrink-0">
               <div className="flex items-center justify-between text-xs text-neutral-400 font-semibold px-1">
@@ -758,7 +775,7 @@ export default function MessagesPage() {
                   {suggesting ? <div className="w-5 h-5 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" /> : <FiZap size={20} />}
                 </button>
 
-                {zohoNumbers.length > 0 && (
+                {!USE_ZDIALER && zohoNumbers.length > 0 && (
                   <select
                     value={selectedOutboundNumber}
                     onChange={e => setSelectedOutboundNumber(e.target.value)}
@@ -787,6 +804,8 @@ export default function MessagesPage() {
                   }}
                 />
                 <button 
+                  aria-label={USE_ZDIALER ? "Continue text in ZDialer" : "Send text message"}
+                  title={USE_ZDIALER ? "Continue in ZDialer" : "Send"}
                   onClick={handleSend}
                   disabled={!textInput.trim() || sending}
                   className="p-3 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 transition-colors disabled:opacity-50 shrink-0"

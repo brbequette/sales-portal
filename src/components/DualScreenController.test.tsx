@@ -74,6 +74,17 @@ it('never opens a second screen on mobile and keeps the local communicator avail
   fireEvent.click(screen.getByRole('button', { name: 'Open Titan communications' }))
   expect(screen.queryByRole('button', { name: 'Open second screen' })).toBeNull()
 })
+it('forwards a ZDialer SMS draft and exact contact to the paired display once', () => {
+  render(<DualScreenController />)
+  Channel.latest.receive('DISPLAY_READY')
+  const local = vi.fn()
+  window.addEventListener('titan:zdialer-message', local)
+  const detail = { phone: '+16185550100', accountId: 'a', contactId: 'c', message: 'Keep this draft' }
+  act(() => window.dispatchEvent(new CustomEvent('titan:zdialer-message', { detail })))
+  expect(local).not.toHaveBeenCalled()
+  expect(Channel.latest.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'COMMUNICATION_ACTION', action: { event: 'titan:zdialer-message', detail } }))
+  window.removeEventListener('titan:zdialer-message', local)
+})
 it('does not move an active call to a new window', () => {
   render(<DualScreenController />)
   setLocalCallActive(true)

@@ -115,3 +115,8 @@
   .account > p { margin: 0; }
   .panel [data-message-contact] { padding: 4px 8px; }
 }
+
+/* External-provider setup and handoff must remain reachable in the compact dock. */
+.panel [data-zdialer-phone] [data-phone-body] { height:auto; min-height:0; }
+.panel [data-zdialer-layout] { display:flex; flex-direction:column; height:auto; max-height:none; gap:10px; padding-bottom:12px; }
+.panel [data-zdialer-layout] [data-phone-keypad] { flex:none; min-height:148px; grid-template-rows:repeat(4,minmax(32px,1fr)); }
