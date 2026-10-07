@@ -55,7 +55,7 @@ function RecipientActions({ number, kind, draft }: { number: string; kind: 'call
         <p className={styles.help}>In ZDialer → More → Settings, enable “Set as Default Dialer” and complete your {platform === 'ios' ? 'iPhone/iPad' : 'Android'} settings. Select your business caller ID in ZDialer.</p>
         <label className={styles.check}><input type="checkbox" checked={defaultReady} onChange={event => setDefaultReady(event.target.checked)} />ZDialer is my default calling app on this device</label>
         {defaultReady && number ? <a className={styles.primary} href={`tel:${number}`} onClick={() => setStatus('Calling-app handoff requested. Check that ZDialer opens before placing the call.')}><FiPhone />Continue to ZDialer</a> : <button type="button" className={styles.primary} disabled>Complete ZDialer setup to call</button>}
-      </> : <p className={styles.help}>Copy the recipient and draft below, switch to the ZDialer mobile app, then open SMS → New message. Paste the details and send there. Direct mobile SMS draft links are not supported by this integration.</p>}
+      </> : <p className={styles.help}>Copy the number, switch to ZDialer → SMS → New message and paste the recipient. Return here to copy your draft, then paste and send it in ZDialer. Direct mobile SMS draft links are not supported by this integration.</p>}
       <a href={`https://www.zoho.com/voice/help/zdialer-app-for-${platform === 'ios' ? 'ios' : 'android'}.html`} target="_blank" rel="noreferrer">{platform === 'ios' ? 'iPhone/iPad' : 'Android'} ZDialer setup <FiExternalLink /></a>
     </>}
     <div className={styles.copies}>
