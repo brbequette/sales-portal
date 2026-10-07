@@ -34,8 +34,9 @@ export function EmailInbox({
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [emails, setEmails] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [isSyncing, setIsSyncing] = useState(false)
-  const [activeTab, setActiveTab] = useState<"All" | "Needs Response" | "Sent" | "Archived">("All")
+  const [activeTab, setActiveTab] = useState<"Inbox" | "All" | "Needs Response" | "Sent" | "Archived">("Inbox")
   const [selectedEmail, setSelectedEmail] = useState<any | null>(null)
   
   // Compose State
@@ -56,30 +57,32 @@ export function EmailInbox({
     setSelectedEmail(null)
     setEmails([]); setNextCursor(null)
     void fetchEmails()
-    void fetchTemplates()
     
     // Set default To address if composing
     if (primaryContact?.email) {
       setComposeTo(primaryContact.email)
     }
     return () => { emailRequest.current++ }
-  }, [accountId, primaryContact, search])
+  }, [accountId, primaryContact, search, activeTab])
+  useEffect(() => { void fetchTemplates() }, [])
 
   const fetchEmails = async (cursor?: string) => {
     const request = ++emailRequest.current
     setIsLoading(true)
+    setLoadError('')
     try {
-      const params = new URLSearchParams({ ...(accountId ? { accountId } : {}), ...(search ? { q: search } : {}), ...(cursor ? { cursor } : {}) })
+      const folder = activeTab === 'Inbox' ? 'inbox' : activeTab === 'Sent' ? 'sent' : activeTab === 'Archived' ? 'archived' : 'all'
+      const params = new URLSearchParams({ folder, ...(accountId ? { accountId } : {}), ...(search ? { q: search } : {}), ...(cursor ? { cursor } : {}) })
       const url = `/api/emails?${params}`
       const res = await fetch(url)
       const data = await res.json()
-      if (request === emailRequest.current && !data.success) throw new Error(data.error || 'Unable to load email history.')
+      if (request === emailRequest.current && (!res.ok || !data.success)) throw new Error(data.error || 'Unable to load email history.')
       if (request === emailRequest.current && data.success) {
         setEmails(previous => cursor ? [...previous, ...(data.emails || []).filter((email: { id: string }) => !previous.some(old => old.id === email.id))] : data.emails || [])
         setNextCursor(data.nextCursor || null)
       }
     } catch (error) {
-      if (request === emailRequest.current) toast.error(error instanceof Error ? error.message : 'Unable to load email history.')
+      if (request === emailRequest.current) setLoadError(error instanceof Error ? error.message : 'Unable to load email history.')
     } finally {
       if (request === emailRequest.current) setIsLoading(false)
     }
@@ -188,6 +191,7 @@ export function EmailInbox({
     return emails.filter(e => {
       const status = String(e.status || "").toUpperCase()
       const direction = String(e.direction || "").toUpperCase()
+      if (activeTab === "Inbox") return direction === 'INBOUND' && status !== 'ARCHIVED'
       if (activeTab === "Needs Response") return e.intelligenceNeedsResponse || e.needsResponse === true || status === "NEEDS_RESPONSE"
       if (activeTab === "Sent") return direction === "OUTBOUND"
       if (activeTab === "Archived") return status === "ARCHIVED"
@@ -298,6 +302,7 @@ export function EmailInbox({
           <div className="flex items-center gap-2">
             <button 
               onClick={() => setSelectedEmail(null)}
+              aria-label="Back to email inbox"
               className="p-1.5 hover:bg-[var(--surface-3)] rounded-lg transition-colors text-[var(--muted)] hover:text-white"
             >
               <FiChevronLeft size={18} />
@@ -374,6 +379,7 @@ export function EmailInbox({
           <h2 className="font-bold text-white">Email Inbox</h2>
         </div>
         <div className="flex gap-2">
+          <button onClick={() => void fetchEmails()} disabled={isLoading} className="td-btn td-btn-sm td-btn-ghost" aria-label="Refresh saved email inbox" title="Refresh saved email inbox"><FiRefreshCw size={14} /></button>
           {canSync && <button
             onClick={handleSync}
             disabled={isSyncing}
@@ -394,11 +400,11 @@ export function EmailInbox({
       <div className="shrink-0 p-2"><input aria-label="Search email history" placeholder="Search subject, sender or message" value={search} onChange={e => setSearch(e.target.value)} className="td-input" /></div>
       {/* Tabs */}
       <div className="flex shrink-0 overflow-x-auto border-b border-[var(--border)] px-2 bg-[var(--surface-2)]">
-        {(["All", "Needs Response", "Sent", "Archived"] as const).map(tab => (
+        {(["Inbox", "All", "Needs Response", "Sent", "Archived"] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2.5 text-xs font-semibold transition-colors border-b-2 ${
+            className={`shrink-0 whitespace-nowrap px-4 py-2.5 text-xs font-semibold transition-colors border-b-2 ${
               activeTab === tab 
                 ? "border-[var(--primary)] text-white" 
                 : "border-transparent text-[var(--muted)] hover:text-white"
@@ -417,7 +423,7 @@ export function EmailInbox({
             <div className="animate-spin mb-4"><FiRefreshCw size={24} /></div>
             <div className="text-sm">Loading emails...</div>
           </div>
-        ) : filteredEmails.length === 0 ? (
+        ) : loadError ? <div role="alert" className="p-4 text-amber-300">{loadError}<button className="td-btn mt-3" onClick={() => void fetchEmails()}>Retry inbox</button></div> : filteredEmails.length === 0 ? (
           <div className="p-8 flex flex-col items-center justify-center text-[var(--muted)] text-center h-full">
             <FiMail size={32} className="mb-3 opacity-50" />
             <div className="text-sm font-medium text-white mb-1">No emails found</div>
@@ -429,6 +435,8 @@ export function EmailInbox({
               <div 
                 key={email.id} 
                 onClick={() => setSelectedEmail(email)}
+                role="button" tabIndex={0} aria-label={`Read email: ${email.subject || '(No Subject)'}`}
+                onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedEmail(email) } }}
                 className="p-4 hover:bg-[var(--surface-2)] cursor-pointer transition-colors group flex gap-3"
               >
                 <div className="w-8 h-8 rounded-full bg-[var(--surface-3)] flex items-center justify-center shrink-0 text-xs font-bold text-white">

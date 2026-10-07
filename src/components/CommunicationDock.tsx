@@ -3,7 +3,9 @@
 import { Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { FiCpu, FiMaximize2, FiMinimize2, FiMessageSquare, FiMonitor, FiPhone, FiSearch, FiX } from 'react-icons/fi'
+import { FiCpu, FiMail, FiMaximize2, FiMinimize2, FiMessageSquare, FiMonitor, FiPhone, FiSearch, FiX } from 'react-icons/fi'
+import Link from 'next/link'
+import { EmailInbox } from './EmailInbox'
 import styles from './CommunicationDock.module.css'
 import { AiAssistant } from './AiAssistant'
 import { TitanVoiceSoftphone, type PhoneCallStatus } from './TitanVoiceSoftphone'
@@ -13,7 +15,7 @@ import { CommunicationSearch } from './CommunicationSearch'
 import { COMMUNICATION_CONTEXT_EVENT, getCommunicationContext, publishCommunicationContext, type CommunicationContext } from '@/lib/communication-context'
 
 type Account = { id: string; name: string; contacts?: Array<{ id: string; name?: string; phone?: string; mobilePhone?: string; email?: string }> }
-type Tab = 'phone' | 'messages' | 'ai' | 'next' | 'search'
+type Tab = 'phone' | 'messages' | 'email' | 'ai' | 'next' | 'search'
 
 type DockProps = { user?: { id?: string; name?: string; role?: string } }
 
@@ -40,6 +42,7 @@ function CommunicationDockContent({ user }: DockProps) {
   const [loading, setLoading] = useState(false)
   const [messageView, setMessageView] = useState<'account' | 'inbox'>('account')
   const [inboxLoaded, setInboxLoaded] = useState(false)
+  const [emailLoaded, setEmailLoaded] = useState(false)
   const launcher = useRef<HTMLButtonElement>(null)
   const dock = useRef<HTMLElement>(null)
 
@@ -159,20 +162,24 @@ function CommunicationDockContent({ user }: DockProps) {
   return createPortal(<aside ref={dock} aria-label="Titan communications" data-open={open} data-expanded={expanded} className={styles.dock}>
     <section hidden={!open} aria-label="Communications workspace" className={styles.panel}>
       <header className="flex shrink-0 items-center gap-3 border-b border-white/10 px-4 py-3">
-        <div className="min-w-0 flex-1"><h2 className="text-sm font-bold">Titan Communications</h2><p className="truncate text-xs text-neutral-400">{context?.title || account?.name || 'Phone, messages and AI in one place'}</p></div>
+        <div className="min-w-0 flex-1"><h2 className="text-sm font-bold">Titan Communications</h2><p className="truncate text-xs text-neutral-400">{context?.title || account?.name || 'Phone, text, email and AI in one place'}</p></div>
         <button type="button" aria-label="Search accounts and records" aria-pressed={tab === 'search'} title="Search accounts, contacts, products and orders" onClick={() => setTab('search')} className={`rounded-lg p-2 ${tab === 'search' ? 'bg-cyan-600' : 'hover:bg-white/10'}`}><FiSearch /></button>
         {pathname !== '/display' && pathname !== '/communications' && <button type="button" aria-label="Open second screen" title="Open second screen" onClick={() => window.dispatchEvent(new Event('titan:open-second-screen'))} className="rounded-lg p-2 hover:bg-white/10"><FiMonitor /></button>}
         <button type="button" aria-label={expanded ? 'Restore panel size' : 'Expand communications'} onClick={() => setExpanded(value => !value)} className={`${styles.desktopAction} rounded-lg p-2 hover:bg-white/10`}>{expanded ? <FiMinimize2 /> : <FiMaximize2 />}</button>
         <button type="button" aria-label="Minimize communications" onClick={() => { setOpen(false); launcher.current?.focus() }} className="rounded-lg p-2 hover:bg-white/10"><FiX /></button>
       </header>
-      <nav aria-label="Communication tools" className="grid shrink-0 grid-cols-4 gap-1 border-b border-white/10 p-2">
-        {([{ id: 'phone', label: 'Phone', Icon: FiPhone }, { id: 'messages', label: 'Messages', Icon: FiMessageSquare }, { id: 'ai', label: 'AI', Icon: FiCpu }] as const).map(({ id, label, Icon }) => <button key={id} type="button" aria-pressed={tab === id} onClick={() => setTab(id)} className={`flex items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold ${tab === id ? 'bg-cyan-600 text-white' : 'text-neutral-400 hover:bg-white/10'}`}><Icon />{label}{id === 'phone' && busy && <span className="h-2 w-2 rounded-full bg-emerald-300" />}</button>)}
+      <nav aria-label="Communication tools" className="grid shrink-0 grid-cols-5 gap-1 border-b border-white/10 p-2">
+        {([{ id: 'phone', label: 'Phone', Icon: FiPhone }, { id: 'messages', label: 'Messages', Icon: FiMessageSquare }, { id: 'email', label: 'Email', Icon: FiMail }, { id: 'ai', label: 'AI', Icon: FiCpu }] as const).map(({ id, label, Icon }) => <button key={id} type="button" aria-pressed={tab === id} onClick={() => { if (id === 'email') setEmailLoaded(true); setTab(id) }} className={`flex items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold ${tab === id ? 'bg-cyan-600 text-white' : 'text-neutral-400 hover:bg-white/10'}`}><Icon />{label}{id === 'phone' && busy && <span className="h-2 w-2 rounded-full bg-emerald-300" />}</button>)}
         <button type="button" aria-pressed={tab === 'next'} onClick={() => setTab('next')} className={`rounded-lg py-2 text-sm font-semibold ${tab === 'next' ? 'bg-cyan-600 text-white' : 'text-neutral-400 hover:bg-white/10'}`}>Next steps</button>
       </nav>
       {/* Keep tools mounted: changing tabs or minimizing must not end a call or erase a draft. */}
       <div hidden={tab !== 'search'} className={styles.tool}><CommunicationSearch active={open && tab === 'search'} onOpenRecord={() => setOpen(false)} onMessages={(id, name, selectedContact) => { if (chooseAccount(id, name, selectedContact)) { setMessageView('account'); setTab('messages') } }} /></div>
       <div hidden={tab !== 'phone'} className={styles.tool}><TitanVoiceSoftphone embedded onCallState={callState} /></div>
       <div hidden={tab !== 'ai'} className={styles.tool}><AiAssistant embedded active={open && tab === 'ai'} user={user} /></div>
+      <div hidden={tab !== 'email'} className={`${styles.tool} ${styles.messages}`}>
+        <div className="flex shrink-0 justify-end"><Link href="/messages/email" onClick={() => setOpen(false)} className="text-xs text-cyan-300 underline p-1">Open full email inbox</Link></div>
+        {emailLoaded && <div className="flex-1 min-h-0 min-w-0"><EmailInbox /></div>}
+      </div>
       <div hidden={tab !== 'next'} className={`${styles.tool} ${styles.nextSteps}`} onClick={event => { if ((event.target as HTMLElement).closest('a')) setOpen(false) }}><SalesNextSteps accountId={context?.accountId || accountId} active={open && tab === 'next'} /></div>
       <div hidden={tab !== 'messages'} className={`${styles.tool} ${styles.messages}`}>
         <div className="flex shrink-0 gap-2 text-xs"><button aria-pressed={messageView === 'account'} onClick={() => setMessageView('account')} className="rounded-lg bg-white/10 px-3 py-2">Account messages</button><button aria-pressed={messageView === 'inbox'} onClick={() => { setInboxLoaded(true); setMessageView('inbox') }} className="rounded-lg bg-white/10 px-3 py-2">All conversations</button></div>

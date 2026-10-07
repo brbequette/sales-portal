@@ -13,6 +13,11 @@ it('scopes inbox searches to owned accounts and assigned personal email', async 
   expect(m.email.findMany.mock.calls[0][0].where).toMatchObject({ OR: [{ accountId: { in: ['owned'] } }, { userId: 'rep' }], AND: [{ OR: expect.any(Array) }] })
   expect(res.headers.get('cache-control')).toBe('private, no-store')
 })
+it('filters the inbox before pagination while retaining mailbox authorization', async () => {
+  const res = await GET(new NextRequest('https://www.tdusales.com/api/emails?folder=inbox'))
+  expect(res.status).toBe(200)
+  expect(m.email.findMany.mock.calls[0][0].where).toMatchObject({ OR: [{ accountId: { in: ['owned'] } }, { userId: 'rep' }], direction: 'INBOUND', status: { not: 'ARCHIVED' } })
+})
 it('rejects account history for another rep before reading emails', async () => {
   m.account.findFirst.mockResolvedValue({ id: 'other', ownerId: 'someone' })
   expect((await GET(new NextRequest('https://www.tdusales.com/api/emails?accountId=other'))).status).toBe(403)

@@ -10,7 +10,7 @@ import { usePreferences } from "@/components/PreferencesProvider"
 import {
   FiHome, FiPhoneCall, FiDollarSign, FiTool, FiTrendingUp,
   FiX, FiFileText, FiLogOut, FiSettings, FiBookOpen,
-  FiMessageSquare, FiArrowLeft, FiCheckSquare, FiClock, FiGrid,
+  FiMessageSquare, FiMail, FiArrowLeft, FiCheckSquare, FiClock, FiGrid,
   FiTruck, FiAward, FiLayers, FiChevronLeft, FiChevronRight, FiZap,
 } from "react-icons/fi"
 import { GlobalTopBar } from "@/components/GlobalTopBar"
@@ -46,6 +46,7 @@ const ALL_TRACKABLE: (NavItem & { defaultScore: number })[] = [
   { href: "/tasks",       icon: FiCheckSquare,   label: "Tasks",       color: "text-violet-400",  defaultScore: 80  },
   { href: "/docs",        icon: FiFileText,      label: "Docs",        color: "text-sky-400",     defaultScore: 70  },
   { href: "/processing",  icon: FiLayers,        label: "Process",     color: "text-orange-400",  defaultScore: 75  },
+  { href: "/messages/email", icon: FiMail, label: "Email Inbox", color: "text-cyan-400", defaultScore: 59 },
   { href: "/messages",    icon: FiMessageSquare, label: "Messages",    color: "text-cyan-400",    defaultScore: 60  },
   { href: "/collections", icon: FiPhoneCall,     label: "Collections", color: "text-rose-400",    defaultScore: 50  },
   { href: "/commissions", icon: FiDollarSign,    label: "Commissions", color: "text-green-400",   defaultScore: 40  },
@@ -88,6 +89,7 @@ const navGroups: NavGroup[] = [
     label: "Communication",
     items: [
       { href: "/messages",    icon: FiMessageSquare, label: "Messages",       color: "text-cyan-400"    },
+      { href: "/messages/email", icon: FiMail, label: "Email Inbox", color: "text-cyan-400" },
       { href: "/collections", icon: FiPhoneCall,     label: "Collections",    color: "text-rose-400"    },
     ]
   },
@@ -119,7 +121,7 @@ const groupAccent: Record<string, string> = {
 
 // ─── Main pages list (no back button needed) ──────────────────────────────────
 const MAIN_PAGES = [
-  "/dashboard", "/login", "/sales", "/shipping", "/messages", "/collections",
+  "/dashboard", "/login", "/sales", "/shipping", "/messages", "/messages/email", "/collections",
   "/commissions", "/stats", "/tools", "/training", "/catalog",
   "/timeclock", "/tasks", "/intro-offer", "/docs", "/processing",
 ]
@@ -254,7 +256,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const showBackButton = !MAIN_PAGES.includes(pathname) && !isAdminPage
 
   const isActive = (href: string) =>
-    href === "/dashboard" ? pathname === "/dashboard" : pathname === href || pathname.startsWith(href + "/")
+    href === "/dashboard" || href === "/messages" ? pathname === href : pathname === href || pathname.startsWith(href + "/")
 
   // ── Logout ────────────────────────────────────────────────────────────────
   const handleLogout = async () => {

@@ -36,6 +36,11 @@
 .inbox { flex: 1; min-height: 0; width: 100%; border: 0; }
 .accountTools { display: flex; flex: 1; min-height: 0; overflow: auto; }
 .desktopAction { display: inline-flex; }
+.panel nav[aria-label='Communication tools'] button { min-width: 0; }
+@container (max-width: 520px) {
+  .panel nav[aria-label='Communication tools'] button { font-size: 12px; gap: 4px; }
+  .panel nav[aria-label='Communication tools'] svg { display: none; }
+}
 
 /* Embedded tools share the panel's height; only their content areas scroll. */
 .panel [data-phone-console] { height: 100%; min-height: 0; }

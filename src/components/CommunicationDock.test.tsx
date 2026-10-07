@@ -6,6 +6,7 @@ import { publishCommunicationContext, screenOneFramePath } from '@/lib/communica
 
 const mounts = vi.hoisted(() => ({ phone: 0, ai: 0 }))
 vi.mock('next/navigation', () => ({ usePathname: () => '/dashboard', useSearchParams: () => new URLSearchParams() }))
+vi.mock('./EmailInbox', () => ({ EmailInbox: () => <input aria-label="Email draft" /> }))
 vi.mock('./TitanVoiceSoftphone', () => ({ TitanVoiceSoftphone: ({ onCallState }: { onCallState: (value: unknown) => void }) => {
   useEffect(() => { mounts.phone++; return () => { mounts.phone-- } }, [])
   return <button onClick={() => onCallState({ status: 'incoming', accountId: 'account-b', name: 'Customer B' })}>Simulate incoming call</button>
@@ -27,6 +28,18 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
 describe('unified communications panel', () => {
+  it('opens the global email inbox on demand and preserves its draft while switching tools', () => {
+    render(<CommunicationDock />)
+    expect(screen.queryByLabelText('Email draft')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Open Titan communications' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Email' }))
+    fireEvent.change(screen.getByLabelText('Email draft'), { target: { value: 'Saved draft' } })
+    expect(screen.getByRole('link', { name: 'Open full email inbox' }).getAttribute('href')).toBe('/messages/email')
+    fireEvent.click(screen.getByRole('button', { name: 'Phone' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Email' }))
+    expect((screen.getByLabelText('Email draft') as HTMLInputElement).value).toBe('Saved draft')
+    expect(mounts.phone).toBe(1)
+  })
   it('requires confirmation before a text shortcut switches the saved recipient', async () => {
     render(<CommunicationDock />)
     act(() => publishCommunicationContext({ accountId: 'account-a', title: 'Customer A' }))
