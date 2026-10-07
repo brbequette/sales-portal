@@ -1,10 +1,10 @@
 // @vitest-environment node
 import { beforeEach, expect, it, vi } from 'vitest'
 const m = vi.hoisted(() => ({ auth: vi.fn(), setting: vi.fn(), invoices: vi.fn(), user: vi.fn(), note: vi.fn(), account: vi.fn(), event: vi.fn(), transaction: vi.fn(), push: vi.fn() }))
-vi.mock('./lib/auth-middleware', () => ({ authenticateFunction: m.auth, withFunctionAuth: (fn: unknown) => fn }))
-vi.mock('./lib/prisma', () => ({ prisma: { systemSetting: { findUnique: m.setting }, invoice: { findMany: m.invoices }, user: { findUnique: m.user }, note: { create: m.note }, account: { update: m.account }, communicationEvent: { create: m.event }, $transaction: m.transaction } }))
-vi.mock('./lib/zoho-auth', () => ({ pushZohoNote: m.push }))
-import { handler } from './log-collection-call'
+vi.mock('../netlify/functions/lib/auth-middleware', () => ({ authenticateFunction: m.auth, withFunctionAuth: (fn: unknown) => fn }))
+vi.mock('../netlify/functions/lib/prisma', () => ({ prisma: { systemSetting: { findUnique: m.setting }, invoice: { findMany: m.invoices }, user: { findUnique: m.user }, note: { create: m.note }, account: { update: m.account }, communicationEvent: { create: m.event }, $transaction: m.transaction } }))
+vi.mock('../netlify/functions/lib/zoho-auth', () => ({ pushZohoNote: m.push }))
+import { handler } from '../netlify/functions/log-collection-call'
 const invoke = (body: any) => handler({ httpMethod: 'POST', body: JSON.stringify(body) } as any, {} as any) as Promise<any>
 beforeEach(() => {
   vi.resetAllMocks(); m.auth.mockResolvedValue({ dbId: 'rep', role: 'AGENT', email: 'rep@example.test' })
