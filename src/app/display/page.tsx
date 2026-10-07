@@ -623,14 +623,14 @@ function CommunicatorContent() {
     <div className={layoutStyles.layout} data-view={workspaceView}>
     <nav className={layoutStyles.switcher} aria-label="Communicator workspace"><button aria-pressed={workspaceView === 'tools'} onClick={() => setWorkspaceView('tools')}>Communications</button><button aria-pressed={workspaceView === 'details'} onClick={() => setWorkspaceView('details')}>Accounts & work queue</button></nav>
     <div onInputCapture={() => setFollowing(false)} className={`${layoutStyles.details} flex flex-col overflow-hidden bg-[#07090d] text-white font-sans`}>
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-4 py-2 text-xs">
+      {searchParams.get("controller") && <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-4 py-2 text-xs">
         <span className="text-neutral-400">{followScreenOne ? 'Following the active conversation and screen 1' : 'Account pinned while you work — drafts stay with this customer'}</span>
         <button type="button" aria-pressed={followScreenOne} className="rounded-lg bg-cyan-700 px-3 py-2" onClick={() => {
           if (!followScreenOne && !window.confirm('Resume following screen 1? Unsent work in this account workspace may be cleared.')) return
           setFollowing(!followScreenOne)
           if (!followScreenOne && screenOneState?.communication?.accountId) setActiveAccountId(screenOneState.communication.accountId)
         }}>{followScreenOne ? 'Pin this account' : 'Follow screen 1'}</button>
-      </div>
+      </div>}
       <ScreenTwoContext state={screenOneState} />
       {/* ─── Top Global Communicator Header & Account Switcher ─── */}
       <header className="flex-none bg-[#0a0d14] border-b border-white/10 px-4 py-2.5 z-50 shadow-md">
