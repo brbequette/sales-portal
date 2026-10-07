@@ -17,4 +17,10 @@ describe('task due dates', () => {
     expect(taskIsOverdue({ dueDate: null, status: 'Not Started' })).toBe(false)
     expect(taskIsOverdue({ dueDate: 'invalid', status: 'Not Started' })).toBe(false)
   })
+  it('keeps explicitly timed midnight-UTC follow-ups as instants', () => {
+    const dueDate = '2026-10-08T00:00:00.000Z'
+    expect(taskDate(dueDate, false).getTime()).toBe(Date.parse(dueDate))
+    expect(taskIsOverdue({ dueDate, dueDateIsDateOnly: false, status: 'Not Started' }, new Date('2026-10-08T00:01:00Z'))).toBe(true)
+    expect(taskIsOverdue({ dueDate, dueDateIsDateOnly: false, status: 'Not Started' }, new Date('2026-10-07T23:59:00Z'))).toBe(false)
+  })
 })

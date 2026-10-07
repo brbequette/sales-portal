@@ -14,8 +14,9 @@ import {
   FiMoreVertical, FiSliders, FiEye
 } from "react-icons/fi"
 import { PhoneLink } from "@/components/PhoneLink"
-import { PeriodSelector, isInPeriod, type PeriodValue } from "@/components/PeriodSelector"
-import { UpdateBanner } from '@/lib/useStaleCheck'
+import { PeriodSelector, getPeriodRange, type PeriodValue } from "@/components/PeriodSelector"
+import { TaskCompletionDialog } from '@/components/TaskCompletionDialog'
+import type { CompletionInput } from '@/lib/task-completion'
 import { taskDate, taskIsOverdue } from "@/lib/task-dates"
 import { toast } from "react-hot-toast"
 
@@ -27,6 +28,9 @@ type Category     = "all" | "communication" | "sales" | "process"
 type CalView      = "day" | "week" | "month" | "year"
 
 interface Task {
+  accountDbId?: string | null
+  duplicateCount?: number
+  category?: Category
   id: string
   zohoId: string
   title: string
@@ -37,6 +41,7 @@ interface Task {
   priority: TaskPriority
   type: TaskType
   dueDate: string | null
+  dueDateIsDateOnly?: boolean | null
   ownerId: string
   ownerName?: string | null
   accountId?: string | null
@@ -55,9 +60,10 @@ interface Task {
 
 // â"€â"€â"€ Category classification â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function classifyTask(t: Task): Category {
+  if (t.category) return t.category
   const type = (t.type || "Task").toLowerCase()
   if (["call", "email", "text"].includes(type)) return "communication"
-  if (type === "processing") return "process"
+  if (["processing", "fulfillment", "integration"].includes(type)) return "process"
   if (t.accountId || t.dealId || t.accountName) return "sales"
   return "process"
 }
@@ -92,21 +98,26 @@ const PRIORITY_COLORS: Record<string, string> = {
 }
 
 // â"€â"€â"€ Helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-function fmtDate(d: string | null) {
+function fmtDate(d: string | null, dateOnly?: boolean | null) {
   if (!d) return ""
-  const dt = taskDate(d)
+  const dt = taskDate(d, dateOnly)
   return dt.toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
-function fmtTime(d: string | null) {
+function fmtTime(d: string | null, dateOnly?: boolean | null) {
   if (!d) return ""
-  const dt = taskDate(d)
+  if (dateOnly === true || (dateOnly == null && /^\d{4}-\d{2}-\d{2}(?:T00:00:00(?:\.000)?Z)?$/.test(d))) return ''
+  const dt = taskDate(d, dateOnly)
   const h = dt.getHours(), m = dt.getMinutes()
-  if (h === 0 && m === 0) return ""
   return dt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
 }
-function fmtDateFull(d: string | null) {
+function fmtDateFull(d: string | null, dateOnly?: boolean | null) {
   if (!d) return "No due date"
-  return taskDate(d).toLocaleDateString("en-US", { weekday: "short", month: "long", day: "numeric", year: "numeric" })
+  return taskDate(d, dateOnly).toLocaleDateString("en-US", { weekday: "short", month: "long", day: "numeric", year: "numeric" })
+}
+function dueDateField(task: Task) {
+  if (!task.dueDate) return ''
+  const date = taskDate(task.dueDate, task.dueDateIsDateOnly)
+  return [date.getFullYear(), String(date.getMonth()+1).padStart(2,'0'), String(date.getDate()).padStart(2,'0')].join('-')
 }
 function isOverdue(t: Task) {
   return taskIsOverdue(t)
@@ -181,6 +192,7 @@ function TaskCard({ task, onTap, onComplete, onStatusChange }: {
                     `border-white/10 bg-[#131517]`
       }`}
     >
+      {(task.duplicateCount || 0) > 1 && <button onClick={onTap} className="mx-4 mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs text-amber-300">Possible duplicate · {task.duplicateCount} similar tasks</button>}
       {/* Category accent bar */}
       <div className={`absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full ${cfg.dot} opacity-70`} />
 
@@ -200,7 +212,7 @@ function TaskCard({ task, onTap, onComplete, onStatusChange }: {
               {task.dueDate && (
                 <span className={`flex items-center gap-1 font-medium ${overdue && !completed ? "text-red-400" : "text-neutral-500"}`}>
                   <FiClock size={10} />
-                  {fmtDate(task.dueDate)}{fmtTime(task.dueDate) ? ` • ${fmtTime(task.dueDate)}` : ""}
+                  {fmtDate(task.dueDate, task.dueDateIsDateOnly)}{fmtTime(task.dueDate, task.dueDateIsDateOnly) ? ` • ${fmtTime(task.dueDate, task.dueDateIsDateOnly)}` : ""}
                   {overdue && !completed && <span className="font-bold ml-0.5">OVERDUE</span>}
                 </span>
               )}
@@ -291,10 +303,11 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
 }) {
   useTaskDialog(true, 'Task details', onClose)
   const [editStatus, setEditStatus] = useState<TaskStatus>(task.status)
+  useEffect(() => { setEditStatus(task.status) }, [task.status])
   const [editPriority, setEditPriority] = useState<TaskPriority>(task.priority)
   const [editTitle, setEditTitle] = useState(task.title)
   const [editDesc, setEditDesc] = useState(task.description || "")
-  const [editDueDate, setEditDueDate] = useState(task.dueDate ? task.dueDate.slice(0, 10) : "")
+  const [editDueDate, setEditDueDate] = useState(dueDateField(task))
   const [outcome, setOutcome] = useState("")
   const [saving, setSaving] = useState(false)
   const [addingOutcome, setAddingOutcome] = useState(false)
@@ -309,13 +322,13 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
       .then(response => response.ok ? response.json() : { outcomes: [] })
       .then(data => setStructuredOutcomes(data.outcomes || []))
       .catch(() => setStructuredOutcomes([]))
-  }, [task.zohoId])
+  }, [task.zohoId, task.status])
 
   const handleSave = async () => {
     if (!editTitle.trim()) { toast.error("Enter a task title"); return }
     setSaving(true)
     await onUpdate(task.zohoId, { title: editTitle.trim(), description: editDesc, status: editStatus, priority: editPriority,
-      ...(editDueDate !== (task.dueDate?.slice(0, 10) || '') ? { dueDate: editDueDate || null } : {}) })
+      ...(editDueDate !== dueDateField(task) ? { dueDate: editDueDate || null, dueDateIsDateOnly: true } : {}) })
     setSaving(false)
   }
 
@@ -376,7 +389,7 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
         <div className="flex items-center gap-3 pb-3">
           <span className={`text-xs flex items-center gap-1 font-medium ${overdue ? "text-red-400" : "text-neutral-400"}`}>
             <FiClock size={11} />
-            {fmtDateFull(task.dueDate)}
+            {fmtDateFull(task.dueDate, task.dueDateIsDateOnly)} {fmtTime(task.dueDate, task.dueDateIsDateOnly)}
           </span>
         </div>
 
@@ -396,6 +409,7 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
       <div className="flex-1 overflow-y-auto">
         {tab === "details" && (
           <div className="p-4 space-y-4">
+            {(task.duplicateCount || 0) > 1 && <p className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-sm text-amber-200">{task.duplicateCount} similar open tasks share this rep, linked record, task type, title and due day. Review them in the Possible duplicates queue before taking action. Nothing is merged automatically.</p>}
             <label className="block text-sm text-neutral-300">Due date
               <input type="date" value={editDueDate} onChange={e => setEditDueDate(e.target.value)} className="mt-2 block rounded-xl border border-white/10 bg-[#131517] px-3 py-2 text-white" />
             </label>
@@ -604,10 +618,19 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
 }
 
 // â"€â"€â"€ MINI CALENDAR â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-function MiniCalendar({ tasks, onSelectTask }: { tasks: Task[]; onSelectTask: (t: Task) => void }) {
+function MiniCalendar({ tasks, onSelectTask, onRangeChange }: { tasks: Task[]; onSelectTask: (t: Task) => void; onRangeChange: (start: string, end: string) => void }) {
   const [view, setView]         = useState<CalView>("month")
   const [cur,  setCur]          = useState(new Date())
   const visible = tasks
+  useEffect(() => {
+    let start = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate())
+    let end = new Date(start)
+    if (view === 'month') { start = new Date(cur.getFullYear(), cur.getMonth(), 1); end = new Date(cur.getFullYear(), cur.getMonth()+1, 1) }
+    else if (view === 'year') { start = new Date(cur.getFullYear(), 0, 1); end = new Date(cur.getFullYear()+1, 0, 1) }
+    else if (view === 'week') { start.setDate(start.getDate()-start.getDay()); end = new Date(start); end.setDate(end.getDate()+7) }
+    else end.setDate(end.getDate()+1)
+    onRangeChange(start.toISOString(), end.toISOString())
+  }, [cur, view, onRangeChange])
 
   const go = (d: -1 | 1) => {
     const n = new Date(cur)
@@ -618,7 +641,7 @@ function MiniCalendar({ tasks, onSelectTask }: { tasks: Task[]; onSelectTask: (t
     setCur(n)
   }
 
-  const tasksOn = (day: Date) => visible.filter(t => t.dueDate && sameDay(taskDate(t.dueDate), day))
+  const tasksOn = (day: Date) => visible.filter(t => t.dueDate && sameDay(taskDate(t.dueDate, t.dueDateIsDateOnly), day))
 
   const title = () => {
     if (view === "day")   return cur.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
@@ -695,7 +718,7 @@ function MiniCalendar({ tasks, onSelectTask }: { tasks: Task[]; onSelectTask: (t
               <div className="flex items-center gap-2 mb-1">
                 <span className={`text-[10px] font-bold flex items-center gap-1 ${cfg.text}`}>{TYPE_ICON[t.type]}{t.type}</span>
                 <StatusChip status={t.status} />
-                {fmtTime(t.dueDate) && <span className="ml-auto text-[10px] text-neutral-500">{fmtTime(t.dueDate)}</span>}
+                {fmtTime(t.dueDate, t.dueDateIsDateOnly) && <span className="ml-auto text-[10px] text-neutral-500">{fmtTime(t.dueDate, t.dueDateIsDateOnly)}</span>}
               </div>
               <p className="text-sm font-bold text-white">{t.title}</p>
               {t.accountName && <p className="text-xs text-sky-400 mt-0.5 flex items-center gap-1"><FiUser size={9}/>{t.accountName}</p>}
@@ -784,7 +807,7 @@ function MiniCalendar({ tasks, onSelectTask }: { tasks: Task[]; onSelectTask: (t
                     {Array(fd).fill(null).map((_,i)=><div key={"e"+i}/>)}
                     {Array.from({length:dim},(_,d) => {
                       const day = new Date(cur.getFullYear(),mi,d+1)
-                      const dt  = visible.filter(t => t.dueDate && sameDay(taskDate(t.dueDate),day))
+                      const dt  = visible.filter(t => t.dueDate && sameDay(taskDate(t.dueDate, t.dueDateIsDateOnly),day))
                       return (
                         <div key={d} className={`aspect-square rounded-sm flex items-center justify-center text-[8px] font-bold ${
                           dt.length > 0 ? (dt.some(t=>t.priority==="High") ? "bg-red-500/50 text-white":"bg-violet-500/40 text-white") : "text-neutral-700"
@@ -885,6 +908,7 @@ export default function TasksPage() {
 
   const [tasks,          setTasks]          = useState<Task[]>([])
   const [loading,        setLoading]        = useState(true)
+  const [hasLoaded, setHasLoaded] = useState(false)
   const [refreshing,     setRefreshing]     = useState(false)
   const [selectedTask,   setSelectedTask]   = useState<Task | null>(null)
   const [mainView,       setMainView]       = useState<"list" | "calendar">("list")
@@ -897,6 +921,20 @@ export default function TasksPage() {
   const [taskCustomStart, setTaskCustomStart] = useState("")
   const [taskCustomEnd, setTaskCustomEnd] = useState("")
   const [showCompleted, setShowCompleted] = useState(false)
+  const [queue, setQueue] = useState('all')
+  const [groupBy, setGroupBy] = useState('category')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [pagination, setPagination] = useState({ page: 1, pageSize: 50, total: 0, pages: 1 })
+  const [pageChoice, setPageChoice] = useState({ key: '', page: 1 })
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({ all: 0 })
+  const [queueCounts, setQueueCounts] = useState<Record<string, number>>({ open: 0, today: 0, overdue: 0, waiting: 0, duplicates: 0 })
+  const [completionTarget, setCompletionTarget] = useState<{ task: Task; updates: Partial<Task> } | null>(null)
+  const [calendarRange, setCalendarRange] = useState(() => ({ start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString(), end: new Date(new Date().getFullYear(), new Date().getMonth()+1, 1).toISOString() }))
+  const updateCalendarRange = useCallback((start: string, end: string) => setCalendarRange(previous => previous.start === start && previous.end === end ? previous : { start, end }), [])
+  useEffect(() => { const timer = setTimeout(() => setDebouncedSearch(searchQuery), 250); return () => clearTimeout(timer) }, [searchQuery])
+  const queryKey = JSON.stringify({ category, filters, search: debouncedSearch, queue, showCompleted, taskPeriod, taskCustomStart, taskCustomEnd, calendar: mainView === 'calendar' ? calendarRange : null })
+  const page = pageChoice.key === queryKey ? pageChoice.page : 1
+
 
   // ─── Load tasks ──────────────────────────────────────────────────────────────
   const loadTasks = useCallback(async (forceRefresh = false) => {
@@ -909,7 +947,22 @@ export default function TasksPage() {
       const p = new URLSearchParams()
       if (user.email)   p.set("email",   user.email)
       if (user.zohoId)  p.set("zohoId",  user.zohoId)
-      if (forceRefresh) p.set("refresh", "true")
+      p.set('hub', 'true'); p.set('page', String(page)); p.set('pageSize', '50')
+      p.set('category', category); p.set('search', debouncedSearch)
+      p.set('status', filters.status === 'open' && showCompleted ? 'all' : filters.status)
+      p.set('type', filters.type); p.set('priority', filters.priority); p.set('sort', filters.sort)
+      p.set('queue', filters.status === 'open' ? queue : 'all')
+      const now = new Date(), start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+      p.set('day', [now.getFullYear(), String(now.getMonth()+1).padStart(2,'0'), String(now.getDate()).padStart(2,'0')].join('-'))
+      p.set('offset', String(now.getTimezoneOffset()))
+      p.set('zone', Intl.DateTimeFormat().resolvedOptions().timeZone)
+      p.set('dayStart', start.toISOString()); p.set('dayEnd', end.toISOString())
+      if (taskPeriod !== 'all') { const range = getPeriodRange(taskPeriod, taskCustomStart, taskCustomEnd); p.set('start', range[0].toISOString()); p.set('end', range[1].toISOString()) }
+      if (mainView === 'calendar') {
+        p.set('start', p.has('start') && p.get('start')! > calendarRange.start ? p.get('start')! : calendarRange.start)
+        p.set('end', p.has('end') && p.get('end')! < calendarRange.end ? p.get('end')! : calendarRange.end)
+      }
       const role = (user.role || "").toLowerCase()
       if (role.includes("admin") || role.includes("manager") || role.includes("collections")) {
         p.set("role", "admin")
@@ -919,18 +972,28 @@ export default function TasksPage() {
       if (!res.ok || data.success === false || !Array.isArray(data.tasks)) {
         throw new Error(typeof data.error === 'string' ? data.error : data.message || 'Tasks could not be loaded. Please retry.')
       }
-      if (version === loadVersion.current) setTasks(data.tasks.map((t: Task) => ({ ...t, title: t.title || 'Untitled Task' })))
+      if (version === loadVersion.current) {
+        setTasks(data.tasks.map((t: Task) => ({ ...t, title: t.title || 'Untitled Task' })))
+        setPagination(data.pagination || { page: 1, pageSize: 50, total: data.tasks.length, pages: 1 })
+        setCategoryCounts(data.categoryCounts || { all: data.tasks.length })
+        setQueueCounts(data.queues || { open: data.tasks.length, today: 0, overdue: 0, waiting: 0, duplicates: 0 })
+        if (data.pagination && page > data.pagination.pages) setPageChoice({ key: queryKey, page: data.pagination.pages })
+      }
     } catch (err) {
       if (version === loadVersion.current) setLoadError(err instanceof Error ? err.message : 'Tasks could not be loaded. Please retry.')
     } finally {
-      if (version === loadVersion.current) { setLoading(false); setRefreshing(false) }
+      if (version === loadVersion.current) { setLoading(false); setRefreshing(false); setHasLoaded(true) }
     }
-  }, [user])
+  }, [user?.id, user?.email, user?.role, user?.zohoId, queryKey, page])
 
   useEffect(() => { loadTasks(); return () => { loadVersion.current++ } }, [loadTasks])
 
   // ─── Update task ────────────────────────────────────────────────────────────
-  const handleUpdate = useCallback(async (zohoId: string, data: Partial<Task>) => {
+  const handleUpdate = useCallback(async (zohoId: string, data: Partial<Task> & { completion?: CompletionInput }) => {
+    if (data.status === 'Completed' && !data.completion) {
+      const task = selectedTask?.zohoId === zohoId ? selectedTask : tasks.find(t => t.zohoId === zohoId)
+      if (task && task.status !== 'Completed') { setCompletionTarget({ task, updates: data }); return false }
+    }
     if (pendingUpdates.current.has(zohoId)) return false
     pendingUpdates.current.add(zohoId)
     try {
@@ -946,68 +1009,29 @@ export default function TasksPage() {
       setTasks(prev => prev.map(t => t.zohoId === zohoId ? { ...t, ...data } : t))
       setSelectedTask(prev => prev?.zohoId === zohoId ? { ...prev, ...data } : prev)
       toast.success(data.status === 'Completed' ? 'Task completed' : 'Task saved')
+      void loadTasks(true)
       return true
     } catch (error: any) {
       toast.error(error.message || "Task update failed")
       return false
     } finally { pendingUpdates.current.delete(zohoId) }
-  }, [])
+  }, [tasks, selectedTask, loadTasks])
 
   const handleComplete = useCallback(async (zohoId: string) => {
     return handleUpdate(zohoId, { status: "Completed" })
   }, [handleUpdate])
 
-  // ─── Filtered tasks ────────────────────────────────────────────────────────
-  const matchingTasks = useMemo(() => {
-    let list = tasks
-
-    // Category tab
-
-
-    // Status
-    if (filters.status === "open")      list = list.filter(t => showCompleted || t.status !== "Completed")
-    if (filters.status === "completed") list = list.filter(t => t.status === "Completed")
-    if (filters.status === "overdue")   list = list.filter(t => isOverdue(t))
-
-    // Type
-    if (filters.type !== "all") list = list.filter(t => t.type === filters.type)
-
-    // Priority
-    if (filters.priority !== "all") list = list.filter(t => t.priority === filters.priority)
-
-    // Due date period filter
-    if (taskPeriod !== 'all') {
-      list = list.filter(t => isInPeriod(t.dueDate ? taskDate(t.dueDate) : null, taskPeriod, taskCustomStart, taskCustomEnd))
+  // Filtering and pagination are server-side so search includes all saved tasks.
+  const filteredTasks = tasks
+  const accountGroups = useMemo(() => {
+    const groups = new Map<string, { name: string; href?: string; tasks: Task[] }>()
+    for (const task of tasks) {
+      const key = task.accountDbId || task.accountId || 'unlinked'
+      if (!groups.has(key)) groups.set(key, { name: task.accountName || 'No linked account', href: task.actionUrl, tasks: [] })
+      groups.get(key)!.tasks.push(task)
     }
-
-    // Search
-    if (searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase()
-      list = list.filter(t =>
-        t.title.toLowerCase().includes(q) ||
-        (t.description || "").toLowerCase().includes(q) ||
-        (t.accountName || "").toLowerCase().includes(q) ||
-        (t.dealName || "").toLowerCase().includes(q) ||
-        (t.ownerName || "").toLowerCase().includes(q)
-      )
-    }
-
-    // Sort
-    return [...list].sort((a, b) => {
-      if (filters.sort === "priority") {
-        const p = { High:0, Normal:1, Low:2 }
-        return (p[a.priority]??1) - (p[b.priority]??1)
-      }
-      if (filters.sort === "status") return a.status.localeCompare(b.status)
-      // Due date
-      if (!a.dueDate && !b.dueDate) return 0
-      if (!a.dueDate) return 1
-      if (!b.dueDate) return -1
-      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
-    })
-  }, [tasks, filters, searchQuery, showCompleted, taskPeriod, taskCustomStart, taskCustomEnd])
-
-  const filteredTasks = useMemo(() => category === "all" ? matchingTasks : matchingTasks.filter(t => classifyTask(t) === category), [matchingTasks, category])
+    return Array.from(groups.entries())
+  }, [tasks])
 
   // ─── Group by category ──────────────────────────────────────────────────────
   const groups = useMemo(() => ({
@@ -1016,12 +1040,7 @@ export default function TasksPage() {
     process:       filteredTasks.filter(t => classifyTask(t) === "process"),
   }), [filteredTasks])
 
-  // ─── Stats ──────────────────────────────────────────────────────────────────
-  const stats = useMemo(() => ({
-    open:     tasks.filter(t => t.status !== "Completed").length,
-    overdue:  tasks.filter(t => isOverdue(t)).length,
-    dueToday: tasks.filter(t => t.dueDate && sameDay(taskDate(t.dueDate), new Date()) && t.status !== "Completed").length,
-  }), [tasks])
+  const stats = { open: queueCounts.open || 0, overdue: queueCounts.overdue || 0, dueToday: queueCounts.today || 0 }
 
   const periodLabel = taskPeriod === 'all' ? '' : taskPeriod === 'today' ? 'Today' : taskPeriod === 'this_week' ? 'This Week' : taskPeriod === 'this_month' ? 'This Month' : taskPeriod === 'this_quarter' ? 'This Qtr' : ''
 
@@ -1031,20 +1050,22 @@ export default function TasksPage() {
 
 
 
+  const completionDialog = completionTarget && <TaskCompletionDialog key={completionTarget.task.id} title={completionTarget.task.title} onClose={() => setCompletionTarget(null)} onComplete={completion => handleUpdate(completionTarget.task.zohoId, { ...completionTarget.updates, status: 'Completed', completion })} />
+
   // Full-screen detail — checked BEFORE loading so a background refresh never unmounts this view
   if (selectedTask) {
     return (
-      <TaskDetail
+      <><TaskDetail
         task={selectedTask}
         onClose={() => setSelectedTask(null)}
         onUpdate={handleUpdate}
         onComplete={handleComplete}
-      />
+      />{completionDialog}</>
     )
   }
 
   // Only show full-screen spinner on first load when there is no data yet
-  if (loading && tasks.length === 0) {
+  if (loading && tasks.length === 0 && !hasLoaded) {
     return (
       <div className="flex items-center justify-center h-full bg-[#0a0b0d]">
         <div className="text-center">
@@ -1069,7 +1090,7 @@ export default function TasksPage() {
             <h1 className="text-xl font-bold text-white flex items-center gap-2">
               Task Hub
               <span className="text-xs font-normal text-neutral-400 border border-white/10 bg-white/5 px-2 py-0.5 rounded-full">
-                {taskPeriod !== 'all' ? `${filteredTasks.length} tasks` : `${stats.open} open`}
+                {taskPeriod !== 'all' ? `${pagination.total} tasks` : `${stats.open} open`}
               </span>
             </h1>
           </div>
@@ -1103,6 +1124,10 @@ export default function TasksPage() {
           </div>
         </div>
 
+        <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1 sm:flex-wrap" aria-label="Task priority queues">
+          {([['all','All open','open'],['today','Today','today'],['overdue','Overdue','overdue'],['waiting','Waiting','waiting'],['duplicates','Possible duplicates','duplicates']] as const).map(([value,label,count]) => <button key={value} aria-pressed={queue === value && filters.status === 'open'} onClick={() => { setQueue(value); setFilters(f => ({ ...f, status: 'open' })); setShowCompleted(false); setTaskPeriod('all') }} className={"shrink-0 whitespace-nowrap rounded-lg border px-3 py-2 text-xs font-semibold " + (queue === value && filters.status === 'open' ? 'border-cyan-400/40 bg-cyan-500/15 text-cyan-200' : 'border-white/10 text-neutral-400 hover:text-white')}>{label} <span className="ml-1 opacity-70">{queueCounts[count] || 0}</span></button>)}
+          <Link href="/tasks/stats" className="ml-auto shrink-0 whitespace-nowrap rounded-lg border border-emerald-500/30 px-3 py-2 text-xs font-semibold text-emerald-300">Outcomes & revenue</Link>
+        </div>
         {/* Row 2: Toolbar with View Toggle, Categories, and filters */}
         <div className="flex flex-wrap items-center gap-3 w-full mt-3">
            <div className="flex bg-white/5 p-0.5 rounded-lg border border-white/10 shrink-0">
@@ -1118,8 +1143,7 @@ export default function TasksPage() {
            {(
              <div className="flex items-center gap-1 overflow-x-auto hide-scroll min-w-0 max-w-full border-l border-white/10 pl-3">
                 {(Object.keys(CAT) as Category[]).map(c => {
-                  const cnt = c === "all" ? matchingTasks.length :
-                    matchingTasks.filter(t => classifyTask(t) === c).length
+                  const cnt = categoryCounts[c] || 0
                   return (
                     <button key={c} onClick={() => setCategory(c)}
                       className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
@@ -1161,6 +1185,11 @@ export default function TasksPage() {
            </div>
         </div>
 
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-400">
+          <label className="flex items-center gap-2">Group by<select aria-label="Group tasks by" value={groupBy} onChange={e => setGroupBy(e.target.value)} className="rounded-lg border border-white/10 bg-[#131517] p-2 text-white"><option value="category">Task category</option><option value="account">Account</option></select></label>
+          <span>{pagination.total} matching tasks · page {pagination.page} of {pagination.pages}{mainView === 'calendar' ? ' · calendar shows this page' : groupBy === 'account' ? ' · account groups on this page' : ''}</span>
+          <div className="flex gap-2"><button aria-label="Previous task page" disabled={page <= 1 || loading || refreshing} onClick={() => setPageChoice({ key: queryKey, page: page-1 })} className="rounded-lg border border-white/15 p-2 disabled:opacity-30">Previous</button><button aria-label="Next task page" disabled={page >= pagination.pages || loading || refreshing} onClick={() => setPageChoice({ key: queryKey, page: page+1 })} className="rounded-lg border border-white/15 p-2 disabled:opacity-30">Next</button></div>
+        </div>
         {/* Search bar */}
         {showSearch && (
           <div className="w-full mt-3">
@@ -1179,14 +1208,14 @@ export default function TasksPage() {
       {/* ─── Content ─── */}
       <div className="flex-1 min-h-0 overflow-hidden flex flex-col bg-[#0a0b0d]">
         {mainView === "calendar" ? (
-          <MiniCalendar tasks={filteredTasks} onSelectTask={setSelectedTask} />
+          <MiniCalendar tasks={filteredTasks} onSelectTask={setSelectedTask} onRangeChange={updateCalendarRange} />
         ) : (
           <div className="h-full overflow-y-auto px-4 pt-4 pb-[calc(6rem+env(safe-area-inset-bottom))]">
             {loadError && tasks.length === 0 ? <div className="p-6 text-neutral-400">Unable to display tasks until loading succeeds.</div> : tasks.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center max-w-sm mx-auto pb-10">
                 <FiCheckCircle size={40} className="text-neutral-700 mb-3" />
-                <p className="text-base font-bold text-neutral-300">All caught up!</p>
-                <p className="text-sm text-neutral-500 mt-1 mb-5">You have no tasks pending.</p>
+                <p className="text-base font-bold text-neutral-300">No matching tasks</p>
+                <p className="text-sm text-neutral-500 mt-1 mb-5">Try another queue, filter or search to see more tasks.</p>
                 <Link href="/tasks/new"
                   className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white font-medium px-4 py-2 rounded-lg transition-all text-sm border border-white/10"
                 >
@@ -1199,6 +1228,11 @@ export default function TasksPage() {
                 <p className="text-base font-bold text-neutral-300">No matches</p>
                 <p className="text-sm text-neutral-500 mt-1">Try adjusting your filters or search.</p>
               </div>
+            ) : groupBy === 'account' ? (
+              <div className="space-y-6">{accountGroups.map(([key, group]) => <section key={key}>
+                <div className="mb-3 flex flex-wrap items-center gap-2"><h2 className="font-semibold text-white">{group.name}</h2><span className="text-xs text-neutral-500">{group.tasks.length} on this page</span>{group.href && group.href !== '#' && <Link href={group.href} className="text-xs text-cyan-300">Open account</Link>}</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">{group.tasks.map(task => <TaskCard key={task.id} task={task} onTap={() => setSelectedTask(task)} onComplete={() => handleComplete(task.zohoId)} onStatusChange={status => handleUpdate(task.zohoId, { status: status as TaskStatus })} />)}</div>
+              </section>)}</div>
             ) : category === "all" ? (
               /* Grouped view */
               <div className="space-y-6">
@@ -1251,6 +1285,7 @@ export default function TasksPage() {
         )}
       </div>
 
+      {completionDialog}
       {/* â"€â"€ Filter Drawer â"€â"€ */}
       <FilterDrawer
         open={showFilter}
@@ -1271,4 +1306,3 @@ export default function TasksPage() {
     </div>
   )
 }
-
