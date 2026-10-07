@@ -16,7 +16,7 @@ import {
 import { PhoneLink } from "@/components/PhoneLink"
 import { PeriodSelector, isInPeriod, type PeriodValue } from "@/components/PeriodSelector"
 import { UpdateBanner } from '@/lib/useStaleCheck'
-import { isAdminRole } from "@/lib/roles"
+import { taskDate, taskIsOverdue } from "@/lib/task-dates"
 import { toast } from "react-hot-toast"
 
 // â"€â"€â"€ Types â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -94,26 +94,45 @@ const PRIORITY_COLORS: Record<string, string> = {
 // â"€â"€â"€ Helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function fmtDate(d: string | null) {
   if (!d) return ""
-  const dt = new Date(d)
+  const dt = taskDate(d)
   return dt.toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 function fmtTime(d: string | null) {
   if (!d) return ""
-  const dt = new Date(d)
+  const dt = taskDate(d)
   const h = dt.getHours(), m = dt.getMinutes()
   if (h === 0 && m === 0) return ""
   return dt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
 }
 function fmtDateFull(d: string | null) {
   if (!d) return "No due date"
-  return new Date(d).toLocaleDateString("en-US", { weekday: "short", month: "long", day: "numeric", year: "numeric" })
+  return taskDate(d).toLocaleDateString("en-US", { weekday: "short", month: "long", day: "numeric", year: "numeric" })
 }
 function isOverdue(t: Task) {
-  if (!t.dueDate || t.status === "Completed") return false
-  return new Date(t.dueDate) < new Date()
+  return taskIsOverdue(t)
 }
 function sameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+}
+
+function useTaskDialog(open: boolean, label: string, onClose: () => void) {
+  useEffect(() => {
+    if (!open) return
+    const previous = document.activeElement as HTMLElement | null
+    const dialog = document.querySelector<HTMLElement>(`[role="dialog"][aria-label="${label}"]`)
+    const controls = () => Array.from(dialog?.querySelectorAll<HTMLElement>('button:not(:disabled), input, textarea, select, a[href], [tabindex="0"]') || [])
+    controls()[0]?.focus()
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); onClose() }
+      if (event.key === 'Tab') {
+        const items = controls(), first = items[0], last = items[items.length - 1]
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
+      }
+    }
+    document.addEventListener('keydown', keydown)
+    return () => { document.removeEventListener('keydown', keydown); previous?.focus() }
+  }, [open, label, onClose])
 }
 
 // ─── STATUS LABEL ──────────────────────────────────────────────────────────────
@@ -167,12 +186,12 @@ function TaskCard({ task, onTap, onComplete, onStatusChange }: {
 
       <div className="flex flex-col p-3.5 pl-4">
         {/* Top row: Type + Priority + Title */}
-        <div className="flex items-start gap-2 mb-1.5 cursor-pointer" onClick={onTap} style={{ WebkitTapHighlightColor: "transparent" }}>
+        <div role="button" tabIndex={0} aria-label={`Open task: ${task.title}`} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap() } }} className="flex items-start gap-2 mb-1.5 cursor-pointer" onClick={onTap} style={{ WebkitTapHighlightColor: "transparent" }}>
           <div className={`mt-0.5 ${cfg.text}`}>
             {TYPE_ICON[task.type] || TYPE_ICON.Task}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className={`text-[15px] font-semibold leading-tight truncate ${completed ? "line-through text-neutral-500" : "text-neutral-200 group-hover:text-white transition-colors"}`}>
+            <h3 className={`text-[15px] font-semibold leading-snug line-clamp-2 break-words ${completed ? "line-through text-neutral-500" : "text-neutral-200 group-hover:text-white transition-colors"}`}>
               {task.title}
             </h3>
             
@@ -267,13 +286,15 @@ function TaskCard({ task, onTap, onComplete, onStatusChange }: {
 function TaskDetail({ task, onClose, onUpdate, onComplete }: {
   task: Task
   onClose: () => void
-  onUpdate: (id: string, data: Partial<Task>) => Promise<void>
-  onComplete: (id: string) => Promise<void>
+  onUpdate: (id: string, data: Partial<Task>) => Promise<boolean>
+  onComplete: (id: string) => Promise<boolean>
 }) {
+  useTaskDialog(true, 'Task details', onClose)
   const [editStatus, setEditStatus] = useState<TaskStatus>(task.status)
   const [editPriority, setEditPriority] = useState<TaskPriority>(task.priority)
   const [editTitle, setEditTitle] = useState(task.title)
   const [editDesc, setEditDesc] = useState(task.description || "")
+  const [editDueDate, setEditDueDate] = useState(task.dueDate ? task.dueDate.slice(0, 10) : "")
   const [outcome, setOutcome] = useState("")
   const [saving, setSaving] = useState(false)
   const [addingOutcome, setAddingOutcome] = useState(false)
@@ -291,23 +312,26 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
   }, [task.zohoId])
 
   const handleSave = async () => {
+    if (!editTitle.trim()) { toast.error("Enter a task title"); return }
     setSaving(true)
-    await onUpdate(task.zohoId, { title: editTitle, description: editDesc, status: editStatus, priority: editPriority })
+    await onUpdate(task.zohoId, { title: editTitle.trim(), description: editDesc, status: editStatus, priority: editPriority,
+      ...(editDueDate !== (task.dueDate?.slice(0, 10) || '') ? { dueDate: editDueDate || null } : {}) })
     setSaving(false)
   }
 
   const handleAddOutcome = async () => {
     if (!outcome.trim()) return
     setAddingOutcome(true)
-    const response = await fetch('/api/tasks/outcomes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ taskId: task.zohoId, outcomeType: 'UPDATE', summary: outcome.trim() }) })
-    const data = await response.json()
-    if (!response.ok) { toast.error(data.error || 'Outcome could not be saved'); setAddingOutcome(false); return }
-    const ts = new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
-    setEditDesc(current => current ? `${current}\n\n[${ts}] ${outcome.trim()}` : `[${ts}] ${outcome.trim()}`)
-    setStructuredOutcomes(current => [data.outcome, ...current])
-    toast.success('Structured outcome saved')
-    setOutcome("")
-    setAddingOutcome(false)
+    try {
+      const response = await fetch('/api/tasks/outcomes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ taskId: task.zohoId, outcomeType: 'UPDATE', summary: outcome.trim() }) })
+      const data = await response.json()
+      if (!response.ok || !data.outcome) throw new Error(data.error || 'Outcome could not be saved')
+      setStructuredOutcomes(current => [data.outcome, ...current])
+      toast.success('Outcome saved')
+      setOutcome('')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Outcome could not be saved')
+    } finally { setAddingOutcome(false) }
   }
 
   // Parse outcomes (lines starting with [Month Day h:mm])
@@ -315,11 +339,11 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
   const notesOnly = editDesc.split("\n").filter(l => !/^\[.+\]/.test(l.trim())).join("\n").trim()
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#0a0b0d]">
+    <div role="dialog" aria-modal="true" aria-label="Task details" className="fixed inset-0 z-[11000] flex flex-col bg-[#0a0b0d]">
       {/* Header */}
       <div className={`shrink-0 px-4 pt-safe-top pb-0 ${cfg.bg} border-b border-white/10`} style={{ paddingTop: "max(16px, env(safe-area-inset-top))" }}>
         <div className="flex items-center gap-3 pb-3">
-          <button onClick={onClose} className="p-2 -ml-1 rounded-xl text-neutral-400 hover:text-white transition-colors">
+          <button aria-label="Close task details" onClick={onClose} className="p-2 -ml-1 rounded-xl text-neutral-400 hover:text-white transition-colors">
             <FiChevronLeft size={22} />
           </button>
           <span className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border ${cfg.border} ${cfg.text}`}>
@@ -342,6 +366,7 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
 
         {/* Title */}
         <input
+          aria-label="Task title"
           value={editTitle}
           onChange={e => setEditTitle(e.target.value)}
           className="w-full bg-transparent text-xl font-black text-white placeholder-neutral-500 focus:outline-none pb-3"
@@ -371,6 +396,9 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
       <div className="flex-1 overflow-y-auto">
         {tab === "details" && (
           <div className="p-4 space-y-4">
+            <label className="block text-sm text-neutral-300">Due date
+              <input type="date" value={editDueDate} onChange={e => setEditDueDate(e.target.value)} className="mt-2 block rounded-xl border border-white/10 bg-[#131517] px-3 py-2 text-white" />
+            </label>
             {/* Status */}
             <div>
               <label className="text-xs text-neutral-500 font-bold uppercase tracking-wider block mb-2">Status</label>
@@ -447,7 +475,7 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
 
             {/* Complete button */}
             {task.status !== "Completed" && (
-              <button onClick={() => onComplete(task.zohoId)}
+              <button disabled={saving} onClick={async () => { setSaving(true); try { if (await onComplete(task.zohoId)) setEditStatus("Completed") } finally { setSaving(false) } }}
                 className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-base font-black py-4 rounded-2xl transition-all shadow-lg shadow-emerald-500/20"
               >
                 <FiCheck size={18} /> Mark Complete
@@ -579,12 +607,7 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
 function MiniCalendar({ tasks, onSelectTask }: { tasks: Task[]; onSelectTask: (t: Task) => void }) {
   const [view, setView]         = useState<CalView>("month")
   const [cur,  setCur]          = useState(new Date())
-  const [cat,  setCat]          = useState<Category>("all")
-
-  const visible = useMemo(() =>
-    tasks.filter(t => cat === "all" || classifyTask(t) === cat),
-    [tasks, cat]
-  )
+  const visible = tasks
 
   const go = (d: -1 | 1) => {
     const n = new Date(cur)
@@ -595,7 +618,7 @@ function MiniCalendar({ tasks, onSelectTask }: { tasks: Task[]; onSelectTask: (t
     setCur(n)
   }
 
-  const tasksOn = (day: Date) => visible.filter(t => t.dueDate && sameDay(new Date(t.dueDate), day))
+  const tasksOn = (day: Date) => visible.filter(t => t.dueDate && sameDay(taskDate(t.dueDate), day))
 
   const title = () => {
     if (view === "day")   return cur.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
@@ -723,24 +746,11 @@ function MiniCalendar({ tasks, onSelectTask }: { tasks: Task[]; onSelectTask: (t
     <div className="flex-1 flex flex-col min-h-0">
       {/* Cal header */}
       <div className="shrink-0 px-4 py-3 border-b border-white/8">
-        {/* Category filter */}
-        <div className="flex gap-2 overflow-x-auto pb-3 -mx-4 px-4 hide-scroll">
-          {(Object.keys(CAT) as Category[]).map(c => (
-            <button key={c} onClick={() => setCat(c)}
-              className={`shrink-0 flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border transition-all ${
-                cat === c ? `${CAT[c].bg} ${CAT[c].text} ${CAT[c].border}` : "bg-white/3 text-neutral-500 border-white/8"
-              }`}
-            >
-              <span className={`w-2 h-2 rounded-full ${CAT[c].dot}`} />
-              {CAT[c].label}
-            </button>
-          ))}
-        </div>
         {/* Nav + view toggle */}
         <div className="flex items-center gap-2">
-          <button onClick={() => go(-1)} className="p-2 rounded-xl hover:bg-white/8 text-neutral-400 transition-all"><FiChevronLeft size={16}/></button>
+          <button aria-label="Previous calendar period" onClick={() => go(-1)} className="p-2 rounded-xl hover:bg-white/8 text-neutral-400 transition-all"><FiChevronLeft size={16}/></button>
           <p className="flex-1 text-center text-sm font-bold text-white truncate">{title()}</p>
-          <button onClick={() => go(1)}  className="p-2 rounded-xl hover:bg-white/8 text-neutral-400 transition-all"><FiChevronRight size={16}/></button>
+          <button aria-label="Next calendar period" onClick={() => go(1)}  className="p-2 rounded-xl hover:bg-white/8 text-neutral-400 transition-all"><FiChevronRight size={16}/></button>
           <button onClick={() => setCur(new Date())} className="text-xs font-bold text-violet-400 px-2 py-1 rounded-lg hover:bg-violet-500/10 transition-all border border-violet-500/30">Today</button>
         </div>
         {/* View switcher */}
@@ -774,7 +784,7 @@ function MiniCalendar({ tasks, onSelectTask }: { tasks: Task[]; onSelectTask: (t
                     {Array(fd).fill(null).map((_,i)=><div key={"e"+i}/>)}
                     {Array.from({length:dim},(_,d) => {
                       const day = new Date(cur.getFullYear(),mi,d+1)
-                      const dt  = visible.filter(t => t.dueDate && sameDay(new Date(t.dueDate),day))
+                      const dt  = visible.filter(t => t.dueDate && sameDay(taskDate(t.dueDate),day))
                       return (
                         <div key={d} className={`aspect-square rounded-sm flex items-center justify-center text-[8px] font-bold ${
                           dt.length > 0 ? (dt.some(t=>t.priority==="High") ? "bg-red-500/50 text-white":"bg-violet-500/40 text-white") : "text-neutral-700"
@@ -799,13 +809,14 @@ function FilterDrawer({ open, onClose, filters, setFilters }: {
   filters: { status: string; type: string; priority: string; sort: string }
   setFilters: (f: any) => void
 }) {
+  useTaskDialog(open, 'Filters and sort', onClose)
   if (!open) return null
   return createPortal(
-    <div className="fixed inset-0 z-40 flex items-end">
+    <div className="fixed inset-0 z-[11000] flex items-end sm:items-center sm:justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative w-full bg-[#131517] border-t border-white/10 rounded-t-3xl p-5 pb-8 shadow-2xl animate-slide-up">
+      <div role="dialog" aria-modal="true" aria-label="Filters and sort" className="relative w-full sm:max-w-xl max-h-[90dvh] overflow-y-auto bg-[#131517] border-t border-white/10 rounded-t-3xl p-5 pb-8 shadow-2xl animate-slide-up">
         <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-5" />
-        <h3 className="text-base font-black text-white mb-5">Filters & Sort</h3>
+        <div className="flex items-center justify-between mb-5"><h3 className="text-base font-black text-white">Filters & Sort</h3><button autoFocus onClick={onClose} aria-label="Close filters" className="p-2"><FiX /></button></div>
 
         <div className="space-y-5">
           <div>
@@ -868,7 +879,9 @@ function FilterDrawer({ open, onClose, filters, setFilters }: {
 // ─── MAIN PAGE ──────────────────────────────────────────────────────────────
 export default function TasksPage() {
   const { zohoContext: user } = useZoho()
-  const canRefreshZoho = isAdminRole(user?.role)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const loadVersion = useRef(0)
+  const pendingUpdates = useRef(new Set<string>())
 
   const [tasks,          setTasks]          = useState<Task[]>([])
   const [loading,        setLoading]        = useState(true)
@@ -885,23 +898,11 @@ export default function TasksPage() {
   const [taskCustomEnd, setTaskCustomEnd] = useState("")
   const [showCompleted, setShowCompleted] = useState(false)
 
-  const [updateAvailable, setUpdateAvailable] = useState(false)
-  const [dataSig, setDataSig] = useState<string | null>(null)
-
-  const checkForUpdates = async (currentSig: string, apiUrl: string) => {
-    try {
-      const separator = apiUrl.includes('?') ? '&' : '?'
-      const res = await fetch(`${apiUrl}${separator}checkOnly=true`)
-      const data = await res.json()
-      if (!data.checkOnly) return
-      const remoteSig = `${data.count}|${data.latestUpdatedAt ?? ''}`
-      if (remoteSig !== currentSig) setUpdateAvailable(true)
-    } catch {}
-  }
-
   // ─── Load tasks ──────────────────────────────────────────────────────────────
   const loadTasks = useCallback(async (forceRefresh = false) => {
     if (!user) return
+    const version = ++loadVersion.current
+    setLoadError(null)
     if (forceRefresh) setRefreshing(true)
     else setLoading(true)
     try {
@@ -913,55 +914,55 @@ export default function TasksPage() {
       if (role.includes("admin") || role.includes("manager") || role.includes("collections")) {
         p.set("role", "admin")
       }
-      const res  = await fetch(`/api/get-tasks?${p}`)
+      const res  = await fetch(`/api/get-tasks?${p}`, { cache: "no-store" })
       const data = await res.json()
-      if (data.tasks) {
-        const processedTasks = data.tasks.map((t: Task) => ({ ...t, title: t.title || "Untitled Task" }))
-        setTasks(processedTasks)
-        const sig = `${processedTasks.length}|${processedTasks[0]?.updatedAt ?? ''}`
-        setDataSig(sig)
-        setUpdateAvailable(false)
-        setTimeout(() => checkForUpdates(sig, '/api/get-tasks'), 2000)
+      if (!res.ok || data.success === false || !Array.isArray(data.tasks)) {
+        throw new Error(typeof data.error === 'string' ? data.error : data.message || 'Tasks could not be loaded. Please retry.')
       }
+      if (version === loadVersion.current) setTasks(data.tasks.map((t: Task) => ({ ...t, title: t.title || 'Untitled Task' })))
     } catch (err) {
-      console.error("Task load error", err)
+      if (version === loadVersion.current) setLoadError(err instanceof Error ? err.message : 'Tasks could not be loaded. Please retry.')
     } finally {
-      setLoading(false)
-      setRefreshing(false)
+      if (version === loadVersion.current) { setLoading(false); setRefreshing(false) }
     }
   }, [user])
 
-  useEffect(() => { loadTasks() }, [loadTasks])
+  useEffect(() => { loadTasks(); return () => { loadVersion.current++ } }, [loadTasks])
 
   // ─── Update task ────────────────────────────────────────────────────────────
   const handleUpdate = useCallback(async (zohoId: string, data: Partial<Task>) => {
+    if (pendingUpdates.current.has(zohoId)) return false
+    pendingUpdates.current.add(zohoId)
     try {
       const response = await fetch("/api/update-task", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ zohoId, ...data, subject: data.title })
       })
-      if (!response.ok) {
-        const result = await response.json().catch(() => ({}))
-        throw new Error(result.error || "Task update failed")
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok || result.success !== true) {
+        throw new Error(typeof result.error === 'string' ? result.error : result.message || "Task update failed")
       }
       setTasks(prev => prev.map(t => t.zohoId === zohoId ? { ...t, ...data } : t))
       setSelectedTask(prev => prev?.zohoId === zohoId ? { ...prev, ...data } : prev)
+      toast.success(data.status === 'Completed' ? 'Task completed' : 'Task saved')
+      return true
     } catch (error: any) {
       toast.error(error.message || "Task update failed")
-    }
+      return false
+    } finally { pendingUpdates.current.delete(zohoId) }
   }, [])
 
   const handleComplete = useCallback(async (zohoId: string) => {
-    await handleUpdate(zohoId, { status: "Completed" })
+    return handleUpdate(zohoId, { status: "Completed" })
   }, [handleUpdate])
 
   // ─── Filtered tasks ────────────────────────────────────────────────────────
-  const filteredTasks = useMemo(() => {
+  const matchingTasks = useMemo(() => {
     let list = tasks
 
     // Category tab
-    if (category !== "all") list = list.filter(t => classifyTask(t) === category)
+
 
     // Status
     if (filters.status === "open")      list = list.filter(t => showCompleted || t.status !== "Completed")
@@ -976,17 +977,18 @@ export default function TasksPage() {
 
     // Due date period filter
     if (taskPeriod !== 'all') {
-      list = list.filter(t => isInPeriod(t.dueDate, taskPeriod, taskCustomStart, taskCustomEnd))
+      list = list.filter(t => isInPeriod(t.dueDate ? taskDate(t.dueDate) : null, taskPeriod, taskCustomStart, taskCustomEnd))
     }
 
     // Search
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase()
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase()
       list = list.filter(t =>
         t.title.toLowerCase().includes(q) ||
         (t.description || "").toLowerCase().includes(q) ||
         (t.accountName || "").toLowerCase().includes(q) ||
-        (t.dealName || "").toLowerCase().includes(q)
+        (t.dealName || "").toLowerCase().includes(q) ||
+        (t.ownerName || "").toLowerCase().includes(q)
       )
     }
 
@@ -1003,7 +1005,9 @@ export default function TasksPage() {
       if (!b.dueDate) return -1
       return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
     })
-  }, [tasks, category, filters, searchQuery, showCompleted, taskPeriod, taskCustomStart, taskCustomEnd])
+  }, [tasks, filters, searchQuery, showCompleted, taskPeriod, taskCustomStart, taskCustomEnd])
+
+  const filteredTasks = useMemo(() => category === "all" ? matchingTasks : matchingTasks.filter(t => classifyTask(t) === category), [matchingTasks, category])
 
   // ─── Group by category ──────────────────────────────────────────────────────
   const groups = useMemo(() => ({
@@ -1016,7 +1020,7 @@ export default function TasksPage() {
   const stats = useMemo(() => ({
     open:     tasks.filter(t => t.status !== "Completed").length,
     overdue:  tasks.filter(t => isOverdue(t)).length,
-    dueToday: tasks.filter(t => t.dueDate && sameDay(new Date(t.dueDate), new Date()) && t.status !== "Completed").length,
+    dueToday: tasks.filter(t => t.dueDate && sameDay(taskDate(t.dueDate), new Date()) && t.status !== "Completed").length,
   }), [tasks])
 
   const periodLabel = taskPeriod === 'all' ? '' : taskPeriod === 'today' ? 'Today' : taskPeriod === 'this_week' ? 'This Week' : taskPeriod === 'this_month' ? 'This Month' : taskPeriod === 'this_quarter' ? 'This Qtr' : ''
@@ -1053,11 +1057,11 @@ export default function TasksPage() {
 
 
   return (
-    <div className="page-content flex flex-col h-[100dvh] bg-[#0a0b0d]">
+    <div className="page-content flex flex-col h-full min-h-0 min-w-0 overflow-hidden bg-[#0a0b0d]">
 
       {/* ─── Header ─── */}
       <div className="shrink-0 px-4 pt-safe-top pb-3 border-b border-white/10 bg-[#0a0b0d] z-20">
-        <UpdateBanner show={updateAvailable} onUpdate={() => { setUpdateAvailable(false); loadTasks(true) }} accentColor="orange" label="Tasks updated" />
+        {loadError && <div role="alert" className="my-2 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{loadError} <button onClick={() => loadTasks(true)} disabled={refreshing} className="ml-3 underline">Retry</button></div>}
         
         {/* Row 1: Title + Actions */}
         <div className="flex items-center justify-between w-full mt-2">
@@ -1085,12 +1089,12 @@ export default function TasksPage() {
                 <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-orange-500 rounded-full" />
               )}
             </button>
-            {canRefreshZoho && <button onClick={() => loadTasks(true)} disabled={refreshing} aria-label="Sync tasks from Zoho" title="Sync tasks from Zoho"
-              className="p-2 rounded-lg border border-transparent hover:bg-white/5 text-neutral-400 transition-all disabled:opacity-40 hidden sm:block"
+            {<button onClick={() => loadTasks(true)} disabled={refreshing} aria-label="Refresh saved tasks" title="Refresh saved tasks"
+              className="p-2 rounded-lg border border-transparent hover:bg-white/5 text-neutral-400 transition-all disabled:opacity-40"
             >
               <FiRefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
             </button>}
-            <Link href="/tasks/new"
+            <Link href="/tasks/new" aria-label="New Task"
               className="flex items-center gap-1 bg-orange-600 hover:bg-orange-500 text-white text-sm font-semibold px-3 py-1.5 rounded-lg transition-all ml-1"
             >
               <FiPlus size={16} />
@@ -1111,11 +1115,11 @@ export default function TasksPage() {
            </div>
            
            {/* Categories integrated into toolbar */}
-           {mainView === "list" && (
-             <div className="flex items-center gap-1 overflow-x-auto hide-scroll shrink-0 border-l border-white/10 pl-3">
+           {(
+             <div className="flex items-center gap-1 overflow-x-auto hide-scroll min-w-0 max-w-full border-l border-white/10 pl-3">
                 {(Object.keys(CAT) as Category[]).map(c => {
-                  const cnt = c === "all" ? filteredTasks.length :
-                    filteredTasks.filter(t => classifyTask(t) === c).length
+                  const cnt = c === "all" ? matchingTasks.length :
+                    matchingTasks.filter(t => classifyTask(t) === c).length
                   return (
                     <button key={c} onClick={() => setCategory(c)}
                       className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
@@ -1130,7 +1134,7 @@ export default function TasksPage() {
              </div>
            )}
 
-           <div className="ml-auto flex items-center gap-3 shrink-0">
+           <div className="ml-auto flex flex-wrap items-center gap-3 min-w-0 max-w-full">
              <PeriodSelector
                value={taskPeriod}
                onChange={setTaskPeriod}
@@ -1144,6 +1148,8 @@ export default function TasksPage() {
              />
              
              <button
+               aria-label="Include completed tasks" aria-pressed={showCompleted}
+               disabled={filters.status !== "open"}
                onClick={() => setShowCompleted(v => !v)}
                className={`flex items-center gap-1.5 text-xs font-semibold transition-all ${
                  showCompleted ? "text-emerald-400" : "text-neutral-500 hover:text-neutral-300"
@@ -1173,10 +1179,10 @@ export default function TasksPage() {
       {/* ─── Content ─── */}
       <div className="flex-1 min-h-0 overflow-hidden flex flex-col bg-[#0a0b0d]">
         {mainView === "calendar" ? (
-          <MiniCalendar tasks={tasks} onSelectTask={setSelectedTask} />
+          <MiniCalendar tasks={filteredTasks} onSelectTask={setSelectedTask} />
         ) : (
-          <div className="h-full overflow-y-auto px-4 py-4 hide-scroll">
-            {tasks.length === 0 ? (
+          <div className="h-full overflow-y-auto px-4 pt-4 pb-[calc(6rem+env(safe-area-inset-bottom))]">
+            {loadError && tasks.length === 0 ? <div className="p-6 text-neutral-400">Unable to display tasks until loading succeeds.</div> : tasks.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center max-w-sm mx-auto pb-10">
                 <FiCheckCircle size={40} className="text-neutral-700 mb-3" />
                 <p className="text-base font-bold text-neutral-300">All caught up!</p>
