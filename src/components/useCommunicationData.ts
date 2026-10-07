@@ -1,5 +1,4 @@
 "use client"
-import { USE_ZDIALER, requestZDialerMessage } from "@/lib/zdialer"
 
 /**
  * useCommunicationData.ts
@@ -109,7 +108,6 @@ export function useCommunicationData({
   // ━━━ Effects ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   useEffect(() => {
-    if (USE_ZDIALER) return
     const refreshNumbers = () => fetch("/api/manage-zoho-numbers", { cache: 'no-store' })
       .then(r => r.json()).then(d => {
         const available = d.success ? (d.numbers || []).filter((n: any) => n.active) : []
@@ -117,10 +115,7 @@ export function useCommunicationData({
         setSelectedOutboundNumber(current => available.some((n: any) => n.number === current) ? current : available[0]?.number || '')
       }).catch(() => { setOutboundNumbers([]); setSelectedOutboundNumber('') })
     void refreshNumbers()
-    const focus = () => { void refreshNumbers() }
-    const timer = setInterval(focus, 60000)
-    window.addEventListener('focus', focus)
-    return () => { clearInterval(timer); window.removeEventListener('focus', focus) }
+    // Sender authorization is rechecked on send; avoid background Voice polling.
   }, [])
 
   useEffect(() => {
@@ -292,7 +287,6 @@ export function useCommunicationData({
   const sendSMS = useCallback(async () => {
     if (!smsText.trim()) return
     const message = smsText.trim()
-    if (USE_ZDIALER) { requestZDialerMessage(cleanPhone, message, contactName, accountId, primaryContact?.id || ""); return }
     if (!window.confirm(`Send this SMS to ${contactName} at ${displayPhone || cleanPhone}?`)) return
     setIsSaving(true)
     try {

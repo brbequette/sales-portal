@@ -6,8 +6,6 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import { FiCpu, FiMail, FiMaximize2, FiMinimize2, FiMessageSquare, FiMonitor, FiPhone, FiSearch, FiX } from 'react-icons/fi'
 import Link from 'next/link'
 import { EmailInbox } from './EmailInbox'
-import { ZDialerMessageHandoff } from './ZDialerMessageHandoff'
-import { USE_ZDIALER } from '@/lib/zdialer'
 import styles from './CommunicationDock.module.css'
 import { AiAssistant } from './AiAssistant'
 import { TitanVoiceSoftphone, type PhoneCallStatus } from './TitanVoiceSoftphone'
@@ -24,7 +22,7 @@ type Tab = 'phone' | 'messages' | 'email' | 'ai' | 'next' | 'search'
 type DockProps = { inline?: boolean; user?: { id?: string; name?: string; role?: string } }
 
 export function CommunicationDock(props: DockProps) {
-  return <>{USE_ZDIALER && <ZDialerMessageHandoff />}<Suspense fallback={null}><CommunicationDockContent {...props} /></Suspense></>
+  return <Suspense fallback={null}><CommunicationDockContent {...props} /></Suspense>
 }
 
 function CommunicationDockContent({ user, inline = false }: DockProps) {

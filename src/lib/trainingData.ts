@@ -1538,21 +1538,21 @@ All documents get these fields populated in Zoho Books custom fields:
   },
   {
     id: "comms-zdialer-setup",
-    title: "ZDialer Calling and Texting Setup",
+    title: "ZDialer Calling and In-App Texting",
     category: "Communication",
     content: `
-ZDialer temporarily handles calls and texts while embedded Zoho Voice SDK access is being resolved. Titan retains account context, AI assistance, drafts, and saved history.
+ZDialer temporarily handles calls while embedded Zoho Voice SDK access is being resolved. SMS stays inside Titan on desktop and mobile, including sender selection, drafts and conversation history.
 
 ### Desktop
-Install and sign in to the official ZDialer browser extension, allow it on the Titan site, and allow call pop-ups on all webpages. Open a number in the Titan communicator and choose **Call with ZDialer**. The installed extension supplies the call and SMS controls. You can choose the installed desktop app under **Setup and other options**. Select your assigned caller ID in ZDialer.
+Install and sign in to the official ZDialer browser extension, allow it on the Titan site, and allow call pop-ups on all webpages. Open a number in the Titan communicator and choose **Call with ZDialer**. The installed extension supplies the call controls. You can choose the installed desktop app under **Setup and other options**. Select your assigned caller ID in ZDialer.
 
 ### iPhone, iPad and Android
 Install and sign in to the ZDialer mobile app. In **More → Settings**, enable **Set as Default Dialer**, and complete the operating system settings. Confirm this setup in Titan before choosing **Continue to ZDialer**. Verify that ZDialer opens before placing a call. A narrow desktop browser window still uses the desktop path.
 
 ### Text messages
-Choose **Continue in ZDialer** from any individual text composer. Titan checks account access and saved SMS restrictions first. On desktop, copy the draft and open ZDialer SMS for the selected recipient. On mobile, copy the number, switch to ZDialer, open **SMS → New message**, and paste the recipient. Return to Titan to copy the draft, then paste it in ZDialer. Direct mobile SMS draft links are not currently supported. Select your business sender and send in ZDialer; Titan does not use personal SMS.
+Open **Messages** in Titan, select the account/contact and your assigned sender, write the message and choose **Send**. Titan sends through the existing Zoho Voice SMS service and keeps the conversation in the app. Account access, sender authorization, suppression and duplicate-send protections remain enforced. No ZDialer SMS handoff or personal messaging app is used.
 
-Opening ZDialer does not confirm a connected call or sent message. Use ZDialer for current call controls, inbox and delivery status. Original Titan drafts remain available, and its saved communication history may lag while sync is paused. Recording and transcription depend on your actual Zoho configuration; they are not guaranteed by a handoff.
+Opening ZDialer does not confirm a connected call. Use ZDialer for call controls. Titan only clears an SMS draft after the service confirms acceptance; errors remain in the app. Recording and transcription depend on your actual Zoho configuration.
       `,
     },
   {

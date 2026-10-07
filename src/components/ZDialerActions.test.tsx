@@ -1,8 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ZDialerActions } from './ZDialerActions'
-import { ZDialerMessageHandoff } from './ZDialerMessageHandoff'
-import { requestZDialerMessage, zdialerNumber, zdialerPlatform } from '@/lib/zdialer'
+import { zdialerNumber, zdialerPlatform } from '@/lib/zdialer'
 const desktop = () => { vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Windows Chrome'); vi.spyOn(navigator, 'platform', 'get').mockReturnValue('Win32') }
 beforeEach(() => { desktop(); vi.stubGlobal('fetch', vi.fn()) })
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
@@ -49,42 +48,13 @@ describe('ZDialer platform handoff', () => {
     expect(provider.call).toHaveBeenCalledOnce()
     expect(screen.getByRole('status').textContent).toContain('unavailable')
   })
-  it('opens the exact SMS recipient without sending or discarding the draft', async () => {
-    const copy = vi.fn().mockResolvedValue(undefined)
-    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: copy } })
-    render(<ZDialerActions phone="6185550100" kind="sms" draft="Review this draft" />)
-    let provider!: ReturnType<typeof installControls>
-    act(() => { provider = installControls('+16185550100') })
-    fireEvent.click(screen.getByRole('button', { name: 'Copy draft' }))
-    await waitFor(() => expect(copy).toHaveBeenCalledWith('Review this draft'))
-    fireEvent.click(screen.getByRole('button', { name: 'Open ZDialer SMS' }))
-    expect(provider.sms).toHaveBeenCalledOnce()
-    expect(provider.call).not.toHaveBeenCalled()
-    expect(screen.getByRole('status').textContent).toContain('draft is retained')
-    expect(fetch).not.toHaveBeenCalled()
-  })
-  it.each(['iPhone Safari', 'Android Chrome'])('requires default-app setup for mobile calling and never uses personal SMS: %s', userAgent => {
+  it.each(['iPhone Safari', 'Android Chrome'])('requires default-app setup for mobile calling: %s', userAgent => {
     vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(userAgent)
-    const view = render(<ZDialerActions phone="6185550100" />)
+    render(<ZDialerActions phone="6185550100" />)
     expect(screen.queryByRole('link', { name: 'Continue to ZDialer' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Call with ZDialer' })).toBeNull()
     fireEvent.click(screen.getByRole('checkbox'))
     expect(screen.getByRole('link', { name: 'Continue to ZDialer' }).getAttribute('href')).toBe('tel:+16185550100')
-    view.rerender(<ZDialerActions phone="6185550100" kind="sms" draft="Keep me" />)
-    expect(document.querySelector('a[href^="sms:"],a[href^="tel:"],a[href^="zohovoice:"]')).toBeNull()
-    expect(screen.getByText(/switch to ZDialer/)).toBeTruthy()
-  })
-  it('checks saved restrictions before exposing SMS handoff controls and retains the draft on rejection', async () => {
-    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ error: 'SMS blocked: opt out' }), { status: 409 }))
-    render(<ZDialerMessageHandoff />)
-    act(() => requestZDialerMessage('6185550100', 'Keep draft', 'Contact', 'account-a', 'contact-a'))
-    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('opt out'))
-    expect(screen.queryByRole('button', { name: 'Open ZDialer SMS' })).toBeNull()
-    expect((screen.getByLabelText('ZDialer message draft') as HTMLTextAreaElement).value).toBe('Keep draft')
-    const body = JSON.parse(vi.mocked(fetch).mock.calls[0][1]?.body as string)
-    expect(body).toEqual({ phone: '6185550100', accountId: 'account-a', contactId: 'contact-a' })
-    expect(body.message).toBeUndefined()
-    fireEvent.keyDown(document, { key: 'Escape' })
-    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(document.querySelector('a[href^="sms:"]')).toBeNull()
   })
 })

@@ -1,5 +1,7 @@
 "use client"
-import { USE_ZDIALER, requestZDialerMessage } from "@/lib/zdialer"
+import { USE_ZDIALER } from "@/lib/zdialer"
+import { createPortal } from 'react-dom'
+import { SmsSenderSelect, useSmsSender } from '@/components/SmsSenderSelect'
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
@@ -106,7 +108,7 @@ function CommunicatorContent() {
 
   useEffect(() => {
     const showTools = () => setWorkspaceView('tools')
-    const events = ['inAppDial', 'openTitanAi', 'titan:open-messages', 'titan:zdialer-message']
+    const events = ['inAppDial', 'openTitanAi', 'titan:open-messages']
     events.forEach(event => window.addEventListener(event, showTools))
     return () => events.forEach(event => window.removeEventListener(event, showTools))
   }, [])
@@ -151,6 +153,8 @@ function CommunicatorContent() {
 
   // Quick SMS Drawer / Modal State
   const [smsModalAccount, setSmsModalAccount] = useState<AccountSearchResult | null>(null)
+  const smsSender = useSmsSender(!!smsModalAccount)
+  const smsRequest = useRef<{ fingerprint: string; id: string } | null>(null)
   const [smsContactId, setSmsContactId] = useState<string>("")
   const [smsMessage, setSmsMessage] = useState<string>("")
   const [isSendingSms, setIsSendingSms] = useState<boolean>(false)
@@ -217,7 +221,7 @@ function CommunicatorContent() {
       if (seen.current.size > 500) seen.current.clear()
 
       if (message.type === 'DISPLAY_FOCUS') window.focus()
-      if (message.type === 'COMMUNICATION_ACTION' && message.action && ['inAppDial', 'openTitanAi', 'titan:open-messages', 'titan:zdialer-message'].includes(message.action.event)) {
+      if (message.type === 'COMMUNICATION_ACTION' && message.action && ['inAppDial', 'openTitanAi', 'titan:open-messages'].includes(message.action.event)) {
         setWorkspaceView('tools')
         window.dispatchEvent(new CustomEvent(message.action.event, { detail: message.action.detail }))
       }
@@ -583,14 +587,11 @@ function CommunicatorContent() {
   }
 
   const handleSendQuickSms = async () => {
-    if (!smsModalAccount || !smsMessage.trim()) return
-    if (USE_ZDIALER) {
-      const contact = smsModalAccount.contacts?.find(item => item.id === smsContactId)
-      requestZDialerMessage(contact?.mobilePhone || contact?.phone || '', smsMessage, smsModalAccount.name, smsModalAccount.id, smsContactId)
-      return
-    }
+    if (!smsModalAccount || !smsMessage.trim() || !smsSender.selected || isSendingSms) return
     setIsSendingSms(true)
     try {
+      const fingerprint = JSON.stringify([smsModalAccount.id, smsContactId, smsMessage.trim(), smsSender.selected])
+      if (smsRequest.current?.fingerprint !== fingerprint) smsRequest.current = { fingerprint, id: crypto.randomUUID() }
       const res = await fetch("/api/send-sms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -598,11 +599,13 @@ function CommunicatorContent() {
           accountId: smsModalAccount.id,
           contactId: smsContactId || undefined,
           message: smsMessage.trim(),
-          requestId: crypto.randomUUID()
+          fromNumber: smsSender.selected,
+          requestId: smsRequest.current.id
         })
       })
       const data = await res.json()
-      if (res.ok && data.success) {
+      if (res.ok && data.success && data.providerAccepted && data.smsMessage?.id) {
+        smsRequest.current = null
         toast.success(`SMS sent to ${smsModalAccount.name}!`)
         setSmsModalAccount(null)
       } else {
@@ -1380,13 +1383,13 @@ function CommunicatorContent() {
       </main>
 
       {/* ─── 1-Click Quick SMS Modal ─── */}
-      {smsModalAccount && (
+      {smsModalAccount && createPortal(
         <div
           className="fixed inset-0 z-[12000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
           onClick={() => setSmsModalAccount(null)}
         >
           <div
-            className="w-full max-w-lg rounded-2xl border border-white/15 bg-[#0b0e14] p-5 shadow-2xl space-y-4"
+            className="w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-2xl border border-white/15 bg-[#0b0e14] p-5 shadow-2xl space-y-4"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
@@ -1399,6 +1402,7 @@ function CommunicatorContent() {
             </div>
 
             {/* Recipient Contact Selector */}
+            <SmsSenderSelect sender={smsSender} />
             {smsModalAccount.contacts && smsModalAccount.contacts.length > 1 && (
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">
@@ -1490,16 +1494,16 @@ function CommunicatorContent() {
                 </button>
                 <button
                   onClick={handleSendQuickSms}
-                  disabled={isSendingSms || !smsMessage.trim()}
+                  disabled={isSendingSms || !smsMessage.trim() || !smsSender.selected || smsSender.loading}
                   className="px-4 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-cyan-950/40 disabled:opacity-40 cursor-pointer"
                 >
                   {isSendingSms ? <FiRefreshCw className="animate-spin" size={13} /> : <FiSend size={13} />}
-                  <span>{USE_ZDIALER ? "Continue in ZDialer" : "Send SMS Now"}</span>
+                  <span>Send SMS Now</span>
                 </button>
               </div>
             </div>
           </div>
-        </div>
+        </div>, document.body
       )}
 
       {/* ─── Direct Phone Dialer Keypad Modal ─── */}

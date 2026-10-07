@@ -1,5 +1,4 @@
 "use client"
-import { USE_ZDIALER, requestZDialerMessage } from "@/lib/zdialer"
 
 import { useState, useEffect, useRef } from "react"
 import { FiList, FiFileText, FiMessageSquare, FiPhone, FiMail, FiClock, FiCpu } from "react-icons/fi"
@@ -7,6 +6,7 @@ import { useSession } from "next-auth/react"
 import { toast } from "react-hot-toast"
 import { SaleCommunications } from "./SaleCommunications"
 import { AccountDialer } from "./AccountDialer"
+import { SmsSenderSelect, useSmsSender } from './SmsSenderSelect'
 
 interface CommunicationsHubProps {
   accountId: string
@@ -20,6 +20,7 @@ type TabType = "ALL" | "NOTES" | "SMS" | "CALLS" | "EMAILS"
 export function CommunicationsHub({ accountId, dealId, account, contacts }: CommunicationsHubProps) {
   const { data: session } = useSession()
   const [activeTab, setActiveTab] = useState<TabType>("ALL")
+  const smsSender = useSmsSender(activeTab === 'SMS')
   const [communications, setCommunications] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
@@ -104,9 +105,8 @@ export function CommunicationsHub({ accountId, dealId, account, contacts }: Comm
 
   const handleSendSms = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!smsText.trim()) return
+    if (!smsText.trim() || !smsSender.selected || sendingSms) return
 
-    if (USE_ZDIALER) { requestZDialerMessage(recipientPhone, smsText, account?.name || "", accountId, primaryContact?.id || ""); return }
     setSendingSms(true)
     setSmsOutcome(null)
     try {
@@ -119,13 +119,14 @@ export function CommunicationsHub({ accountId, dealId, account, contacts }: Comm
           accountId,
           contactId: primaryContact?.id || null,
           message: smsText,
+          fromNumber: smsSender.selected,
           requestId,
           userId: session?.user?.id || (session?.user as any)?.zohoId,
           userEmail: session?.user?.email
         })
       })
       const data = await res.json()
-      if (data.success) {
+      if (res.ok && data.success && data.providerAccepted && data.smsMessage?.id) {
         toast.success("SMS sent successfully")
         setSmsOutcome({ ok: true, text: `${data.provider?.status || 'Accepted'} · ${data.provider?.code || 'Zoho Voice'} · ${data.provider?.toNumber || recipientPhone}` })
         setSmsText("")
@@ -289,8 +290,9 @@ export function CommunicationsHub({ accountId, dealId, account, contacts }: Comm
               )}
             </div>
             <div className="mb-2 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-[11px] text-neutral-400">
-              <span className="font-bold text-neutral-200">To:</span> {recipientPhone || 'No valid contact number'} <span className="mx-2 text-neutral-700">•</span> <span className="font-bold text-neutral-200">From:</span> configured Zoho Voice sender
+              <span className="font-bold text-neutral-200">To:</span> {recipientPhone || 'No valid contact number'}
             </div>
+            <SmsSenderSelect sender={smsSender} />
             {smsOutcome && <div className={`mb-2 rounded-xl border px-3 py-2 text-xs ${smsOutcome.ok ? 'border-emerald-500/30 bg-emerald-950/20 text-emerald-300' : 'border-rose-500/30 bg-rose-950/20 text-rose-300'}`}>{smsOutcome.text}</div>}
             {/* Input Form */}
             <form onSubmit={handleSendSms} className="flex gap-2 pt-3 border-t border-white/10">
@@ -305,10 +307,10 @@ export function CommunicationsHub({ accountId, dealId, account, contacts }: Comm
               />
               <button
                 type="submit"
-                disabled={sendingSms || !smsText.trim()}
+                disabled={sendingSms || !smsText.trim() || !smsSender.selected || smsSender.loading}
                 className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all duration-150 flex items-center gap-1.5 whitespace-nowrap"
               >
-                {sendingSms ? "Sending..." : USE_ZDIALER ? "Continue in ZDialer" : "Send"}
+                {sendingSms ? "Sending..." : "Send"}
               </button>
             </form>
           </div>
@@ -331,4 +333,3 @@ export function CommunicationsHub({ accountId, dealId, account, contacts }: Comm
     </div>
   )
 }
-
