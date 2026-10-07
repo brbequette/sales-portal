@@ -1,8 +1,10 @@
 import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
-import { Handler } from "@netlify/functions"
+import { Handler, HandlerResponse } from "@netlify/functions"
 import { prisma } from "./lib/prisma"
 import { isAdminRole } from "../../src/lib/roles"
-const authenticatedHandler: Handler = async (event, context) => {
+import { readTaskHub, TaskHubInputError } from "../../src/lib/task-hub-data"
+import { readTaskOutcomeReport } from "../../src/lib/task-outcome-report"
+export const authenticatedHandler: Handler = async (event, context): Promise<HandlerResponse> => {
   if (event.httpMethod !== "GET") {
     return { statusCode: 405, body: JSON.stringify({ success: false, message: "Method Not Allowed" }) }
   }
@@ -46,6 +48,14 @@ const authenticatedHandler: Handler = async (event, context) => {
 
     const isAdmin = sessionIsAdmin && user.id === sessionDbUser.id
     const isSalesOnly = !isAdmin
+
+    if (event.queryStringParameters?.hub === 'true') {
+      const scopedOwner = isSalesOnly ? user.id : ownerIdFilter && !['all', 'All'].includes(ownerIdFilter) ? ownerIdFilter : null
+      const result = event.queryStringParameters.report === 'true'
+        ? await readTaskOutcomeReport(prisma, scopedOwner, event.queryStringParameters as Record<string, string>)
+        : await readTaskHub(prisma, scopedOwner, event.queryStringParameters as Record<string, string>)
+      return { statusCode: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store' }, body: JSON.stringify(result) }
+    }
 
     // ── checkOnly mode: returns count + latestUpdatedAt only ──────────────
     if (checkOnly === 'true') {
@@ -150,8 +160,8 @@ const authenticatedHandler: Handler = async (event, context) => {
   } catch (error: any) {
     console.error("Get Tasks Error:", error)
     return {
-      statusCode: 500,
-      body: JSON.stringify({ success: false, error: error.message })
+      statusCode: error instanceof TaskHubInputError ? 400 : 500,
+      body: JSON.stringify({ success: false, error: error instanceof TaskHubInputError ? error.message : "Tasks could not be loaded. Please retry." })
     }
   }
 }

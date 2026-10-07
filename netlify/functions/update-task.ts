@@ -1,12 +1,13 @@
 import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
-import { Handler } from "@netlify/functions"
+import { Handler, HandlerResponse } from "@netlify/functions"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 
 import { prisma } from "./lib/prisma"
 import { isAdminRole } from "../../src/lib/roles"
+import { completionId, parseTaskCompletion, saveTaskCompletion, type CompletionInput } from "../../src/lib/task-completion"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
-export const authenticatedHandler: Handler = async (event, context) => {
+export const authenticatedHandler: Handler = async (event, context): Promise<HandlerResponse> => {
   if (event.httpMethod !== "PUT") {
     return { statusCode: 405, body: JSON.stringify({ success: false, message: "Method Not Allowed" }) }
   }
@@ -23,8 +24,8 @@ export const authenticatedHandler: Handler = async (event, context) => {
     }
 
     const existingTask = taskId
-      ? await prisma.task.findUnique({ where: { id: taskId }, select: { id: true, ownerId: true, zohoId: true } })
-      : await prisma.task.findUnique({ where: { zohoId }, select: { id: true, ownerId: true, zohoId: true } })
+      ? await prisma.task.findUnique({ where: { id: taskId }, include: { deal: { select: { accountId: true } } } })
+      : await prisma.task.findUnique({ where: { zohoId }, include: { deal: { select: { accountId: true } } } })
     if (!existingTask) {
       return { statusCode: 404, body: JSON.stringify({ success: false, message: "Task not found" }) }
     }
@@ -33,6 +34,31 @@ export const authenticatedHandler: Handler = async (event, context) => {
     }
     if (existingTask.zohoId !== zohoId) {
       return { statusCode: 400, body: JSON.stringify({ success: false, message: "Task identifiers do not match" }) }
+    }
+    let completion: CompletionInput | undefined
+    let revenueInvoiceId: string | undefined
+    if (body.completion !== undefined) {
+      try { completion = parseTaskCompletion(body.completion, new Date(0)) } catch (error) {
+        return { statusCode: 400, body: JSON.stringify({ success: false, message: error instanceof Error ? error.message : 'Invalid completion' }) }
+      }
+      if (status !== 'Completed') return { statusCode: 400, body: JSON.stringify({ success: false, message: 'Completion must mark the task completed' }) }
+      const receipt = await prisma.taskOutcome.findUnique({ where: { id: completionId(existingTask.id, completion.requestId) } })
+      if (receipt) {
+        if (receipt.summary !== completion.summary || receipt.outcomeType !== completion.outcomeType || (receipt.nextAction || '') !== (completion.nextAction || '') || (receipt.followUpAt?.toISOString() || '') !== (completion.followUpAt ? new Date(completion.followUpAt).toISOString() : '')) {
+          return { statusCode: 409, body: JSON.stringify({ success: false, message: 'This completion request was already saved with different details. Refresh to review it.' }) }
+        }
+        return { statusCode: 200, body: JSON.stringify({ success: true, repeated: true, outcome: receipt }) }
+      }
+      if (completion.followUpAt && Date.parse(completion.followUpAt) <= Date.now()) return { statusCode: 400, body: JSON.stringify({ success: false, message: 'Choose a future follow-up date and time' }) }
+      if (existingTask.status === 'Completed') return { statusCode: 409, body: JSON.stringify({ success: false, message: 'Task already completed. Refresh to view its outcome.' }) }
+      if (completion.invoiceNumber) {
+        const accountId = existingTask.accountId || existingTask.deal?.accountId
+        const invoices = accountId ? await prisma.invoice.findMany({ where: { accountId, OR: [
+          { id: completion.invoiceNumber }, { zohoId: completion.invoiceNumber }, { invoiceNumber: completion.invoiceNumber }, { computedInvoiceNumber: completion.invoiceNumber },
+        ] }, select: { id: true }, take: 2 }) : []
+        if (invoices.length !== 1) return { statusCode: 400, body: JSON.stringify({ success: false, message: 'Enter an unambiguous invoice number belonging to this task’s account.' }) }
+        revenueInvoiceId = invoices[0].id
+      }
     }
     if (subject !== undefined && (typeof subject !== 'string' || !subject.trim())) {
       return { statusCode: 400, body: JSON.stringify({ success: false, message: "Enter a task title" }) }
@@ -187,6 +213,10 @@ export const authenticatedHandler: Handler = async (event, context) => {
       }
     }
 
+    if (completion) {
+      const result = await saveTaskCompletion(prisma, existingTask, localUpdateData, completion, { id: actorId!, name: sessionUser.email }, revenueInvoiceId)
+      return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: true, ...result }) }
+    }
     if (taskId) {
       await prisma.task.update({
         where: { id: taskId },
