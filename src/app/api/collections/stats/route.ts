@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { authenticateRequest } from '../../../../../netlify/functions/lib/auth-middleware'
 import { prisma } from '@/lib/prisma'
 import { isAdminRole } from '@/lib/roles'
-import { attributeReceipts, collectionDay, legacyCollectionCall, reportSettings, type CollectionActivity, type CollectionReceipt } from '@/lib/collections-stats'
+import { attributeReceipts, collectionDay, legacyCollectionCall, isLegacyCollectionCall, reportSettings, type CollectionActivity, type CollectionReceipt } from '@/lib/collections-stats'
 
 const headers = { 'Cache-Control': 'private, no-store' }
 async function identity(req: Request) {
@@ -42,7 +42,7 @@ export async function GET(req: Request) {
       return { id: e.sourceId, accountId: e.accountId, account: e.account.name, actorId: e.actorId || '', actor: e.actor?.name || 'Staff', date: e.occurredAt.toISOString(),
         outcome: m.outcome || 'Unknown', reached: m.contactReached === true, minutes: typeof m.durationMinutes === 'number' ? m.durationMinutes : null,
         invoiceIds: Array.isArray(m.invoiceIds) ? m.invoiceIds : [], promiseDate: m.promiseDate, followUpDate: m.followUpDate, legacy: false }
-    }).concat(notes.filter(n => !sourceIds.has(n.id)).map(legacyCollectionCall))
+    }).concat(notes.filter(n => !sourceIds.has(n.id) && isLegacyCollectionCall(n.content)).map(legacyCollectionCall))
     const payments = invoices.length ? await prisma.payment.findMany({ where: {
       date: { gte: new Date(start + 'T00:00:00Z'), lt: until }, OR: [{ invoiceDbId: { in: invoices.map(i => i.id) } }, { invoiceId: { in: invoices.map(i => i.zohoId) } }],
     }, select: { id: true, invoiceDbId: true, invoiceId: true, amount: true, date: true, status: true }, take: 20001 }) : []

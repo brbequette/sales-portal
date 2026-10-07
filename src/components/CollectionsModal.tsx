@@ -130,7 +130,7 @@ function CallModal({ invoice, onClose, onSaved }: { invoice: Invoice, onClose: (
           notes,
           promiseDate,
           followUpDate,
-          durationMinutes: parseInt(duration) || 0,
+          durationMinutes: duration.trim() === '' ? null : Number(duration),
         }),
       })
       const data = await res.json()
@@ -386,6 +386,7 @@ function RunCardModal({ invoice, onClose, onSuccess }: { invoice: Invoice, onClo
                 invoiceId: invoice.id,
                 outcome: "paid_in_full",
                 callerName: "System Payment",
+                activityType: "payment",
                 contactReached: true,
                 spokeTo: "Customer (Card Payment)",
                 notes: `Credit Card Charged successfully. Amount: $${parseFloat(chargeAmount).toFixed(2)}. Auth Code: ${chargeData.authCode}. Trans ID: ${chargeData.transId}. Card: ${chargeData.cardType} ending in ${chargeData.last4}`,
@@ -528,6 +529,7 @@ function RequestReturnModal({ invoice, onClose, onSuccess }: { invoice: Invoice,
             invoiceId: invoice.id,
             outcome: "other",
             callerName: "System Return",
+            activityType: "return",
             contactReached: true,
             spokeTo: "Customer (Return Requested)",
             notes: `EasyShip Return Label Generated. Shipment ID: ${data.shipmentId}. Reason: ${reason}`,
@@ -734,7 +736,7 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
           notes: notes ? `${notes} (Logged via Collections Call Campaign)` : "Logged via Collections Call Campaign",
           promiseDate,
           followUpDate,
-          durationMinutes: parseInt(duration) || 0,
+          durationMinutes: duration.trim() === '' ? null : Number(duration),
         }),
       })
       const result = await response.json()

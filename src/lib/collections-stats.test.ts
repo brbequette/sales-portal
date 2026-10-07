@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
-import { attributeReceipts, collectionDay, collectionPeriod, legacyCollectionCall, reportSettings, type CollectionActivity, type CollectionReceipt } from './collections-stats'
-import { collectionsBonusRate } from './collections-compensation'
+import { attributeReceipts, collectionDay, collectionPeriod, legacyCollectionCall, isLegacyCollectionCall, reportSettings, type CollectionActivity, type CollectionReceipt } from './collections-stats'
+import { collectionsBonusRate, ensureCollectionsManagerLedger } from './collections-compensation'
 const call: CollectionActivity = { id: 'c1', accountId: 'a', account: 'Account', actorId: 'r', actor: 'Rep', date: '2026-10-03T18:00:00Z', outcome: 'Promise to Pay', reached: true, minutes: 4, invoiceIds: ['i1', 'i2'], legacy: false }
 const receipt: CollectionReceipt = { id: 'p1', accountId: 'a', account: 'Account', invoiceId: 'i1', invoice: '100', amount: 100, dueDate: '2026-09-01', date: '2026-10-05' }
 it('attributes each receipt once to the latest reached contact on the exact invoice and account', () => {
@@ -29,4 +29,18 @@ it('validates admin settings without accepting arbitrary keys or invalid ranges'
 })
 it('preserves all existing collections bonus thresholds', () => {
   expect([24999, 25000, 37499, 37500, 49999, 50000].map(collectionsBonusRate)).toEqual([0, .005, .005, .0075, .0075, .01])
+})
+it('excludes historical system payment and return notes from call metrics', () => {
+  expect(isLegacyCollectionCall('📞 Collection Call — Invoice 100\nSpoke With: Customer (Card Payment)')).toBe(false)
+  expect(isLegacyCollectionCall('📞 Collection Call — Invoice 100\nNotes: EasyShip Return Label Generated. Shipment ID: test')).toBe(false)
+  expect(isLegacyCollectionCall('📞 Collection Call — Invoice 100\nOutcome: Paid in Full\nSpoke With: Customer')).toBe(true)
+})
+it('includes the configured collector in compensation even without owned sales, preserving existing ledgers', () => {
+  const ledger: Record<string, any> = {}
+  ensureCollectionsManagerLedger(ledger, { id: 'collector', name: 'Collector' })
+  expect(ledger.collector.repName).toBe('Collector'); expect(ledger.collector.invoices).toEqual([])
+  ledger.collector.totalEarned = 123
+  ensureCollectionsManagerLedger(ledger, { id: 'collector', name: 'Collector' })
+  expect(ledger.collector.totalEarned).toBe(123)
+  ensureCollectionsManagerLedger(ledger, undefined); expect(Object.keys(ledger)).toHaveLength(1)
 })

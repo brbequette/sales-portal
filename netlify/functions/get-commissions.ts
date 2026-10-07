@@ -8,7 +8,7 @@ import { classifyCommissionCostQuality, COMMISSION_COST_QUALITY, hasAuthoritativ
 import { companyCalendarDaysBetween } from "../../src/lib/company-calendar-days"
 import { financialZohoLineItems } from "../../src/lib/zoho-line-items"
 import { COMMISSION_LEDGER_START } from "../../src/lib/commission-ledger-period"
-import { COLLECTIONS_BONUS_START, collectionsBonusRate } from '../../src/lib/collections-compensation'
+import { COLLECTIONS_BONUS_START, collectionsBonusRate, ensureCollectionsManagerLedger } from '../../src/lib/collections-compensation'
 
 
 // Statuses where the FINAL half is earned (invoice has been paid)
@@ -835,6 +835,8 @@ const authenticatedHandler: Handler = async (event) => {
       }
     }
 
+    // A configured collector can earn the weekly company bonus without owning sales invoices.
+    ensureCollectionsManagerLedger(byRep, rawUsers.find(u => u.id === collectionsManagerId))
     // Add payouts and calculate balances
     for (const payout of payouts) {
       if (byRep[payout.repId]) {

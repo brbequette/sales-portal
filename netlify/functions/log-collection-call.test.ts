@@ -28,3 +28,9 @@ it('rejects unauthorized collectors, invalid durations and cross-account batches
   expect((await invoke({ invoiceIds: ['i1', 'i2'], outcome: 'no_answer' })).statusCode).toBe(400)
   expect(m.transaction).not.toHaveBeenCalled()
 })
+it('keeps automatic payment logging separate from phone attempts and last-called timestamps', async () => {
+  const result = await invoke({ invoiceIds: ['i1', 'i2'], outcome: 'paid_in_full', callerName: 'System Payment', contactReached: true, durationMinutes: 0 })
+  expect(result.statusCode).toBe(200); expect(m.account).not.toHaveBeenCalled()
+  expect(m.event.mock.calls[0][0].data.eventType).toBe('collection_payment')
+  expect(m.note.mock.calls[0][0].data.content).toContain('Collection Payment —')
+})

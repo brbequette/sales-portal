@@ -22,6 +22,8 @@ const authenticatedHandler: Handler = async (event) => {
       // Save a call log
       const body = JSON.parse(event.body || "{}")
       const { invoiceId, invoiceIds, outcome, notes, callerName, contactReached, spokeTo, promiseDate, followUpDate, durationMinutes } = body
+      const activityType = body.activityType || (callerName === 'System Payment' ? 'payment' : callerName === 'System Return' ? 'return' : 'call')
+      if (!['call', 'payment', 'return'].includes(activityType)) return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'Invalid collection activity type' }) }
 
       const requestedInvoiceIds = Array.from(new Set([
         ...(Array.isArray(invoiceIds) ? invoiceIds : []),
@@ -66,7 +68,7 @@ const authenticatedHandler: Handler = async (event) => {
       }
 
       const content = [
-        `📞 Collection Call — Invoice${invoices.length > 1 ? "s" : ""} ${invoices.map(item => (item.items as any)?.invoiceNumber || item.zohoId?.slice(-6)).join(", ")}`,
+        `📞 Collection ${activityType === 'call' ? 'Call' : activityType === 'payment' ? 'Payment' : 'Return'} — Invoice${invoices.length > 1 ? "s" : ""} ${invoices.map(item => (item.items as any)?.invoiceNumber || item.zohoId?.slice(-6)).join(", ")}`,
         `Outcome: ${outcomeLabels[outcome] || outcome}`,
         contactReached ? `Spoke With: ${spokeTo || "Contact"}` : "No contact reached",
         durationMinutes ? `Duration: ${durationMinutes} min` : null,
@@ -90,14 +92,14 @@ const authenticatedHandler: Handler = async (event) => {
                        ["disputed"].includes(outcome) ? "negative" : "neutral",
           }
         }),
-        prisma.account.update({
+        ...(activityType === 'call' ? [prisma.account.update({
           where: { id: invoice.accountId },
           data: { lastCalledAt: new Date() }
-        }),
+        })] : []),
         prisma.communicationEvent.create({ data: {
-          accountId: invoice.accountId, actorId: defaultUser.id, channel: 'phone', direction: 'outbound',
-          eventType: 'collection_call', sourceType: 'Note', sourceId: noteId, occurredAt: new Date(),
-          subject: 'Collection call', summary: outcomeLabels[outcome],
+          accountId: invoice.accountId, actorId: defaultUser.id, channel: activityType === 'call' ? 'phone' : 'system', direction: 'outbound',
+          eventType: `collection_${activityType}`, sourceType: 'Note', sourceId: noteId, occurredAt: new Date(),
+          subject: `Collection ${activityType}`, summary: outcomeLabels[outcome],
           metadata: { invoiceIds: invoices.map(i => i.id), outcome: outcomeLabels[outcome], contactReached: contactReached === true,
             durationMinutes: minutes, promiseDate: promiseDate || null, followUpDate: followUpDate || null },
         } }),
@@ -108,7 +110,7 @@ const authenticatedHandler: Handler = async (event) => {
       if (invoice.account?.zohoId && pause?.value !== 'true') {
         try {
           const { pushZohoNote } = await import("./lib/zoho-auth")
-          await pushZohoNote(invoice.account.zohoId, `Collection Call Log: ${outcomeLabels[outcome] || outcome}`, content)
+          await pushZohoNote(invoice.account.zohoId, `Collection ${activityType}: ${outcomeLabels[outcome] || outcome}`, content)
           zohoSynced = true
         } catch (zohoError) {
           console.error("Collection call saved locally but Zoho note sync failed:", zohoError)

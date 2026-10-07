@@ -36,3 +36,8 @@ export function legacyCollectionCall(note: any): CollectionActivity {
     outcome: line('Outcome:') || 'Unknown', reached: !!line('Spoke With:'), minutes: Number.isFinite(duration) && duration >= 0 ? duration : null,
     invoiceIds: [], promiseDate: line('Promise to Pay by:'), followUpDate: line('Follow-up:'), legacy: true }
 }
+export function isLegacyCollectionCall(content: string) {
+  // Older payment/return workflows used the call logger; those were not phone calls.
+  return !content.split('\n').some(line => line === 'Spoke With: Customer (Card Payment)' || line === 'Spoke With: Customer (Return Requested)'
+    || line.startsWith('Notes: Credit Card Charged successfully.') || line.startsWith('Notes: EasyShip Return Label Generated.'))
+}
