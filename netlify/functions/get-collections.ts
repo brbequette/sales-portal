@@ -175,6 +175,7 @@ const authenticatedHandler: Handler = async (event) => {
         invoice_number: items?.invoiceNumber || items?.invoice_number || inv.zohoId?.slice(-6) || "—",
         customer_name: (inv.accountName || "Unknown").toUpperCase(),
         customer_id: inv.accountZohoId || inv.accountId,
+        account_id: inv.accountId,
         salesperson_name: String(salespersonVal).toUpperCase(),
         salesperson_id: inv.ownerId,
         salesperson_zoho_id: inv.ownerZohoId || null,

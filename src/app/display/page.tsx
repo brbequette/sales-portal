@@ -1,9 +1,12 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
+import layoutStyles from './display.module.css'
+import { CommunicationDock } from '@/components/CommunicationDock'
+import { useCommunicationLayout } from '@/lib/communication-layout'
 import { ScreenTwoContext } from '@/components/ScreenTwoContext'
-import { publishCommunicationContext } from '@/lib/communication-context'
+import { getCommunicationContext, publishCommunicationContext } from '@/lib/communication-context'
 import type { DualScreenState } from '@/lib/dual-screen'
 import {
   FiMonitor, FiWifi, FiWifiOff, FiMaximize, FiSearch, FiPhone, FiPhoneCall,
@@ -95,9 +98,27 @@ function getLocalTimeInfo(timeZone?: string | null) {
 }
 
 function CommunicatorContent() {
+  const [workspaceView, setWorkspaceView] = useState<'tools' | 'details'>('tools')
   const searchParams = useSearchParams()
   const router = useRouter()
   const { isInitialized, zohoContext: currentUser } = useZoho()
+
+  useEffect(() => {
+    const showTools = () => setWorkspaceView('tools')
+    const events = ['inAppDial', 'openTitanAi', 'titan:open-messages']
+    events.forEach(event => window.addEventListener(event, showTools))
+    return () => events.forEach(event => window.removeEventListener(event, showTools))
+  }, [])
+
+  const returnToQueue = () => {
+    setActiveAccountId('')
+    setFollowing(false)
+    publishCommunicationContext(null)
+    localStorage.removeItem('titan-communicator-active-account-id')
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('accountId'); params.delete('id')
+    router.replace(`${window.location.pathname}${params.size ? `?${params}` : ''}`)
+  }
 
   // Controller & Broadcast Channel Sync
   const sourceId = useRef("")
@@ -179,7 +200,7 @@ function CommunicatorContent() {
   useEffect(() => {
     sourceId.current = crypto.randomUUID()
     targetControllerId.current = searchParams.get("controller") || ""
-    if (!("BroadcastChannel" in window)) return
+    if (!targetControllerId.current || !("BroadcastChannel" in window)) return
 
     const bc = new BroadcastChannel(DUAL_SCREEN_CHANNEL)
     channel.current = bc
@@ -194,6 +215,11 @@ function CommunicatorContent() {
       seen.current.add(message.id)
       if (seen.current.size > 500) seen.current.clear()
 
+      if (message.type === 'DISPLAY_FOCUS') window.focus()
+      if (message.type === 'COMMUNICATION_ACTION' && message.action && ['inAppDial', 'openTitanAi', 'titan:open-messages'].includes(message.action.event)) {
+        setWorkspaceView('tools')
+        window.dispatchEvent(new CustomEvent(message.action.event, { detail: message.action.detail }))
+      }
       const newController = controllerSourceId.current !== message.sourceId
       if (message.type === "CONTROLLER_STATE" && message.state && (newController || message.sequence > lastControllerSequence.current)) {
         controllerSourceId.current = message.sourceId
@@ -213,11 +239,12 @@ function CommunicatorContent() {
         }
 
         const cPath = message.state.controllerPath || ""
+        if (!communicationAccount && !cPath.startsWith('/account?') && followScreenOneRef.current) setActiveAccountId('')
         if (cPath.includes("/account")) {
           try {
             const url = new URL(cPath, "http://titan.local")
             const cAccId = url.searchParams.get("id")
-            if (cAccId && cAccId !== activeAccountId) {
+            if (cAccId) {
               setActiveAccountId(prev => {
                 if (followScreenOneRef.current || !prev) return cAccId
                 setControllerAccountSuggestion({ id: cAccId, name: message.state?.title })
@@ -252,15 +279,15 @@ function CommunicatorContent() {
       bc.close()
       channel.current = null
     }
-  }, [post, searchParams, activeAccountId])
+  }, [post, searchParams])
 
   // 3. Keep activeAccountId in sync with URL search params if provided
   useEffect(() => {
     const paramId = searchParams.get("accountId") || searchParams.get("id") || ""
-    if (paramId && paramId !== activeAccountId) {
+    if (paramId) {
       setActiveAccountId(paramId)
     }
-  }, [searchParams, activeAccountId])
+  }, [searchParams])
 
   // 4. Fetch Account Details whenever activeAccountId changes
   useEffect(() => {
@@ -282,6 +309,7 @@ function CommunicatorContent() {
       .then(acc => {
         if (!active) return
         setAccount(acc)
+        if (!getCommunicationContext()?.accountId) publishCommunicationContext({ kind: 'account', accountId: acc.id, title: acc.name })
         localStorage.setItem("titan-communicator-active-account-id", activeAccountId)
         setControllerAccountSuggestion(null)
       })
@@ -517,7 +545,9 @@ function CommunicatorContent() {
   }, [callingAccounts, reorderPredictions])
 
   const handleSelectAccount = (accId: string) => {
+    setFollowing(false)
     setActiveAccountId(accId)
+    publishCommunicationContext({ kind: 'account', accountId: accId })
     setShowSearchDropdown(false)
     setSearchQuery("")
     toast.success("Loaded account into Communicator Workspace")
@@ -590,7 +620,9 @@ function CommunicatorContent() {
   }
 
   return (
-    <div onInputCapture={() => setFollowing(false)} className="flex h-dvh flex-col overflow-hidden bg-[#07090d] text-white font-sans">
+    <div className={layoutStyles.layout} data-view={workspaceView}>
+    <nav className={layoutStyles.switcher} aria-label="Communicator workspace"><button aria-pressed={workspaceView === 'tools'} onClick={() => setWorkspaceView('tools')}>Communications</button><button aria-pressed={workspaceView === 'details'} onClick={() => setWorkspaceView('details')}>Accounts & work queue</button></nav>
+    <div onInputCapture={() => setFollowing(false)} className={`${layoutStyles.details} flex flex-col overflow-hidden bg-[#07090d] text-white font-sans`}>
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-4 py-2 text-xs">
         <span className="text-neutral-400">{followScreenOne ? 'Following the active conversation and screen 1' : 'Account pinned while you work — drafts stay with this customer'}</span>
         <button type="button" aria-pressed={followScreenOne} className="rounded-lg bg-cyan-700 px-3 py-2" onClick={() => {
@@ -608,9 +640,7 @@ function CommunicatorContent() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => {
-                setActiveAccountId("")
-                localStorage.removeItem("titan-communicator-active-account-id")
-                router.replace("/display")
+                returnToQueue()
               }}
               className="flex items-center gap-2 group text-left cursor-pointer"
               title="Return to Main Communicator Hub"
@@ -728,9 +758,7 @@ function CommunicatorContent() {
             {activeAccountId && (
               <button
                 onClick={() => {
-                  setActiveAccountId("")
-                  localStorage.removeItem("titan-communicator-active-account-id")
-                  router.replace("/display")
+                  returnToQueue()
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-neutral-200 hover:text-white text-xs font-bold transition cursor-pointer"
                 title="Return to Communicator Queue"
@@ -805,9 +833,7 @@ function CommunicatorContent() {
             accountId={account.id}
             account={account}
             onBack={() => {
-              setActiveAccountId("")
-              localStorage.removeItem("titan-communicator-active-account-id")
-              router.replace("/display")
+              returnToQueue()
             }}
           />
         ) : (
@@ -1529,7 +1555,17 @@ function CommunicatorContent() {
         </div>
       )}
     </div>
+    <div className={layoutStyles.tools}><CommunicationDock inline user={currentUser ? { id: currentUser.id, name: currentUser.name || undefined, role: currentUser.role } : undefined} /></div>
+    </div>
   )
+}
+
+function ResponsiveCommunicator() {
+  const { mobile } = useCommunicationLayout()
+  const mounted = useSyncExternalStore(() => () => {}, () => true, () => false)
+  const { zohoContext: user } = useZoho()
+  if (!mounted) return null
+  return mobile ? <div className="h-dvh"><CommunicationDock inline user={user ? { id: user.id, name: user.name || undefined, role: user.role } : undefined} /></div> : <CommunicatorContent />
 }
 
 export default function SecondDisplayPage() {
@@ -1539,7 +1575,7 @@ export default function SecondDisplayPage() {
         Loading Titan Communicator...
       </div>
     }>
-      <CommunicatorContent />
+      <ResponsiveCommunicator />
     </Suspense>
   )
 }

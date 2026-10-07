@@ -1,0 +1,71 @@
+.page { min-width: 0; container-type: inline-size; container-name: collections; }
+.header { flex-wrap: wrap; gap: 16px; }
+.header > div { min-width: 0; flex-wrap: wrap; }
+.header > div:first-child { flex-wrap: nowrap; flex: 1 1 320px; }
+.header > div:first-child > div:first-child { flex-shrink: 0; }
+.header > div:first-child > div:last-child { min-width: 0; }
+.header h1, .header p { white-space: normal; overflow-wrap: anywhere; }
+.header p { line-height: 1.5; }
+.body { padding-bottom: 100px !important; }
+.filters { display: flex; flex-direction: column; gap: 14px; padding: 18px; border: 1px solid #ffffff14; border-radius: 16px; background: #ffffff03; }
+.filterFields { display: flex; flex-wrap: wrap; gap: 12px; }
+.filterFields > div:first-child { flex-basis: 240px; }
+.filterFields select { max-width: 100%; }
+.filterFields > select { width: auto; flex: 0 1 190px; }
+.filterFields input { padding-left: 36px !important; }
+.queueHeading { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.queueHeading h2 { font-size: 15px; font-weight: 700; }
+.queueHeading p { margin-top: 4px; color: #94a3b8; font-size: 12px; }
+.queueHeading > span { color: #fda4af; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tableWrap { border-radius: 16px; border: 1px solid #ffffff14; }
+.table { width: 100%; table-layout: fixed; }
+.table th { font-size: 10px; letter-spacing: .06em; padding: 14px 16px; }
+.table th:nth-child(1) { width: 26%; }
+.table th:nth-child(2) { width: 22%; }
+.table th:nth-child(3) { width: 20%; }
+.table th:nth-child(4) { width: 14%; }
+.table th:nth-child(5) { width: 18%; }
+.invoiceRow { cursor: pointer; transition: background .15s; }
+.invoiceRow:hover { background: #ffffff05; }
+.invoiceRow[data-expanded='true'] { background: #06b6d40b; }
+.invoiceRow > td { padding: 18px 16px; vertical-align: top; overflow-wrap: anywhere; }
+.accountButton { display: flex; flex-direction: column; gap: 6px; text-align: left; width: 100%; }
+.accountButton strong { font-size: 13px; line-height: 1.5; }
+.accountButton:focus-visible, .contact:focus-visible { outline: 2px solid #22d3ee; outline-offset: 4px; border-radius: 4px; }
+.rep { margin-top: 8px; color: #94a3b8; font-size: 11px; line-height: 1.5; }
+.contact { text-align: left; display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: #cbd5e1; }
+.contact span:last-child { color: #34d399; font-variant-numeric: tabular-nums; }
+.contact:hover span:last-child { text-decoration: underline; }
+.timing { color: #94a3b8; font-size: 11px; line-height: 1.8; }
+.timing > span { margin-bottom: 6px; white-space: normal; }
+.balance { text-align: right; color: #fda4af; font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums; }
+.actions button { white-space: nowrap; min-height: 36px; font-size: 11px; }
+.overviewRow > td { padding: 0; max-width: 100%; overflow: hidden; }
+@container collections (max-width: 1000px) {
+  .table thead { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); overflow: hidden; }
+  .table, .table tbody { display: block; }
+  .invoiceRow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding: 16px; gap: 16px; border-bottom: 1px solid #ffffff14; }
+  .invoiceRow > td { display: block; padding: 0; border: 0; }
+  .identity { grid-column: 1; grid-row: 1; }
+  .balance { grid-column: 2; grid-row: 1; }
+  .contacts { grid-column: 1; grid-row: 2; }
+  .timing { grid-column: 2; grid-row: 2; }
+  .actions { grid-column: 1 / -1; }
+  .actions > div { justify-content: flex-start; }
+  .actions button { flex: 1; min-height: 40px; }
+  .balance::before { content: attr(data-label); display: block; font-size: 10px; font-weight: 500; color: #94a3b8; margin-bottom: 6px; }
+  .overviewRow, .overviewRow > td { display: block; width: 100%; }
+}
+@media (max-width: 600px) {
+  .header { padding: 16px !important; }
+  .header > div:last-child { width: 100%; }
+  .header > div:last-child > :last-child { flex: 1; }
+  .body { padding: 12px 12px 150px !important; }
+  .filters { padding: 12px; }
+  .filterFields { flex-direction: column; }
+  .filterFields > div:first-child { flex-basis: auto; }
+  .filterFields select { width: 100%; }
+  .filterFields > select { flex-basis: auto; }
+  .invoiceRow { gap: 14px 12px; padding: 14px; }
+  .accountButton strong { font-size: 12px; }
+}

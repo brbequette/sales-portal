@@ -7,12 +7,7 @@ import { createPortal } from "react-dom"
 import { signOut } from "next-auth/react"
 import { useZoho } from "@/components/ZohoProvider"
 import { usePreferences } from "@/components/PreferencesProvider"
-import {
-  FiHome, FiPhoneCall, FiDollarSign, FiTool, FiTrendingUp,
-  FiX, FiFileText, FiLogOut, FiSettings, FiBookOpen,
-  FiMessageSquare, FiMail, FiArrowLeft, FiCheckSquare, FiClock, FiGrid,
-  FiTruck, FiAward, FiLayers, FiChevronLeft, FiChevronRight, FiZap,
-} from "react-icons/fi"
+import { FiX, FiLogOut, FiSettings, FiArrowLeft, FiGrid, FiShield, FiChevronLeft, FiChevronRight, FiZap } from "react-icons/fi"
 import { GlobalTopBar } from "@/components/GlobalTopBar"
 import { UserSettingsModal } from "@/components/UserSettingsModal"
 import { CommandPalette } from "@/components/CommandPalette"
@@ -23,39 +18,7 @@ import { isAdminRole, isAdministratorRole } from "@/lib/roles"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type NavItem = {
-  href: string
-  icon: React.ElementType
-  label: string
-  color: string
-}
-
-type NavGroup = {
-  label: string
-  items: NavItem[]
-}
-
-// ─── Adaptive bottom nav — all trackable pages ────────────────────────────────
-// defaultScore determines the initial ranking before visits accumulate.
-// Each visit to a page adds 10 to its effective score, so after ~5 extra
-// visits a page will overtake the next-lower default.
-
-const ALL_TRACKABLE: (NavItem & { defaultScore: number })[] = [
-  { href: "/dashboard",  icon: FiHome,          label: "Home",        color: "text-sky-400",     defaultScore: 100 },
-  { href: "/sales",       icon: FiTrendingUp,    label: "Sales",       color: "text-emerald-400", defaultScore: 90  },
-  { href: "/tasks",       icon: FiCheckSquare,   label: "Tasks",       color: "text-violet-400",  defaultScore: 80  },
-  { href: "/docs",        icon: FiFileText,      label: "Docs",        color: "text-sky-400",     defaultScore: 70  },
-  { href: "/processing",  icon: FiLayers,        label: "Process",     color: "text-orange-400",  defaultScore: 75  },
-  { href: "/messages/email", icon: FiMail, label: "Email Inbox", color: "text-cyan-400", defaultScore: 59 },
-  { href: "/messages",    icon: FiMessageSquare, label: "Messages",    color: "text-cyan-400",    defaultScore: 60  },
-  { href: "/collections", icon: FiPhoneCall,     label: "Collections", color: "text-rose-400",    defaultScore: 50  },
-  { href: "/commissions", icon: FiDollarSign,    label: "Commissions", color: "text-green-400",   defaultScore: 40  },
-  { href: "/stats",       icon: FiAward,         label: "Stats",       color: "text-yellow-400",  defaultScore: 30  },
-  { href: "/shipping",    icon: FiTruck,         label: "Shipping",    color: "text-amber-400",   defaultScore: 20  },
-  { href: "/tools",       icon: FiTool,          label: "Tools",       color: "text-indigo-400",  defaultScore: 10  },
-  { href: "/training",    icon: FiBookOpen,      label: "Training",    color: "text-teal-400",    defaultScore: 9   },
-  { href: "/timeclock",   icon: FiClock,         label: "Timeclock",   color: "text-lime-400",    defaultScore: 8   },
-]
+import { navigationGroups as navGroups, navigationItems as ALL_TRACKABLE, groupAccent, type NavItem } from '@/lib/navigation'
 
 const NAV_VISITS_KEY = "titan_nav_visits_v1"
 
@@ -68,55 +31,6 @@ function loadVisits(): Record<string, number> {
 
 function saveVisits(visits: Record<string, number>) {
   try { localStorage.setItem(NAV_VISITS_KEY, JSON.stringify(visits)) } catch {}
-}
-
-// ─── Desktop Sidebar Navigation Groups ───────────────────────────────────────
-// Admin-only items are removed — admins navigate via /admin and the AdminLayout.
-// A single "Admin Hub" link is added at the bottom of the sidebar for admins.
-
-const navGroups: NavGroup[] = [
-  {
-    label: "Core",
-    items: [
-      { href: "/dashboard",  icon: FiHome,          label: "Dashboard",      color: "text-sky-400"     },
-      { href: "/sales",       icon: FiTrendingUp,    label: "Sales Pipeline", color: "text-emerald-400" },
-      { href: "/tasks",       icon: FiCheckSquare,   label: "Task Hub",       color: "text-violet-400"  },
-      { href: "/docs",        icon: FiFileText,      label: "Documents",      color: "text-sky-400"     },
-      { href: "/processing",  icon: FiLayers,        label: "Order Processing",color: "text-orange-400"  },
-    ]
-  },
-  {
-    label: "Communication",
-    items: [
-      { href: "/messages",    icon: FiMessageSquare, label: "Messages",       color: "text-cyan-400"    },
-      { href: "/messages/email", icon: FiMail, label: "Email Inbox", color: "text-cyan-400" },
-      { href: "/collections", icon: FiPhoneCall,     label: "Collections",    color: "text-rose-400"    },
-    ]
-  },
-  {
-    label: "Finance",
-    items: [
-      { href: "/commissions", icon: FiDollarSign,    label: "Commissions",    color: "text-green-400"   },
-      { href: "/stats",       icon: FiAward,         label: "Rep Stats",      color: "text-yellow-400"  },
-      { href: "/shipping",    icon: FiTruck,         label: "Shipping",       color: "text-amber-400"   },
-    ]
-  },
-  {
-    label: "Resources",
-    items: [
-      { href: "/catalog",     icon: FiGrid,          label: "Product Catalog",color: "text-amber-400"   },
-      { href: "/tools",       icon: FiTool,          label: "Tools & Media",  color: "text-indigo-400"  },
-      { href: "/training",    icon: FiBookOpen,      label: "Training Hub",   color: "text-teal-400"    },
-      { href: "/timeclock",   icon: FiClock,         label: "Timeclock",      color: "text-lime-400"    },
-    ]
-  },
-]
-
-const groupAccent: Record<string, string> = {
-  "Core":         "bg-sky-500",
-  "Communication":"bg-cyan-500",
-  "Finance":      "bg-green-500",
-  "Resources":    "bg-indigo-500",
 }
 
 // ─── Main pages list (no back button needed) ──────────────────────────────────
@@ -256,7 +170,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const showBackButton = !MAIN_PAGES.includes(pathname) && !isAdminPage
 
   const isActive = (href: string) =>
-    href === "/dashboard" || href === "/messages" ? pathname === href : pathname === href || pathname.startsWith(href + "/")
+    href === "/dashboard" || href === "/messages" || href === "/collections" ? pathname === href : pathname === href || pathname.startsWith(href + "/")
 
   // ── Logout ────────────────────────────────────────────────────────────────
   const handleLogout = async () => {
@@ -267,7 +181,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // ── Adaptive nav — load visits on mount ───────────────────────────────────
   useEffect(() => {
     setNavVisits(loadVisits())
-    setSidebarExpanded(localStorage.getItem("titan_sidebar_expanded") === "true")
+    const savedSidebar = localStorage.getItem("titan_sidebar_expanded")
+    setSidebarExpanded(savedSidebar === null ? window.innerWidth >= 1280 : savedSidebar === "true")
   }, [])
 
   const toggleSidebar = () => {
@@ -306,8 +221,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setShowMoreMenu(false)
   }, [pathname])
 
-  if (pathname.startsWith("/display")) {
-    return <>{children}<CommunicationDock user={user ? { id: user.id, name: user.name || undefined, role: user.role } : undefined} /></>
+  if (pathname.startsWith("/display") || pathname === "/communications") {
+    return <>{children}</>
   }
   if (pathname === "/login" || pathname === "/intro-offer" || pathname.startsWith("/tv") || isPublicPage) {
     return <>{children}</>
@@ -421,7 +336,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
                 <div className="mb-0.5 w-full flex justify-center">
                   <SidebarLink
-                    item={{ href: "/admin", icon: FiGrid, label: "Admin Hub", color: "text-purple-400" }}
+                    item={{ href: "/admin", icon: FiShield, label: "Admin Hub", color: "text-purple-400" }}
                     active={isActive("/admin")}
                     expanded={sidebarExpanded}
                   />
@@ -605,7 +520,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       }
                     `}
                   >
-                    <FiGrid size={16} className={isActive("/admin") ? "text-purple-400" : "opacity-60"} />
+                    <FiShield size={16} className={isActive("/admin") ? "text-purple-400" : "opacity-60"} />
                     <span className="flex-1">Admin Hub</span>
                     {isActive("/admin") && <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />}
                   </Link>
@@ -669,7 +584,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <span className={`absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full ${item.color.replace("text-", "bg-")}`} />
                 )}
               </div>
-              <span className={active ? "text-white" : ""}>{item.label}</span>
+              <span className={active ? "text-white" : ""}>{item.mobileLabel || item.label}</span>
             </Link>
           )
         })}
@@ -767,7 +682,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         }
                       `}
                     >
-                      <FiGrid size={15} className={isActive("/admin") ? "text-purple-400" : "opacity-60"} />
+                      <FiShield size={15} className={isActive("/admin") ? "text-purple-400" : "opacity-60"} />
                       <span className="text-xs">Admin Hub</span>
                     </Link>
                   </div>

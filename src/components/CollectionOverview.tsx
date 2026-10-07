@@ -73,9 +73,9 @@ export function CollectionOverview({ invoice: suppliedInvoice, invoiceId }: { in
     <div id={`${invoice.id}-panel`} role="tabpanel" aria-labelledby={`${invoice.id}-tab-${tabs.indexOf(tab)}`}>
       {error ? <div role="alert" className="text-amber-300">{error} <button className="underline p-2" onClick={() => setRetry(n => n + 1)}>Retry</button></div> : !data ? <p role="status" className="text-neutral-400">Loading saved order details…</p> : <>
         {tab === 'Overview' && <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-3">
-          {card('Invoice', money(invoice.balance) + ' outstanding', data.documents[0], `${money(invoice.total)} total · ${invoice.status}`)}
+          {card('Invoice', money(invoice.balance) + ' outstanding', data.documents[0], `${money(invoice.total)} total · ${invoice.status || 'Status not recorded'}`)}
           {card('Sales representative', invoice.salesperson_name || 'Unassigned', { invoiceRep: invoice.salesperson_name, accountOwner: data.account.owner })}
-          {card('Account', data.account.name, data.account, `${data.account.contacts.length} contacts · ${data.account.status}`)}
+          {card('Account', data.account.name, data.account, `${data.account.contacts.length} contacts · ${data.account.status || 'Status not recorded'}`)}
           {card('Fulfillment', `${data.packages.length} packages`, { packages: data.packages, purchaseOrders: data.purchases }, `${data.purchases.length} linked purchase orders`)}
           {card('Collection follow-up', date(data.account.nextActionDate), { nextActionDate: data.account.nextActionDate, lastCalledAt: data.account.lastCalledAt, dueDate: invoice.due_date })}
         </div>}

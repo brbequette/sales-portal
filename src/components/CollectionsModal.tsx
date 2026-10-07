@@ -29,6 +29,7 @@ export type Invoice = {
   status: string
   days_overdue: number
   books_invoice_id: string | null
+  account_id?: string
   customer_id: string
   profit?: number
   dead_cost?: number
