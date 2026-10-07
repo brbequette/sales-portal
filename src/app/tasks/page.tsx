@@ -41,6 +41,7 @@ interface Task {
   priority: TaskPriority
   type: TaskType
   dueDate: string | null
+  dueDateIsDateOnly?: boolean | null
   ownerId: string
   ownerName?: string | null
   accountId?: string | null
@@ -97,21 +98,26 @@ const PRIORITY_COLORS: Record<string, string> = {
 }
 
 // â"€â"€â"€ Helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-function fmtDate(d: string | null) {
+function fmtDate(d: string | null, dateOnly?: boolean | null) {
   if (!d) return ""
-  const dt = taskDate(d)
+  const dt = taskDate(d, dateOnly)
   return dt.toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
-function fmtTime(d: string | null) {
+function fmtTime(d: string | null, dateOnly?: boolean | null) {
   if (!d) return ""
-  const dt = taskDate(d)
+  if (dateOnly === true || (dateOnly == null && /^\d{4}-\d{2}-\d{2}(?:T00:00:00(?:\.000)?Z)?$/.test(d))) return ''
+  const dt = taskDate(d, dateOnly)
   const h = dt.getHours(), m = dt.getMinutes()
-  if (h === 0 && m === 0) return ""
   return dt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
 }
-function fmtDateFull(d: string | null) {
+function fmtDateFull(d: string | null, dateOnly?: boolean | null) {
   if (!d) return "No due date"
-  return taskDate(d).toLocaleDateString("en-US", { weekday: "short", month: "long", day: "numeric", year: "numeric" })
+  return taskDate(d, dateOnly).toLocaleDateString("en-US", { weekday: "short", month: "long", day: "numeric", year: "numeric" })
+}
+function dueDateField(task: Task) {
+  if (!task.dueDate) return ''
+  const date = taskDate(task.dueDate, task.dueDateIsDateOnly)
+  return [date.getFullYear(), String(date.getMonth()+1).padStart(2,'0'), String(date.getDate()).padStart(2,'0')].join('-')
 }
 function isOverdue(t: Task) {
   return taskIsOverdue(t)
@@ -206,7 +212,7 @@ function TaskCard({ task, onTap, onComplete, onStatusChange }: {
               {task.dueDate && (
                 <span className={`flex items-center gap-1 font-medium ${overdue && !completed ? "text-red-400" : "text-neutral-500"}`}>
                   <FiClock size={10} />
-                  {fmtDate(task.dueDate)}{fmtTime(task.dueDate) ? ` • ${fmtTime(task.dueDate)}` : ""}
+                  {fmtDate(task.dueDate, task.dueDateIsDateOnly)}{fmtTime(task.dueDate, task.dueDateIsDateOnly) ? ` • ${fmtTime(task.dueDate, task.dueDateIsDateOnly)}` : ""}
                   {overdue && !completed && <span className="font-bold ml-0.5">OVERDUE</span>}
                 </span>
               )}
@@ -301,7 +307,7 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
   const [editPriority, setEditPriority] = useState<TaskPriority>(task.priority)
   const [editTitle, setEditTitle] = useState(task.title)
   const [editDesc, setEditDesc] = useState(task.description || "")
-  const [editDueDate, setEditDueDate] = useState(task.dueDate ? task.dueDate.slice(0, 10) : "")
+  const [editDueDate, setEditDueDate] = useState(dueDateField(task))
   const [outcome, setOutcome] = useState("")
   const [saving, setSaving] = useState(false)
   const [addingOutcome, setAddingOutcome] = useState(false)
@@ -322,7 +328,7 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
     if (!editTitle.trim()) { toast.error("Enter a task title"); return }
     setSaving(true)
     await onUpdate(task.zohoId, { title: editTitle.trim(), description: editDesc, status: editStatus, priority: editPriority,
-      ...(editDueDate !== (task.dueDate?.slice(0, 10) || '') ? { dueDate: editDueDate || null } : {}) })
+      ...(editDueDate !== dueDateField(task) ? { dueDate: editDueDate || null, dueDateIsDateOnly: true } : {}) })
     setSaving(false)
   }
 
@@ -383,7 +389,7 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
         <div className="flex items-center gap-3 pb-3">
           <span className={`text-xs flex items-center gap-1 font-medium ${overdue ? "text-red-400" : "text-neutral-400"}`}>
             <FiClock size={11} />
-            {fmtDateFull(task.dueDate)}
+            {fmtDateFull(task.dueDate, task.dueDateIsDateOnly)} {fmtTime(task.dueDate, task.dueDateIsDateOnly)}
           </span>
         </div>
 
@@ -635,7 +641,7 @@ function MiniCalendar({ tasks, onSelectTask, onRangeChange }: { tasks: Task[]; o
     setCur(n)
   }
 
-  const tasksOn = (day: Date) => visible.filter(t => t.dueDate && sameDay(taskDate(t.dueDate), day))
+  const tasksOn = (day: Date) => visible.filter(t => t.dueDate && sameDay(taskDate(t.dueDate, t.dueDateIsDateOnly), day))
 
   const title = () => {
     if (view === "day")   return cur.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
@@ -712,7 +718,7 @@ function MiniCalendar({ tasks, onSelectTask, onRangeChange }: { tasks: Task[]; o
               <div className="flex items-center gap-2 mb-1">
                 <span className={`text-[10px] font-bold flex items-center gap-1 ${cfg.text}`}>{TYPE_ICON[t.type]}{t.type}</span>
                 <StatusChip status={t.status} />
-                {fmtTime(t.dueDate) && <span className="ml-auto text-[10px] text-neutral-500">{fmtTime(t.dueDate)}</span>}
+                {fmtTime(t.dueDate, t.dueDateIsDateOnly) && <span className="ml-auto text-[10px] text-neutral-500">{fmtTime(t.dueDate, t.dueDateIsDateOnly)}</span>}
               </div>
               <p className="text-sm font-bold text-white">{t.title}</p>
               {t.accountName && <p className="text-xs text-sky-400 mt-0.5 flex items-center gap-1"><FiUser size={9}/>{t.accountName}</p>}
@@ -801,7 +807,7 @@ function MiniCalendar({ tasks, onSelectTask, onRangeChange }: { tasks: Task[]; o
                     {Array(fd).fill(null).map((_,i)=><div key={"e"+i}/>)}
                     {Array.from({length:dim},(_,d) => {
                       const day = new Date(cur.getFullYear(),mi,d+1)
-                      const dt  = visible.filter(t => t.dueDate && sameDay(taskDate(t.dueDate),day))
+                      const dt  = visible.filter(t => t.dueDate && sameDay(taskDate(t.dueDate, t.dueDateIsDateOnly),day))
                       return (
                         <div key={d} className={`aspect-square rounded-sm flex items-center justify-center text-[8px] font-bold ${
                           dt.length > 0 ? (dt.some(t=>t.priority==="High") ? "bg-red-500/50 text-white":"bg-violet-500/40 text-white") : "text-neutral-700"

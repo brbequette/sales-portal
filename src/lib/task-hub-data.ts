@@ -18,15 +18,15 @@ export function taskHubClock(params: Record<string, string | undefined>, now = n
 export function taskHubCte(ownerId: string | null, params: Record<string, string | undefined>, now = new Date()) {
   const clock = taskHubClock(params, now)
   return Prisma.sql`WITH scoped AS (
-    SELECT t.*, a.name AS "accountName", a."zohoId" AS "accountZohoId", a."rawData"->>'Phone' AS "accountPhone",
+    SELECT t.*, a.id AS "resolvedAccountId", a.name AS "accountName", a."zohoId" AS "accountZohoId", a."rawData"->>'Phone' AS "accountPhone",
       d.name AS "dealName", d."zohoId" AS "dealZohoId", u.name AS "ownerName",
       CASE WHEN t.type IS NULL OR t.type = 'Task' THEN CASE
         WHEN t.subject ILIKE '%call%' THEN 'Call' WHEN t.subject ILIKE '%email%' THEN 'Email'
         WHEN t.subject ILIKE '%text%' OR t.subject ILIKE '%sms%' THEN 'Text'
         WHEN t.subject ILIKE '%process%' THEN 'Processing' ELSE 'Task' END ELSE t.type END AS "effectiveType",
       t.status NOT IN ('Completed', 'Cancelled') AS "isOpen",
-      CASE WHEN t."dueDate"::time = '00:00:00' THEN t."dueDate" AT TIME ZONE ${clock.zone} AT TIME ZONE 'UTC' ELSE t."dueDate" END AS "calendarDue"
-    FROM "Task" t LEFT JOIN "Account" a ON a.id=t."accountId" LEFT JOIN "Deal" d ON d.id=t."dealId"
+      CASE WHEN COALESCE(t."dueDateIsDateOnly", t."dueDate"::time = '00:00:00') THEN date_trunc('day',t."dueDate") AT TIME ZONE ${clock.zone} AT TIME ZONE 'UTC' ELSE t."dueDate" END AS "calendarDue"
+    FROM "Task" t LEFT JOIN "Deal" d ON d.id=t."dealId" LEFT JOIN "Account" a ON a.id=COALESCE(t."accountId",d."accountId")
     LEFT JOIN "User" u ON u.id=t."ownerId"
     WHERE ${ownerId ? Prisma.sql`t."ownerId"=${ownerId}` : Prisma.sql`TRUE`}
   ), classified AS (
@@ -34,12 +34,12 @@ export function taskHubCte(ownerId: string | null, params: Record<string, string
       WHEN "effectiveType" IN ('Processing','Fulfillment','Integration') THEN 'process'
       WHEN "accountId" IS NOT NULL OR "dealId" IS NOT NULL THEN 'sales' ELSE 'process' END AS category,
       "isOpen" AND "calendarDue" < ${clock.end} AND "calendarDue" >= ${clock.start} AS "isToday",
-      "isOpen" AND "dueDate" < ${clock.now} AND ("dueDate"::time <> '00:00:00' OR "dueDate" < ${clock.midnight}) AS "isOverdue"
+      "isOpen" AND "dueDate" < ${clock.now} AND (NOT COALESCE("dueDateIsDateOnly", "dueDate"::time = '00:00:00') OR "dueDate" < ${clock.midnight}) AS "isOverdue"
     FROM scoped
   ), flagged AS (
     SELECT *, CASE WHEN "isOpen" AND COALESCE("accountId", "dealId", "leadId") IS NOT NULL THEN
       (COUNT(*) FILTER (WHERE "isOpen") OVER (PARTITION BY "ownerId", COALESCE("accountId", "dealId", "leadId", id), "effectiveType",
-        regexp_replace(lower(trim(subject)), '[[:space:]]+', ' ', 'g'), "dueDate"::date))::int ELSE 1 END AS "duplicateCount"
+        regexp_replace(lower(trim(subject)), '[[:space:]]+', ' ', 'g'), ("calendarDue" AT TIME ZONE 'UTC' AT TIME ZONE ${clock.zone})::date))::int ELSE 1 END AS "duplicateCount"
     FROM classified
   )`
 }
@@ -58,7 +58,7 @@ export async function readTaskHub(db: Reader, ownerId: string | null, params: Re
   if (params.queue === 'duplicates') clauses.push(Prisma.sql`"isOpen" AND "duplicateCount">1`)
   if (params.type && params.type !== 'all') clauses.push(Prisma.sql`"effectiveType"=${params.type}`)
   if (params.priority && params.priority !== 'all') clauses.push(Prisma.sql`lower(priority)=lower(${params.priority})`)
-  if (params.accountId) clauses.push(Prisma.sql`"accountId"=${params.accountId}`)
+  if (params.accountId) clauses.push(Prisma.sql`"resolvedAccountId"=${params.accountId}`)
   if (params.search?.trim()) {
     const q = `%${params.search.trim().replace(/[\\%_]/g, '\\$&')}%`
     clauses.push(Prisma.sql`(subject ILIKE ${q} OR description ILIKE ${q} OR "accountName" ILIKE ${q} OR "dealName" ILIKE ${q} OR "ownerName" ILIKE ${q})`)
@@ -85,7 +85,7 @@ export async function readTaskHub(db: Reader, ownerId: string | null, params: Re
   const total = categoryCounts[params.category || 'all'] || 0
   return { success: true, tasks: rows.map(t => ({ ...t, title: t.subject, type: t.effectiveType,
     priority: String(t.priority).toLowerCase() === 'high' ? 'High' : String(t.priority).toLowerCase() === 'low' ? 'Low' : 'Normal',
-    accountDbId: t.accountId, accountId: t.accountZohoId, dealDbId: t.dealId, dealId: t.dealZohoId,
-    actionUrl: t.accountId ? `/account?id=${encodeURIComponent(t.accountId)}` : '#',
+    accountDbId: t.resolvedAccountId, accountId: t.accountZohoId, dealDbId: t.dealId, dealId: t.dealZohoId,
+    actionUrl: t.resolvedAccountId ? `/account?id=${encodeURIComponent(t.resolvedAccountId)}` : '#',
   })), pagination: { page, pageSize, total, pages: Math.max(1, Math.ceil(total / pageSize)) }, categoryCounts, queues: queueRows[0] }
 }

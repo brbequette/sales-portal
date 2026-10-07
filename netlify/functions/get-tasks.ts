@@ -130,6 +130,7 @@ export const authenticatedHandler: Handler = async (event, context): Promise<Han
         priority: normPriority(t.priority),
         type: taskType,
         dueDate: t.dueDate,
+        dueDateIsDateOnly: t.dueDateIsDateOnly,
         ownerId: t.ownerId,
         ownerName: ownerNameMap.get(t.ownerId) || null,
         accountId: t.account?.zohoId || null,

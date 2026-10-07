@@ -545,6 +545,7 @@ model Task {
   status         String    @default("Not Started")
   priority       String    @default("Normal")
   dueDate        DateTime?
+  dueDateIsDateOnly Boolean? // null preserves legacy inference; new timed follow-ups explicitly use false
   ownerId        String
   accountId      String?
   leadId         String?

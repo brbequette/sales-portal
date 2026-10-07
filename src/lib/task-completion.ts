@@ -42,7 +42,7 @@ export async function saveTaskCompletion(db: PrismaClient, task: any, update: an
       actorId: actor.id, actorName: actor.name || null } })
     const followUp = input.nextAction ? await tx.task.create({ data: {
       zohoId: `task_followup_${id}`, subject: input.nextAction, description: `Follow-up from: ${task.subject}\nResult: ${input.summary}`,
-      dueDate: new Date(input.followUpAt!), ownerId: task.ownerId, accountId, dealId: task.dealId, leadId: task.leadId,
+      dueDate: new Date(input.followUpAt!), dueDateIsDateOnly: false, ownerId: update.ownerId || task.ownerId, accountId, dealId: task.dealId, leadId: task.leadId,
       type: task.type || 'Task', priority: task.priority || 'Normal', status: 'Not Started',
       invoiceId: invoiceId || task.invoiceId, salesOrderId: task.salesOrderId, quoteId: task.quoteId, estimateId: task.estimateId,
     } }) : null

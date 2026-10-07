@@ -181,6 +181,7 @@ export const authenticatedHandler: Handler = async (event, context): Promise<Han
     if (type) localUpdateData.type = type
     if (dueDate !== undefined) {
       localUpdateData.dueDate = dueDate ? new Date(dueDate) : null
+      localUpdateData.dueDateIsDateOnly = dueDate ? /^\d+$/.test(existingTask.zohoId) || /^\d{4}-\d{2}-\d{2}$/.test(dueDate) : null
     }
     if (resolvedOwnerId) {
       localUpdateData.ownerId = resolvedOwnerId

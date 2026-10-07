@@ -16,7 +16,7 @@ describe('completion and next-step workflow', () => {
     await saveTaskCompletion(db as any, task, { priority: 'High' }, input, { id: 'rep1' })
     expect(db.$transaction).toHaveBeenCalledOnce()
     expect(tx.task.updateMany).toHaveBeenCalledWith({ where: { id: 'task1', status: { not: 'Completed' } }, data: { priority: 'High', status: 'Completed' } })
-    expect(tx.task.create).toHaveBeenCalledWith({ data: expect.objectContaining({ ownerId: 'rep1', accountId: 'account1', dealId: 'deal1', invoiceId: 'invoice1', subject: 'Confirm delivery', status: 'Not Started' }) })
+    expect(tx.task.create).toHaveBeenCalledWith({ data: expect.objectContaining({ ownerId: 'rep1', accountId: 'account1', dealId: 'deal1', invoiceId: 'invoice1', subject: 'Confirm delivery', status: 'Not Started', dueDateIsDateOnly: false }) })
     expect(tx.taskOutcome.create).toHaveBeenCalledWith({ data: expect.objectContaining({ outcomeType: 'WON', documentId: 'invoice1', summary: input.summary }) })
     expect(tx.operationalEvent.create).toHaveBeenCalledOnce()
   })
