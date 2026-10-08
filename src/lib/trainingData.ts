@@ -348,7 +348,7 @@ The **Messages** section is your dedicated texting workspace.
 The AI Sales Assistant is equipped with all approved talking points from the **Scripts** library. It uses advanced sales methodologies (Consultative, SPIN, Challenger, Value-Based) to generate a customized pitch for each account based on their order history, previous call notes, and objections.
 
 ### Fact-Finding First
-For cold calls, the AI will prioritize **Fact-Finding** to identify decision-makers, pain points, and current suppliers. It will not recommend pitching products until enough information is collected.
+Cold calls and account updates both open with **Fact-Finding**. Confirm the buyer and saved facts, ask missing questions, then connect the need to a first-order or restock offer. Use the five guided stages to handle concerns and finish with a quote/order or an agreed dated follow-up. Reps can advance without completing every optional fact.
 
 ### Targeted Recommendations
 When calling an active customer, the AI automatically analyzes their past orders and suggests the next logical product to pitch (including recommended pricing and quantities). It pre-fills the context using previous call logs so you never have to ask the customer the same question twice.

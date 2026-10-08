@@ -10,6 +10,7 @@ import {
   FiUserPlus, FiUserX, FiStar, FiChevronLeft, FiChevronRight, FiGrid, FiList, FiSlash
 } from "react-icons/fi"
 import { PhoneLink } from "@/components/PhoneLink"
+import { GuidedSalesCall } from "@/components/GuidedSalesCall"
 import { SalesWorkspaceNav } from "@/components/SalesWorkspaceNav"
 
 export default function LeadsCallingPage() {
@@ -30,7 +31,6 @@ export default function LeadsCallingPage() {
 
   // Cold Call Script Drawer
   const [showScript, setShowScript] = useState(true)
-  const [scriptTab, setScriptTab] = useState<"opener" | "specs" | "offer" | "objections">("opener")
 
   // Primary Buyer & Excluded Contacts State per Company (companyName -> buyerLeadId)
   const [primaryBuyers, setPrimaryBuyers] = useState<Record<string, string>>({})
@@ -397,83 +397,8 @@ export default function LeadsCallingPage() {
             </div>
           </div>
 
-          {showScript && (
-            <div className="p-5 space-y-4 bg-neutral-950/80">
-              <div className="flex flex-wrap gap-2 border-b border-white/10 pb-3">
-                <button
-                  onClick={() => setScriptTab("opener")}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${scriptTab === "opener" ? "bg-orange-500 text-white shadow-md" : "bg-neutral-800 text-neutral-400 hover:text-white"}`}
-                >
-                  1. Opener &amp; Hook
-                </button>
-                <button
-                  onClick={() => setScriptTab("specs")}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${scriptTab === "specs" ? "bg-orange-500 text-white shadow-md" : "bg-neutral-800 text-neutral-400 hover:text-white"}`}
-                >
-                  2. Fact Finding &amp; Buyer Intro
-                </button>
-                <button
-                  onClick={() => setScriptTab("offer")}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${scriptTab === "offer" ? "bg-orange-500 text-white shadow-md" : "bg-neutral-800 text-neutral-400 hover:text-white"}`}
-                >
-                  3. Factory Offer
-                </button>
-                <button
-                  onClick={() => setScriptTab("objections")}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${scriptTab === "objections" ? "bg-orange-500 text-white shadow-md" : "bg-neutral-800 text-neutral-400 hover:text-white"}`}
-                >
-                  4. Objection Playbook
-                </button>
-              </div>
+          {showScript && <div className="p-4"><GuidedSalesCall key={currentCompanyIndex} type="cold" facts={{}} /><p className="mt-3 text-xs text-neutral-400">Capture the buyer, application, quantity and agreed next step in the lead disposition. Convert the qualified lead to an account to prepare its quote.</p></div>}
 
-              {scriptTab === "opener" && (
-                <div className="space-y-2 text-xs text-neutral-200 leading-relaxed bg-black/40 p-4 rounded-xl border border-white/5">
-                  <p className="font-bold text-orange-400 uppercase tracking-wider text-[11px]">Opening Hook Script:</p>
-                  <p className="text-sm font-medium italic text-neutral-100">
-                    "Hi <span className="text-orange-300 font-bold">[Contact Name]</span>, my name is <span className="text-orange-300 font-bold">[Your Name]</span> with Titan Diamond Tooling. We manufacture high-performance diamond blades and core bits for concrete contractors. I noticed your crew works out of <span className="text-orange-300 font-bold">[City/State]</span>—are you the person who handles tool and blade purchasing for your jobsites?"
-                  </p>
-                </div>
-              )}
-
-              {scriptTab === "specs" && (
-                <div className="space-y-3 text-xs text-neutral-200 bg-black/40 p-4 rounded-xl border border-white/5">
-                  <p className="font-bold text-orange-400 uppercase tracking-wider text-[11px]">Identifying the Buyer:</p>
-                  <ul className="list-disc list-inside space-y-1.5 text-neutral-300">
-                    <li><span className="font-bold text-white">Not the Buyer?</span> "Got it! Who handles purchasing or blade orders for your field crews? Could you patch me through or give me their direct line?"</li>
-                    <li><span className="font-bold text-white">Saw Specs:</span> "What size walk-behind or hand saws are your crews currently running on your active jobs?"</li>
-                    <li><span className="font-bold text-white">Cutting Material:</span> "What material are you cutting most frequently—cured concrete, asphalt, or reinforced block?"</li>
-                  </ul>
-                </div>
-              )}
-
-              {scriptTab === "offer" && (
-                <div className="space-y-2 text-xs text-neutral-200 bg-black/40 p-4 rounded-xl border border-white/5">
-                  <p className="font-bold text-orange-400 uppercase tracking-wider text-[11px]">Factory-Direct Pitch:</p>
-                  <p className="text-sm font-medium italic text-neutral-100">
-                    "We manufacture our Medusa 14\" and Samurai 18\" blades to last <span className="text-emerald-400 font-bold">30% longer</span> than standard supply house blades because we sell factory-direct with zero distributor markups. If I set up your account today with 30-day terms, would you be open to running a test order on your next job?"
-                  </p>
-                </div>
-              )}
-
-              {scriptTab === "objections" && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="p-3 bg-black/60 rounded-xl border border-white/10 space-y-1">
-                    <div className="font-bold text-amber-400 text-xs">"We already have a vendor"</div>
-                    <div className="text-[11px] text-neutral-300">"We completely respect that. We actually act as a primary factory supplier for contractors when local supply houses markup prices."</div>
-                  </div>
-                  <div className="p-3 bg-black/60 rounded-xl border border-white/10 space-y-1">
-                    <div className="font-bold text-amber-400 text-xs">"Send me an email"</div>
-                    <div className="text-[11px] text-neutral-300">"I'll send over our factory spec sheet right away! What’s the best direct email for your purchasing manager?"</div>
-                  </div>
-                  <div className="p-3 bg-black/60 rounded-xl border border-white/10 space-y-1">
-                    <div className="font-bold text-amber-400 text-xs">"Price is too high"</div>
-                    <div className="text-[11px] text-neutral-300">"Our cost-per-foot is guaranteed lower. If our blade doesn't outlast your current blade, we'll cover the difference."</div>
-                  </div>
-                </div>
-              )}
-
-            </div>
-          )}
         </div>
 
         {/* ─── Main Workstation Queue Display ─────────────────── */}

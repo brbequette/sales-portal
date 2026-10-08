@@ -82,7 +82,7 @@ export const FF_QUESTIONS: Question[] = [
   {
     num: 1, key: "bladeSizes",
     label: "Blade Sizes",
-    coldQ: '"First off... what size blades do you run? 14"?',
+    coldQ: '"What blade sizes and saws are you running?',
     followUpQ: '"What size blades are you running?"',
     options: FF_OPTIONS.bladeSizes,
   },
@@ -103,7 +103,7 @@ export const FF_QUESTIONS: Question[] = [
   {
     num: 4, key: "avgBladeCost",
     label: "Avg Blade Cost",
-    coldQ: '"How much are they charging you for a good 14" blade? $250? $300 Bucks?"',
+    coldQ: '"What do you normally pay for that size and application?"',
     followUpQ: '"How much are they charging you?"',
     options: FF_OPTIONS.avgBladeCost,
   },
@@ -117,7 +117,7 @@ export const FF_QUESTIONS: Question[] = [
   {
     num: 6, key: "bladesPerOrder",
     label: "Blades Per Order",
-    coldQ: '"And how many blades do you normally pick up at a time.. 6.. 12.. 25?"',
+    coldQ: '"How many blades do you normally order at a time?"',
     followUpQ: '"How many blades do you pick up at a time?"',
     options: FF_OPTIONS.bladesPerOrder,
   },

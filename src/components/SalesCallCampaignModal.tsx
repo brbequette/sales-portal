@@ -1,6 +1,8 @@
 "use client"
 
 
+import { GuidedSalesCall } from "./GuidedSalesCall"
+import { createPortal } from "react-dom"
 import { formatPhoneNumber } from "@/lib/formatters"
 
 
@@ -96,7 +98,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh, autoStart
   }
 
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[200] bg-background flex flex-col">
       {/* --- COMPACT TOP BAR --- */}
       <header className="bg-surface border-b border-cyan-500/10 px-5 py-1.5 shrink-0 flex items-center justify-between">
@@ -255,7 +257,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh, autoStart
             )}
 
             {/* Row 5: Call Outcome Logging Bar */}
-            <div className="px-5 mt-2.5 pt-2.5 border-t border-white/10/60 flex items-center gap-3 flex-wrap">
+            <div id="campaign-outcome" className="px-5 mt-2.5 pt-2.5 border-t border-white/10/60 flex items-center gap-3 flex-wrap">
               {/* Reached Toggle */}
               <div className="flex items-center gap-1.5 shrink-0">
                 <span className="text-[10px] font-bold text-neutral-400">Reached:</span>
@@ -361,68 +363,15 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh, autoStart
               </span>
               <div className="flex glass-panel border border-white/10 rounded text-[10px] font-bold p-0.5">
                 <button onClick={() => setCallType("cold")} className={`px-2 py-1 rounded transition-colors cursor-pointer ${callType === "cold" ? "bg-cyan-600 text-black" : "text-neutral-500"}`}>Cold Call</button>
-                <button onClick={() => setCallType("update")} className={`px-2 py-1 rounded transition-colors cursor-pointer ${callType === "update" ? "bg-cyan-600 text-black" : "text-neutral-500"}`}>Follow-Up</button>
+                <button onClick={() => setCallType("update")} className={`px-2 py-1 rounded transition-colors cursor-pointer ${callType === "update" ? "bg-cyan-600 text-black" : "text-neutral-500"}`}>Account Update</button>
               </div>
             </div>
 
-            {/* Script with inline fact-finding */}
-            <div className="space-y-3">
-              {/* INTRO / OVERDUE / FOLLOW-UP SCRIPT TEXT */}
-              {(() => {
-                const timeOfDay = new Date().getHours() < 12 ? "morning" : "afternoon"
-                const overdueInvoices = (activeAccount.invoices || []).filter((i: any) => i.status === "Overdue" || i.status?.toLowerCase() === "overdue")
-                const overdueTotal = overdueInvoices.reduce((sum: number, i: any) => sum + (parseFloat(i.amount) || 0), 0)
-
-                if (overdueTotal > 0) {
-                  return (
-                    <div className="bg-red-950/20 border border-red-900/40 p-4 rounded-xl text-sm text-red-200 leading-relaxed whitespace-pre-line select-text">
-                      {`Hi ${contactName}, this is ${repName} with Titan Diamond USA! Hope you're having a great ${timeOfDay}.\n\nI wanted to check in on your account. We noticed there is a pending balance of $${overdueTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })} on your oldest overdue statement, and I wanted to see if we could get that taken care of today, or if you needed any invoice copies emailed over to you.\n\nIs there anything else we can quote or ship out for you today?`}
-                    </div>
-                  )
-                }
-
-                if (callType === "cold") {
-                  return (
-                    <>
-                      {/* Cold Call Intro */}
-                      <div className="bg-black/20/60 border border-white/10 p-4 rounded-xl text-sm text-neutral-300 leading-relaxed whitespace-pre-line select-text">
-                        {`Hey, ${contactName} this is ${repName} over at Titan Diamond USA. I'm giving you a call today because we have an early release on our brand new 2026 line-up of blades that we featured at the The World of Concrete and ConExpo shows in Las Vegas this year and what's great is with this new release, our manufacturer wants us to give away free blades to our new customers to build new relationships... I just have a quick couple questions to see which blade will work best for you and what you're cutting...`}
-                      </div>
-                      {/* Fact-Finding Questions -- shared FactFindingPanel component */}
-                      <FactFindingPanel
-                        values={factFinding}
-                        onChange={setFactFinding}
-                        mode="dialer-cold"
-                        questionCount={7}
-                        accentColor="cyan"
-                        updatedAt={activeAccount.factFindingUpdatedAt || activeAccount.bladeSizesUpdatedAt || undefined}
-                        updatedBy={activeAccount.factFindingUpdatedBy || activeAccount.bladeSizesUpdatedBy || undefined}
-                      />
-                    </>
-                  )
-                }
-
-                // Follow-up script - show generated text + inline fact-finding for any missing fields
-                return (
-                  <>
-                    <div className="bg-black/20/60 border border-white/10 p-4 rounded-xl text-sm text-neutral-300 leading-relaxed whitespace-pre-line select-text">
-                      {generateScript()}
-                    </div>
-
-                    {/* Fact-finding for follow-ups -- shared FactFindingPanel component */}
-                    <FactFindingPanel
-                      values={factFinding}
-                      onChange={setFactFinding}
-                      mode="dialer-followup"
-                      questionCount={7}
-                      accentColor="amber"
-                      updatedAt={activeAccount.factFindingUpdatedAt || activeAccount.bladeSizesUpdatedAt || undefined}
-                      updatedBy={activeAccount.factFindingUpdatedBy || activeAccount.bladeSizesUpdatedBy || undefined}
-                    />
-                  </>
-                )
-              })()}
-            </div>
+            {plan?.callScript && <details className="mb-3 rounded-xl border border-white/10 p-3"><summary className="text-sm text-cyan-300">Campaign script reference</summary><p className="mt-2 whitespace-pre-line text-sm text-neutral-300">{generateScript()}</p></details>}
+            <GuidedSalesCall key={`${activeAccount.id || activeAccount.zohoId}-${callType}`} type={callType} contactName={contactName} repName={repName} facts={factFinding} purchaseNames={accountPurchases.map((p: any) => p.name).filter(Boolean)} onOffer={() => document.getElementById("campaign-order-builder")?.scrollIntoView({ behavior: "smooth", block: "start" })} onCloseStep={() => document.getElementById("campaign-outcome")?.scrollIntoView({ behavior: "smooth", block: "center" })}>
+              <FactFindingPanel values={factFinding} onChange={setFactFinding} mode={callType === "cold" ? "dialer-cold" : "dialer-followup"} questionCount={7} accentColor="cyan" />
+              <p className="mt-2 text-xs text-neutral-400">Answers save with Log &amp; Next. Record the buyer and agreed callback in the outcome bar.</p>
+            </GuidedSalesCall>
           </div>
 
           {/* BLADE PITCH RECOMMENDATIONS */}
@@ -430,6 +379,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh, autoStart
             <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 flex items-center gap-1.5 mb-1">
               <FiCheckSquare /> Pitch Recommendations
             </span>
+            {getBladeRecommendation().length === 0 && <p className="text-sm text-neutral-400">Confirm the material and saw setup in fact finding, then check the catalog for a compatible product.</p>}
             {getBladeRecommendation().map((rec, i) => (
               <div key={i} className="space-y-1">
                 <div className="flex items-center gap-2">
@@ -442,7 +392,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh, autoStart
           </div>
 
           {/* ORDER BUILDER */}
-          <div className="mx-5 mt-4 bg-violet-950/20 border border-violet-900/50 p-5 rounded-2xl">
+          <div id="campaign-order-builder" className="scroll-mt-72 mx-5 mt-4 bg-violet-950/20 border border-violet-900/50 p-5 rounded-2xl">
             <OrderBuilder
               orderLines={orderLines}
               setOrderLines={setOrderLines}
@@ -795,7 +745,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh, autoStart
 
       </div>
     </div>
-  )
+  , document.body)
 }
 
 
