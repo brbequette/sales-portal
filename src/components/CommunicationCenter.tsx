@@ -17,6 +17,7 @@ import {
   FiFileText, FiTrendingUp, FiPlus, FiSearch, FiChevronDown,
   FiChevronRight, FiLoader, FiTag, FiClock
 } from "react-icons/fi"
+import { GuidedSalesCall } from "./GuidedSalesCall"
 import { CallScriptViewer } from "./CallScriptViewer"
 import { FactFindingPanel, FactFindingSummary } from "@/components/FactFindingPanel"
 import { OrderBuilder } from "@/components/OrderBuilder"
@@ -39,6 +40,7 @@ const CALL_SUB_TABS = [
 ] as const
 
 const tierColors: Record<string, string> = {
+  "Verify fit": "bg-cyan-500/10 border-cyan-500/20 text-cyan-400",
   Good: "bg-emerald-500/10 border-emerald-500/20 text-emerald-400",
   Better: "bg-amber-500/10 border-amber-500/20 text-amber-400",
   Best: "bg-cyan-500/10 border-cyan-500/20 text-cyan-400",
@@ -71,6 +73,7 @@ export function CommunicationCenter({
   initialTab?: 'SMS' | 'EMAIL' | 'WHATSAPP'
   messagesOnly?: boolean
 }) {
+  const [flowStage, setFlowStage] = useState(0)
   const data = useCommunicationData({ accountId, account, contacts, selectedContactId })
   useEffect(() => { if (initialTab) data.setActiveTab(initialTab) }, [initialTab, data.setActiveTab])
   const {
@@ -98,6 +101,7 @@ export function CommunicationCenter({
     generateScript, getBladeRecommendations,
   } = data
 
+  useEffect(() => setFlowStage(0), [accountId, callType])
   const bladeRecs = getBladeRecommendations()
   const [campaignTemplates, setCampaignTemplates] = useState<SavedCampaignTemplate[]>([])
   const [emailCampaignDraft, setEmailCampaignDraft] = useState<{ id: string; subject: string; body: string } | null>(null)
@@ -318,35 +322,22 @@ type Message = {
                       onClick={() => setCallType(t)}
                       className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${callType === t ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-400" : "glass-panel border-neutral-700 text-neutral-400 hover:border-neutral-600"}`}
                     >
-                      {t === "cold" ? "âš¡ Cold Call" : "ðŸ”„ Follow-Up"}
+                      {t === "cold" ? "Cold Call" : "Account Update"}
                     </button>
                   ))}
                 </div>
                 <button
-                  onClick={() => { setScriptText(generateScript()); setShowScript(true) }}
+                  onClick={() => void navigator.clipboard?.writeText(generateScript())}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-bold text-xs rounded-lg transition-colors"
                 >
-                  <FiBookOpen size={12} /> Generate Script
+                  <FiBookOpen size={12} /> Copy full script
                 </button>
               </div>
 
-              {showScript && scriptText ? (
-                <div className="flex-1 flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Generated Script</span>
-                    <button onClick={() => navigator.clipboard?.writeText(scriptText)} className="text-[10px] text-[var(--primary)] hover:underline">Copy</button>
-                  </div>
-                  <div className="flex-1 glass-panel/60 border border-neutral-700 rounded-xl p-4 text-sm text-neutral-200 whitespace-pre-line leading-relaxed overflow-y-auto font-sans max-h-[420px] scrollbar-thin">
-                    {scriptText}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex-1 glass-panel/40 border border-dashed border-neutral-700 rounded-xl flex flex-col items-center justify-center gap-2 py-10 text-neutral-500">
-                  <FiBookOpen size={24} />
-                  <p className="text-sm">Click "Generate Script" to get a personalized call script</p>
-                  <p className="text-xs text-neutral-600">Script adapts based on call type, purchase history &amp; missing fact-finding</p>
-                </div>
-              )}
+              <GuidedSalesCall activeStage={flowStage} onStageChange={setFlowStage} key={`${accountId}-${callType}`} type={callType} contactName={contactName} repName={repName} facts={factFinding} purchaseNames={accountPurchases.map((p: any) => p.name).filter(Boolean)} onOffer={() => setCallSubTab("ORDER")} onCloseStep={() => setCallSubTab("LOG")}>
+                <FactFindingPanel values={factFinding} onChange={setFactFinding} mode={callType === "cold" ? "dialer-cold" : "dialer-followup"} questionCount={7} accentColor="cyan" />
+                <p className="mt-2 text-xs text-neutral-400">Answers save with Save Note &amp; Log Call in the Log tab.</p>
+              </GuidedSalesCall>
 
               {/* Static CallScriptViewer as reference */}
               <CallScriptViewer accountId={accountId} contact={primaryContact} />

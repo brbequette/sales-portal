@@ -1,5 +1,8 @@
 "use client"
 
+import { GuidedSalesCall } from "./GuidedSalesCall"
+import { CALL_FACT_KEYS, inferSalesCallType, rankSalesScripts, SALES_OBJECTIONS, type SalesCallType } from "@/lib/sales-call-flow"
+import { useZoho } from "./ZohoProvider"
 import { prepareInAppCall } from "@/lib/internal-phone"
 
 import Link from "next/link"
@@ -33,7 +36,15 @@ function merge(content: string, account: any, item: QueueContext) {
   return content.replace(/{{(\w+)}}/g, (_, key) => values[key] || (key === "RepName" ? "your Titan representative" : ""))
 }
 
-export function SalesCallCoach({ item, displayMode = false }: { item: QueueContext; displayMode?: boolean }) {
+export function SalesCallCoach(props: { item: QueueContext; displayMode?: boolean }) {
+  return <SalesCallCoachSession key={props.item.id} {...props} />
+}
+
+function SalesCallCoachSession({ item, displayMode = false }: { item: QueueContext; displayMode?: boolean }) {
+  const { zohoContext } = useZoho()
+  const [flowStage, setFlowStage] = useState(0)
+  const [callType, setCallType] = useState<SalesCallType>(inferSalesCallType(item))
+  const [loadError, setLoadError] = useState("")
   const [account, setAccount] = useState<any>(null)
   const [scripts, setScripts] = useState<Script[]>([])
   const [department, setDepartment] = useState("SALES")
@@ -48,13 +59,17 @@ export function SalesCallCoach({ item, displayMode = false }: { item: QueueConte
 
   useEffect(() => {
     let active = true
+    setAccount(null); setScripts([]); setSelectedId(""); setWorkspace("coach"); setMobileTab("script"); setLoadError(""); setFactMessage("")
+    setFactFinding(EMPTY_FACT_FINDING); setSavedFactFinding(EMPTY_FACT_FINDING)
+    setCallType(inferSalesCallType(item))
     Promise.all([
-      fetch(`/api/get-account-details?id=${encodeURIComponent(item.id)}`, { cache: "no-store" }).then(response => response.json()),
-      fetch("/api/scripts", { cache: "no-store" }).then(response => response.json()),
+      fetch(`/api/get-account-details?id=${encodeURIComponent(item.id)}`, { cache: "no-store" }).then(response => { if (!response.ok) throw new Error("Unable to load call context. Reopen the account to retry."); return response.json() }),
+      fetch("/api/scripts", { cache: "no-store" }).then(response => { if (!response.ok) throw new Error("Unable to load call context. Reopen the account to retry."); return response.json() }),
     ]).then(([accountData, scriptData]) => {
       if (!active) return
       const nextAccount = accountData.account || null
       setAccount(nextAccount)
+      setCallType(inferSalesCallType(nextAccount || item))
       const nextFacts: FactFindingValues = {
         ...EMPTY_FACT_FINDING,
         bladeSizes: nextAccount?.bladeSizes || "",
@@ -69,18 +84,18 @@ export function SalesCallCoach({ item, displayMode = false }: { item: QueueConte
       setSavedFactFinding(nextFacts)
       setFactMessage("")
       setScripts(scriptData.scripts || [])
-    }).catch(() => undefined)
+    }).catch(error => { if (active) setLoadError(error.message) })
     return () => { active = false }
   }, [item.id])
 
-  const relevant = useMemo(() => scripts.filter(script => (script.department || "SALES") === department), [department, scripts])
-  const chosen = relevant.find(script => script.id === selectedId) || relevant[0] || scripts[0]
-  const objections = (chosen?.objectionResponses || []).filter(entry => `${entry.trigger} ${entry.response}`.toLowerCase().includes(objectionQuery.toLowerCase()))
+  const relevant = useMemo(() => rankSalesScripts(scripts, department, callType), [department, scripts, callType])
+  const chosen = relevant.find(script => script.id === selectedId) || relevant[0]
+  const objections = (chosen?.objectionResponses?.length ? chosen.objectionResponses : department === "SALES" ? SALES_OBJECTIONS : []).filter(entry => `${entry.trigger} ${entry.response}`.toLowerCase().includes(objectionQuery.toLowerCase()))
   const contactName = [item.primaryContact?.firstName, item.primaryContact?.lastName].filter(Boolean).join(" ") || "Contact review needed"
   const history = account?.callLogs || []
   const documents = [...(account?.invoices || []), ...(account?.salesOrders || []), ...(account?.quotes || [])]
   const factsDirty = JSON.stringify(factFinding) !== JSON.stringify(savedFactFinding)
-  const answeredFacts = Object.values(factFinding).filter(value => Array.isArray(value) ? value.length > 0 : Boolean(value)).length
+  const answeredFacts = CALL_FACT_KEYS.filter(key => Boolean(factFinding[key])).length
 
   const saveFactFinding = async () => {
     setSavingFacts(true); setFactMessage("")
@@ -122,15 +137,26 @@ export function SalesCallCoach({ item, displayMode = false }: { item: QueueConte
     {workspace === "sell" ? <main className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6"><div className="mx-auto max-w-7xl"><div className="mb-4 rounded-2xl border border-orange-500/20 bg-orange-500/[.07] p-4"><div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-orange-300"><FiShoppingCart />Sell to {item.name}</div><p className="mt-1 text-sm text-neutral-400">Use the captured job facts to recommend products, price the deal, and create the quote or sales order without leaving the call.</p></div><OrderBuilder accountId={item.id} accountName={item.name} accountDetail={account} factFinding={factFinding} accent="emerald" onSuccess={() => setWorkspace("coach")} /></div></main> : <main className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1.45fr)_minmax(310px,.75fr)]">
       <section className={`${mobileTab !== "script" && mobileTab !== "discovery" ? "hidden lg:block" : "block"} min-h-0 overflow-y-auto border-white/10 p-4 lg:border-r md:p-5`}>
         <div className="mx-auto max-w-4xl">
-          <div className={mobileTab === "discovery" ? "hidden lg:block" : "block"}><div className="flex flex-wrap items-center justify-between gap-2"><div><div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-cyan-400"><FiBookOpen />Recommended script</div><p className="mt-1 text-xs text-neutral-500">Chosen from the approved admin library for this type of conversation.</p></div>{relevant.length > 1 && <select value={chosen?.id || ""} onChange={event => setSelectedId(event.target.value)} className="rounded-xl border border-white/10 bg-neutral-950 px-3 py-2 text-xs"><option value="">Best match</option>{relevant.map(script => <option key={script.id} value={script.id}>{script.name}</option>)}</select>}</div>
+          {loadError && <p role="alert" className="mb-3 rounded-xl bg-red-500/10 p-3 text-sm text-red-300">{loadError}</p>}
+          {department === "SALES" && <div className="mb-5 space-y-3">
+            <div className="flex gap-2">{(["cold", "update"] as const).map(type => <button type="button" key={type} onClick={() => { setCallType(type); setSelectedId(""); setFlowStage(0) }} className={`min-h-10 rounded-lg px-4 text-xs font-bold ${callType === type ? "bg-cyan-500 text-black" : "bg-white/10 text-white"}`}>{type === "cold" ? "Cold call" : "Account update"}</button>)}</div>
+            <GuidedSalesCall activeStage={flowStage} onStageChange={setFlowStage} key={`${item.id}-${callType}`} type={callType} contactName={contactName === "Contact review needed" ? "there" : contactName} repName={zohoContext?.name || undefined} facts={factFinding} onOffer={() => setWorkspace("sell")}>
+              <FactFindingPanel values={factFinding} onChange={setFactFinding} mode={callType === "cold" ? "dialer-cold" : "dialer-followup"} questionCount={7} accentColor="cyan" />
+              <button type="button" onClick={() => void saveFactFinding()} disabled={!account || !factsDirty || savingFacts} className="mt-3 min-h-10 rounded-lg bg-amber-400 px-4 text-xs font-bold text-black disabled:opacity-40">{savingFacts ? "Saving…" : "Save facts"}</button>
+              {factMessage && <p role="status" className="mt-2 text-sm text-amber-300">{factMessage}</p>}
+            </GuidedSalesCall>
+            <Link href={`/account?id=${encodeURIComponent(item.id)}`} className="inline-block text-sm text-cyan-300 underline">Record outcome and follow-up in account tools</Link>
+          </div>}
+
+          <div className={mobileTab === "discovery" ? "hidden lg:block" : "block"}><div className="flex flex-wrap items-center justify-between gap-2"><div><div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-cyan-400"><FiBookOpen />Approved library reference</div><p className="mt-1 text-xs text-neutral-500">Matched to the department and call purpose. Use alongside the guided stages.</p></div>{relevant.length > 1 && <select value={chosen?.id || ""} onChange={event => setSelectedId(event.target.value)} className="rounded-xl border border-white/10 bg-neutral-950 px-3 py-2 text-xs"><option value="">Best match</option>{relevant.map(script => <option key={script.id} value={script.id}>{script.name}</option>)}</select>}</div>
           {chosen ? <div className="mt-4 space-y-4">
             {chosen.objective && <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/[.07] p-4"><div className="text-[10px] font-black uppercase text-cyan-300">Call objective</div><div className="mt-1 text-sm font-bold">{chosen.objective}</div></div>}
-            <article className="rounded-2xl border border-white/10 bg-white/[.035] p-5 text-base leading-8 text-neutral-100 md:p-6 md:text-lg">{merge(chosen.content, account, item)}</article>
+            <article className="whitespace-pre-line rounded-2xl border border-white/10 bg-white/[.035] p-5 text-base leading-8 text-neutral-100 md:p-6 md:text-lg">{merge(chosen.content, account, item)}</article>
             {(chosen.discoveryPrompts || []).length > 0 && <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[.05] p-4"><div className="text-xs font-black uppercase tracking-wider text-emerald-300">Ask and listen</div><div className="mt-3 grid gap-2 md:grid-cols-2">{chosen.discoveryPrompts?.map((prompt, index) => <div key={`${prompt}-${index}`} className="flex gap-2 rounded-xl bg-black/30 p-3 text-sm"><FiChevronRight className="mt-0.5 shrink-0 text-emerald-400" />{merge(prompt, account, item)}</div>)}</div></div>}
             {chosen.closingPrompt && <div className="rounded-2xl border border-orange-500/20 bg-orange-500/[.06] p-4"><div className="text-[10px] font-black uppercase text-orange-300">Advance the call</div><div className="mt-1 text-sm font-bold">{merge(chosen.closingPrompt, account, item)}</div></div>}
           </div> : <div className="mt-5 rounded-2xl border border-dashed border-white/15 p-10 text-center"><FiAlertCircle className="mx-auto text-3xl text-amber-400" /><div className="mt-3 font-black">No active {DEPARTMENT_LABELS[department]} script</div><p className="mt-1 text-sm text-neutral-500">An administrator can publish one in the Call Scripting Center.</p></div>}</div>
           <div className={`${mobileTab !== "discovery" ? "hidden lg:block" : "block"} mt-5 border-t border-white/10 pt-5`}>
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-amber-300"><FiCheckCircle />Account fact-finding</div><p className="mt-1 text-xs text-neutral-500">Capture answers while you ask. These are the same facts used throughout the account call system.</p></div><div className="flex items-center gap-3"><span className="text-xs font-bold text-neutral-500">{answeredFacts}/7 complete</span><button type="button" onClick={() => void saveFactFinding()} disabled={!factsDirty || savingFacts} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-amber-400 px-4 text-xs font-black text-black disabled:cursor-not-allowed disabled:opacity-40"><FiSave />{savingFacts ? "Saving…" : "Save facts"}</button></div></div>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-amber-300"><FiCheckCircle />Account fact-finding</div><p className="mt-1 text-xs text-neutral-500">Capture answers while you ask. These are the same facts used throughout the account call system.</p></div><div className="flex items-center gap-3"><span className="text-xs font-bold text-neutral-500">{answeredFacts}/7 complete</span><button type="button" onClick={() => void saveFactFinding()} disabled={!account || !factsDirty || savingFacts} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-amber-400 px-4 text-xs font-black text-black disabled:cursor-not-allowed disabled:opacity-40"><FiSave />{savingFacts ? "Saving…" : "Save facts"}</button></div></div>
             {factMessage && <div className={`mb-3 rounded-xl border px-3 py-2 text-xs ${factMessage === "Saved to the account" ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" : "border-red-500/20 bg-red-500/10 text-red-300"}`}>{factMessage}</div>}
             <FactFindingPanel values={factFinding} onChange={setFactFinding} mode="dialer-followup" questionCount={7} accentColor="amber" updatedAt={account?.factFindingUpdatedAt || account?.bladeSizesUpdatedAt || undefined} updatedBy={account?.factFindingUpdatedBy || account?.bladeSizesUpdatedBy || undefined} />
           </div>
@@ -141,7 +167,7 @@ export function SalesCallCoach({ item, displayMode = false }: { item: QueueConte
         <div className={`${mobileTab !== "context" ? "hidden lg:block" : "block"} space-y-4`}>
           <section className="rounded-2xl border border-white/10 bg-white/[.035] p-4"><div className="flex items-center gap-2 text-xs font-black uppercase text-violet-300"><FiTarget />Why this customer now</div><div className="mt-3 text-sm font-bold">{item.recommendedReason}</div><div className="mt-2 space-y-1 text-xs text-neutral-500">{item.reasons.slice(1).map(reason => <div key={reason}>• {reason}</div>)}</div></section>
           <section className="rounded-2xl border border-white/10 bg-white/[.035] p-4"><div className="text-xs font-black uppercase text-cyan-300">Customer intelligence</div><div className="mt-3 grid grid-cols-2 gap-2 text-xs"><Stat label="Documents" value={documents.length} /><Stat label="Prior calls" value={history.length} /><Stat label="Open tasks" value={item.tasks?.length || 0} /><Stat label="Status" value={account?.status || item.status || "—"} /></div>{item.tasks?.slice(0, 3).map(task => <div key={task.subject} className="mt-2 rounded-lg bg-black/30 p-2 text-xs"><b>{task.subject}</b>{task.dueDate && <span className="ml-2 text-neutral-500"><FiClock className="inline" /> {new Date(task.dueDate).toLocaleDateString()}</span>}</div>)}</section>
-          <section className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[.05] p-4"><div className="flex items-center gap-2 text-xs font-black uppercase text-emerald-300"><FiHeadphones />Calling setup</div><p className="mt-2 text-xs leading-5 text-neutral-400">Use the in-app phone on desktop, tablet or mobile. Connect browser audio, choose your assigned number, then call. Log the outcome here and advance to the next customer.</p></section>
+          <section className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[.05] p-4"><div className="flex items-center gap-2 text-xs font-black uppercase text-emerald-300"><FiHeadphones />Calling setup</div><p className="mt-2 text-xs leading-5 text-neutral-400">Use Call to review the number in the communicator and continue with the configured calling provider. Record the outcome and agreed next step in account tools before advancing.</p></section>
         </div>
         <div className={`${mobileTab !== "objections" ? "hidden lg:block" : "block"} mt-4 border-t border-white/10 pt-4`}>
           <div className="flex items-center gap-2 text-xs font-black uppercase text-rose-300"><FiMessageSquare />Conflict & objection resolver</div>

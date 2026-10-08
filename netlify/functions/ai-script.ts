@@ -1,3 +1,4 @@
+import { salesCallText } from "../../src/lib/sales-call-flow"
 import type { Context } from "@netlify/functions"
 import { createAIChatCompletion } from "../../src/lib/ai-client"
 import { scriptTemplates } from "./lib/script-templates"
@@ -39,10 +40,11 @@ const handler = async (req: Request, _context: Context) => {
 
     // 1. Validate account access before reading account-specific call history.
     let resolvedAccountId: string | null = null
+    let savedFacts: Record<string, unknown> = {}
     if (accountId) {
       const account = await prisma.account.findFirst({
         where: { OR: [{ id: accountId }, { zohoId: accountId }] },
-        select: { id: true, ownerId: true },
+        select: { id: true, ownerId: true, bladeSizes: true, materialsCut: true, currentSupplier: true, averageBladeCost: true, crewCount: true, bladesPerOrder: true, improvementPriority: true },
       })
       if (!account) {
         return Response.json({ error: "Account not found" }, { status: 404 })
@@ -52,6 +54,7 @@ const handler = async (req: Request, _context: Context) => {
         return Response.json({ error: "Forbidden: This account belongs to another representative" }, { status: 403 })
       }
       resolvedAccountId = account.id
+      savedFacts = { bladeSizes: account.bladeSizes, materialsCut: account.materialsCut, currentSupplier: account.currentSupplier, averageBladeCost: account.averageBladeCost, crewCount: account.crewCount, bladesPerOrder: account.bladesPerOrder, improvementPriority: account.improvementPriority }
     }
 
     // 2. Fetch CallScripts and authorized CallLogs from DB.
@@ -60,7 +63,7 @@ const handler = async (req: Request, _context: Context) => {
     
     try {
       dbScripts = await prisma.callScript.findMany({
-        where: { isActive: true }
+        where: { isActive: true, department: callType === "Overdue Invoice" ? "COLLECTIONS" : "SALES" }
       })
 
       if (resolvedAccountId) {
@@ -111,50 +114,19 @@ const handler = async (req: Request, _context: Context) => {
       recommendedBlade = scriptTemplates.find(b => b.name === "The Titan") || recommendedBlade
     }
 
-    const systemPrompt = `You are an elite B2B sales representative for Titan Diamond. 
-Your goal is to write a highly persuasive, fluid, and natural-sounding sales script.
-
-You have access to a database of approved Call Scripts. You MUST use these scripts, specifically the "Fact-Finding Script", as the foundation for every account interaction.
-Here are the available scripts from the database:
+    const systemPrompt = `You write practical Titan Diamond call coaching grounded in supplied account facts.
+Fact finding is the opening for BOTH cold calls and account updates, not the entire call.
+For cold calls, progress from buyer/permission to discovery, summarize the need, offer a suitable first order, handle concerns, then ask for a quote/order or agree a dated follow-up.
+For account updates, confirm saved facts and prior product results, ask only missing/changed details, then offer a relevant restock or improvement.
+Do not require all seven fact fields before an offer. Do not assume a past call means a past purchase.
+Use these approved library references when relevant; do not let an opening-only script prevent a sales offer:
 ${availableScriptsText}
-
-Advanced Sales Methodologies to apply:
-- Consultative Selling: Ask open-ended questions to uncover true pain points.
-- SPIN Selling: Focus on Situation, Problem, Implication, and Need-Payoff questions.
-- Challenger Sale: Teach the customer something new, tailor the message, and take control of the conversation.
-- Value-Based Selling: Focus on how the product improves their bottom line, saves time, or reduces wear and tear.
-- Urgency Creation: Give them a reason to act today.
-
-Core Sales Pitch Hook (Manufacturer's relationship strategy):
-- "With this new release, our manufacturer wants us to give away free blades to our customers to build new relationships." (If it is a cold call or re-engagement/outreach, use this exact strategy/hook!)
-
-Reference Pitch Guidelines for the recommended product (${recommendedBlade.name}):
-- Price tier: ${recommendedBlade.priceRange}
-- Intended Applications: ${recommendedBlade.applications.join(", ")}
-- Key features: ${recommendedBlade.keyFeatures.join(" | ")}
-
-Titan Diamond Master Objection-Handling Matrix:
-1. "Your price is higher than our current supplier":
-   - Response: "Our diamond segment matrix is sintered under 20% higher heat and pressure. You get twice the linear cut feet per blade, so your cost per cut is actually 40% lower."
-2. "We already have a vendor we're happy with":
-   - Response: "We don't expect you to drop them. We're sending a complimentary manufacturer sample so you can benchmark cut speed and segment life on your next tough job."
-3. "Our blades glaze over or slow down in hard aggregate":
-   - Response: "Glazing happens when the bond is too hard. Our ${recommendedBlade.name} engineered soft-bond matrix continually exposes fresh diamond grit so the segment never slows down."
-
-Titan Diamond Industry Lingo (Use naturally):
-- "like a hot knife through butter"
-- "pull itself through the cut"
-- "let the blade do the work"
-- "made under higher heat and lower pressure"
-- "last twice as long without sacrificing speed"
-
-Writing Rules:
-- Make it sound like a real human speaking casually but professionally. No robotic structures.
-- Address the client by their First Name if known.
-- Introduce yourself using the Rep Name.
-- Do NOT use any brackets or placeholders (e.g., [Client Name]). Use the actual data provided.
-- Provide a clear "Talking Script" section.
-- Provide a "Next-Best Actions / Insights" section at the bottom for the rep.
+Suggested conversation structure:
+${salesCallText({ type: /cold/i.test(callType || "") ? "cold" : "update" })}
+Candidate product for catalog verification: ${recommendedBlade.name}. Confirm application, size, arbor, RPM and wet/dry use before recommending a SKU.
+Never invent prices, savings percentages, free products, terms, guarantees, stock, urgency or delivery commitments. Only state promotion terms when supplied and verified, including paid quantity and full total. Ask the rep to confirm missing commercial details in the order tools.
+For explicitly selected collections calls, focus on verified invoices and payment resolution rather than switching to a sales pitch.
+Provide short numbered talking stages, a relevant objection response and Next-Best Actions. Distinguish spoken words from rep cues. Do not claim an order, follow-up, call or message was saved or sent. Respect a clear decline or do-not-call request.
 `
 
     let contextPrompt = `Client Company: ${accountName}\n`
@@ -171,17 +143,18 @@ Writing Rules:
     }
 
     contextPrompt += `\nPrevious Call Logs (Pre-fill fact finding from this history):\n${historyText}\n`
+    contextPrompt += `\nSaved account facts (confirm what changed; do not repeat the entire interview): ${JSON.stringify(savedFacts)}\n`
     
-    if (callType === 'Cold Call') {
-      contextPrompt += `Context: This is a Cold Call. DO NOT pitch products. Focus entirely on fact-finding using the available scripts. Identify pain points, decision makers, and usage patterns.\n`
+    if (/cold/i.test(callType || '')) {
+      contextPrompt += `Context: This is a Cold Call. Start with fact-finding, then offer a suitable first order based on the answers. Include a transition into the offer, an objection response, and a concrete close or dated follow-up.\n`
     } else if (callType === 'Objection Handling') {
       contextPrompt += `Context: The client previously objected. Address the objections seen in the call logs. Pitch the ${recommendedBlade.name} focusing on value, consultative selling, and why the segments are made under higher heat and lower pressure to last longer.\n`
     } else if (callType === 'Overdue Invoice') {
       contextPrompt += `Context: The client has an overdue invoice. Be polite but firm, applying a consultative approach to understand the delay while maintaining the relationship.\n`
     } else if (typeof daysSinceLastPurchase === 'number' && daysSinceLastPurchase > 365) {
-      contextPrompt += `Context: Re-engagement call. They haven't bought in over a year. Pitch the free blade hook to re-establish the relationship, and reference the ${recommendedBlade.name}.\n`
+      contextPrompt += `Context: Re-engagement call. They haven't bought in over a year. Confirm what has changed and offer a relevant new order; verify any promotion before mentioning it. Consider the ${recommendedBlade.name}.\n`
     } else {
-      contextPrompt += `Context: Account Update / Active Client. Pitch an upgrade or restock of the ${recommendedBlade.name}. Recommend quantities and pricing based on their history. Reference their recent items directly so it feels personalized.\n`
+      contextPrompt += `Context: Account Update / Active Client. Pitch an upgrade or restock of the ${recommendedBlade.name}. Use history to ask about quantity; confirm current pricing in the order tools. Reference their recent items directly so it feels personalized.\n`
     }
 
     const { response } = await createAIChatCompletion({
@@ -190,7 +163,7 @@ Writing Rules:
         { role: "user", content: contextPrompt }
       ],
       temperature: 0.7,
-      max_tokens: 500, // Increased to allow for Next Best Actions and quantities
+      max_tokens: 1200, // Enough room for discovery, offer, objections and the next step.
     })
 
     const script = response.choices[0].message?.content || "Could not generate script."
