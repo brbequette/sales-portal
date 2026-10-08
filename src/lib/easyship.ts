@@ -189,7 +189,7 @@ export async function getExistingShipmentRates(platformOrderNumber: string, expe
   }
 }
 
-export async function getEasyshipRates(params: GetRatesParams): Promise<EasyshipRate[]> {
+export async function getEasyshipRates(params: GetRatesParams, apiUrl = EASYSHIP_API_URL): Promise<EasyshipRate[]> {
   // Use DB origin (SystemSettings Scottsdale AZ) → env var fallback
   const dbOrigin = await getOriginFromDB();
   const origin_address = params.origin_address || dbOrigin;
@@ -228,7 +228,7 @@ export async function getEasyshipRates(params: GetRatesParams): Promise<Easyship
     parcels: convertedParcels
   };
 
-  const response = await fetch(`${EASYSHIP_API_URL}/rates`, {
+  const response = await fetch(`${apiUrl}/rates`, {
     method: 'POST',
     headers: getHeaders(),
     body: JSON.stringify(payload)

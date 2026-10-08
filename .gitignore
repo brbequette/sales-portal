@@ -98,3 +98,6 @@ tmp/
 # Reviewed durable PO-link migration and synthetic database fixture
 !prisma/migrations/20260926001000_durable_po_order_links/migration.sql
 !prisma/tests/durable-po-order-links.sql
+
+# Reviewed invoice return ledger migration
+!prisma/migrations/20261008193000_invoice_returns/migration.sql

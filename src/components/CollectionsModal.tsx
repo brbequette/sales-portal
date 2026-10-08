@@ -1,5 +1,6 @@
 "use client"
 
+import RequestReturnModal from "./InvoiceReturnModal"
 import { prepareInAppCall } from "@/lib/internal-phone"
 
 
@@ -497,120 +498,6 @@ function RunCardModal({ invoice, onClose, onSuccess }: { invoice: Invoice, onClo
             </button>
           </div>
         </form>
-      </div>
-    </div>
-  )
-}
-
-function RequestReturnModal({ invoice, onClose, onSuccess }: { invoice: Invoice, onClose: () => void, onSuccess: () => void }) {
-  const [reason, setReason] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [labelResult, setLabelResult] = useState<{ labelUrl: string, shipmentId: string } | null>(null)
-  const [errorText, setErrorText] = useState("")
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setErrorText("")
-    
-    try {
-      const res = await fetch("/api/easyship-return", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ invoiceId: invoice.id, reason })
-      })
-      const data = await res.json()
-      if (data.success) {
-        setLabelResult(data)
-        
-        await fetch("/api/log-collection-call", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            invoiceId: invoice.id,
-            outcome: "other",
-            callerName: "System Return",
-            activityType: "return",
-            contactReached: true,
-            spokeTo: "Customer (Return Requested)",
-            notes: `EasyShip Return Label Generated. Shipment ID: ${data.shipmentId}. Reason: ${reason}`,
-            durationMinutes: 0
-          })
-        })
-
-        onSuccess()
-      } else {
-        setErrorText(data.error || "Failed to generate EasyShip return shipment.")
-      }
-    } catch (err: any) {
-      setErrorText(err.message || "An unexpected error occurred.")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="glass-panel border border-neutral-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between p-5 border-b border-white/10 bg-black/20/40">
-          <h2 className="text-base font-bold text-white flex items-center gap-2">
-            <FiTruck className="text-red-400" /> Request Return label
-          </h2>
-          <button onClick={onClose} disabled={loading} className="text-neutral-500 hover:text-white p-1 transition-colors">
-            <FiX />
-          </button>
-        </div>
-
-        {labelResult ? (
-          <div className="p-6 text-center space-y-4">
-            <div className="w-12 h-12 bg-emerald-950 text-emerald-400 border border-emerald-800 rounded-full flex items-center justify-center mx-auto text-xl">
-              ✍"
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-white">Return Label Generated!</h3>
-              <p className="text-xs text-neutral-400 mt-1">Shipment ID: <span className="font-mono text-neutral-300">{labelResult.shipmentId}</span></p>
-            </div>
-            <div className="pt-2">
-              <a href={labelResult.labelUrl} target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm px-5 py-2.5 rounded-lg transition-colors">
-                Print Return Label <FiExternalLink size={14} />
-              </a>
-            </div>
-            <div className="pt-4">
-              <button onClick={onClose} className="text-xs text-neutral-500 hover:text-white underline font-semibold">
-                Close Window
-              </button>
-            </div>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="p-5 space-y-4">
-            <div className="text-xs text-neutral-400">
-              Generating a return label will create a cheap courier shipping tag via EasyShip, matching the original invoice line weights.
-            </div>
-
-            <div>
-              <label className="text-[10px] uppercase font-bold text-neutral-400 block mb-1">Reason for Return</label>
-              <input type="text" value={reason} onChange={e => setReason(e.target.value)} required disabled={loading} placeholder="e.g., Damaged items, order cancellation"
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-red-500" />
-            </div>
-
-            {errorText && (
-              <div className="text-xs text-red-400 bg-red-950/40 border border-red-900/50 p-2.5 rounded-lg flex items-center gap-2">
-                <FiAlertCircle className="shrink-0" />
-                <span>{errorText}</span>
-              </div>
-            )}
-
-            <div className="pt-2 flex gap-2 justify-end">
-              <button type="button" onClick={onClose} disabled={loading}
-                className="px-4 py-2 text-sm font-semibold text-neutral-400 hover:text-white transition-colors">Cancel</button>
-              <button type="submit" disabled={loading}
-                className="px-5 py-2 bg-red-600 hover:bg-red-500 text-white text-sm font-bold rounded-lg transition-colors flex items-center gap-2">
-                {loading ? "Generating Tag..." : "Generate Tag & Return"}
-              </button>
-            </div>
-          </form>
-        )}
       </div>
     </div>
   )

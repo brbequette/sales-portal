@@ -435,6 +435,7 @@ model Invoice {
   clawbackStatus        String? // null | "approaching" | "clawed" | "collected"
   clawbackTransactions  ClawbackTransaction[]
   writeOffRecoveryCases WriteOffRecoveryCase[]
+  returns               InvoiceReturn[]
 
   // ── Denormalized computed columns (populated by process-invoice-costs) ──────
   // Storing these as real columns avoids parsing the items JSON blob on every
@@ -473,6 +474,42 @@ model Invoice {
   @@index([estimateZohoId])
   @@index([invoiceNumber])
   @@index([salesorderNumber])
+}
+
+// Return freight and recovery are separate from outbound freight and invoice revenue.
+model InvoiceReturn {
+  id                  String   @id
+  invoiceId           String
+  invoice             Invoice  @relation(fields: [invoiceId], references: [id])
+  createdById         String
+  reason              String
+  status              String   @default("QUOTING")
+  snapshot            Json
+  rates               Json?
+  quotedAt            DateTime?
+  courierServiceId    String?
+  quotedCostCents      Int?
+  actualCostCents      Int?
+  currency            String   @default("USD")
+  costResponsibility  String
+  shipmentId          String?  @unique
+  labelUrl            String?
+  trackingNumber      String?
+  trackingUrl         String?
+  labelState          String?
+  purchaseRequestedAt DateTime?
+  receivedAt          DateTime?
+  inspection          Json?
+  recoveredCostCents  Int?
+  proposedCreditCents Int?
+  creditNoteId        String?  @unique
+  creditedCents       Int?
+  lastError           String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([invoiceId, createdAt])
+  @@index([status])
 }
 
 /// Durable queue; database triggers capture financial-document changes from every importer.
