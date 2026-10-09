@@ -155,6 +155,7 @@ model Account {
   tags                      String?
   /// @future Use AccountQuality enum
   quality                   String                     @default("NEVER_STATUSED")
+  cardOnFile                Boolean?
   lastCalledAt              DateTime?
   lastClosedCycleAt         DateTime?
   timeZone                  String?

@@ -42,6 +42,7 @@ it.each([
   [], [row('1')], [row('1'), row('3')],
   [{ ...row('1'), lastCalledAt: new Date() }, row('2')],
   [{ ...row('1'), ownerName: 'New owner' }, row('2')],
+  [{ ...row('1'), cardOnFile: true }, row('2')],
   [{ ...row('1'), contacts: [{ id: 'c', name: 'New contact', phone: '4805550100' }] }, row('2')],
 ].map(rows => ({ rows })))('detects displayed changes %#', async ({ rows }) => {
   const initial = await read()

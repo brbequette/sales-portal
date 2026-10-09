@@ -2,6 +2,7 @@
 
 import { prepareInAppCall } from "@/lib/internal-phone"
 import { CollectionOverview } from "@/components/CollectionOverview"
+import { CollectionCardStatus } from "@/components/CollectionCardStatus"
 import styles from './collections.module.css'
 import { publishCommunicationContext } from '@/lib/communication-context'
 import Link from 'next/link'
@@ -69,7 +70,7 @@ export default function CollectionsPage() {
     const version = ++requestVersion.current
     setDataSig(null)
     setUpdateAvailable(false)
-    const cacheKey = `collections-v7-${userKey}`
+    const cacheKey = `collections-v8-${userKey}`
     const cached = !force && currentUser
       ? sessionGet<{ invoices: Invoice[]; canViewCompanyCollections: boolean; dataSignature: string }>(cacheKey, TTL.TEN_MIN)
       : null
@@ -331,7 +332,13 @@ export default function CollectionsPage() {
                       </td>
                       <td className={`td-td ${styles.balance}`} data-label="Balance">{fmt(inv.balance)}</td>
                       <td className={`td-td ${styles.actions}`} onClick={e => e.stopPropagation()}>
-                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          <div className="flex flex-wrap items-center justify-end gap-2">
+                            <CollectionCardStatus accountId={inv.account_id} customerName={inv.customer_name} value={inv.card_on_file}
+                              onSaved={value => {
+                                setInvoices(rows => rows.map(row => row.account_id === inv.account_id ? { ...row, card_on_file: value } : row))
+                                sessionSet(`collections-v8-${userKey}`, null)
+                                setDataSig(null)
+                              }} />
                           <button
                             onClick={() => setActiveModal({ mode: 'call', invoice: inv })}
                             className="td-btn td-btn-sm bg-emerald-600/15 text-emerald-400 hover:bg-emerald-600 hover:text-white border-emerald-600/20"
@@ -344,7 +351,7 @@ export default function CollectionsPage() {
                             className="td-btn td-btn-sm bg-purple-600/15 text-purple-400 hover:bg-purple-600 hover:text-white border-purple-600/20"
                             title="Run Card"
                           >
-                            <FiCreditCard size={12} /> Card
+                            <FiCreditCard size={12} /> Take payment
                           </button>
                           <button
                             onClick={() => setActiveModal({ mode: 'return', invoice: inv })}
