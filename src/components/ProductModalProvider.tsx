@@ -112,7 +112,7 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
   const sku = product?.sku || fallback?.sku || fallback?.item_custom_fields?.find((f:any)=>f.label==='SKU')?.value || "N/A"
   const price = product?.price || fallback?.rate || fallback?.price || fallback?.item_total || 0
   const category = product?.category || fallback?.category || "Uncategorized"
-  const stock = product?.stock || 0
+  const stock = product?.stock ?? fallback?.stock ?? 0
   
   const skuUpper = sku.trim().toUpperCase()
   const imageMap = require("@/lib/image-map.json")
@@ -128,8 +128,8 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
   }
 
   // Smart fallbacks for missing data
-  let image = mapped?.image || (parsedDesc.image && !parsedDesc.image.includes('placeholder') ? parsedDesc.image : null) || fallback?.image || `/api/zoho-image?sku=${encodeURIComponent(skuUpper)}`
-  let vendor = parsedDesc.vendor || ""
+  let image = mapped?.image || (parsedDesc.image && !parsedDesc.image.includes('placeholder') ? parsedDesc.image : null) || fallback?.imageUrl || fallback?.image || `/api/zoho-image?sku=${encodeURIComponent(skuUpper)}`
+  let vendor = parsedDesc.vendor || fallback?.vendor || ""
   let costVal = parsedDesc.cost !== undefined && parsedDesc.cost !== null ? parseFloat(parsedDesc.cost as any) : null
   let pertinentInfo = parsedDesc.pertinentInfo || ""
 
