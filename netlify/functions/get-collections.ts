@@ -103,6 +103,7 @@ const authenticatedHandler: Handler = async (event) => {
         a."billingCity",
         a."billingState",
         a.quality         AS "accountQuality",
+        a."cardOnFile",
         a."lastCalledAt",
         COALESCE(pc.contacts, '[]'::jsonb) AS contacts,
         -- Owner (salesperson) fields
@@ -205,6 +206,7 @@ const authenticatedHandler: Handler = async (event) => {
           : [],
         shipping_charge: items?.shippingCharge ?? null,
         account_quality: inv.accountQuality || null,
+        card_on_file: inv.cardOnFile ?? null,
         last_called_at: inv.lastCalledAt ? new Date(inv.lastCalledAt).toISOString() : null,
       }
     })

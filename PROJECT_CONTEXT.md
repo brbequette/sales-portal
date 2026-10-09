@@ -1826,3 +1826,8 @@ User requested adapting https://www.gtdiamond.com/ for Titan public front site. 
 ## Replies-only messages - 2026-10-09
 
 User requested viewing returned outreach messages instead of sent-only activity. /messages now sends incomingOnly to the authenticated Next messages route in both All Chats and selected campaigns, defaults to Replies only, previews latest inbound and preserves full thread context on open. Server filters incoming before newest-account limit; outgoing follow-ups no longer hide prior replies. Campaign reply status uses latest received message after earliest successful campaign send, excludes failed-only/pre-send contacts, deduplicates accounts and orders newest replies first. UI explicitly distinguishes time-based qualification from proven campaign attribution. Existing campaign-author/account-owner restrictions retained. Request sequencing prevents stale list responses overwriting new filters; failures show toast. Six regression tests and full TypeScript pass. No provider sync or sent message; release pending. Preserve unrelated dirty context/artifacts.
+
+
+## Collections card-on-file release - 2026-10-09
+
+User authorized deployment. Adds staff-confirmed nullable Account.cardOnFile with migration20261009170000_account_card_on_file, Yes/No/Unknown list control and separate Take payment action. Authenticated owner/collections-manager writes and audit notes are transactional; VIEWER denied. No card credentials, provider sync or charges.28 focused tests, TypeScript and targeted lint passed. Production deployment pending normal migration/build verification.

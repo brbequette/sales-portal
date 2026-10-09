@@ -42,6 +42,7 @@ export type Invoice = {
   } | null
   shipping_charge?: number | null
   account_quality?: string | null
+  card_on_file?: boolean | null
 }
 
 export type CallOutcome =
