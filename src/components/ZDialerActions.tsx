@@ -7,13 +7,14 @@ import styles from './ZDialerActions.module.css'
 
 export function ZDialerActions({ phone }: { phone: string }) {
   const number = zdialerNumber(phone)
+  const [defaultReady, setDefaultReady] = useState(false)
   // A keyed subtree also removes extension-owned siblings for an old recipient.
-  return <RecipientActions key={number} number={number} />
+  // Device setup belongs to this phone session, not to a particular recipient.
+  return <RecipientActions key={number} number={number} defaultReady={defaultReady} setDefaultReady={setDefaultReady} />
 }
 
-function RecipientActions({ number }: { number: string }) {
+function RecipientActions({ number, defaultReady, setDefaultReady }: { number: string; defaultReady: boolean; setDefaultReady: (ready: boolean) => void }) {
   const [platform, setPlatform] = useState<ZDialerPlatform | null>(null)
-  const [defaultReady, setDefaultReady] = useState(false)
   const [available, setAvailable] = useState(false)
   const [status, setStatus] = useState('')
   const anchor = useRef<HTMLAnchorElement>(null)

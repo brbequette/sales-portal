@@ -9,6 +9,7 @@ export function useVoiceDirectory(enabled = true) {
   const [loading, setLoading] = useState(true)
   const [admin, setAdmin] = useState(false)
   const refresh = useCallback(async () => {
+    setLoading(true)
     try {
       const res = await fetch('/api/manage-zoho-numbers', { cache: 'no-store' })
       const data = await res.json()
@@ -20,10 +21,6 @@ export function useVoiceDirectory(enabled = true) {
   useEffect(() => {
     if (!enabled) return
     void refresh()
-    const onFocus = () => { void refresh() }
-    const timer = setInterval(() => { if (document.visibilityState === 'visible') void refresh() }, 60000)
-    window.addEventListener('focus', onFocus)
-    return () => { clearInterval(timer); window.removeEventListener('focus', onFocus) }
   }, [refresh, enabled])
   return { numbers, users, error, loading, admin, refresh }
 }
