@@ -34,6 +34,7 @@ export default function MessagesPage() {
   const [lastClosedCycleAt, setLastClosedCycleAt] = useState<string | null>(null)
   const [closingCycle, setClosingCycle] = useState(false)
 
+  const accountsRequest = useRef(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const [syncing, setSyncing] = useState(false)
@@ -99,7 +100,7 @@ export default function MessagesPage() {
     } else if (activeTab === "all") {
       fetchAccounts()
     }
-  }, [selectedCampaignId, activeTab])
+  }, [selectedCampaignId, activeTab, showIncomingOnly])
 
   const handleSync = async (offset = 0) => {
     try {
@@ -146,22 +147,27 @@ export default function MessagesPage() {
   }, [messages])
 
   const fetchAccounts = async () => {
+    const request = ++accountsRequest.current
     try {
-      if (accounts.length === 0) setLoadingAccounts(true)
-      else setRefreshingAccounts(true)
-      const res = await fetch('/api/messages')
+      setLoadingAccounts(true)
+      const listUrl = `/api/messages?incomingOnly=${showIncomingOnly}`
+      const res = await fetch(listUrl)
       const data = await res.json()
+      if (request !== accountsRequest.current) return
+      if (!res.ok || !data.success) throw new Error('Messages could not be loaded')
       if (data.success) {
         const accs = data.accounts || []
         setAccounts(accs)
         const sig = `${accs.length}|${accs[0]?.updatedAt ?? accs[0]?.lastMessageAt ?? ''}`
         setDataSig(sig)
         setUpdateAvailable(false)
-        setTimeout(() => checkForUpdates(sig, '/api/messages'), 2000)
+        setTimeout(() => checkForUpdates(sig, listUrl), 2000)
       }
     } catch (e) {
       console.error(e)
+      if (request === accountsRequest.current) { setAccounts([]); toast.error('Could not load conversations. Please try again.') }
     } finally {
+      if (request !== accountsRequest.current) return
       setLoadingAccounts(false)
       setRefreshingAccounts(false)
     }
@@ -183,17 +189,21 @@ export default function MessagesPage() {
   }
 
   const fetchCampaignAccounts = async (campaignId: string) => {
+    const request = ++accountsRequest.current
     try {
-      if (accounts.length === 0) setLoadingAccounts(true)
-      else setRefreshingAccounts(true)
-      const res = await fetch(`/api/messages?campaignBlastId=${campaignId}`)
+      setLoadingAccounts(true)
+      const res = await fetch(`/api/messages?campaignBlastId=${encodeURIComponent(campaignId)}&incomingOnly=${showIncomingOnly}`)
       const data = await res.json()
+      if (request !== accountsRequest.current) return
+      if (!res.ok || !data.success) throw new Error('Campaign replies could not be loaded')
       if (data.success) {
         setAccounts(data.accounts || [])
       }
     } catch (e) {
       console.error(e)
+      if (request === accountsRequest.current) { setAccounts([]); toast.error('Could not load campaign replies. Please try again.') }
     } finally {
+      if (request !== accountsRequest.current) return
       setLoadingAccounts(false)
       setRefreshingAccounts(false)
     }
@@ -333,7 +343,7 @@ export default function MessagesPage() {
         account.zohoId?.toLowerCase().includes(searchQuery.toLowerCase())
       : true
 
-    if (activeTab === "all" && showIncomingOnly) {
+    if (showIncomingOnly) {
       const lastMsg = account.smsMessages?.[0]
       return matchesSearch && lastMsg && lastMsg.direction === 'INBOUND'
     }
@@ -343,7 +353,7 @@ export default function MessagesPage() {
   // Group direct inbox chats by campaign name for All Chats
   const groupedByCampaign = activeTab === "all" ? filteredAccounts.reduce((acc, account) => {
     const lastMsg = account.smsMessages?.[0]
-    const campaignName = lastMsg?.campaignBlast?.name || "Direct / Organic"
+    const campaignName = showIncomingOnly ? "Received replies" : lastMsg?.campaignBlast?.name || "Direct / Organic"
     if (!acc[campaignName]) acc[campaignName] = []
     acc[campaignName].push(account)
     return acc
@@ -414,18 +424,19 @@ export default function MessagesPage() {
             />
           </div>
 
-          {activeTab === "all" && (
-            <div className="flex items-center gap-2 select-none">
+          {(activeTab === "all" || selectedCampaignId) && (
+            <div className="flex flex-wrap items-center gap-2 select-none">
               <input 
                 type="checkbox" 
                 id="incomingFilter"
                 checked={showIncomingOnly}
-                onChange={(e) => setShowIncomingOnly(e.target.checked)}
+                onChange={(e) => { setShowIncomingOnly(e.target.checked); setSelectedAccountId(null) }}
                 className="rounded border-white/10 bg-black/40 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-neutral-900"
               />
               <label htmlFor="incomingFilter" className="text-xs text-neutral-400 cursor-pointer font-bold">
-                Only show incoming messages
+                Replies only
               </label>
+              <p className="w-full text-[11px] leading-4 text-neutral-500">{selectedCampaignId ? 'Received after this campaign was sent. Timing does not prove campaign attribution.' : 'Latest received replies, even after you follow up.'} Open a conversation for the full history.</p>
             </div>
           )}
         </div>
@@ -437,7 +448,7 @@ export default function MessagesPage() {
             loadingAccounts ? (
               <div className="p-8 text-center text-neutral-500 text-sm">Loading conversations...</div>
             ) : Object.keys(groupedByCampaign).length === 0 && !refreshingAccounts ? (
-              <div className="p-8 text-center text-neutral-500 text-sm italic">No active conversations found.</div>
+              <div className="p-8 text-center text-neutral-500 text-sm italic">{showIncomingOnly ? "No received replies match this view. Turn off Replies only to see sent conversations." : "No conversations found."}</div>
             ) : (
               (Object.entries(groupedByCampaign) as [string, any[]][]).map(([campaignName, campaignAccounts]) => (
                 <div key={campaignName} className="mb-4">
@@ -528,12 +539,12 @@ export default function MessagesPage() {
                 </div>
                 <div className="p-3 bg-black/30 border-b border-white/10 text-center">
                   <h4 className="font-black text-xs text-white uppercase tracking-wider truncate" title={activeCampaign?.name}>{activeCampaign?.name}</h4>
-                  <p className="text-[9px] text-neutral-500 font-bold mt-0.5">RECIPIENTS LIST</p>
+                  <p className="text-[9px] text-neutral-500 font-bold mt-0.5">{showIncomingOnly ? "REPLIES RECEIVED AFTER SEND" : "ALL RECIPIENTS"}</p>
                 </div>
                 {loadingAccounts ? (
                   <div className="p-8 text-center text-neutral-500 text-sm">Loading recipients...</div>
                 ) : filteredAccounts.length === 0 ? (
-                  <div className="p-8 text-center text-neutral-500 text-sm italic">No targeted recipients found.</div>
+                  <div className="p-8 text-center text-neutral-500 text-sm italic">{showIncomingOnly ? "No replies received after this campaign’s successful sends. Turn off Replies only to see all recipients." : "No targeted recipients found."}</div>
                 ) : (
                   filteredAccounts.map(account => {
                     const lastMsg = account.smsMessages?.[0]
