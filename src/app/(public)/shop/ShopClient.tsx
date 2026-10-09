@@ -79,19 +79,32 @@ function ShopContent() {
   const [pageSize, setPageSize] = useState(24);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState(false);
+  const [reload, setReload] = useState(0);
   const [filterOpen, setFilterOpen] = useState(false);
   const [selected, setSelected] = useState<CatalogProduct | null>(null);
 
+  const urlQuery = params.get('q') || '';
+  const urlCategory = params.get('category') || '';
+  useEffect(() => {
+    setQuery(urlQuery);
+    setFilters({ ...EMPTY_FILTERS, category: urlCategory });
+    setPage(1);
+    setSelected(null);
+  }, [urlQuery, urlCategory]);
+
   useEffect(() => {
     let active = true;
+    setLoading(true);
+    setCatalogError(false);
     fetch('/api/public/products').then(async (response) => {
       if (!response.ok) throw new Error('Catalog request failed');
       const payload = await response.json();
       const rows = (Array.isArray(payload) ? payload : payload.products || []) as RawProduct[];
       if (active) setProducts(rows.filter((item) => !item.giftItem && !isGiftLike(item) && Boolean(item.imageUrl)).map(parseProduct).filter((item) => Boolean(item.imageUrl)));
-    }).catch((error) => console.error('Failed to fetch catalog:', error)).finally(() => active && setLoading(false));
+    }).catch(() => { if (active) setCatalogError(true); }).finally(() => active && setLoading(false));
     return () => { active = false; };
-  }, []);
+  }, [reload]);
 
   const facets = useMemo(() => ({
     category: unique(products.map((item) => item.category)),
@@ -170,13 +183,13 @@ function ShopContent() {
 
           <main className="min-w-0">
             <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-              <div><div className="text-sm font-black text-white">{loading ? 'Loading products…' : `${results.length.toLocaleString()} products found`}</div>{!loading && results.length > 0 && <div className="mt-1 text-[10px] font-mono uppercase tracking-wider text-neutral-500">Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, results.length)} of {results.length.toLocaleString()}</div>}</div>
+              <div><div className="text-sm font-black text-white">{catalogError ? 'Catalog unavailable' : loading ? 'Loading products…' : `${results.length.toLocaleString()} products found`}</div>{!loading && !catalogError && results.length > 0 && <div className="mt-1 text-[10px] font-mono uppercase tracking-wider text-neutral-500">Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, results.length)} of {results.length.toLocaleString()}</div>}</div>
               <div className="flex items-center gap-2"><span className="text-[10px] uppercase tracking-wider text-neutral-500">Per page</span>{PAGE_SIZES.map((size) => <button key={size} onClick={() => setPageSize(size)} className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-bold ${pageSize === size ? 'border-orange-400/50 bg-orange-500/10 text-orange-300' : 'border-white/10 text-neutral-500 hover:text-white'}`}>{size}</button>)}</div>
             </div>
             {(query || activeFilters.length > 0) && <div className="mb-5 flex flex-wrap gap-2">{query && <FilterChip label={`Search: ${query}`} onClear={() => setQuery('')} />}{activeFilters.map(([key, value]) => <FilterChip key={key} label={`${key}: ${value}`} onClear={() => setFilters({ ...filters, [key]: '' })} />)}</div>}
 
-            {loading ? <LoadingGrid /> : visible.length === 0 ? <EmptyState onReset={clearAll} /> : <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{visible.map((product) => <ProductCard key={product.id} product={product} onSelect={() => setSelected(product)} />)}</div>}
-            {!loading && totalPages > 1 && <Pagination page={currentPage} total={totalPages} onChange={(value) => { setPage(value); window.scrollTo({ top: 420, behavior: 'smooth' }); }} />}
+            {catalogError ? <div role="alert" className="rounded-xl border border-orange-400/30 p-8"><p>The catalog could not be loaded. Please try again or contact sales for help.</p><button type="button" onClick={() => setReload(value => value + 1)} className="mt-4 rounded-lg bg-orange-500 px-5 py-3 font-bold text-black">Retry catalog</button></div> : loading ? <LoadingGrid /> : visible.length === 0 ? <EmptyState onReset={clearAll} /> : <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{visible.map((product) => <ProductCard key={product.id} product={product} onSelect={() => setSelected(product)} />)}</div>}
+            {!loading && !catalogError && totalPages > 1 && <Pagination page={currentPage} total={totalPages} onChange={(value) => { setPage(value); window.scrollTo({ top: 420, behavior: 'smooth' }); }} />}
           </main>
         </div>
       </div>

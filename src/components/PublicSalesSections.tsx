@@ -15,7 +15,7 @@ const JOBS = [
 
 export function PublicSalesSections() {
   const pathname = usePathname();
-  if (HIDDEN_ROUTES.some((route) => pathname.startsWith(route))) return null;
+  if (pathname === "/" || HIDDEN_ROUTES.some((route) => pathname.startsWith(route))) return null;
 
   return (
     <div className="public-sales-layer">

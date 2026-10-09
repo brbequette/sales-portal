@@ -27,7 +27,7 @@ function heroScene(pathname: string) {
 
 export function PublicHeroAtmosphere() {
   const pathname = usePathname();
-  if (HIDDEN.some((route) => pathname.startsWith(route))) return null;
+  if (pathname === "/" || HIDDEN.some((route) => pathname.startsWith(route))) return null;
   const scene = heroScene(pathname);
   return <div className={`public-route-hero public-route-hero--${scene.scene}`} aria-hidden="true" style={{ '--route-hero-image': `url("${scene.image}")`, '--route-hero-position': scene.position } as CSSProperties}>
     <div className="public-route-hero-image" />

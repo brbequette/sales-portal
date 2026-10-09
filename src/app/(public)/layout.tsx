@@ -7,6 +7,7 @@ import { SparkCanvas } from '@/components/SparkCanvas';
 import { PublicSalesSections } from '@/components/PublicSalesSections';
 import { PublicHeroAtmosphere } from '@/components/PublicHeroAtmosphere';
 import './public-site.css';
+import './storefront.css';
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -19,7 +20,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       <ScrollProgress />
       {/* Top Announcement Bar */}
       <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-600 text-white text-[11px] font-bold py-1.5 px-4 text-center tracking-wider uppercase flex items-center justify-center gap-4 border-b border-amber-500/20">
-        <span>⚡ DIRECT CONTRACTOR PRICING & SAME-DAY NATIONWIDE SHIPPING</span>
+        <span>PROFESSIONAL DIAMOND TOOLS • CONTRACTOR SALES & SUPPORT</span>
         <span className="hidden sm:inline text-amber-200">•</span>
         <a href="tel:14804702577" className="hidden sm:inline hover:underline font-extrabold text-amber-100">
           CALL SALES: (480) 470-2577
@@ -61,19 +62,19 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
               Premium diamond cutting blades, core bits, cup wheels, and abrasives engineered for extreme performance on concrete, stone, and asphalt.
             </p>
             <div className="text-[11px] font-mono text-amber-400">
-              Contractor Direct • Same Day Shipping
+              Product guidance • Contractor support
             </div>
           </div>
 
           <div>
             <h3 className="text-xs font-bold text-white mb-6 uppercase tracking-widest text-amber-400">Product Categories</h3>
             <ul className="space-y-3 text-xs">
-              <li><Link href="/shop?category=Professional Blades" className="text-neutral-400 hover:text-white transition-colors">Professional Saw Blades</Link></li>
-              <li><Link href="/shop?category=Core Bits" className="text-neutral-400 hover:text-white transition-colors">Diamond Core Bits</Link></li>
-              <li><Link href="/shop?category=Concrete Polisher" className="text-neutral-400 hover:text-white transition-colors">Concrete Polishers & Cup Wheels</Link></li>
-              <li><Link href="/shop?category=Turbo Blades" className="text-neutral-400 hover:text-white transition-colors">Turbo & Tile Blades</Link></li>
-              <li><Link href="/shop?category=ZENESIS™" className="text-neutral-400 hover:text-white transition-colors">ZENESIS™ Pattern Tech</Link></li>
-              <li><Link href="/shop?category=DIAMONDX™" className="text-neutral-400 hover:text-white transition-colors">DIAMONDX™ Series</Link></li>
+              <li><Link href="/shop?q=blade" className="text-neutral-400 hover:text-white transition-colors">Professional Saw Blades</Link></li>
+              <li><Link href="/shop?q=core" className="text-neutral-400 hover:text-white transition-colors">Diamond Core Bits</Link></li>
+              <li><Link href="/shop?q=cup" className="text-neutral-400 hover:text-white transition-colors">Concrete Polishers & Cup Wheels</Link></li>
+              <li><Link href="/shop?q=turbo" className="text-neutral-400 hover:text-white transition-colors">Turbo & Tile Blades</Link></li>
+              <li><Link href="/shop?q=zenesis" className="text-neutral-400 hover:text-white transition-colors">ZENESIS™ Pattern Tech</Link></li>
+              <li><Link href="/shop?q=diamondx" className="text-neutral-400 hover:text-white transition-colors">DIAMONDX™ Series</Link></li>
             </ul>
           </div>
 
