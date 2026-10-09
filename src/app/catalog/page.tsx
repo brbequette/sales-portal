@@ -1,7 +1,7 @@
 "use client"
 
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { createPortal } from "react-dom"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
@@ -158,62 +158,106 @@ export default function ProductCatalogPage() {
     return null
   }
 
-  // Derive filter options dynamically
-  const sizes = Array.from(new Set(products.map(p => p.size).filter(Boolean))).sort()
-  const apps = Array.from(new Set(products.flatMap(p => publicUseCases([...publicStrings(p.application), ...publicStrings(p.materials)])))).sort()
-  const mfgs = Array.from(new Set(products.map(p => p.manufacturer).filter(Boolean))).sort()
-  const productTypes = Array.from(new Set(products.map(p => p.productType).filter(Boolean))).sort()
-  const toolTypes = Array.from(new Set(products.map(p => p.toolType).filter(Boolean))).sort()
-  const equipmentOptions = Array.from(new Set(products.map(p => p.equipment).filter(Boolean))).sort()
-  const vendors = Array.from(new Set(products.map(p => {
-    const parsed = parseProductDescription(p.description)
-    return p.vendor || parsed.vendor
-  }).filter(Boolean))).sort()
-
-  const filteredProducts = products.filter(p => {
-    const parsed = parseProductDescription(p.description)
+  // Derive filter options dynamically.
+  // Memoizing these values keeps large product lists from re-parsing descriptions,
+  // re-normalizing application tags, and re-sorting the same filtered data on every render.
+  const productMeta = useMemo(() => products.map((product) => {
+    const parsed = parseProductDescription(product.description)
+    const applicationValues = publicUseCases([
+      ...publicStrings(product.application),
+      ...publicStrings(product.materials),
+    ])
     const searchable = [
-      p.sku, p.name, parsed.text, p.category, p.application, p.productType,
-      p.toolType, p.equipment, ...(Array.isArray(p.materials) ? p.materials : []),
-      ...(p.attributes && typeof p.attributes === "object" ? Object.entries(p.attributes).flatMap(([key, value]) => [key, String(value)]) : []),
+      product.sku,
+      product.name,
+      parsed.text,
+      product.category,
+      product.application,
+      product.productType,
+      product.toolType,
+      product.equipment,
+      ...(Array.isArray(product.materials) ? product.materials : []),
+      ...(product.attributes && typeof product.attributes === "object"
+        ? Object.entries(product.attributes).flatMap(([key, value]) => [key, String(value)])
+        : []),
     ].filter(Boolean).join(" ").toLowerCase()
-    const matchesSearch = searchable.includes(search.toLowerCase())
-    
-    const matchesCategory = category === "All" || (category === "Gifts" ? p.giftItem === true : p.category === category)
-    const isActive = parsed.status !== "inactive"
-    
-    const matchesSize = !filterSize || p.size === filterSize
-    const matchesApp = !filterApp || publicUseCases([...publicStrings(p.application), ...publicStrings(p.materials)]).includes(filterApp)
-    const matchesMfg = !filterMfg || p.manufacturer === filterMfg
-    const matchesVendor = !filterVendor || p.vendor === filterVendor || parsed.vendor === filterVendor
-    const matchesProductType = !filterProductType || p.productType === filterProductType
-    const matchesToolType = !filterToolType || p.toolType === filterToolType
-    const matchesEquipment = !filterEquipment || p.equipment === filterEquipment
 
-    const hasImg = Boolean(
-      getProductImage(p.name, p.sku, p.imageUrl) ||
-      (parsed.image && !parsed.image.includes("placeholder") && parsed.image.startsWith("/product-images/"))
-    )
-    const matchesImage = !onlyWithImages || hasImg
-
-    return matchesSearch && matchesCategory && (showInactive || isActive) && matchesSize && matchesApp && matchesMfg && matchesVendor && matchesProductType && matchesToolType && matchesEquipment && matchesImage
-  }).sort((a, b) => {
-    const parsedA = parseProductDescription(a.description)
-    const parsedB = parseProductDescription(b.description)
-    const values: Record<SortKey, [string | number, string | number]> = {
-      sku: [a.sku || "", b.sku || ""],
-      name: [a.name || "", b.name || ""],
-      vendor: [a.vendor || parsedA.vendor || "", b.vendor || parsedB.vendor || ""],
-      classification: [a.toolType || a.application || a.size || a.qualityTier || "", b.toolType || b.application || b.size || b.qualityTier || ""],
-      price: [Number(a.price) || 0, Number(b.price) || 0],
-      stock: [Number(a.stock) || 0, Number(b.stock) || 0]
+    return {
+      product,
+      parsed,
+      applicationValues,
+      searchable,
+      image: getProductImage(product.name, product.sku, product.imageUrl),
+      isActive: parsed.status !== "inactive",
     }
-    const [left, right] = values[sortKey]
-    const result = typeof left === "number"
-      ? left - Number(right)
-      : String(left).localeCompare(String(right), undefined, { numeric: true, sensitivity: "base" })
-    return sortDirection === "asc" ? result : -result
-  })
+  }), [products])
+
+  const sizes = useMemo(
+    () => Array.from(new Set(productMeta.map(({ product }) => product.size).filter(Boolean))).sort(),
+    [productMeta]
+  )
+  const apps = useMemo(
+    () => Array.from(new Set(productMeta.flatMap(({ applicationValues }) => applicationValues))).sort(),
+    [productMeta]
+  )
+  const mfgs = useMemo(
+    () => Array.from(new Set(productMeta.map(({ product }) => product.manufacturer).filter(Boolean))).sort(),
+    [productMeta]
+  )
+  const productTypes = useMemo(
+    () => Array.from(new Set(productMeta.map(({ product }) => product.productType).filter(Boolean))).sort(),
+    [productMeta]
+  )
+  const toolTypes = useMemo(
+    () => Array.from(new Set(productMeta.map(({ product }) => product.toolType).filter(Boolean))).sort(),
+    [productMeta]
+  )
+  const equipmentOptions = useMemo(
+    () => Array.from(new Set(productMeta.map(({ product }) => product.equipment).filter(Boolean))).sort(),
+    [productMeta]
+  )
+  const vendors = useMemo(
+    () => Array.from(new Set(productMeta.map(({ product, parsed }) => product.vendor || parsed.vendor).filter(Boolean))).sort(),
+    [productMeta]
+  )
+
+  const filteredProducts = useMemo(() => {
+    return productMeta
+      .filter(({ product, parsed, applicationValues, searchable, image, isActive }) => {
+        const matchesSearch = searchable.includes(search.toLowerCase())
+        const matchesCategory = category === "All" || (category === "Gifts" ? product.giftItem === true : product.category === category)
+        const matchesSize = !filterSize || product.size === filterSize
+        const matchesApp = !filterApp || applicationValues.includes(filterApp)
+        const matchesMfg = !filterMfg || product.manufacturer === filterMfg
+        const matchesVendor = !filterVendor || product.vendor === filterVendor || parsed.vendor === filterVendor
+        const matchesProductType = !filterProductType || product.productType === filterProductType
+        const matchesToolType = !filterToolType || product.toolType === filterToolType
+        const matchesEquipment = !filterEquipment || product.equipment === filterEquipment
+        const hasImg = Boolean(
+          image ||
+          (parsed.image && !parsed.image.includes("placeholder") && parsed.image.startsWith("/product-images/"))
+        )
+        const matchesImage = !onlyWithImages || hasImg
+
+        return matchesSearch && matchesCategory && (showInactive || isActive) && matchesSize && matchesApp && matchesMfg && matchesVendor && matchesProductType && matchesToolType && matchesEquipment && matchesImage
+      })
+      .sort(({ product: a, parsed: parsedA }, { product: b, parsed: parsedB }) => {
+        const values: Record<SortKey, [string | number, string | number]> = {
+          sku: [a.sku || "", b.sku || ""],
+          name: [a.name || "", b.name || ""],
+          vendor: [a.vendor || parsedA.vendor || "", b.vendor || parsedB.vendor || ""],
+          classification: [a.toolType || a.application || a.size || a.qualityTier || "", b.toolType || b.application || b.size || b.qualityTier || ""],
+          price: [Number(a.price) || 0, Number(b.price) || 0],
+          stock: [Number(a.stock) || 0, Number(b.stock) || 0]
+        }
+        const [left, right] = values[sortKey]
+        const result = typeof left === "number"
+          ? left - Number(right)
+          : String(left).localeCompare(String(right), undefined, { numeric: true, sensitivity: "base" })
+        return sortDirection === "asc" ? result : -result
+      })
+      .map(({ product }) => product)
+  }, [productMeta, search, category, filterSize, filterApp, filterMfg, filterVendor, filterProductType, filterToolType, filterEquipment, showInactive, onlyWithImages, sortKey, sortDirection])
 
   const changeSort = (key: SortKey) => {
     setCurrentPage(1)
