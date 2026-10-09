@@ -36,7 +36,7 @@ function saveVisits(visits: Record<string, number>) {
 // ─── Main pages list (no back button needed) ──────────────────────────────────
 const MAIN_PAGES = [
   "/dashboard", "/login", "/sales", "/shipping", "/messages", "/messages/email", "/collections",
-  "/commissions", "/stats", "/tools", "/training", "/catalog",
+  "/commissions", "/stats", "/tools", "/training", "/catalog", "/gifts",
   "/timeclock", "/tasks", "/intro-offer", "/docs", "/processing",
 ]
 
