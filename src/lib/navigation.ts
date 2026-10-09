@@ -1,5 +1,5 @@
 import type { ElementType } from 'react'
-import { FiHome, FiCheckSquare, FiTrendingUp, FiPackage, FiHeadphones, FiMessageSquare, FiMail, FiLayers, FiTruck, FiFileText, FiCreditCard, FiBarChart2, FiDollarSign, FiAward, FiTool, FiBookOpen, FiClock } from 'react-icons/fi'
+import { FiHome, FiCheckSquare, FiTrendingUp, FiPackage, FiGift, FiHeadphones, FiMessageSquare, FiMail, FiLayers, FiTruck, FiFileText, FiCreditCard, FiBarChart2, FiDollarSign, FiAward, FiTool, FiBookOpen, FiClock } from 'react-icons/fi'
 
 export type NavItem = { href: string; label: string; mobileLabel?: string; icon: ElementType; color: string }
 export const navigationGroups: Array<{ label: string; items: NavItem[] }> = [
@@ -8,6 +8,7 @@ export const navigationGroups: Array<{ label: string; items: NavItem[] }> = [
     { href: '/tasks', label: 'Tasks & follow-ups', mobileLabel: 'Tasks', icon: FiCheckSquare, color: 'text-violet-400' },
     { href: '/sales', label: 'Accounts & pipeline', mobileLabel: 'Sales', icon: FiTrendingUp, color: 'text-emerald-400' },
     { href: '/catalog', label: 'Product catalog', icon: FiPackage, color: 'text-amber-400' },
+    { href: '/gifts', label: 'Gift inventory', icon: FiGift, color: 'text-purple-400' },
   ] },
   { label: 'Communications', items: [
     { href: '/communications', label: 'Communications workspace', icon: FiHeadphones, color: 'text-cyan-400' },
