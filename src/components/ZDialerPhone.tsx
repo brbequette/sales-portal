@@ -34,6 +34,7 @@ export function ZDialerPhone({ directoryActive = true, onCallState }: { director
         <ZDialerActions phone={phone} />
       </div></div> : <div data-phone-body className="space-y-2">
         <p className="text-xs text-neutral-400">Caller ID and assigned outbound numbers are selected in ZDialer.</p>
+        <button type="button" disabled={directory.loading} onClick={() => void directory.refresh()} className="rounded-lg border border-white/15 px-3 py-2 text-sm">{directory.loading ? 'Refreshing directory…' : 'Refresh team directory'}</button>
         {directory.error && <p role="alert">{directory.error}</p>}
         {directory.loading ? <p>Loading team…</p> : directory.users.filter(user => user.status === 1).map(user => <button key={user.userid} type="button" disabled={!user.extension} className="w-full text-left rounded-xl border border-white/10 p-3" onClick={() => { setPhone(String(user.extension)); setName(user.name); setTab('dialer') }}><strong>{user.name}</strong><span className="block text-xs text-neutral-400">{user.extension ? `Extension ${user.extension}` : 'No extension'}</span></button>)}
         {!directory.loading && !directory.users.length && <p>No verified Voice users available.</p>}
